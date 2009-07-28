@@ -3,3 +3,7 @@ syntax: glob
 *.pyc
 syntax: glob
 *.egg-info
+syntax: regexp
+^\.settings$
+syntax: regexp
+^\.coverage$
