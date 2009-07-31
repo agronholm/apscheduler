@@ -11,7 +11,7 @@ logger = getLogger(__name__)
 
 class Job(object):
     """
-    Represents a tasks scheduled in the scheduler.
+    Represents a task scheduled in the scheduler.
     """
 
     def __init__(self, trigger, func, args, kwargs):
@@ -20,7 +20,6 @@ class Job(object):
         self.func = func
         self.args = args
         self.kwargs = kwargs
-        self.error_callbacks = []
         if hasattr(func, '__name__'):
             self.name = func.__name__
         else:
@@ -53,6 +52,12 @@ class Job(object):
 
 
 class JobHandle(object):
+    """
+    A handle that contains all the public functionality available for
+    manipulating scheduled jobs. These are returned from all Scheduler methods
+    that schedule jobs for execution.
+    """
+
     def __init__(self, job, scheduler):
         self.job = job
         self.scheduler = scheduler
@@ -99,6 +104,11 @@ class SchedulerAlreadyRunningError(Exception):
 
 
 class Scheduler(object):
+    """
+    This class is responsible for scheduling jobs and triggering
+    their execution.
+    """
+
     stopped = False
     thread = None
     misfire_grace_time = 1
@@ -123,7 +133,7 @@ class Scheduler(object):
         """
         if self.thread and self.thread.isAlive():
             raise SchedulerAlreadyRunningError
-        self.thread = Thread(target=self._run, name='APScheduler')
+        self.thread = Thread(target=self.run, name='APScheduler')
         self.thread.start()
     
     def shutdown(self, timeout=None):
@@ -353,7 +363,7 @@ class Scheduler(object):
 
         return current_jobs
     
-    def _run(self):
+    def run(self):
         """
         Runs the main loop of the scheduler.
         """
