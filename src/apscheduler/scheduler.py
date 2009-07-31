@@ -34,6 +34,7 @@ class Job(object):
                         'instance is still running)', self)
         else:
             self.thread = Thread(target=self.run_in_thread)
+            self.thread.setDaemon(False)
             self.thread.start()
     
     def run_in_thread(self):
@@ -134,6 +135,7 @@ class Scheduler(object):
         if self.thread and self.thread.isAlive():
             raise SchedulerAlreadyRunningError
         self.thread = Thread(target=self.run, name='APScheduler')
+        self.thread.setDaemon(True)
         self.thread.start()
     
     def shutdown(self, timeout=None):
