@@ -1,7 +1,6 @@
-from threading import Thread, Event, RLock
+from threading import Thread, Event, Lock
 from datetime import datetime, timedelta
 from logging import getLogger
-import weakref
 
 from apscheduler.util import time_difference
 from apscheduler.triggers import *
@@ -22,57 +21,130 @@ class Job(object):
         self.args = args
         self.kwargs = kwargs
         self.error_callbacks = []
-    
-    def run(self, daemonic):
-        if (self.thread and self.thread.isAlive()):
-            logger.debug('Skipping run (previous thread is still running)')
+        if hasattr(func, '__name__'):
+            self.name = func.__name__
         else:
-            self.thread = Thread(target=self.run_func_in_thread)
-            self.thread.setDaemon(daemonic)
+            self.name = str(func)
+    
+    def run(self):
+        """
+        Starts the execution of this job in a separate thread.
+        """
+        if (self.thread and self.thread.isAlive()):
+            logger.info('Skipping run of job %s (previously triggered '
+                        'instance is still running)', self)
+        else:
+            self.thread = Thread(target=self.run_in_thread)
             self.thread.start()
     
-    def run_func_in_thread(self):
+    def run_in_thread(self):
+        """
+        Runs the associated callable.
+        This method is executed in a dedicated thread.
+        """
         try:
             self.func(*self.args, **self.kwargs)
-        except Exception, e:
-            logger.error('Error executing job (%s): %s' % (self.func.funcname, e))
+        except:
+            logger.exception('Error executing job "%s"', self)
+            raise
 
     def __str__(self):
-        return self.func.__name__
+        return self.name
+
 
 class JobHandle(object):
     def __init__(self, job, scheduler):
-        self.job = weakref.proxy(job)
-        self.scheduler = weakref.proxy(scheduler)
+        self.job = job
+        self.scheduler = scheduler
 
     def unschedule(self):
-        if self.scheduler and self.job:
-            self.scheduler._unschedule(self.job)
+        """
+        Removes the associated job from the scheduler's job list,
+        so it won't be executed again.
+        """
+        self.scheduler.unschedule_job(self.job)
     
+    def is_active(self):
+        """
+        Determines if the associated job is still on the job list
+        of the associated scheduler (if it still exists).
+        
+        @return: True if the associated job is still active, False if not
+        """
+        self.scheduler.jobs_lock.acquire()
+        try:
+            return self.job in self.scheduler.jobs
+        finally:
+            self.scheduler.jobs_lock.release()
+    
+    def __str__(self):
+        return str(self.job)
 
-class Scheduler(Thread):
+
+class SchedulerShutdownError(Exception):
+    """
+    Thrown when attempting to use the scheduler after
+    it's been shut down.
+    """
+    def __init__(self):
+        Exception.__init__(self, 'Scheduler has already been shut down')
+
+
+class SchedulerAlreadyRunningError(Exception):
+    """
+    Thrown when attempting to start the scheduler, but it's already running.
+    """
+    def __init__(self):
+        Exception.__init__(self, 'Scheduler is already running')
+
+
+class Scheduler(object):
+    stopped = False
+    thread = None
+    misfire_grace_time = 1
+
     def __init__(self, **config):
-        Thread.__init__(self)
         self.jobs = []
-        self.jobs_lock = RLock()
+        self.jobs_lock = Lock()
         self.wakeup = Event()
-        self.stopped = False
         self.configure(config)
     
     def configure(self, config):
-        self.grace_seconds = int(config.get('grace_seconds', 1))
-        self.daemonic_jobs = bool(config.get('daemonic_jobs', False))
+        """
+        Updates the configuration with the given options.
+        """
+        for key, val in config.items():
+            if key == 'misfire_grace_time':
+                self.misfire_grace_time = int(val)
     
-    def shutdown(self):
+    def start(self):
+        """
+        Starts the scheduler in a new thread.
+        """
+        if self.thread and self.thread.isAlive():
+            raise SchedulerAlreadyRunningError
+        self.thread = Thread(target=self._run, name='APScheduler')
+        self.thread.start()
+    
+    def shutdown(self, timeout=None):
         """
         Shuts down the scheduler and terminates the thread.
         Does not terminate any currently running jobs.
+        
+        @param timeout: time (in seconds) to wait for the scheduler thread to
+            terminate, or None to skip waiting
         """
+        if self.stopped:
+            raise SchedulerShutdownError
         self.stopped = True
         self.wakeup.set()
+        if timeout:
+            self.thread.join(timeout)
+        self.jobs = []
 
     def cron_schedule(self, year='*', month='*', day='*', day_of_week='*',
-                      hour='*', minute='*', second='*'):
+                      hour='*', minute='*', second='*', args=None,
+                      kwargs=None):
         """
         Decorator that causes its host function to be scheduled
         according to the given parameters.
@@ -82,12 +154,12 @@ class Scheduler(Thread):
         """
         def inner(func):
             self.add_cron_job(func, year, month, day, day_of_week, hour,
-                              minute, second)
+                              minute, second, args, kwargs)
             return func
         return inner
 
     def interval_schedule(self, weeks=0, days=0, hours=0, minutes=0, seconds=0,
-                          start_date=None, repeat=0):
+                          start_date=None, repeat=0, args=None, kwargs=None):
         """
         Decorator that causes its host function to be scheduled
         for execution on specified intervals.
@@ -97,8 +169,8 @@ class Scheduler(Thread):
         @see: add_delayed_job
         """
         def inner(func):
-            self.add_delayed_job(func, weeks, days, hours, minutes, seconds,
-                                 start_date, repeat)
+            self.add_interval_job(func, weeks, days, hours, minutes, seconds,
+                                  start_date, repeat, args, kwargs)
             return func
         return inner
     
@@ -110,17 +182,14 @@ class Scheduler(Thread):
         @param args: positional arguments to call func with
         @param kwargs: keyword arguments to call func with
         """
-        if not isinstance(date, datetime):
-            raise TypeError('date must be a datetime object')
-        
         trigger = DateTrigger(date)
         return self._add_job(trigger, func, args, kwargs)
     
-    def add_delayed_job(self, func, weeks=0, days=0, hours=0, minutes=0,
-                        seconds=0, start_date=None, repeat=1, args=None,
-                        kwargs=None):
+    def add_interval_job(self, func, weeks=0, days=0, hours=0, minutes=0,
+                         seconds=0, start_date=None, repeat=1, args=None,
+                         kwargs=None):
         """
-        Adds a job to be completed after the specified delay.
+        Adds a job to be completed on specified intervals.
 
         @param func: callable to run
         @param weeks: number of weeks to wait
@@ -170,22 +239,48 @@ class Scheduler(Thread):
         """
         trigger = CronTrigger(year, month, day, day_of_week, hour, minute,
                               second)
-        self._add_job(trigger, func, args, kwargs)
+        return self._add_job(trigger, func, args, kwargs)
 
-    def unschedule(self, func):
+    def unschedule_job(self, job):
         """
-        Removes all jobs that match that would execute the given function.
+        Removes a job, preventing it from being fired any more.
         """
         self.jobs_lock.acquire()
         try:
-            remove_list = [job for job in self.jobs if job.func == func]
-            for job in remove_list:
-                self.jobs.remove(job)
+            self.jobs.remove(job)
         finally:
             self.jobs_lock.release()
+        logger.info('Removed job "%s"', job)
+        self.wakeup.set()
+
+    def unschedule_func(self, func):
+        """
+        Removes all jobs that would execute the given function.
+        """
+        self.jobs_lock.acquire()
+        try:
+            remove_list = [job for job in self.jobs if job.func is func]
+            for job in remove_list:
+                self.jobs.remove(job)
+                logger.info('Removed job "%s"', job)
+        finally:
+            self.jobs_lock.release()
+        
+        # Have the scheduler calculate a new wakeup time
         self.wakeup.set()
     
     def _add_job(self, trigger, func, args, kwargs):
+        """
+        Adds a Job to the job list and notifies the scheduler thread.
+
+        @param trigger: trigger for the given callable
+        @param args: list of positional arguments to call func with
+        @param kwargs: dict of keyword arguments to call func with
+        @return: a handle to the scheduled job
+        @rtype: JobHandle
+        """
+        if self.stopped:
+            raise SchedulerShutdownError
         if not hasattr(func, '__call__'):
             raise TypeError('func must be callable')
 
@@ -200,86 +295,90 @@ class Scheduler(Thread):
             self.jobs.append(job)
         finally:
             self.jobs_lock.release()
-        
+        logger.info('Added job "%s"', job)
+       
         # Notify the scheduler about the new job
         self.wakeup.set()
 
         return JobHandle(job, self)
 
-    def _unschedule(self, job):
-        """
-        Removes a job, preventing it from being fired any more.
-        """
-        self.jobs_lock.acquire()
-        try:
-            self.jobs.remove(job)
-        finally:
-            self.jobs_lock.release()
-        self.wakeup.set()
-
     def _get_next_wakeup_time(self, now):
+        """
+        Determines the time of the next job execution, and removes finished
+        jobs.
+
+        @param now: the result of datetime.now(), generated elsewhere for
+            consistency.
+        """
         next_wakeup = None
+        finished_jobs = []
 
         self.jobs_lock.acquire()
         try:
             for job in self.jobs:
-                wakeup = job.trigger.get_next_fire_time(now)
-                if wakeup and (next_wakeup is None or wakeup < next_wakeup):
-                    next_wakeup = wakeup
+                next_run = job.trigger.get_next_fire_time(now)
+                if next_run is None:
+                    finished_jobs.append(job)
+                elif next_run and (next_wakeup is None or \
+                                   next_run < next_wakeup):
+                    next_wakeup = next_run
+
+            # Clear out any finished jobs
+            for job in finished_jobs:
+                self.jobs.remove(job)
+                logger.info('Removed finished job "%s"', job)
         finally:
             self.jobs_lock.release()
 
         return next_wakeup
     
     def _get_current_jobs(self):
+        """
+        Determines which jobs should be executed right now.
+        """
         current_jobs = []
-        finished_jobs = []
         now = datetime.now()
-        start = now - timedelta(seconds=self.grace_seconds)
+        start = now - timedelta(seconds=self.misfire_grace_time)
         
         self.jobs_lock.acquire()
         try:
             for job in self.jobs:
                 next_run = job.trigger.get_next_fire_time(start)
-                if next_run is None:
-                    # This job will never be run again
-                    finished_jobs.append(job)
-                else:
+                if next_run:
                     time_diff = time_difference(now, next_run)
-                    if next_run < now and time_diff <= self.grace_seconds:
+                    if next_run < now and time_diff <= self.misfire_grace_time:
                         current_jobs.append(job)
-
-            # Clear out any finished jobs
-            for job in finished_jobs:
-                self.jobs.remove(job)
         finally:
             self.jobs_lock.release()
 
         return current_jobs
     
-    def run(self):
+    def _run(self):
+        """
+        Runs the main loop of the scheduler.
+        """
         self.wakeup.clear()
         while not self.stopped:
             # Execute any jobs scheduled to be run right now
             for job in self._get_current_jobs():
-                logger.debug('Executing job "%s"' % job)
-                job.run(self.daemonic_jobs)
+                logger.debug('Executing job "%s"', job)
+                job.run()
 
             # Figure out when the next job should be run, and
             # adjust the wait time accordingly
-            wait_seconds = None
             now = datetime.now()
             next_wakeup_time = self._get_next_wakeup_time(now)
-            if next_wakeup_time is not None:
-                wait_seconds = time_difference(next_wakeup_time, now)
 
             # Sleep until the next job is scheduled to be run,
             # or a new job is added, or the scheduler is stopped
-            if wait_seconds is not None:
-                logger.debug('Next wakeup is due in %d seconds' % wait_seconds)
+            if next_wakeup_time is not None:
+                wait_seconds = time_difference(next_wakeup_time, now)
+                logger.debug('Next wakeup is due at %s (in %f seconds)',
+                             next_wakeup_time, wait_seconds)
+                self.wakeup.wait(wait_seconds)
             else:
                 logger.debug('No jobs; waiting until a job is added')
-            self.wakeup.wait(wait_seconds)
+                self.wakeup.wait()
             self.wakeup.clear()
             
            

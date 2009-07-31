@@ -3,8 +3,11 @@ from time import sleep
 
 from nose.tools import eq_, raises
 
-from apscheduler.scheduler import Scheduler
+from apscheduler.scheduler import Scheduler, SchedulerShutdownError
+from apscheduler.scheduler import SchedulerAlreadyRunningError
 
+class TestException(Exception):
+    pass
 
 class TestScheduler(object):
     def setUp(self):
@@ -12,26 +15,159 @@ class TestScheduler(object):
         self.scheduler.start()
         
     def tearDown(self):
-        self.scheduler.shutdown()
+        if not self.scheduler.stopped:
+            self.scheduler.shutdown()
 
     def test_configure(self):
-        self.scheduler.configure({'daemonic_jobs': False, 'grace_seconds': 2})
+        self.scheduler.configure({'misfire_grace_time': 2})
     
-    def test_delayed(self):
-        vals = [0, 0]
+    @raises(TypeError)
+    def test_noncallable(self):
+        date = datetime.now() + timedelta(days=1)
+        self.scheduler.add_job('wontwork', date)
+    
+    def test_job_name(self):
+        def my_job():
+            pass
+        handle = self.scheduler.add_interval_job(my_job)
+        eq_(str(handle), 'my_job')
+    
+    def test_interval(self):
         def increment(vals, amount):
             vals[0] += amount
             vals[1] += 1
-        self.scheduler.add_delayed_job(increment, seconds=1, repeat=2, args=[vals, 2])
-        sleep(3)
-        eq_(vals[0], 4)
-        eq_(vals[1], 2)
+        vals = [0, 0]
+        self.scheduler.add_interval_job(increment, seconds=1, repeat=2,
+                                        args=[vals, 2])
+        sleep(2.2)
+        eq_(vals, [4, 2])
+        
+    def test_overlapping_runs(self):
+        """
+        Makes sure that "increment" is only ran once, since it will still be
+        running when the next appointed time hits.
+        """
+        def increment(vals):
+            vals[0] += 1
+            sleep(2)
+        vals = [0]
+        self.scheduler.add_interval_job(increment, seconds=1, repeat=2,
+                                        args=[vals])
+        sleep(2.2)
+        eq_(vals, [1])
+    
+    def test_schedule_object(self):
+        """
+        Tests that any callable object is accepted (and not just functions).
+        """
+        class A:
+            def __init__(self):
+                self.val = 0
+            def __call__(self):
+                self.val += 1
+
+        a = A()
+        self.scheduler.add_interval_job(a, seconds=1, repeat=2)
+        sleep(2.2)
+        eq_(a.val, 2)
+
+    def test_unschedule_from_handle(self):
+        def increment(vals):
+            vals[0] += 1
+        vals = [0]
+        handle = self.scheduler.add_cron_job(increment, args=[vals])
+        sleep(1)
+        ref_value = vals[0]
+        assert ref_value >= 1
+        handle.unschedule()
+        sleep(1.2)
+        eq_(vals[0], ref_value)
+    
+    def test_unschedule_func(self):
+        def increment(vals):
+            vals[0] += 1
+        vals = [0]
+        self.scheduler.add_cron_job(increment, args=[vals])
+        self.scheduler.add_cron_job(increment, args=[vals])
+        sleep(1)
+        ref_value = vals[0]
+        assert ref_value >= 2
+        self.scheduler.unschedule_func(increment)
+        sleep(1.2)
+        eq_(vals[0], ref_value)
+    
+    def test_job_finished(self):
+        def increment(vals):
+            vals[0] += 1
+        vals = [0]
+        handle = self.scheduler.add_interval_job(increment, args=[vals])
+#        job = handle.job_ref()
+#        print "first fire time: %s" % job.trigger.first_fire_date
+#        print "last fire time: %s" % job.trigger.last_fire_date
+        sleep(1.2)
+        eq_(vals, [1])
+        eq_(handle.is_active(), False)
+    
+    @raises(TestException)
+    def test_job_exception(self):
+        def failure():
+            raise TestException
+        start_date = datetime(9999, 1, 1)
+        handle = self.scheduler.add_job(failure, start_date)
+        handle.job.run_in_thread()
+    
+    def test_interval_schedule(self):
+        vals = [0]
+        @self.scheduler.interval_schedule(seconds=1, repeat=2, args=[vals])
+        def increment(vals): #IGNORE:W0612
+            vals[0] += 1
+        sleep(2.2)
+        eq_(vals, [2])
+
+    def test_cron_schedule(self):
+        vals = [0]
+        @self.scheduler.cron_schedule(args=[vals])
+        def increment(vals): #IGNORE:W0612
+            vals[0] += 1
+        sleep(2.2)
+        assert vals[0] >= 2
     
     def test_date(self):
-        vals = []
         def append_val(value):
             vals.append(value)
+        vals = []
         date = datetime.now() + timedelta(seconds=1)
         self.scheduler.add_job(append_val, date, kwargs={'value': 'test'})
-        sleep(2)
+        sleep(2.2)
         eq_(vals, ['test'])
+    
+    def test_cron(self):
+        def increment(vals, amount):
+            vals[0] += amount
+            vals[1] += 1
+        vals = [0, 0]
+        self.scheduler.add_cron_job(increment, args=[vals, 3])
+        sleep(3)
+        assert vals[0] >= 6
+        assert vals[1] >= 3
+
+    def test_shutdown_timeout(self):
+        self.scheduler.shutdown(3)
+
+    @raises(SchedulerAlreadyRunningError)
+    def test_scheduler_double_start(self):
+        self.scheduler.start()
+
+    @raises(SchedulerShutdownError)
+    def test_scheduler_double_shutdown(self):
+        self.scheduler.shutdown(1)
+        self.scheduler.shutdown()
+
+    @raises(SchedulerShutdownError)
+    def test_shutdown_add_job(self):
+        """
+        Makes sure that the scheduler doesn't accept new jobs after
+        it's been shut down.
+        """
+        self.scheduler.shutdown()
+        self.scheduler.add_interval_job(lambda: 1)

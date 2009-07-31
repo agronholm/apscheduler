@@ -1,3 +1,6 @@
+"""
+Triggers determine the times when a job should be executed.
+"""
 from datetime import datetime, timedelta
 from math import ceil
 
@@ -25,9 +28,9 @@ class CronTrigger(object):
             if fieldname == 'day_of_week':
                 compilers.append(DayOfWeekExpression)
             for compiler in compilers:
-                m = compiler.value_re.match(expr)
-                if m:
-                    return compiler(**m.groupdict())
+                match = compiler.value_re.match(expr)
+                if match:
+                    return compiler(**match.groupdict())
             raise ValueError('Unrecognized expression "%s" for field "%s"' %
                              (expr, fieldname))
 
@@ -39,11 +42,12 @@ class CronTrigger(object):
         compiled_expr_list = [compile_single(expr) for expr in expr_list]
         self.fields.append((fieldname, compiled_expr_list))
     
-    def _set_field_value(self, date, fieldnum, new_value):
+    def _set_field_value(self, dateval, fieldnum, new_value):
         """
         Sets the value of the designated field in the given datetime object.
         All less significant fields will be reset to their minimum values.
-        @type date: datetime
+
+        @type dateval: datetime
         @type fieldnum: int
         @type new_value: int
         @rtype: datetime
@@ -53,22 +57,23 @@ class CronTrigger(object):
         values = {}
         for i, field in enumerate(self.fields):
             fieldname = field[0]
-            if not hasattr(date, fieldname):
+            if not hasattr(dateval, fieldname):
                 continue
             if i < fieldnum:
-                values[fieldname] = getattr(date, fieldname)
+                values[fieldname] = getattr(dateval, fieldname)
             elif i > fieldnum:
-                values[fieldname] = min_values[fieldname]
+                values[fieldname] = MIN_VALUES[fieldname]
             else:
                 values[fieldname] = new_value
         
         return datetime(**values)
     
-    def _increment_field_value(self, date, fieldnum):
+    def _increment_field_value(self, dateval, fieldnum):
         """
         Increments the designated field and resets all less significant fields
         to their minimum values.
-        @type date: datetime
+
+        @type dateval: datetime
         @type fieldnum: int
         @type amount: int
         @rtype: datetime
@@ -77,14 +82,14 @@ class CronTrigger(object):
         # If the given field is already at its maximum, then increment the
         # next most significant field
         fieldname = self.fields[fieldnum][0]
-        value = getattr(date, fieldname)
-        maxval = get_actual_maximum(date, fieldname)
+        value = getattr(dateval, fieldname)
+        maxval = get_actual_maximum(dateval, fieldname)
         if value == maxval:
-            return self._increment_field_value(date, fieldnum - 1)
-        return self._set_field_value(date, fieldnum, value + 1)
+            return self._increment_field_value(dateval, fieldnum - 1)
+        return self._set_field_value(dateval, fieldnum, value + 1)
 
     def get_next_fire_time(self, start_date):
-        next_date = start_date
+        next_date = datetime_ceil(start_date)
         fieldnum = 0
         while fieldnum < len(self.fields):
             fieldname, expr_list = self.fields[fieldnum]
@@ -99,7 +104,8 @@ class CronTrigger(object):
                 else:
                     nextval = val
             
-            if nextval is None or (fieldname == 'day_of_week' and nextval > startval):
+            if nextval is None or (fieldname == 'day_of_week' and
+                                   nextval > startval):
                 # No valid value was found for this field
                 if fieldnum == 0:
                     # No valid values found for the year field, so give up
@@ -117,24 +123,23 @@ class CronTrigger(object):
                 # The field's value was accepted without modifications
                 fieldnum += 1
 
+        next_date = next_date - timedelta(microseconds=next_date.microsecond)
         return next_date
 
 
 class DateTrigger(object):
-    def __init__(self, date):
-        self.date = date
+    def __init__(self, run_date):
+        self.run_date = convert_to_datetime(run_date)
     
     def get_next_fire_time(self, start_date):
-        if self.date >= start_date:
-            return self.date
+        if self.run_date >= start_date:
+            return self.run_date
 
 
 class IntervalTrigger(object):
     def __init__(self, interval, repeat, start_date=None):
         if not isinstance(interval, timedelta):
             raise TypeError('interval must be a timedelta')
-        if start_date and not isinstance(start_date, datetime):
-            raise TypeError('start_date must be a datetime')
         if repeat < 0:
             raise ValueError('Illegal value for repeat; expected >= 0, '
                              'received %s' % repeat)
@@ -144,8 +149,10 @@ class IntervalTrigger(object):
         self.repeat = repeat
         if start_date is None:
             self.first_fire_date = datetime.now() + self.interval
-        elif isinstance(start_date, datetime):
-            self.first_fire_date = start_date
+        else:
+            self.first_fire_date = convert_to_datetime(start_date)
+        self.first_fire_date -= timedelta(microseconds=\
+                                          self.first_fire_date.microsecond)
         if repeat > 0:
             self.last_fire_date = self.first_fire_date + interval * (repeat-1)
         else:

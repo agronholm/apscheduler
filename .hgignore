@@ -7,3 +7,5 @@ syntax: regexp
 ^\.settings$
 syntax: regexp
 ^\.coverage$
+syntax: regexp
+^docs/_build$
