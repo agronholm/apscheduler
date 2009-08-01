@@ -19,11 +19,14 @@ Installation
 
 To install, you can either:
 
-* Download the appropriate package, extract it and then install it::
+* Download the appropriate package from
+  `PyPI <http://pypi.python.org/pypi/APScheduler/>`_, extract it and then
+  install it::
 
     $ python setup.py install
 
-* Use easy_install::
+* Use easy_install (if you have `setuptools
+  <http://pypi.python.org/pypi/setuptools>`_ installed)::
 
 	$ easy_install apscheduler
 
