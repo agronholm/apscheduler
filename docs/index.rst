@@ -1,7 +1,7 @@
 Advanced Python Scheduler
 =========================
 
-Advanced Python Scheduler (APScheduler) is an in-process task scheduler that
+APScheduler is a light but powerful in-process task scheduler that
 lets you schedule functions (or any python callables) to be executed at times
 of your choosing.
 
@@ -19,10 +19,14 @@ Installation
 
 To install, you can either:
 
-* Download the appropriate package directly, or
+* Download the appropriate package, extract it and then install it::
+
+    $ python setup.py install
+
 * Use easy_install::
 
 	$ easy_install apscheduler
+
 
 Usage
 =====
