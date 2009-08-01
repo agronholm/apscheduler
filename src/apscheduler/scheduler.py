@@ -1,3 +1,8 @@
+"""
+This module is the main part of the library, and is the only module that
+regular users should be concerned with.
+"""
+
 from threading import Thread, Event, Lock
 from datetime import datetime, timedelta
 from logging import getLogger
@@ -110,7 +115,7 @@ class Scheduler(object):
         Shuts down the scheduler and terminates the thread.
         Does not terminate any currently running jobs.
         
-        @param timeout: time (in seconds) to wait for the scheduler thread to
+        :param timeout: time (in seconds) to wait for the scheduler thread to
             terminate, or None to skip waiting
         """
         if self.stopped:
@@ -129,7 +134,7 @@ class Scheduler(object):
         according to the given parameters.
         This decorator does not wrap its host function.
         The scheduled function will be called without any arguments.
-        @see: add_cron_job
+        See :meth:`add_cron_job` for more information.
         """
         def inner(func):
             self.add_cron_job(func, years, months, days, days_of_week, hours,
@@ -145,7 +150,7 @@ class Scheduler(object):
         This decorator does not wrap its host function.
         The scheduled function will be called without any arguments.
         Note that the default repeat value is 0, which means to repeat forever.
-        @see: add_delayed_job
+        See :meth:`add_delayed_job` for more information.
         """
         def inner(func):
             self.add_interval_job(func, weeks, days, hours, minutes, seconds,
@@ -157,11 +162,11 @@ class Scheduler(object):
         """
         Adds a Job to the job list and notifies the scheduler thread.
 
-        @param trigger: trigger for the given callable
-        @param args: list of positional arguments to call func with
-        @param kwargs: dict of keyword arguments to call func with
-        @return: the scheduled job
-        @rtype: Job
+        :param trigger: trigger for the given callable
+        :param args: list of positional arguments to call func with
+        :param kwargs: dict of keyword arguments to call func with
+        :return: the scheduled job
+        :rtype: Job
         """
         if self.stopped:
             raise SchedulerShutdownError
@@ -190,9 +195,9 @@ class Scheduler(object):
         """
         Adds a job to be completed on a specific date and time.
 
-        @param func: callable to run
-        @param args: positional arguments to call func with
-        @param kwargs: keyword arguments to call func with
+        :param func: callable to run
+        :param args: positional arguments to call func with
+        :param kwargs: keyword arguments to call func with
         """
         trigger = DateTrigger(date)
         return self.add_job(trigger, func, args, kwargs)
@@ -203,18 +208,18 @@ class Scheduler(object):
         """
         Adds a job to be completed on specified intervals.
 
-        @param func: callable to run
-        @param weeks: number of weeks to wait
-        @param days: number of days to wait
-        @param hours: number of hours to wait
-        @param minutes: number of minutes to wait
-        @param seconds: number of seconds to wait
-        @param start_date: when to first execute the job and start the
+        :param func: callable to run
+        :param weeks: number of weeks to wait
+        :param days: number of days to wait
+        :param hours: number of hours to wait
+        :param minutes: number of minutes to wait
+        :param seconds: number of seconds to wait
+        :param start_date: when to first execute the job and start the
             counter (default is after the given interval)
-        @param repeat: number of times the job will be run (0 = repeat
+        :param repeat: number of times the job will be run (0 = repeat
             indefinitely)
-        @param args: list of positional arguments to call func with
-        @param kwargs: dict of keyword arguments to call func with
+        :param args: list of positional arguments to call func with
+        :param kwargs: dict of keyword arguments to call func with
         """
         interval = timedelta(weeks=weeks, days=days, hours=hours,
                              minutes=minutes, seconds=seconds)
@@ -226,17 +231,17 @@ class Scheduler(object):
         """
         Adds a job to be completed on times that match the given expressions.
 
-        @param func: callable to run
-        @param year: year to run on
-        @param month: month to run on (0 = January)
-        @param day: day of month to run on
-        @param day_of_week: weekday to run on (0 = Monday)
-        @param hour: hour to run on
-        @param second: second to run on
-        @param args: list of positional arguments to call func with
-        @param kwargs: dict of keyword arguments to call func with
-        @return: the scheduled job
-        @rtype: Job
+        :param func: callable to run
+        :param year: year to run on
+        :param month: month to run on (0 = January)
+        :param day: day of month to run on
+        :param day_of_week: weekday to run on (0 = Monday)
+        :param hour: hour to run on
+        :param second: second to run on
+        :param args: list of positional arguments to call func with
+        :param kwargs: dict of keyword arguments to call func with
+        :return: the scheduled job
+        :rtype: Job
         """
         trigger = CronTrigger(year, month, day, day_of_week, hour, minute,
                               second)
@@ -258,7 +263,7 @@ class Scheduler(object):
         """
         Determines if the given job is still on the job list.
         
-        @return: True if the job is still active, False if not
+        :return: True if the job is still active, False if not
         """
         self.jobs_lock.acquire()
         try:
@@ -287,7 +292,7 @@ class Scheduler(object):
         Determines the time of the next job execution, and removes finished
         jobs.
 
-        @param now: the result of datetime.now(), generated elsewhere for
+        :param now: the result of datetime.now(), generated elsewhere for
             consistency.
         """
         next_wakeup = None
