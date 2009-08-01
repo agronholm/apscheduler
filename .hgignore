@@ -9,3 +9,7 @@ syntax: regexp
 ^\.coverage$
 syntax: regexp
 ^docs/_build$
+syntax: regexp
+^dist$
+syntax: regexp
+^build$
