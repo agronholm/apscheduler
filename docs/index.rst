@@ -10,7 +10,7 @@ of your choosing.
 * No external dependencies
 * Thread-safe API
 * Cron-like scheduling
-* Delayed scheduling of single fire jobs (like the \*nix "at" command)
+* Delayed scheduling of single fire jobs (like the UNIX "at" command)
 * Interval-based scheduling of jobs, with configurable start date and
   repeat count
 
