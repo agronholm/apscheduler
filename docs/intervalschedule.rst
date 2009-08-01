@@ -27,9 +27,9 @@ Decorator syntax
 ----------------
 
 As a convenience, there is an alternative syntax for using interval-based
-schedules. The :meth:`~apscheduler.Scheduler.interval_schedule` decorator can be
+schedules. The :meth:`~apscheduler.scheduler.Scheduler.interval_schedule` decorator can be
 attached to any function, and has the same syntax as
-:meth:`~apscheduler.Scheduler.add_interval_job`, except for the ``func``
+:meth:`~apscheduler.scheduler.Scheduler.add_interval_job`, except for the ``func``
 parameter, obviously.
 
 ::
