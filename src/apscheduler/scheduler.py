@@ -52,41 +52,6 @@ class Job(object):
         return self.name
 
 
-class JobHandle(object):
-    """
-    A handle that contains all the public functionality available for
-    manipulating scheduled jobs. These are returned from all Scheduler methods
-    that schedule jobs for execution.
-    """
-
-    def __init__(self, job, scheduler):
-        self.job = job
-        self.scheduler = scheduler
-
-    def unschedule(self):
-        """
-        Removes the associated job from the scheduler's job list,
-        so it won't be executed again.
-        """
-        self.scheduler.unschedule_job(self.job)
-    
-    def is_active(self):
-        """
-        Determines if the associated job is still on the job list
-        of the associated scheduler (if it still exists).
-        
-        @return: True if the associated job is still active, False if not
-        """
-        self.scheduler.jobs_lock.acquire()
-        try:
-            return self.job in self.scheduler.jobs
-        finally:
-            self.scheduler.jobs_lock.release()
-    
-    def __str__(self):
-        return str(self.job)
-
-
 class SchedulerShutdownError(Exception):
     """
     Thrown when attempting to use the scheduler after
@@ -125,6 +90,8 @@ class Scheduler(object):
         Updates the configuration with the given options.
         """
         for key, val in config.items():
+            if key.startswith('apscheduler.'):
+                key = key[12:]
             if key == 'misfire_grace_time':
                 self.misfire_grace_time = int(val)
     
@@ -154,8 +121,8 @@ class Scheduler(object):
             self.thread.join(timeout)
         self.jobs = []
 
-    def cron_schedule(self, year='*', month='*', day='*', day_of_week='*',
-                      hour='*', minute='*', second='*', args=None,
+    def cron_schedule(self, years='*', months='*', days='*', days_of_week='*',
+                      hours='*', minutes='*', seconds='*', args=None,
                       kwargs=None):
         """
         Decorator that causes its host function to be scheduled
@@ -165,8 +132,8 @@ class Scheduler(object):
         @see: add_cron_job
         """
         def inner(func):
-            self.add_cron_job(func, year, month, day, day_of_week, hour,
-                              minute, second, args, kwargs)
+            self.add_cron_job(func, years, months, days, days_of_week, hours,
+                              minutes, seconds, args, kwargs)
             return func
         return inner
 
@@ -186,110 +153,15 @@ class Scheduler(object):
             return func
         return inner
     
-    def add_job(self, func, date, args=None, kwargs=None):
-        """
-        Adds a job to be completed on a specific date and time.
-
-        @param func: callable to run
-        @param args: positional arguments to call func with
-        @param kwargs: keyword arguments to call func with
-        """
-        trigger = DateTrigger(date)
-        return self._add_job(trigger, func, args, kwargs)
-    
-    def add_interval_job(self, func, weeks=0, days=0, hours=0, minutes=0,
-                         seconds=0, start_date=None, repeat=1, args=None,
-                         kwargs=None):
-        """
-        Adds a job to be completed on specified intervals.
-
-        @param func: callable to run
-        @param weeks: number of weeks to wait
-        @param days: number of days to wait
-        @param hours: number of hours to wait
-        @param minutes: number of minutes to wait
-        @param seconds: number of seconds to wait
-        @param start_date: when to first execute the job and start the
-            counter (default is after the given interval)
-        @param repeat: number of times the job will be run (0 = repeat
-            indefinitely)
-        @param args: list of positional arguments to call func with
-        @param kwargs: dict of keyword arguments to call func with
-        """
-        interval = timedelta(weeks=weeks, days=days, hours=hours,
-                             minutes=minutes, seconds=seconds)
-        trigger = IntervalTrigger(interval, repeat, start_date)
-        return self._add_job(trigger, func, args, kwargs)
-
-    def add_cron_job(self, func, year='*', month='*', day='*', day_of_week='*',
-                     hour='*', minute='*', second='*', args=None, kwargs=None):
-        """
-        Adds a job to be completed on specified intervals.
-        
-        The possible syntaxes for calendar fields are:
-        '*' (fire on every value)
-        '*/a' (fire every a)
-        'a' (fire on the specified value)
-        a (same as the previous, but given directly as an integer)
-        'a-b' (range; a must be smaller than b)
-        'a-b/c' stepped range field, fires every c within the a-b range
-        'last' (last valid value, only useful for the month field)
-        'x,y,z,...' (fire on any matching expression; can combine any of the
-        above)
-
-        @param func: callable to run
-        @param year: year to run on
-        @param month: month to run on (0 = January)
-        @param day: day of month to run on
-        @param day_of_week: weekday to run on (0 = Monday)
-        @param hour: hour to run on
-        @param second: second to run on
-        @param args: list of positional arguments to call func with
-        @param kwargs: dict of keyword arguments to call func with
-        @return: a handle to the scheduled job
-        @rtype: JobHandle
-        """
-        trigger = CronTrigger(year, month, day, day_of_week, hour, minute,
-                              second)
-        return self._add_job(trigger, func, args, kwargs)
-
-    def unschedule_job(self, job):
-        """
-        Removes a job, preventing it from being fired any more.
-        """
-        self.jobs_lock.acquire()
-        try:
-            self.jobs.remove(job)
-        finally:
-            self.jobs_lock.release()
-        logger.info('Removed job "%s"', job)
-        self.wakeup.set()
-
-    def unschedule_func(self, func):
-        """
-        Removes all jobs that would execute the given function.
-        """
-        self.jobs_lock.acquire()
-        try:
-            remove_list = [job for job in self.jobs if job.func is func]
-            for job in remove_list:
-                self.jobs.remove(job)
-                logger.info('Removed job "%s"', job)
-        finally:
-            self.jobs_lock.release()
-        
-        # Have the scheduler calculate a new wakeup time
-        self.wakeup.set()
-    
-    def _add_job(self, trigger, func, args, kwargs):
+    def add_job(self, trigger, func, args, kwargs):
         """
         Adds a Job to the job list and notifies the scheduler thread.
 
         @param trigger: trigger for the given callable
         @param args: list of positional arguments to call func with
         @param kwargs: dict of keyword arguments to call func with
-        @return: a handle to the scheduled job
-        @rtype: JobHandle
+        @return: the scheduled job
+        @rtype: Job
         """
         if self.stopped:
             raise SchedulerShutdownError
@@ -312,7 +184,103 @@ class Scheduler(object):
         # Notify the scheduler about the new job
         self.wakeup.set()
 
-        return JobHandle(job, self)
+        return job
+
+    def add_date_job(self, func, date, args=None, kwargs=None):
+        """
+        Adds a job to be completed on a specific date and time.
+
+        @param func: callable to run
+        @param args: positional arguments to call func with
+        @param kwargs: keyword arguments to call func with
+        """
+        trigger = DateTrigger(date)
+        return self.add_job(trigger, func, args, kwargs)
+    
+    def add_interval_job(self, func, weeks=0, days=0, hours=0, minutes=0,
+                         seconds=0, start_date=None, repeat=0, args=None,
+                         kwargs=None):
+        """
+        Adds a job to be completed on specified intervals.
+
+        @param func: callable to run
+        @param weeks: number of weeks to wait
+        @param days: number of days to wait
+        @param hours: number of hours to wait
+        @param minutes: number of minutes to wait
+        @param seconds: number of seconds to wait
+        @param start_date: when to first execute the job and start the
+            counter (default is after the given interval)
+        @param repeat: number of times the job will be run (0 = repeat
+            indefinitely)
+        @param args: list of positional arguments to call func with
+        @param kwargs: dict of keyword arguments to call func with
+        """
+        interval = timedelta(weeks=weeks, days=days, hours=hours,
+                             minutes=minutes, seconds=seconds)
+        trigger = IntervalTrigger(interval, repeat, start_date)
+        return self.add_job(trigger, func, args, kwargs)
+
+    def add_cron_job(self, func, year='*', month='*', day='*', day_of_week='*',
+                     hour='*', minute='*', second='*', args=None, kwargs=None):
+        """
+        Adds a job to be completed on times that match the given expressions.
+
+        @param func: callable to run
+        @param year: year to run on
+        @param month: month to run on (0 = January)
+        @param day: day of month to run on
+        @param day_of_week: weekday to run on (0 = Monday)
+        @param hour: hour to run on
+        @param second: second to run on
+        @param args: list of positional arguments to call func with
+        @param kwargs: dict of keyword arguments to call func with
+        @return: the scheduled job
+        @rtype: Job
+        """
+        trigger = CronTrigger(year, month, day, day_of_week, hour, minute,
+                              second)
+        return self.add_job(trigger, func, args, kwargs)
+
+    def unschedule_job(self, job):
+        """
+        Removes a job, preventing it from being fired any more.
+        """
+        self.jobs_lock.acquire()
+        try:
+            self.jobs.remove(job)
+        finally:
+            self.jobs_lock.release()
+        logger.info('Removed job "%s"', job)
+        self.wakeup.set()
+    
+    def is_job_active(self, job):
+        """
+        Determines if the given job is still on the job list.
+        
+        @return: True if the job is still active, False if not
+        """
+        self.jobs_lock.acquire()
+        try:
+            return job in self.jobs
+        finally:
+            self.jobs_lock.release()
+
+    def unschedule_func(self, func):
+        """
+        Removes all jobs that would execute the given function.
+        """
+        self.jobs_lock.acquire()
+        try:
+            remove_list = [job for job in self.jobs if job.func is func]
+            for job in remove_list:
+                self.jobs.remove(job)
+                logger.info('Removed job "%s"', job)
+        finally:
+            self.jobs_lock.release()
+        
+        # Have the scheduler calculate a new wakeup time
+        self.wakeup.set()
 
     def _get_next_wakeup_time(self, now):
         """

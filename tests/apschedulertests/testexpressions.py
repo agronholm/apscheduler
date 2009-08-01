@@ -63,28 +63,48 @@ def test_range_expression_single():
 def test_range_expression_invalid():
     RangeExpression(5, 3)
 
-def test_day_of_week_1():
-    expr = DayOfWeekExpression('1st', 'Fri')
+def test_weekday_single():
+    expr = WeekdayRangeExpression('WED')
+    eq_(str(expr), 'wed')
+    date = datetime(2008, 2, 4)
+    eq_(expr.get_next_value(date, 'day_of_week'), 2)
+
+def test_weekday_range():
+    expr = WeekdayRangeExpression('TUE', 'SAT')
+    eq_(str(expr), 'tue-sat')
+    date = datetime(2008, 2, 7)
+    eq_(expr.get_next_value(date, 'day_of_week'), 3)
+
+def test_weekday_pos_1():
+    expr = WeekdayPositionExpression('1st', 'Fri')
     eq_(str(expr), '1st fri')
     date = datetime(2008, 2, 1)
     eq_(expr.get_next_value(date, 'day_of_week'), 1)
     
-def test_day_of_week_2():
-    expr = DayOfWeekExpression('2nd', 'wed')
+def test_weekday_pos_2():
+    expr = WeekdayPositionExpression('2nd', 'wed')
     eq_(str(expr), '2nd wed')
     date = datetime(2008, 2, 1)
     eq_(expr.get_next_value(date, 'day_of_week'), 13)
 
-def test_day_of_week_3():
-    expr = DayOfWeekExpression('last', 'fri')
+def test_weekday_pos_3():
+    expr = WeekdayPositionExpression('last', 'fri')
     eq_(str(expr), 'last fri')
     date = datetime(2008, 2, 1)
     eq_(expr.get_next_value(date, 'day_of_week'), 29)
 
 @raises(ValueError)
 def test_day_of_week_invalid_pos():
-    DayOfWeekExpression('6th', 'fri')
+    WeekdayPositionExpression('6th', 'fri')
 
 @raises(ValueError)
 def test_day_of_week_invalid_name():
-    DayOfWeekExpression('1st', 'moh')
+    WeekdayPositionExpression('1st', 'moh')
+
+@raises(ValueError)
+def test_day_of_week_invalid_first():
+    WeekdayRangeExpression('moh', 'fri')
+
+@raises(ValueError)
+def test_day_of_week_invalid_last():
+    WeekdayRangeExpression('mon', 'fre')

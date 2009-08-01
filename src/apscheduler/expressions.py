@@ -6,7 +6,10 @@ from calendar import weekday, monthrange
 
 from apscheduler.util import *
 
-__all__ = ['AllExpression', 'RangeExpression', 'DayOfWeekExpression']
+__all__ = ['AllExpression', 'RangeExpression', 'WeekdayRangeExpression',
+           'WeekdayPositionExpression']
+
+WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
 
 class AllExpression(object):
@@ -77,10 +80,35 @@ class RangeExpression(AllExpression):
                 return '%d-%d' % (self.first, self.last)
         return str(self.first)
 
-class DayOfWeekExpression(object):
+
+class WeekdayRangeExpression(RangeExpression):
+    value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))',
+                          re.IGNORECASE)
+
+    def __init__(self, first, last=None):
+        try:
+            first_num = WEEKDAYS.index(first.lower())
+        except ValueError:
+            raise ValueError('Invalid weekday name "%s"' % first)
+
+        if last:
+            try:
+                last_num = WEEKDAYS.index(last.lower())
+            except ValueError:
+                raise ValueError('Invalid weekday name "%s"' % last)
+        else:
+            last_num = None
+
+        RangeExpression.__init__(self, first_num, last_num)
+
+    def __str__(self):
+        if self.last != self.first:
+            return '%s-%s' % (WEEKDAYS[self.first], WEEKDAYS[self.last])
+        return WEEKDAYS[self.first]
+
+class WeekdayPositionExpression(object):
     options = ['1st', '2nd', '3rd', '4th', '5th', 'last']
-    weekdays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
-    value_re = re.compile('(?P<option>%s) +(?P<weekday>(?:\d+|\w+))'
+    value_re = re.compile(r'(?P<option>%s) +(?P<weekday>(?:\d+|\w+))'
                           % '|'.join(options), re.IGNORECASE)
 
     def __init__(self, option_name, weekday_name):
@@ -90,7 +118,7 @@ class DayOfWeekExpression(object):
             raise ValueError('Invalid weekday position "%s"' % option_name)
 
         try:
-            self.weekday = self.weekdays.index(weekday_name.lower())
+            self.weekday = WEEKDAYS.index(weekday_name.lower())
         except ValueError:
             raise ValueError('Invalid weekday name "%s"' % weekday_name)
 
@@ -110,4 +138,4 @@ class DayOfWeekExpression(object):
     
     def __str__(self):
         return '%s %s' % (self.options[self.option_num],
-                          self.weekdays[self.weekday])
+                          WEEKDAYS[self.weekday])

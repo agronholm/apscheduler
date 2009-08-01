@@ -20,17 +20,22 @@ class TestScheduler(object):
 
     def test_configure(self):
         self.scheduler.configure({'misfire_grace_time': 2})
+        eq_(self.scheduler.misfire_grace_time, 2)
+
+    def test_configure_prefix(self):
+        self.scheduler.configure({'apscheduler.misfire_grace_time': 2})
+        eq_(self.scheduler.misfire_grace_time, 2)
     
     @raises(TypeError)
     def test_noncallable(self):
         date = datetime.now() + timedelta(days=1)
-        self.scheduler.add_job('wontwork', date)
+        self.scheduler.add_date_job('wontwork', date)
     
     def test_job_name(self):
         def my_job():
             pass
-        handle = self.scheduler.add_interval_job(my_job)
-        eq_(str(handle), 'my_job')
+        job = self.scheduler.add_interval_job(my_job)
+        eq_(str(job), 'my_job')
     
     def test_interval(self):
         def increment(vals, amount):
@@ -71,15 +76,15 @@ class TestScheduler(object):
         sleep(2.2)
         eq_(a.val, 2)
 
-    def test_unschedule_from_handle(self):
+    def test_unschedule_job(self):
         def increment(vals):
             vals[0] += 1
         vals = [0]
-        handle = self.scheduler.add_cron_job(increment, args=[vals])
+        job = self.scheduler.add_cron_job(increment, args=[vals])
         sleep(1)
         ref_value = vals[0]
         assert ref_value >= 1
-        handle.unschedule()
+        self.scheduler.unschedule_job(job)
         sleep(1.2)
         eq_(vals[0], ref_value)
     
@@ -100,21 +105,18 @@ class TestScheduler(object):
         def increment(vals):
             vals[0] += 1
         vals = [0]
-        handle = self.scheduler.add_interval_job(increment, args=[vals])
-#        job = handle.job_ref()
-#        print "first fire time: %s" % job.trigger.first_fire_date
-#        print "last fire time: %s" % job.trigger.last_fire_date
+        job = self.scheduler.add_interval_job(increment, repeat=1, args=[vals])
         sleep(1.2)
         eq_(vals, [1])
-        eq_(handle.is_active(), False)
+        eq_(self.scheduler.is_job_active(job), False)
     
     @raises(TestException)
     def test_job_exception(self):
         def failure():
             raise TestException
         start_date = datetime(9999, 1, 1)
-        handle = self.scheduler.add_job(failure, start_date)
-        handle.job.run_in_thread()
+        job = self.scheduler.add_date_job(failure, start_date)
+        job.run_in_thread()
     
     def test_interval_schedule(self):
         vals = [0]
@@ -137,7 +139,7 @@ class TestScheduler(object):
             vals.append(value)
         vals = []
         date = datetime.now() + timedelta(seconds=1)
-        self.scheduler.add_job(append_val, date, kwargs={'value': 'test'})
+        self.scheduler.add_date_job(append_val, date, kwargs={'value': 'test'})
         sleep(2.2)
         eq_(vals, ['test'])
     

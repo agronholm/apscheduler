@@ -11,22 +11,23 @@ __all__ = ('CronTrigger', 'DateTrigger', 'IntervalTrigger')
     
 
 class CronTrigger(object):
-    def __init__(self, year='*', month='*', day='*', day_of_week='*',
-                 hour='*', minute='*', second='*'):
+    def __init__(self, years='*', months='*', days='*', days_of_week='*',
+                 hours='*', minutes='*', seconds='*'):
         self.fields = []
-        self._compile_expressions(year, 'year')
-        self._compile_expressions(month, 'month')
-        self._compile_expressions(day, 'day')
-        self._compile_expressions(day_of_week, 'day_of_week')
-        self._compile_expressions(hour, 'hour')
-        self._compile_expressions(minute, 'minute')
-        self._compile_expressions(second, 'second')
+        self._compile_expressions(years, 'year')
+        self._compile_expressions(months, 'month')
+        self._compile_expressions(days, 'day')
+        self._compile_expressions(days_of_week, 'day_of_week')
+        self._compile_expressions(hours, 'hour')
+        self._compile_expressions(minutes, 'minute')
+        self._compile_expressions(seconds, 'second')
 
     def _compile_expressions(self, exprs, fieldname):
         def compile_single(expr):
             compilers = [AllExpression, RangeExpression]
             if fieldname == 'day_of_week':
-                compilers.append(DayOfWeekExpression)
+                compilers.append(WeekdayRangeExpression)
+                compilers.append(WeekdayPositionExpression)
             for compiler in compilers:
                 match = compiler.value_re.match(expr)
                 if match:
@@ -146,6 +147,9 @@ class IntervalTrigger(object):
 
         self.interval = interval
         self.interval_length = timedelta_seconds(self.interval)
+        if self.interval_length == 0:
+            self.interval = timedelta(seconds=1)
+            self.interval_length = 1
         self.repeat = repeat
         if start_date is None:
             self.first_fire_date = datetime.now() + self.interval
