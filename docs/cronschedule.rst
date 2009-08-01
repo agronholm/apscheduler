@@ -54,8 +54,8 @@ Example
     # Schedules job_function to be run on the third Friday
     # of June, July, August, November and December, from midnight
     # to 3 am
-    sched.add_cron_job(job_function, months='6-8,11-12', weekdays='3rd fri',
-                       hours='0-3')
+    sched.add_cron_job(job_function, month='6-8,11-12', weekday='3rd fri',
+                       hour='0-3')
 
 Decorator syntax
 ----------------
@@ -68,6 +68,6 @@ parameter, obviously.
 
 ::
 
-    @sched.cron_schedule(weekdays='last sun')
+    @sched.cron_schedule(weekday='last sun')
     def some_decorated_task():
         print "I am printed on the last sunday of every month!"

@@ -126,8 +126,8 @@ class Scheduler(object):
             self.thread.join(timeout)
         self.jobs = []
 
-    def cron_schedule(self, years='*', months='*', days='*', days_of_week='*',
-                      hours='*', minutes='*', seconds='*', args=None,
+    def cron_schedule(self, year='*', month='*', day='*', day_of_week='*',
+                      hour='*', minute='*', second='*', args=None,
                       kwargs=None):
         """
         Decorator that causes its host function to be scheduled
@@ -137,8 +137,8 @@ class Scheduler(object):
         See :meth:`add_cron_job` for more information.
         """
         def inner(func):
-            self.add_cron_job(func, years, months, days, days_of_week, hours,
-                              minutes, seconds, args, kwargs)
+            self.add_cron_job(func, year, month, day, day_of_week, hour,
+                              minute, second, args, kwargs)
             return func
         return inner
 
