@@ -7,5 +7,9 @@ Module Contents
 ---------------
 
 .. autoclass:: CronTrigger
+    :members:
 .. autoclass:: DateTrigger
+    :members:
 .. autoclass:: IntervalTrigger
+    :members:
+	

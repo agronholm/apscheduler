@@ -61,9 +61,10 @@ Decorator syntax
 ----------------
 
 As a convenience, there is an alternative syntax for using cron-style
-schedules. The ``apscheduler.Scheduler.cron_schedule`` decorator can be
-attached to any function, and has the same syntax as ``add_cron_job``,
-except for the ``func`` parameter, obviously.
+schedules. The :meth:`~apscheduler.scheduler.Scheduler.cron_schedule`
+decorator can be attached to any function, and has the same syntax as
+:meth:`~apscheduler.scheduler.Scheduler.add_cron_job`, except for the ``func``
+parameter, obviously.
 
 ::
 
