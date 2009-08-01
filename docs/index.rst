@@ -14,8 +14,36 @@ of your choosing.
 * Interval-based scheduling of jobs, with configurable start date and
   repeat count
 
+Installation
+============
+
+To install, you can either:
+
+* Download the appropriate package directly, or
+* Use easy_install::
+
+	$ easy_install apscheduler
+
+Usage
+=====
+
+Starting up
+-----------
+
+::
+
+    from apscheduler.scheduler import Scheduler
+    
+    sched = Scheduler()
+    sched.start()
+
+Notice that you can schedule jobs on the scheduler **at any time**.
+Of course, no jobs will be executed as long as the scheduler isn't running.
+Also, jobs scheduled before the scheduler was started will not fire
+retroactively.
+
 Configuration
-=============
+-------------
 
 All option keys can be prefixed with ``apscheduler.`` to avoid name clashes
 in an .ini file.
@@ -46,23 +74,27 @@ Directive               Default  Definition
                                  then it will still be executed.
 ======================= ======== ==============================================
 
-Usage
-=====
+Scheduling jobs
+---------------
 
-Starting up
------------
+There are three methods for scheduling new jobs:
 
-::
+.. toctree::
+   :maxdepth: 1
 
-    from apscheduler.scheduler import Scheduler
-    
-    sched = Scheduler()
-    sched.start()
+   dateschedule
+   intervalschedule
+   cronschedule
 
-Notice that you can schedule jobs on the scheduler **at any time**.
-Of course, no jobs will be executed as long as the scheduler isn't running.
-Also, jobs scheduled before the scheduler was started will not fire
-retroactively.
+When a scheduled job is triggered, a new thread will be created and the
+callable is executed in that thread. A new thread is always created for
+each execution of the job.
+
+One thing you should keep in mind is that no two instances of the same job
+will ever be run concurrently. This means that if the scheduler is attempting
+to execute a job, but the previously launched thread for that job is still
+running, then it will not be fired at the time. Only when the previous instance
+has finished, will it be executed again.
 
 Shutting down
 -------------
@@ -85,24 +117,6 @@ and then proceed anyways.
 
 To make sure that the scheduler has been terminated, you can specify
 a timeout of 0. This will disable the waiting timeout.
-
-Scheduling jobs
----------------
-
-There are three methods for scheduling new jobs:
-
-.. toctree::
-   :maxdepth: 1
-
-   dateschedule
-   intervalschedule
-   cronschedule
-
-One thing you should keep in mind is that no two instances of the same job
-will ever be run concurrently. This means that if the scheduler is attempting
-to execute a job, but the previously launched thread for that job is still
-running, then it will not be fired at the time. Only when the previous instance
-has finished, will it be executed again.
 
 
 FAQ
