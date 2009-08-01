@@ -48,10 +48,10 @@ class CronTrigger(object):
         Sets the value of the designated field in the given datetime object.
         All less significant fields will be reset to their minimum values.
 
-        @type dateval: datetime
-        @type fieldnum: int
-        @type new_value: int
-        @rtype: datetime
+        :type dateval: datetime
+        :type fieldnum: int
+        :type new_value: int
+        :rtype: datetime
         """
 
         # Fill in values for all date fields
@@ -74,10 +74,10 @@ class CronTrigger(object):
         Increments the designated field and resets all less significant fields
         to their minimum values.
 
-        @type dateval: datetime
-        @type fieldnum: int
-        @type amount: int
-        @rtype: datetime
+        :type dateval: datetime
+        :type fieldnum: int
+        :type amount: int
+        :rtype: datetime
         """
 
         # If the given field is already at its maximum, then increment the
