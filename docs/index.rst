@@ -5,6 +5,10 @@ APScheduler is a light but powerful in-process task scheduler that
 lets you schedule functions (or any python callables) to be executed at times
 of your choosing.
 
+This can be a far better alternative to externally run cron scripts for
+long-running applications (e.g. web applications), as it is platform neutral
+and can directly access your application's variables and functions.
+
 **Features:**
 
 * No external dependencies
@@ -13,6 +17,7 @@ of your choosing.
 * Delayed scheduling of single fire jobs (like the UNIX "at" command)
 * Interval-based scheduling of jobs, with configurable start date and
   repeat count
+
 
 Installation
 ============
@@ -137,6 +142,23 @@ reason why job threads are non-daemonic is that the shutdown procedures of
 the Python interpreter may cause unspecified behavior in the executing job.
 A more thorough explanation
 `can be found here <http://joeshaw.org/2009/02/24/605>`_.
+
+
+Getting help
+============
+
+If you have problems or other questions, you can either:
+
+* Join the ``#apscheduler`` channel on
+  `Freenode IRC <http://freenode.net/irc_servers.shtml>`_, or
+* Send email to <apscheduler at nextday dot fi>
+
+
+Reporting bugs
+==============
+
+A `bug tracker <http://bitbucket.org/agronholm/apscheduler/issues/>`_
+is provided by bitbucket.org.
 
 
 Indices and tables
