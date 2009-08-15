@@ -11,17 +11,20 @@ def test_cron_trigger_1():
     correct_next_date = datetime(2009, 1, 5)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
+
 def test_cron_trigger_2():
     trigger = CronTrigger(years='2009/2', months='1/3', days='5-13')
     start_date = datetime(2009, 10, 14)
     correct_next_date = datetime(2011, 1, 5)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
+
 def test_cron_trigger_3():
     trigger = CronTrigger(years='2009', months='2', hours='8-10')
     start_date = datetime(2009, 1, 1)
     correct_next_date = datetime(2009, 2, 1, 8)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
+
 
 def test_cron_weekday_overlap():
     trigger = CronTrigger(years=2009, months=1, days='6-10',
@@ -30,12 +33,14 @@ def test_cron_weekday_overlap():
     correct_next_date = datetime(2009, 1, 7)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
+
 def test_cron_weekday_nomatch():
     trigger = CronTrigger(years=2009, months=1, days='6-10',
                           days_of_week='0,6')
     start_date = datetime(2009, 1, 1)
     correct_next_date = None
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
+
 
 def test_cron_extra_coverage():
     # This test has no value other than patching holes in test coverage
@@ -44,9 +49,11 @@ def test_cron_extra_coverage():
     correct_next_date = datetime(2010, 1, 6)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
+
 @raises(ValueError)
 def test_cron_faulty_expr():
     CronTrigger(years='2009-fault')
+
 
 def test_date_trigger_earlier():
     fire_date = datetime(2009, 7, 6)
@@ -54,11 +61,13 @@ def test_date_trigger_earlier():
     start_date = datetime(2008, 12, 1)
     eq_(trigger.get_next_fire_time(start_date), fire_date)
 
+
 def test_date_trigger_exact():
     fire_date = datetime(2009, 7, 6)
     trigger = DateTrigger(fire_date)
     start_date = datetime(2009, 7, 6)
     eq_(trigger.get_next_fire_time(start_date), fire_date)
+
 
 def test_date_trigger_later():
     fire_date = datetime(2009, 7, 6)
@@ -66,26 +75,30 @@ def test_date_trigger_later():
     start_date = datetime(2009, 7, 7)
     eq_(trigger.get_next_fire_time(start_date), None)
 
+
 @raises(TypeError)
 def test_interval_invalid_interval():
     IntervalTrigger('1-6', 3)
+
 
 @raises(ValueError)
 def test_interval_invalid_repeat():
     interval = timedelta(seconds=1)
     IntervalTrigger(interval, -1)
 
+
 def test_interval_infinite():
     interval = timedelta(seconds=1)
     trigger = IntervalTrigger(interval, 0)
     eq_(trigger.last_fire_date, None)
+
 
 class TestInterval(object):
     def setUp(self):
         interval = timedelta(seconds=1)
         trigger_start_date = datetime(2009, 8, 4, second=2)
         self.trigger = IntervalTrigger(interval, 3, trigger_start_date)
-    
+
     def test_interval_before(self):
         start_date = datetime(2009, 8, 4)
         correct_next_date = datetime(2009, 8, 4, second=2)

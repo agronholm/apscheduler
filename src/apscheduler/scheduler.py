@@ -29,7 +29,7 @@ class Job(object):
             self.name = func.__name__
         else:
             self.name = str(func)
-    
+
     def run(self):
         """
         Starts the execution of this job in a separate thread.
@@ -41,7 +41,7 @@ class Job(object):
             self.thread = Thread(target=self.run_in_thread)
             self.thread.setDaemon(False)
             self.thread.start()
-    
+
     def run_in_thread(self):
         """
         Runs the associated callable.
@@ -62,6 +62,7 @@ class SchedulerShutdownError(Exception):
     Thrown when attempting to use the scheduler after
     it's been shut down.
     """
+
     def __init__(self):
         Exception.__init__(self, 'Scheduler has already been shut down')
 
@@ -70,6 +71,7 @@ class SchedulerAlreadyRunningError(Exception):
     """
     Thrown when attempting to start the scheduler, but it's already running.
     """
+
     def __init__(self):
         Exception.__init__(self, 'Scheduler is already running')
 
@@ -89,7 +91,7 @@ class Scheduler(object):
         self.jobs_lock = Lock()
         self.wakeup = Event()
         self.configure(config)
-    
+
     def configure(self, config):
         """
         Updates the configuration with the given options.
@@ -99,7 +101,7 @@ class Scheduler(object):
                 key = key[12:]
             if key == 'misfire_grace_time':
                 self.misfire_grace_time = int(val)
-    
+
     def start(self):
         """
         Starts the scheduler in a new thread.
@@ -109,12 +111,12 @@ class Scheduler(object):
         self.thread = Thread(target=self.run, name='APScheduler')
         self.thread.setDaemon(True)
         self.thread.start()
-    
+
     def shutdown(self, timeout=None):
         """
         Shuts down the scheduler and terminates the thread.
         Does not terminate any currently running jobs.
-        
+
         :param timeout: time (in seconds) to wait for the scheduler thread to
             terminate, or None to skip waiting
         """
@@ -157,7 +159,7 @@ class Scheduler(object):
                                   start_date, repeat, args, kwargs)
             return func
         return inner
-    
+
     def add_job(self, trigger, func, args, kwargs):
         """
         Adds a Job to the job list and notifies the scheduler thread.
@@ -185,7 +187,7 @@ class Scheduler(object):
         finally:
             self.jobs_lock.release()
         logger.info('Added job "%s"', job)
-       
+
         # Notify the scheduler about the new job
         self.wakeup.set()
 
@@ -201,7 +203,7 @@ class Scheduler(object):
         """
         trigger = DateTrigger(date)
         return self.add_job(trigger, func, args, kwargs)
-    
+
     def add_interval_job(self, func, weeks=0, days=0, hours=0, minutes=0,
                          seconds=0, start_date=None, repeat=0, args=None,
                          kwargs=None):
@@ -258,11 +260,11 @@ class Scheduler(object):
             self.jobs_lock.release()
         logger.info('Removed job "%s"', job)
         self.wakeup.set()
-    
+
     def is_job_active(self, job):
         """
         Determines if the given job is still on the job list.
-        
+
         :return: True if the job is still active, False if not
         """
         self.jobs_lock.acquire()
@@ -283,7 +285,7 @@ class Scheduler(object):
                 logger.info('Removed job "%s"', job)
         finally:
             self.jobs_lock.release()
-        
+
         # Have the scheduler calculate a new wakeup time
         self.wakeup.set()
 
@@ -316,7 +318,7 @@ class Scheduler(object):
             self.jobs_lock.release()
 
         return next_wakeup
-    
+
     def _get_current_jobs(self):
         """
         Determines which jobs should be executed right now.
@@ -324,7 +326,7 @@ class Scheduler(object):
         current_jobs = []
         now = datetime.now()
         start = now - timedelta(seconds=self.misfire_grace_time)
-        
+
         self.jobs_lock.acquire()
         try:
             for job in self.jobs:
@@ -337,7 +339,7 @@ class Scheduler(object):
             self.jobs_lock.release()
 
         return current_jobs
-    
+
     def run(self):
         """
         Runs the main loop of the scheduler.
@@ -365,5 +367,3 @@ class Scheduler(object):
                 logger.debug('No jobs; waiting until a job is added')
                 self.wakeup.wait()
             self.wakeup.clear()
-            
-           

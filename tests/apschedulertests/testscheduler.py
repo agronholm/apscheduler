@@ -6,14 +6,16 @@ from nose.tools import eq_, raises
 from apscheduler.scheduler import Scheduler, SchedulerShutdownError
 from apscheduler.scheduler import SchedulerAlreadyRunningError
 
+
 class TestException(Exception):
     pass
+
 
 class TestScheduler(object):
     def setUp(self):
         self.scheduler = Scheduler()
         self.scheduler.start()
-        
+
     def tearDown(self):
         if not self.scheduler.stopped:
             self.scheduler.shutdown()
@@ -25,18 +27,18 @@ class TestScheduler(object):
     def test_configure_prefix(self):
         self.scheduler.configure({'apscheduler.misfire_grace_time': 2})
         eq_(self.scheduler.misfire_grace_time, 2)
-    
+
     @raises(TypeError)
     def test_noncallable(self):
         date = datetime.now() + timedelta(days=1)
         self.scheduler.add_date_job('wontwork', date)
-    
+
     def test_job_name(self):
         def my_job():
             pass
         job = self.scheduler.add_interval_job(my_job)
         eq_(str(job), 'my_job')
-    
+
     def test_interval(self):
         def increment(vals, amount):
             vals[0] += amount
@@ -46,7 +48,7 @@ class TestScheduler(object):
                                         args=[vals, 2])
         sleep(2.2)
         eq_(vals, [4, 2])
-        
+
     def test_overlapping_runs(self):
         """
         Makes sure that "increment" is only ran once, since it will still be
@@ -60,7 +62,7 @@ class TestScheduler(object):
                                         args=[vals])
         sleep(2.2)
         eq_(vals, [1])
-    
+
     def test_schedule_object(self):
         """
         Tests that any callable object is accepted (and not just functions).
@@ -87,7 +89,7 @@ class TestScheduler(object):
         self.scheduler.unschedule_job(job)
         sleep(1.2)
         eq_(vals[0], ref_value)
-    
+
     def test_unschedule_func(self):
         def increment(vals):
             vals[0] += 1
@@ -100,7 +102,7 @@ class TestScheduler(object):
         self.scheduler.unschedule_func(increment)
         sleep(1.2)
         eq_(vals[0], ref_value)
-    
+
     def test_job_finished(self):
         def increment(vals):
             vals[0] += 1
@@ -109,7 +111,7 @@ class TestScheduler(object):
         sleep(1.2)
         eq_(vals, [1])
         eq_(self.scheduler.is_job_active(job), False)
-    
+
     @raises(TestException)
     def test_job_exception(self):
         def failure():
@@ -117,7 +119,7 @@ class TestScheduler(object):
         start_date = datetime(9999, 1, 1)
         job = self.scheduler.add_date_job(failure, start_date)
         job.run_in_thread()
-    
+
     def test_interval_schedule(self):
         vals = [0]
         @self.scheduler.interval_schedule(seconds=1, repeat=2, args=[vals])
@@ -133,7 +135,7 @@ class TestScheduler(object):
             vals[0] += 1
         sleep(2.2)
         assert vals[0] >= 2
-    
+
     def test_date(self):
         def append_val(value):
             vals.append(value)
@@ -142,7 +144,7 @@ class TestScheduler(object):
         self.scheduler.add_date_job(append_val, date, kwargs={'value': 'test'})
         sleep(2.2)
         eq_(vals, ['test'])
-    
+
     def test_cron(self):
         def increment(vals, amount):
             vals[0] += amount

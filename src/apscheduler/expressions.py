@@ -22,7 +22,7 @@ class AllExpression(object):
 
     def _get_minval(self, date, field):
         return MIN_VALUES[field]
-    
+
     def _get_maxval(self, date, field):
         return get_actual_maximum(date, field)
 
@@ -40,7 +40,7 @@ class AllExpression(object):
 
         if next <= maxval:
             return next
-    
+
     def __str__(self):
         if self.step:
             return '*/%d' % self.step
@@ -48,7 +48,8 @@ class AllExpression(object):
 
 
 class RangeExpression(AllExpression):
-    value_re = re.compile(r'(?P<first>\d+)(?:-(?P<last>\d+))?(?:/(?P<step>\d+))?$')
+    value_re = re.compile(
+        r'(?P<first>\d+)(?:-(?P<last>\d+))?(?:/(?P<step>\d+))?$')
 
     def __init__(self, first, last=None, step=None):
         AllExpression.__init__(self, step)
@@ -106,6 +107,7 @@ class WeekdayRangeExpression(RangeExpression):
             return '%s-%s' % (WEEKDAYS[self.first], WEEKDAYS[self.last])
         return WEEKDAYS[self.first]
 
+
 class WeekdayPositionExpression(object):
     options = ['1st', '2nd', '3rd', '4th', '5th', 'last']
     value_re = re.compile(r'(?P<option>%s) +(?P<weekday>(?:\d+|\w+))'
@@ -135,7 +137,7 @@ class WeekdayPositionExpression(object):
                 last_hit = day
         if self.option_num == 5:
             return last_hit
-    
+
     def __str__(self):
         return '%s %s' % (self.options[self.option_num],
                           WEEKDAYS[self.weekday])

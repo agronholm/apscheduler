@@ -8,9 +8,10 @@ from apscheduler.expressions import *
 from apscheduler.util import *
 
 __all__ = ('CronTrigger', 'DateTrigger', 'IntervalTrigger')
-    
+
 
 class CronTrigger(object):
+
     def __init__(self, years='*', months='*', days='*', days_of_week='*',
                  hours='*', minutes='*', seconds='*'):
         self.fields = []
@@ -42,7 +43,7 @@ class CronTrigger(object):
             expr_list = [exprs]
         compiled_expr_list = [compile_single(expr) for expr in expr_list]
         self.fields.append((fieldname, compiled_expr_list))
-    
+
     def _set_field_value(self, dateval, fieldnum, new_value):
         """
         Sets the value of the designated field in the given datetime object.
@@ -66,9 +67,9 @@ class CronTrigger(object):
                 values[fieldname] = MIN_VALUES[fieldname]
             else:
                 values[fieldname] = new_value
-        
+
         return datetime(**values)
-    
+
     def _increment_field_value(self, dateval, fieldnum):
         """
         Increments the designated field and resets all less significant fields
@@ -104,14 +105,15 @@ class CronTrigger(object):
                     nextval = min(val, nextval)
                 else:
                     nextval = val
-            
+
             if nextval is None or (fieldname == 'day_of_week' and
                                    nextval > startval):
                 # No valid value was found for this field
                 if fieldnum == 0:
                     # No valid values found for the year field, so give up
                     return None
-                # Return to the previous field and look for the next valid value
+                # Return to the previous field and look for the
+                # next valid value
                 fieldnum -= 1
                 next_date = self._increment_field_value(next_date, fieldnum)
             elif nextval > startval:
@@ -129,15 +131,17 @@ class CronTrigger(object):
 
 
 class DateTrigger(object):
+
     def __init__(self, run_date):
         self.run_date = convert_to_datetime(run_date)
-    
+
     def get_next_fire_time(self, start_date):
         if self.run_date >= start_date:
             return self.run_date
 
 
 class IntervalTrigger(object):
+
     def __init__(self, interval, repeat, start_date=None):
         if not isinstance(interval, timedelta):
             raise TypeError('interval must be a timedelta')
@@ -161,7 +165,7 @@ class IntervalTrigger(object):
             self.last_fire_date = self.first_fire_date + interval * (repeat-1)
         else:
             self.last_fire_date = None
-    
+
     def get_next_fire_time(self, start_date):
         if start_date < self.first_fire_date:
             return self.first_fire_date

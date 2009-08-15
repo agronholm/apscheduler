@@ -58,7 +58,7 @@ def convert_to_datetime(dateval):
     """
     Converts a date object to a datetime object.
     If an actual datetime object is passed, it is returned unmodified.
-    
+
     :type dateval: date
     :rtype: datetime
     """
@@ -82,8 +82,8 @@ def timedelta_seconds(delta):
 
 def time_difference(date1, date2):
     """
-    Returns the time difference in seconds between the given two datetime objects.
-    The difference is calculated as: date1 - date2.
+    Returns the time difference in seconds between the given two
+    datetime objects. The difference is calculated as: date1 - date2.
 
     :param date1: the later datetime
     :type date1: datetime
