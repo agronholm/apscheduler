@@ -1,6 +1,11 @@
 # coding: utf-8
-from setuptools import setup, find_packages
-
+try:
+    from distribute.core import setup
+except ImportError:
+    try:
+        from setuptools import setup
+    except ImportError:
+        from distutils.core import setup
 
 setup(
     name='APScheduler',
@@ -55,10 +60,9 @@ The source can be browsed at `Bitbucket
     ],
     keywords='scheduling cron',
     license='MIT',
+    package_dir={'': 'src'},
+    packages=['apscheduler'],
     zip_safe=True,
-    package_dir = {'': 'src'},
-    packages=find_packages('src'),
-    include_package_data=False,
     test_suite='nose.collector',
-    tests_require = ['nose']
+    tests_require=['nose']
 )
