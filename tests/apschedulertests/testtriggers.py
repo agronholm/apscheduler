@@ -55,6 +55,15 @@ def test_cron_faulty_expr():
     CronTrigger(years='2009-fault')
 
 
+def test_cron_increment_weekday():
+    # Makes sure that incrementing the weekday field in the process of
+    # calculating the next matching date won't cause problems
+    trigger = CronTrigger(hours='5-6')
+    start_date = datetime(2009, 9, 25, 7)
+    correct_next_date = datetime(2009, 9, 26, 5)
+    eq_(trigger.get_next_fire_time(start_date), correct_next_date)
+
+
 def test_date_trigger_earlier():
     fire_date = datetime(2009, 7, 6)
     trigger = DateTrigger(fire_date)

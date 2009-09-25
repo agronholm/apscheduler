@@ -11,7 +11,6 @@ __all__ = ('CronTrigger', 'DateTrigger', 'IntervalTrigger')
 
 
 class CronTrigger(object):
-
     def __init__(self, years='*', months='*', days='*', days_of_week='*',
                  hours='*', minutes='*', seconds='*'):
         self.fields = []
@@ -81,14 +80,15 @@ class CronTrigger(object):
         :rtype: datetime
         """
 
-        # If the given field is already at its maximum, then increment the
-        # next most significant field
+        # If the given field is already at its maximum, or it has no counterpart
+        # in a datetime object, then increment the next most significant field
         fieldname = self.fields[fieldnum][0]
-        value = getattr(dateval, fieldname)
-        maxval = get_actual_maximum(dateval, fieldname)
-        if value == maxval:
-            return self._increment_field_value(dateval, fieldnum - 1)
-        return self._set_field_value(dateval, fieldnum, value + 1)
+        value = getattr(dateval, fieldname, None)
+        if value is not None:
+            maxval = get_actual_maximum(dateval, fieldname)
+            if value < maxval:
+                return self._set_field_value(dateval, fieldnum, value + 1)
+        return self._increment_field_value(dateval, fieldnum - 1)
 
     def get_next_fire_time(self, start_date):
         next_date = datetime_ceil(start_date)
@@ -131,7 +131,6 @@ class CronTrigger(object):
 
 
 class DateTrigger(object):
-
     def __init__(self, run_date):
         self.run_date = convert_to_datetime(run_date)
 
@@ -141,7 +140,6 @@ class DateTrigger(object):
 
 
 class IntervalTrigger(object):
-
     def __init__(self, interval, repeat, start_date=None):
         if not isinstance(interval, timedelta):
             raise TypeError('interval must be a timedelta')
