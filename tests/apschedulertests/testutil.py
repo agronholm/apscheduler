@@ -23,6 +23,21 @@ def test_asint_none():
     eq_(asint(None), None)
 
 
+def test_asbool_true():
+    for val in (' True', 'true ', 'Yes', ' yes ', '1  '):
+        eq_(asbool(val), True)
+
+
+def test_asbool_false():
+    for val in (' False', 'false ', 'No', ' no ', '0  '):
+        eq_(asbool(val), False)
+
+
+@raises(ValueError)
+def test_asbool_fail():
+    asbool('yep')
+
+
 def test_maxval_leapyear():
     dateval = datetime(2008, 2, 1)
     eq_(get_actual_maximum(dateval, 'day'), 29)

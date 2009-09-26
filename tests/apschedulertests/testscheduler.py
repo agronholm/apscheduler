@@ -21,12 +21,18 @@ class TestScheduler(object):
             self.scheduler.shutdown()
 
     def test_configure(self):
-        self.scheduler.configure({'misfire_grace_time': 2})
+        options = {'misfire_grace_time': '2',
+                   'daemonic': 'false'}
+        self.scheduler.configure(options)
         eq_(self.scheduler.misfire_grace_time, 2)
+        eq_(self.scheduler.daemonic, False)
 
     def test_configure_prefix(self):
-        self.scheduler.configure({'apscheduler.misfire_grace_time': 2})
+        options = {'apscheduler.misfire_grace_time': 2,
+                   'apscheduler.daemonic': False}
+        self.scheduler.configure(options)
         eq_(self.scheduler.misfire_grace_time, 2)
+        eq_(self.scheduler.daemonic, False)
 
     @raises(TypeError)
     def test_noncallable(self):
@@ -162,7 +168,6 @@ class TestScheduler(object):
     def test_scheduler_double_start(self):
         self.scheduler.start()
 
-    @raises(SchedulerShutdownError)
     def test_scheduler_double_shutdown(self):
         self.scheduler.shutdown(1)
         self.scheduler.shutdown()

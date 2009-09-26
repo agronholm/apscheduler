@@ -5,7 +5,7 @@ This module contains several handy functions primarily meant for internal use.
 from datetime import date, datetime, timedelta
 from calendar import monthrange, weekday
 
-__all__ = ('MIN_VALUES', 'MAX_VALUES', 'asint', 'get_actual_maximum',
+__all__ = ('MIN_VALUES', 'MAX_VALUES', 'asint', 'asbool', 'get_actual_maximum',
            'get_date_field', 'convert_to_datetime', 'timedelta_seconds',
            'time_difference', 'datetime_ceil')
 
@@ -26,6 +26,22 @@ def asint(text):
     """
     if text is not None:
         return int(text)
+
+
+def asbool(obj):
+    """
+    Interprets an object as a boolean value.
+
+    :rtype: bool
+    """
+    if isinstance(obj, str):
+        obj = obj.strip().lower()
+        if obj in ('true', 'yes', 'on', 'y', 't', '1'):
+            return True
+        if obj in ('false', 'no', 'off', 'n', 'f', '0'):
+            return False
+        raise ValueError('Unable to interpret value "%s" as boolean' % obj)
+    return bool(obj)
 
 
 def get_actual_maximum(dateval, fieldname):

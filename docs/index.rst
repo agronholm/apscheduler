@@ -81,10 +81,25 @@ Available configuration options:
 ======================= ======== ==============================================
 Directive               Default  Definition
 ======================= ======== ==============================================
-``misfire_grace_time``  1        If the scheduler misses the execution of a task 
+misfire_grace_time      1        If the scheduler misses the execution of a task 
                                  (due to high CPU load for example) by an amount 
                                  of seconds equal to or less than this value, 
                                  then it will still be executed.
+daemonic                True     Controls whether the scheduler thread is
+                                 daemonic or not.
+                                 
+                                 If set to ``False``, then the
+                                 scheduler must be shut down explicitly
+                                 when the program is about to finish, or it will
+                                 prevent the program from terminating.
+
+                                 If set to ``True``, the scheduler will
+                                 automatically terminate with the application,
+                                 but may cause an exception to be raised on
+                                 exit.
+                                 
+                                 Jobs are always executed in non-daemonic
+                                 threads.
 ======================= ======== ==============================================
 
 Scheduling jobs
@@ -128,8 +143,13 @@ can specify a timeout (in seconds)::
 This will wait at most 10 seconds for the scheduler thread to terminate,
 and then proceed anyways.
 
-To make sure that the scheduler has been terminated, you can specify
-a timeout of 0. This will disable the waiting timeout.
+To make sure that the scheduler has terminated, you can specify
+a timeout of 0. This will disable the waiting timeout and will wait as long as
+it takes for the scheduler to shut down.
+
+.. note::
+	Shutting down the scheduler does not guarantee that all jobs have
+	terminated.
 
 
 FAQ

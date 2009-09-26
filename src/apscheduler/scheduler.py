@@ -9,6 +9,7 @@ from logging import getLogger
 
 from apscheduler.util import time_difference
 from apscheduler.triggers import *
+from apscheduler.util import asbool
 
 
 logger = getLogger(__name__)
@@ -85,6 +86,7 @@ class Scheduler(object):
     stopped = False
     thread = None
     misfire_grace_time = 1
+    daemonic = True
 
     def __init__(self, **config):
         self.jobs = []
@@ -101,6 +103,8 @@ class Scheduler(object):
                 key = key[12:]
             if key == 'misfire_grace_time':
                 self.misfire_grace_time = int(val)
+            elif key == 'daemonic':
+                self.daemonic = asbool(val)
 
     def start(self):
         """
@@ -109,22 +113,25 @@ class Scheduler(object):
         if self.thread and self.thread.isAlive():
             raise SchedulerAlreadyRunningError
         self.thread = Thread(target=self.run, name='APScheduler')
-        self.thread.setDaemon(True)
+        self.thread.setDaemon(self.daemonic)
         self.thread.start()
+        logger.info('Scheduler started')
 
-    def shutdown(self, timeout=None):
+    def shutdown(self, timeout=0):
         """
         Shuts down the scheduler and terminates the thread.
         Does not terminate any currently running jobs.
 
         :param timeout: time (in seconds) to wait for the scheduler thread to
-            terminate, or None to skip waiting
+            terminate, 0 to wait forever, None to skip waiting
         """
-        if self.stopped:
-            raise SchedulerShutdownError
+        if self.stopped or not self.thread.isAlive():
+            return
+
+        logger.info('Scheduler shutting down')
         self.stopped = True
         self.wakeup.set()
-        if timeout:
+        if timeout is not None:
             self.thread.join(timeout)
         self.jobs = []
 
