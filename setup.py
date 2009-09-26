@@ -8,12 +8,6 @@ except ImportError:
         from distutils.core import setup
 
 
-def smart_unicode(string):
-    if hasattr(string, 'decode'):
-        return string.decode('utf-8')
-    return string
-
-
 setup(
     name='APScheduler',
     version='1.01',
@@ -52,7 +46,7 @@ Source
 The source can be browsed at `Bitbucket
 <http://bitbucket.org/agronholm/apscheduler/src/>`_.
 """,
-    author=smart_unicode('Alex Grönholm'),
+    author='Alex Gronholm',
     author_email='apscheduler@nextday.fi',
     url='http://apscheduler.nextday.fi/',
     classifiers=[
