@@ -22,5 +22,5 @@ This is the in-process equivalent to the UNIX "at" command.
     exec_date = date(2009, 11, 6)
 	
     # Store the job in a variable in case we want to cancel it
-    job = sched.add_job(my_job, exec_date, ['text'])
+    job = sched.add_date_job(my_job, exec_date, ['text'])
     
