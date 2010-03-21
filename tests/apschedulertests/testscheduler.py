@@ -109,6 +109,16 @@ class TestScheduler(object):
         sleep(1.2)
         eq_(vals[0], ref_value)
 
+    def test_unschedule_bound_method(self):
+        class TestClass(object):
+            def testMethod(self):
+                pass
+
+        t = TestClass()
+        self.scheduler.add_interval_job(t.testMethod, days=1)
+        self.scheduler.unschedule_func(t.testMethod)
+        eq_(len(self.scheduler.jobs), 0)
+
     def test_job_finished(self):
         def increment(vals):
             vals[0] += 1

@@ -257,18 +257,6 @@ class Scheduler(object):
                               second)
         return self.add_job(trigger, func, args, kwargs)
 
-    def unschedule_job(self, job):
-        """
-        Removes a job, preventing it from being fired any more.
-        """
-        self.jobs_lock.acquire()
-        try:
-            self.jobs.remove(job)
-        finally:
-            self.jobs_lock.release()
-        logger.info('Removed job "%s"', job)
-        self.wakeup.set()
-
     def is_job_active(self, job):
         """
         Determines if the given job is still on the job list.
@@ -281,13 +269,25 @@ class Scheduler(object):
         finally:
             self.jobs_lock.release()
 
+    def unschedule_job(self, job):
+        """
+        Removes a job, preventing it from being fired any more.
+        """
+        self.jobs_lock.acquire()
+        try:
+            self.jobs.remove(job)
+        finally:
+            self.jobs_lock.release()
+        logger.info('Removed job "%s"', job)
+        self.wakeup.set()
+
     def unschedule_func(self, func):
         """
         Removes all jobs that would execute the given function.
         """
         self.jobs_lock.acquire()
         try:
-            remove_list = [job for job in self.jobs if job.func is func]
+            remove_list = [job for job in self.jobs if job.func == func]
             for job in remove_list:
                 self.jobs.remove(job)
                 logger.info('Removed job "%s"', job)
