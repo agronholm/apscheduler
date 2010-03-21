@@ -1,11 +1,9 @@
 # coding: utf-8
 try:
-    from distribute.core import setup
+    from setuptools import setup
 except ImportError:
-    try:
-        from setuptools import setup
-    except ImportError:
-        from distutils.core import setup
+    from distutils.core import setup
+
 
 setup(
     name='APScheduler',
