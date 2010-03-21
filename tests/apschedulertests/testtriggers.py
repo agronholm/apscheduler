@@ -2,49 +2,70 @@ from datetime import datetime, timedelta
 
 from nose.tools import eq_, raises
 
-from apscheduler.triggers import *
+from apscheduler.triggers import CronTrigger, DateTrigger, IntervalTrigger
 
 
 def test_cron_trigger_1():
-    trigger = CronTrigger(years='2009/2', months='1/3', days='5-13')
+    trigger = CronTrigger(year='2009/2', month='1/3', day='5-13')
     start_date = datetime(2008, 12, 1)
     correct_next_date = datetime(2009, 1, 5)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
 
 def test_cron_trigger_2():
-    trigger = CronTrigger(years='2009/2', months='1/3', days='5-13')
+    trigger = CronTrigger(year='2009/2', month='1/3', day='5-13')
     start_date = datetime(2009, 10, 14)
     correct_next_date = datetime(2011, 1, 5)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
 
 def test_cron_trigger_3():
-    trigger = CronTrigger(years='2009', months='2', hours='8-10')
+    trigger = CronTrigger(year='2009', month='2', hour='8-10')
     start_date = datetime(2009, 1, 1)
     correct_next_date = datetime(2009, 2, 1, 8)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
 
+def test_cron_year_list():
+    trigger = CronTrigger(year='2009,2008')
+    start_date = datetime(2009, 1, 1)
+    correct_next_date = datetime(2009, 1, 1)
+    eq_(trigger.get_next_fire_time(start_date), correct_next_date)
+
+
 def test_cron_weekday_overlap():
-    trigger = CronTrigger(years=2009, months=1, days='6-10',
-                          days_of_week='2-4')
+    trigger = CronTrigger(year=2009, month=1, day='6-10',
+                          day_of_week='2-4')
     start_date = datetime(2009, 1, 1)
     correct_next_date = datetime(2009, 1, 7)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
 
 def test_cron_weekday_nomatch():
-    trigger = CronTrigger(years=2009, months=1, days='6-10',
-                          days_of_week='0,6')
+    trigger = CronTrigger(year=2009, month=1, day='6-10',
+                          day_of_week='0,6')
     start_date = datetime(2009, 1, 1)
     correct_next_date = None
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
 
+def test_week_1():
+    trigger = CronTrigger(year=2009, month=2, week=8)
+    start_date = datetime(2009, 1, 1)
+    correct_next_date = datetime(2009, 2, 16)
+    eq_(trigger.get_next_fire_time(start_date), correct_next_date)
+
+
+def test_week_2():
+    trigger = CronTrigger(year=2009, week=15, day_of_week=2)
+    start_date = datetime(2009, 1, 1)
+    correct_next_date = datetime(2009, 4, 8)
+    eq_(trigger.get_next_fire_time(start_date), correct_next_date)
+
+
 def test_cron_extra_coverage():
     # This test has no value other than patching holes in test coverage
-    trigger = CronTrigger(days='6,8')
+    trigger = CronTrigger(day='6,8')
     start_date = datetime(2009, 12, 31)
     correct_next_date = datetime(2010, 1, 6)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
@@ -52,13 +73,13 @@ def test_cron_extra_coverage():
 
 @raises(ValueError)
 def test_cron_faulty_expr():
-    CronTrigger(years='2009-fault')
+    CronTrigger(year='2009-fault')
 
 
 def test_cron_increment_weekday():
     # Makes sure that incrementing the weekday field in the process of
     # calculating the next matching date won't cause problems
-    trigger = CronTrigger(hours='5-6')
+    trigger = CronTrigger(hour='5-6')
     start_date = datetime(2009, 9, 25, 7)
     correct_next_date = datetime(2009, 9, 26, 5)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
