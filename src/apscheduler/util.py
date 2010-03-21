@@ -4,16 +4,17 @@ This module contains several handy functions primarily meant for internal use.
 
 from datetime import date, datetime, timedelta
 from calendar import monthrange, weekday
+from time import strftime
 
 __all__ = ('MIN_VALUES', 'MAX_VALUES', 'asint', 'asbool', 'get_actual_maximum',
            'get_date_field', 'convert_to_datetime', 'timedelta_seconds',
            'time_difference', 'datetime_ceil')
 
 
-MIN_VALUES = {'year': 1970, 'month': 1, 'day': 1, 'day_of_week': 0,
-              'hour': 0, 'minute': 0, 'second': 0}
-MAX_VALUES = {'year': 2 ** 63, 'month': 12, 'day:': 31, 'day_of_week': 6,
-              'hour': 23, 'minute': 59, 'second': 59}
+MIN_VALUES = {'year': 1970, 'month': 1, 'day': 1, 'week': 1,
+              'day_of_week': 0, 'hour': 0, 'minute': 0, 'second': 0}
+MAX_VALUES = {'year': 2 ** 63, 'month': 12, 'day:': 31, 'week': 53,
+              'day_of_week': 6, 'hour': 23, 'minute': 59, 'second': 59}
 
 
 def asint(text):
@@ -65,6 +66,9 @@ def get_date_field(dateval, fieldname):
     :type fieldname: str
     :rtype: int
     """
+    if fieldname == 'week':
+        week_str = strftime('%W', dateval.timetuple())
+        return int(week_str) + 1
     if fieldname == 'day_of_week':
         return weekday(dateval.year, dateval.month, dateval.day)
     return getattr(dateval, fieldname)

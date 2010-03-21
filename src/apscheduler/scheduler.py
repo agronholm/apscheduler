@@ -7,9 +7,8 @@ from threading import Thread, Event, Lock
 from datetime import datetime, timedelta
 from logging import getLogger
 
-from apscheduler.util import time_difference
-from apscheduler.triggers import *
-from apscheduler.util import asbool
+from apscheduler.util import time_difference, asbool
+from apscheduler.triggers import DateTrigger, IntervalTrigger, CronTrigger
 
 
 logger = getLogger(__name__)
@@ -135,9 +134,9 @@ class Scheduler(object):
             self.thread.join(timeout)
         self.jobs = []
 
-    def cron_schedule(self, year='*', month='*', day='*', day_of_week='*',
-                      hour='*', minute='*', second='*', args=None,
-                      kwargs=None):
+    def cron_schedule(self, year='*', month='*', day='*', week='*',
+                      day_of_week='*', hour='*', minute='*', second='*',
+                      args=None, kwargs=None):
         """
         Decorator that causes its host function to be scheduled
         according to the given parameters.
@@ -146,7 +145,7 @@ class Scheduler(object):
         See :meth:`add_cron_job` for more information.
         """
         def inner(func):
-            self.add_cron_job(func, year, month, day, day_of_week, hour,
+            self.add_cron_job(func, year, month, day, week, day_of_week, hour,
                               minute, second, args, kwargs)
             return func
         return inner
@@ -235,8 +234,9 @@ class Scheduler(object):
         trigger = IntervalTrigger(interval, repeat, start_date)
         return self.add_job(trigger, func, args, kwargs)
 
-    def add_cron_job(self, func, year='*', month='*', day='*', day_of_week='*',
-                     hour='*', minute='*', second='*', args=None, kwargs=None):
+    def add_cron_job(self, func, year='*', month='*', day='*', week='*',
+                     day_of_week='*', hour='*', minute='*', second='*',
+                     args=None, kwargs=None):
         """
         Adds a job to be completed on times that match the given expressions.
 
@@ -244,6 +244,7 @@ class Scheduler(object):
         :param year: year to run on
         :param month: month to run on (0 = January)
         :param day: day of month to run on
+        :param week: week of the year to run on
         :param day_of_week: weekday to run on (0 = Monday)
         :param hour: hour to run on
         :param second: second to run on
