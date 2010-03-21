@@ -25,7 +25,6 @@ setup(
     ],
     keywords='scheduling cron',
     license='MIT',
-    package_dir={'': 'src'},
     packages=['apscheduler'],
     zip_safe=True,
     test_suite='nose.collector',
