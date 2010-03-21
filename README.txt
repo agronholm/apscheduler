@@ -1,8 +1,8 @@
-APScheduler is a light but powerful in-process task scheduler that
-lets you schedule functions (or any python callables) to be executed at times
-of your choosing.
+Advanced Python Scheduler (apscheduler) is a light but powerful in-process task
+scheduler that lets you schedule functions (or any python callables) to be
+executed at times of your choosing.
 
-The development of APScheduler was heavily influenced by the `Quartz
+The development of apscheduler was heavily influenced by the `Quartz
 <http://www.opensymphony.com/quartz/>`_ task scheduler written in Java,
 although APScheduler cannot claim as many features.
 
@@ -22,7 +22,7 @@ Documentation
 =============
 
 Documentation can be found on the `APScheduler site
-<http://apscheduler.nextday.fi/>`_.
+<http://packages.python.org/APScheduler/>`_.
 
 
 Source
