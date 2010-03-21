@@ -182,6 +182,9 @@ A `bug tracker <http://bitbucket.org/agronholm/apscheduler/issues/>`_
 is provided by bitbucket.org.
 
 
+.. include:: ../CHANGES.txt
+
+
 Indices and tables
 ==================
 
