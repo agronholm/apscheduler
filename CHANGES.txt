@@ -1,0 +1,23 @@
+Version history
+===============
+
+1.2
+---
+
+* Added the ``week`` option for cron schedules
+
+* Added the ``daemonic`` configuration option
+
+* Fixed a bug in cron expression lists that could cause valid firing times
+  to be missed
+
+* Fixed unscheduling bound methods via unschedule_func()
+
+* Changed CronTrigger constructor argument names to match those in Scheduler
+
+
+1.01
+----
+
+* Fixed a corner case where the combination of hour and day_of_week parameters
+  would cause incorrect timing for a cron trigger
