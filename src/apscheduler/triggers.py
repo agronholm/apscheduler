@@ -11,16 +11,17 @@ __all__ = ('CronTrigger', 'DateTrigger', 'IntervalTrigger')
 
 
 class CronTrigger(object):
-    def __init__(self, years='*', months='*', days='*', days_of_week='*',
-                 hours='*', minutes='*', seconds='*'):
+    def __init__(self, year='*', month='*', day='*', week='*',
+                 day_of_week='*', hour='*', minute='*', second='*'):
         self.fields = []
-        self._compile_expressions(years, 'year')
-        self._compile_expressions(months, 'month')
-        self._compile_expressions(days, 'day')
-        self._compile_expressions(days_of_week, 'day_of_week')
-        self._compile_expressions(hours, 'hour')
-        self._compile_expressions(minutes, 'minute')
-        self._compile_expressions(seconds, 'second')
+        self._compile_expressions(year, 'year')
+        self._compile_expressions(month, 'month')
+        self._compile_expressions(day, 'day')
+        self._compile_expressions(week, 'week')
+        self._compile_expressions(day_of_week, 'day_of_week')
+        self._compile_expressions(hour, 'hour')
+        self._compile_expressions(minute, 'minute')
+        self._compile_expressions(second, 'second')
 
     def _compile_expressions(self, exprs, fieldname):
         def compile_single(expr):
@@ -77,7 +78,9 @@ class CronTrigger(object):
         :type dateval: datetime
         :type fieldnum: int
         :type amount: int
-        :rtype: datetime
+        :rtype: tuple
+        :return: a tuple containing the new date, and the number of the field
+                 that was actually incremented
         """
 
         # If the given field is already at its maximum, or it has no counterpart
@@ -87,7 +90,8 @@ class CronTrigger(object):
         if value is not None:
             maxval = get_actual_maximum(dateval, fieldname)
             if value < maxval:
-                return self._set_field_value(dateval, fieldnum, value + 1)
+                dateval = self._set_field_value(dateval, fieldnum, value + 1)
+                return (dateval, fieldnum)
         return self._increment_field_value(dateval, fieldnum - 1)
 
     def get_next_fire_time(self, start_date):
@@ -101,21 +105,24 @@ class CronTrigger(object):
             nextval = None
             for expr in expr_list:
                 val = expr.get_next_value(next_date, fieldname)
-                if nextval is not None:
-                    nextval = min(val, nextval)
-                else:
-                    nextval = val
+                if val is not None:
+                    if nextval is not None:
+                        nextval = min(val, nextval)
+                    else:
+                        nextval = val
 
-            if nextval is None or (fieldname == 'day_of_week' and
-                                   nextval > startval):
-                # No valid value was found for this field
+            if nextval is None or (nextval > startval and not
+                                   hasattr(datetime, fieldname)):
+                # Either no valid value was found for this field,
+                # or this field is a computed field and the current
+                # value was not acceptable
                 if fieldnum == 0:
-                    # No valid values found for the year field, so give up
+                    # No valid values found for the first field, so give up
                     return None
                 # Return to the previous field and look for the
                 # next valid value
-                fieldnum -= 1
-                next_date = self._increment_field_value(next_date, fieldnum)
+                next_date, fieldnum = self._increment_field_value(next_date,
+                                                                  fieldnum)
             elif nextval > startval:
                 # A valid value was found, but it was higher than the starting
                 # value, so reset all less significant fields so as not to miss
