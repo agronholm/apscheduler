@@ -1,6 +1,13 @@
 Version history
 ===============
 
+1.2.1
+-----
+
+* Fixed regression: add_cron_job() in Scheduler was creating a CronTrigger with
+  the wrong parameters
+
+
 1.2
 ---
 
