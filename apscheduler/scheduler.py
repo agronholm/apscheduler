@@ -111,6 +111,8 @@ class Scheduler(object):
         """
         if self.thread and self.thread.isAlive():
             raise SchedulerAlreadyRunningError
+        
+        self.stopped = False
         self.thread = Thread(target=self.run, name='APScheduler')
         self.thread.setDaemon(self.daemonic)
         self.thread.start()

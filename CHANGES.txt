@@ -7,6 +7,9 @@ Version history
 * Fixed regression: add_cron_job() in Scheduler was creating a CronTrigger with
   the wrong parameters
 
+* Fixed: if the scheduler is restarted, clear the "stopped" flag to allow
+  jobs to be scheduled again
+
 
 1.2
 ---
