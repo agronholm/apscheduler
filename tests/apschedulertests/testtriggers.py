@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from nose.tools import eq_, raises
+from nose.tools import eq_, raises, set_trace
 
 from apscheduler.triggers import CronTrigger, DateTrigger, IntervalTrigger
 
@@ -46,6 +46,14 @@ def test_cron_weekday_nomatch():
                           day_of_week='0,6')
     start_date = datetime(2009, 1, 1)
     correct_next_date = None
+    eq_(trigger.get_next_fire_time(start_date), correct_next_date)
+
+
+def test_cron_weekday_positional():
+    trigger = CronTrigger(year=2009, month=1, day_of_week='4th wed')
+    start_date = datetime(2009, 1, 1)
+    correct_next_date = datetime(2009, 1, 28)
+    set_trace()
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
 
