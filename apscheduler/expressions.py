@@ -110,7 +110,7 @@ class WeekdayRangeExpression(RangeExpression):
 
 class WeekdayPositionExpression(object):
     options = ['1st', '2nd', '3rd', '4th', '5th', 'last']
-    value_re = re.compile(r'(?P<option>%s) +(?P<weekday>(?:\d+|\w+))'
+    value_re = re.compile(r'(?P<option_name>%s) +(?P<weekday_name>(?:\d+|\w+))'
                           % '|'.join(options), re.IGNORECASE)
 
     def __init__(self, option_name, weekday_name):
@@ -125,6 +125,8 @@ class WeekdayPositionExpression(object):
             raise ValueError('Invalid weekday name "%s"' % weekday_name)
 
     def get_next_value(self, date, field):
+        from pdb import set_trace
+        set_trace()
         hits = 0
         last_hit = None
         wday, last_day = monthrange(date.year, date.month)
