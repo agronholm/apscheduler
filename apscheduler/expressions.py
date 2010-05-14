@@ -125,20 +125,23 @@ class WeekdayPositionExpression(object):
             raise ValueError('Invalid weekday name "%s"' % weekday_name)
 
     def get_next_value(self, date, field):
-        from pdb import set_trace
-        set_trace()
-        hits = 0
-        last_hit = None
-        wday, last_day = monthrange(date.year, date.month)
-        for day in range(date.day, last_day+1):
-            wday = weekday(date.year, date.month, day)
-            if wday == self.weekday:
-                if hits == self.option_num:
-                    return day
-                hits += 1
-                last_hit = day
-        if self.option_num == 5:
-            return last_hit
+        # Figure out the weekday of the month's first day and the number
+        # of days in that month
+        first_day_wday, last_day = monthrange(date.year, date.month)
+
+        # Calculate which day of the month is the first of the target weekdays
+        first_hit_day = self.weekday - first_day_wday + 1
+        if first_hit_day <= 0:
+            first_hit_day += 7
+        
+        # Calculate what day of the month the target weekday would be
+        if self.option_num < 5:
+            target_day = first_hit_day + self.option_num * 7
+        else:
+            target_day = first_hit_day + ((last_day - first_hit_day) / 7) * 7 
+
+        if target_day <= last_day and target_day >= date.day:
+            return target_day
 
     def __str__(self):
         return '%s %s' % (self.options[self.option_num],
