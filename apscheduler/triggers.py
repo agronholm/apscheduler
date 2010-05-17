@@ -4,71 +4,31 @@ Triggers determine the times when a job should be executed.
 from datetime import datetime, timedelta
 from math import ceil
 
-from apscheduler.expressions import *
+from apscheduler.fields import *
 from apscheduler.util import *
 
 __all__ = ('CronTrigger', 'DateTrigger', 'IntervalTrigger')
 
 
 class CronTrigger(object):
-    def __init__(self, year='*', month='*', day='*', week='*',
-                 day_of_week='*', hour='*', minute='*', second='*'):
+    FIELD_NAMES = ('year', 'month', 'day', 'week', 'day_of_week', 'hour',
+                   'minute', 'second')
+    FIELDS_MAP = {'year': BaseField,
+                  'month': BaseField,
+                  'week': WeekField,
+                  'day': DayOfMonthField,
+                  'day_of_week': DayOfWeekField,
+                  'hour': BaseField,
+                  'minute': BaseField,
+                  'second': BaseField}
+
+    def __init__(self, **values):
         self.fields = []
-        self._compile_expressions(year, 'year')
-        self._compile_expressions(month, 'month')
-        self._compile_expressions(day, 'day')
-        self._compile_expressions(week, 'week')
-        self._compile_expressions(day_of_week, 'day_of_week')
-        self._compile_expressions(hour, 'hour')
-        self._compile_expressions(minute, 'minute')
-        self._compile_expressions(second, 'second')
-
-    def _compile_expressions(self, exprs, fieldname):
-        def compile_single(expr):
-            compilers = [AllExpression, RangeExpression]
-            if fieldname == 'day_of_week':
-                compilers.append(WeekdayRangeExpression)
-                compilers.append(WeekdayPositionExpression)
-            for compiler in compilers:
-                match = compiler.value_re.match(expr)
-                if match:
-                    return compiler(**match.groupdict())
-            raise ValueError('Unrecognized expression "%s" for field "%s"' %
-                             (expr, fieldname))
-
-        exprs = str(exprs).strip()
-        if ',' in exprs:
-            expr_list = exprs.split(',')
-        else:
-            expr_list = [exprs]
-        compiled_expr_list = [compile_single(expr) for expr in expr_list]
-        self.fields.append((fieldname, compiled_expr_list))
-
-    def _set_field_value(self, dateval, fieldnum, new_value):
-        """
-        Sets the value of the designated field in the given datetime object.
-        All less significant fields will be reset to their minimum values.
-
-        :type dateval: datetime
-        :type fieldnum: int
-        :type new_value: int
-        :rtype: datetime
-        """
-
-        # Fill in values for all date fields
-        values = {}
-        for i, field in enumerate(self.fields):
-            fieldname = field[0]
-            if not hasattr(dateval, fieldname):
-                continue
-            if i < fieldnum:
-                values[fieldname] = getattr(dateval, fieldname)
-            elif i > fieldnum:
-                values[fieldname] = MIN_VALUES[fieldname]
-            else:
-                values[fieldname] = new_value
-
-        return datetime(**values)
+        for field_name in self.FIELD_NAMES:
+            exprs = values.get(field_name) or '*'
+            field_class = self.FIELDS_MAP[field_name]
+            field = field_class(field_name, exprs)
+            self.fields.append(field)
 
     def _increment_field_value(self, dateval, fieldnum):
         """
@@ -82,59 +42,76 @@ class CronTrigger(object):
         :return: a tuple containing the new date, and the number of the field
                  that was actually incremented
         """
+        i = 0
+        values = {}
+        while i < len(self.fields):
+            field = self.fields[i]
+            if not field.REAL:
+                if i == fieldnum:
+                    fieldnum -= 1
+                    i -= 1
+                else:
+                    i += 1
+                continue
 
-        # If the given field is already at its maximum, or it has no counterpart
-        # in a datetime object, then increment the next most significant field
-        fieldname = self.fields[fieldnum][0]
-        value = getattr(dateval, fieldname, None)
-        if value is not None:
-            maxval = get_actual_maximum(dateval, fieldname)
-            if value < maxval:
-                dateval = self._set_field_value(dateval, fieldnum, value + 1)
-                return (dateval, fieldnum)
-        return self._increment_field_value(dateval, fieldnum - 1)
+            if i < fieldnum:
+                values[field.name] = field.get_value(dateval)
+                i += 1
+            elif i > fieldnum:
+                values[field.name] = field.get_min(dateval)
+                i += 1
+            else:
+                value = field.get_value(dateval)
+                maxval = field.get_max(dateval)
+                if value == maxval:
+                    fieldnum -= 1
+                    i -= 1
+                else:
+                    values[field.name] = value + 1
+                    i += 1
+
+        return datetime(**values), fieldnum
+
+    def _set_field_value(self, dateval, fieldnum, new_value):
+        values = {}
+        for i, field in enumerate(self.fields):
+            if field.REAL:
+                if i < fieldnum:
+                    values[field.name] = field.get_value(dateval)
+                elif i > fieldnum:
+                    values[field.name] = field.get_min(dateval)
+                else:
+                    values[field.name] = new_value
+
+        return datetime(**values)
 
     def get_next_fire_time(self, start_date):
         next_date = datetime_ceil(start_date)
         fieldnum = 0
-        while fieldnum < len(self.fields):
-            fieldname, expr_list = self.fields[fieldnum]
-            startval = get_date_field(next_date, fieldname)
+        while 0 <= fieldnum < len(self.fields):
+            field = self.fields[fieldnum]
+            curr_value = field.get_value(next_date)
+            next_value = field.get_next_value(next_date)
 
-            # Calculate the smallest suitable value for this field
-            nextval = None
-            for expr in expr_list:
-                val = expr.get_next_value(next_date, fieldname)
-                if val is not None:
-                    if nextval is not None:
-                        nextval = min(val, nextval)
-                    else:
-                        nextval = val
-
-            if nextval is None or (nextval > startval and not
-                                   hasattr(datetime, fieldname)):
-                # Either no valid value was found for this field,
-                # or this field is a computed field and the current
-                # value was not acceptable
-                if fieldnum == 0:
-                    # No valid values found for the first field, so give up
-                    return None
-                # Return to the previous field and look for the
-                # next valid value
+            if next_value is None:
+                # No valid value was found
                 next_date, fieldnum = self._increment_field_value(next_date,
-                                                                  fieldnum)
-            elif nextval > startval:
-                # A valid value was found, but it was higher than the starting
-                # value, so reset all less significant fields so as not to miss
-                # any potential combinations
-                next_date = self._set_field_value(next_date, fieldnum, nextval)
-                fieldnum += 1
+                                                                  fieldnum - 1)
+            elif next_value > curr_value:
+                # A valid, but higher than the starting value, was found
+                if field.REAL:
+                    next_date = self._set_field_value(next_date, fieldnum,
+                                                      next_value)
+                    fieldnum += 1
+                else:
+                    next_date, fieldnum = self._increment_field_value(next_date,
+                                                                      fieldnum)
             else:
-                # The field's value was accepted without modifications
+                # A valid value was found, no changes necessary
                 fieldnum += 1
 
-        next_date = next_date - timedelta(microseconds=next_date.microsecond)
-        return next_date
+        if fieldnum >= 0:
+            return next_date
 
 
 class DateTrigger(object):
@@ -167,7 +144,7 @@ class IntervalTrigger(object):
         self.first_fire_date -= timedelta(microseconds=\
                                           self.first_fire_date.microsecond)
         if repeat > 0:
-            self.last_fire_date = self.first_fire_date + interval * (repeat-1)
+            self.last_fire_date = self.first_fire_date + interval * (repeat - 1)
         else:
             self.last_fire_date = None
 

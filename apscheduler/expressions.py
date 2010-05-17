@@ -1,13 +1,13 @@
 """
 This module contains the expressions applicable for CronTrigger's fields.
 """
+from calendar import monthrange
 import re
-from calendar import weekday, monthrange
 
-from apscheduler.util import *
+from apscheduler.util import asint
 
-__all__ = ['AllExpression', 'RangeExpression', 'WeekdayRangeExpression',
-           'WeekdayPositionExpression']
+__all__ = ('AllExpression', 'RangeExpression', 'WeekdayRangeExpression',
+           'WeekdayPositionExpression')
 
 WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
@@ -20,18 +20,12 @@ class AllExpression(object):
         if self.step == 0:
             raise ValueError('Increment must be higher than 0')
 
-    def _get_minval(self, date, field):
-        return MIN_VALUES[field]
-
-    def _get_maxval(self, date, field):
-        return get_actual_maximum(date, field)
-
-    def get_next_value(self, date, fieldname):
-        # day_of_week is not an attribute of datetime
-        start = get_date_field(date, fieldname)
-        minval = self._get_minval(date, fieldname)
-        maxval = self._get_maxval(date, fieldname)
+    def get_next_value(self, date, field):
+        start = field.get_value(date)
+        minval = field.get_min(date)
+        maxval = field.get_max(date)
         start = max(start, minval)
+
         if not self.step:
             next = start
         else:
@@ -45,6 +39,9 @@ class AllExpression(object):
         if self.step:
             return '*/%d' % self.step
         return '*'
+
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, str(self))
 
 
 class RangeExpression(AllExpression):
@@ -63,15 +60,25 @@ class RangeExpression(AllExpression):
         self.first = first
         self.last = last
 
-    def _get_minval(self, date, field):
-        minval = AllExpression._get_minval(self, date, field)
-        return max(minval, self.first)
-
-    def _get_maxval(self, date, field):
-        maxval = AllExpression._get_maxval(self, date, field)
+    def get_next_value(self, date, field):
+        start = field.get_value(date)
+        minval = field.get_min(date)
+        maxval = field.get_max(date)
+        
+        # Apply range limits
+        minval = max(minval, self.first)
         if self.last is not None:
-            return min(maxval, self.last)
-        return maxval
+            maxval = min(maxval, self.last)
+        start = max(start, minval)
+
+        if not self.step:
+            next = start
+        else:
+            distance_to_next = (self.step - (start - minval)) % self.step
+            next = start + distance_to_next
+
+        if next <= maxval:
+            return next
 
     def __str__(self):
         if self.last != self.first:
@@ -83,7 +90,7 @@ class RangeExpression(AllExpression):
 
 
 class WeekdayRangeExpression(RangeExpression):
-    value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))',
+    value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?',
                           re.IGNORECASE)
 
     def __init__(self, first, last=None):
@@ -108,7 +115,7 @@ class WeekdayRangeExpression(RangeExpression):
         return WEEKDAYS[self.first]
 
 
-class WeekdayPositionExpression(object):
+class WeekdayPositionExpression(AllExpression):
     options = ['1st', '2nd', '3rd', '4th', '5th', 'last']
     value_re = re.compile(r'(?P<option_name>%s) +(?P<weekday_name>(?:\d+|\w+))'
                           % '|'.join(options), re.IGNORECASE)
@@ -133,12 +140,12 @@ class WeekdayPositionExpression(object):
         first_hit_day = self.weekday - first_day_wday + 1
         if first_hit_day <= 0:
             first_hit_day += 7
-        
+
         # Calculate what day of the month the target weekday would be
         if self.option_num < 5:
             target_day = first_hit_day + self.option_num * 7
         else:
-            target_day = first_hit_day + ((last_day - first_hit_day) / 7) * 7 
+            target_day = first_hit_day + ((last_day - first_hit_day) / 7) * 7
 
         if target_day <= last_day and target_day >= date.day:
             return target_day

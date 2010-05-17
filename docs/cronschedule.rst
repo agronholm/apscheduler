@@ -22,19 +22,21 @@ Expression   Field     Description
 ``a-b``      any       Fire on any value within the ``a-b`` range
                        (a must be smaller than b)
 ``a-b/c``    any       Fire every ``c`` values within the ``a-b`` range
-``xth y``    weekdays  Fire on the ``x`` -th occurrence of weekday ``y`` within
-                       a month
-``last x``   weekdays  Fire on last weekday ``x``
+``xth y``    day       Fire on the ``x`` -th occurrence of weekday ``y`` within
+                       the month
+``last x``   day       Fire on the last occurrence of weekday ``x`` within the
+                       month
 ``x,y,z``    any       Fire on any matching expression; can combine any number
                        of any of the above expressions
 ============ ========= ======================================================
 
 .. Note::
 
+	APSCheduler follows the ISO standard, where the week starts from Monday.
 	Weekdays are numbered from 0-6, where Monday is 0 and Sunday is 6.
-	The corresponding textual values are "mon", "tue", "wed", "thu", "fri", "sat"
-	and "sun". You cannot combine textual values and numeric values, and you cannot
-	use the stepping (``a-b/c``) syntax with the textual values.
+	The corresponding textual values are "mon", "tue", "wed", "thu", "fri",
+	"sat" and "sun". You cannot combine textual values and numeric values, and
+	you cannot use the stepping (``a-b/c``) syntax with the textual values.
 
 
 Example
@@ -54,7 +56,7 @@ Example
     # Schedules job_function to be run on the third Friday
     # of June, July, August, November and December, from midnight
     # to 3 am
-    sched.add_cron_job(job_function, month='6-8,11-12', day_of_week='3rd fri',
+    sched.add_cron_job(job_function, month='6-8,11-12', day='3rd fri',
                        hour='0-3')
 
 Decorator syntax
@@ -68,6 +70,6 @@ parameter, obviously.
 
 ::
 
-    @sched.cron_schedule(day_of_week='last sun')
+    @sched.cron_schedule(day='last sun')
     def some_decorated_task():
         print "I am printed on the last sunday of every month!"

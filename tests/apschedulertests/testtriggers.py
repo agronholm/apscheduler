@@ -50,7 +50,7 @@ def test_cron_weekday_nomatch():
 
 
 def test_cron_weekday_positional():
-    trigger = CronTrigger(year=2009, month=1, day_of_week='4th wed')
+    trigger = CronTrigger(year=2009, month=1, day='4th wed')
     start_date = datetime(2009, 1, 1)
     correct_next_date = datetime(2009, 1, 28)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)

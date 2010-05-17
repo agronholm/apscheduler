@@ -255,8 +255,9 @@ class Scheduler(object):
         :return: the scheduled job
         :rtype: Job
         """
-        trigger = CronTrigger(year, month, day, week, day_of_week, hour,
-                              minute, second)
+        trigger = CronTrigger(year=year, month=month, day=day, week=week,
+                              day_of_week=day_of_week, hour=hour,
+                              minute=minute, second=second)
         return self.add_job(trigger, func, args, kwargs)
 
     def is_job_active(self, job):

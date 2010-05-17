@@ -38,27 +38,6 @@ def test_asbool_fail():
     asbool('yep')
 
 
-def test_maxval_leapyear():
-    dateval = datetime(2008, 2, 1)
-    eq_(get_actual_maximum(dateval, 'day'), 29)
-
-
-def test_maxval_nonleap():
-    dateval = datetime(2009, 2, 1)
-    eq_(get_actual_maximum(dateval, 'day'), 28)
-
-
-def test_date_field():
-    dateval = datetime(2008, 7, 9, 10, 0, 3)
-    eq_(get_date_field(dateval, 'year'), 2008)
-    eq_(get_date_field(dateval, 'month'), 7)
-    eq_(get_date_field(dateval, 'day'), 9)
-    eq_(get_date_field(dateval, 'day_of_week'), 2)
-    eq_(get_date_field(dateval, 'hour'), 10)
-    eq_(get_date_field(dateval, 'minute'), 0)
-    eq_(get_date_field(dateval, 'second'), 3)
-
-
 def test_convert_datetime_date():
     dateval = date(2009, 8, 1)
     datetimeval = convert_to_datetime(dateval)
