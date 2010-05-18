@@ -81,12 +81,14 @@ class RangeExpression(AllExpression):
             return next
 
     def __str__(self):
-        if self.last != self.first:
-            if self.step:
-                return '%d-%d/%d' % (self.first, self.last, self.step)
-            else:
-                return '%d-%d' % (self.first, self.last)
-        return str(self.first)
+        if self.last != self.first and self.last is not None:
+            range = '%d-%d' % (self.first, self.last)
+        else:
+            range = str(self.first)
+        
+        if self.step:
+            return '%s/%d' % (range, self.step)
+        return range
 
 
 class WeekdayRangeExpression(RangeExpression):
