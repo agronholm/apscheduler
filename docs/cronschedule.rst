@@ -8,6 +8,24 @@ time that satisfies the conditions in every field.
 This behavior closely resembles the "Cron" utility found in most UNIX-like
 operating systems.
 
+Available fields
+----------------
+
+=============== ======================================================
+Field           Description
+=============== ======================================================
+``year``        4-digit year number
+``month``       month number (1-12)
+``day``         day of the month (1-31)
+``week``        ISO week number (1-53)
+``day_of_week`` number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun)
+``hour``        hour (0-23)
+``minute``      minute (0-59)
+``second``      second (0-59)
+=============== ======================================================
+
+.. Note:: The first weekday is always **monday**.
+
 Expression types
 ----------------
 
@@ -29,15 +47,6 @@ Expression   Field     Description
 ``x,y,z``    any       Fire on any matching expression; can combine any number
                        of any of the above expressions
 ============ ========= ======================================================
-
-.. Note::
-
-	APSCheduler follows the ISO standard, where the week starts from Monday.
-	Weekdays are numbered from 0-6, where Monday is 0 and Sunday is 6.
-	The corresponding textual values are "mon", "tue", "wed", "thu", "fri",
-	"sat" and "sun". You cannot combine textual values and numeric values, and
-	you cannot use the stepping (``a-b/c``) syntax with the textual values.
-
 
 Example
 -------
