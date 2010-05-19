@@ -196,3 +196,10 @@ class TestScheduler(object):
         """
         self.scheduler.shutdown()
         self.scheduler.add_interval_job(lambda: 1)
+
+    def test_dump_jobs(self):
+        eq_(self.scheduler.dump_jobs(), 'No jobs currently scheduled.')
+        self.scheduler.add_date_job(sleep, datetime(2200, 5, 19))
+        eq_(self.scheduler.dump_jobs(),
+            'sleep: DateTrigger(datetime.datetime(2200, 5, 19, 0, 0)) '
+            '(next fire time: 2200-05-19 00:00:00)')

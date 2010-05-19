@@ -124,6 +124,17 @@ to execute a job, but the previously launched thread for that job is still
 running, then it will not be fired at the time. Only when the previous instance
 has finished, will it be executed again.
 
+Getting a list of scheduled jobs
+--------------------------------
+
+If you want to see which jobs are currently added in the scheduler, you can
+simply do::
+
+	print sched.dump_jobs()
+
+This will print a human-friendly listing of scheduled jobs, their triggering
+mechanisms and the next time they will fire.
+
 Shutting down
 -------------
 

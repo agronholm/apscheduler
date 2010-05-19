@@ -2,10 +2,10 @@
 This module is the main part of the library, and is the only module that
 regular users should be concerned with.
 """
-
 from threading import Thread, Event, Lock
 from datetime import datetime, timedelta
 from logging import getLogger
+import os
 
 from apscheduler.util import time_difference, asbool
 from apscheduler.triggers import DateTrigger, IntervalTrigger, CronTrigger
@@ -172,7 +172,7 @@ class Scheduler(object):
             return func
         return inner
 
-    def add_job(self, trigger, func, args, kwargs):
+    def _add_job(self, trigger, func, args, kwargs):
         """
         Adds a Job to the job list and notifies the scheduler thread.
 
@@ -214,7 +214,7 @@ class Scheduler(object):
         :param kwargs: keyword arguments to call func with
         """
         trigger = DateTrigger(date)
-        return self.add_job(trigger, func, args, kwargs)
+        return self._add_job(trigger, func, args, kwargs)
 
     def add_interval_job(self, func, weeks=0, days=0, hours=0, minutes=0,
                          seconds=0, start_date=None, repeat=0, args=None,
@@ -238,7 +238,7 @@ class Scheduler(object):
         interval = timedelta(weeks=weeks, days=days, hours=hours,
                              minutes=minutes, seconds=seconds)
         trigger = IntervalTrigger(interval, repeat, start_date)
-        return self.add_job(trigger, func, args, kwargs)
+        return self._add_job(trigger, func, args, kwargs)
 
     def add_cron_job(self, func, year='*', month='*', day='*', week='*',
                      day_of_week='*', hour='*', minute='*', second='*',
@@ -262,7 +262,7 @@ class Scheduler(object):
         trigger = CronTrigger(year=year, month=month, day=day, week=week,
                               day_of_week=day_of_week, hour=hour,
                               minute=minute, second=second)
-        return self.add_job(trigger, func, args, kwargs)
+        return self._add_job(trigger, func, args, kwargs)
 
     def is_job_active(self, job):
         """
@@ -303,6 +303,29 @@ class Scheduler(object):
 
         # Have the scheduler calculate a new wakeup time
         self.wakeup.set()
+
+    def dump_jobs(self):
+        """
+        Gives a textual listing of all jobs currently scheduled on this
+        scheduler.
+
+        :rtype: str
+        """
+        job_strs = []
+        now = datetime.now()
+        self.jobs_lock.acquire()
+        try:
+            for job in self.jobs:
+                next_fire_time = job.trigger.get_next_fire_time(now)
+                job_str = '%s (next fire time: %s)' % (str(job),
+                                                       next_fire_time)
+                job_strs.append(job_str)
+        finally:
+            self.jobs_lock.release()
+
+        if job_strs:
+            return os.linesep.join(job_strs)
+        return 'No jobs currently scheduled.'
 
     def _get_next_wakeup_time(self, now):
         """
