@@ -41,7 +41,7 @@ class AllExpression(object):
         return '*'
 
     def __repr__(self):
-        return '%s(%s)' % (self.__class__.__name__, str(self))
+        return "%s(%s)" % (self.__class__.__name__, self.step)
 
 
 class RangeExpression(AllExpression):
@@ -90,6 +90,14 @@ class RangeExpression(AllExpression):
             return '%s/%d' % (range, self.step)
         return range
 
+    def __repr__(self):
+        args = [str(self.first)]
+        if self.last != self.first and self.last is not None or self.step:
+            args.append(str(self.last))
+        if self.step:
+            args.append(str(self.step))
+        return "%s(%s)" % (self.__class__.__name__, ', '.join(args))
+
 
 class WeekdayRangeExpression(RangeExpression):
     value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?',
@@ -112,9 +120,15 @@ class WeekdayRangeExpression(RangeExpression):
         RangeExpression.__init__(self, first_num, last_num)
 
     def __str__(self):
-        if self.last != self.first:
+        if self.last != self.first and self.last is not None:
             return '%s-%s' % (WEEKDAYS[self.first], WEEKDAYS[self.last])
         return WEEKDAYS[self.first]
+
+    def __repr__(self):
+        args = ["'%s'" % WEEKDAYS[self.first]]
+        if self.last != self.first and self.last is not None:
+            args.append("'%s'" % WEEKDAYS[self.last])
+        return "%s(%s)" % (self.__class__.__name__, ', '.join(args))
 
 
 class WeekdayPositionExpression(AllExpression):
@@ -155,3 +169,8 @@ class WeekdayPositionExpression(AllExpression):
     def __str__(self):
         return '%s %s' % (self.options[self.option_num],
                           WEEKDAYS[self.weekday])
+
+    def __repr__(self):
+        return "%s('%s', '%s')" % (self.__class__.__name__,
+                                   self.options[self.option_num],
+                                   WEEKDAYS[self.weekday])

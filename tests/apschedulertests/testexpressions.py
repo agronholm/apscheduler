@@ -8,7 +8,7 @@ from apscheduler.fields import DayOfMonthField, BaseField, DayOfWeekField
 
 def test_all_expression():
     field = DayOfMonthField('day', '*')
-    eq_(repr(field), 'DayOfMonthField(day, *)')
+    eq_(repr(field), "DayOfMonthField('day', '*')")
     date = datetime(2009, 7, 1)
     eq_(field.get_next_value(date), 1)
     date = datetime(2009, 7, 10)
@@ -19,7 +19,7 @@ def test_all_expression():
 
 def test_all_expression_step():
     field = BaseField('hour', '*/3')
-    eq_(repr(field), 'BaseField(hour, */3)')
+    eq_(repr(field), "BaseField('hour', '*/3')")
     date = datetime(2009, 7, 1, 0)
     eq_(field.get_next_value(date), 0)
     date = datetime(2009, 7, 1, 2)
@@ -35,17 +35,17 @@ def test_all_expression_invalid():
 
 def test_all_expression_repr():
     expr = AllExpression()
-    eq_(repr(expr), 'AllExpression(*)')
+    eq_(repr(expr), 'AllExpression(None)')
 
 
 def test_all_expression_step_repr():
     expr = AllExpression(2)
-    eq_(repr(expr), 'AllExpression(*/2)')
+    eq_(repr(expr), "AllExpression(2)")
 
 
 def test_range_expression():
     field = DayOfMonthField('day', '2-9')
-    eq_(repr(field), 'DayOfMonthField(day, 2-9)')
+    eq_(repr(field), "DayOfMonthField('day', '2-9')")
     date = datetime(2009, 7, 1)
     eq_(field.get_next_value(date), 2)
     date = datetime(2009, 7, 10)
@@ -56,7 +56,7 @@ def test_range_expression():
 
 def test_range_expression_step():
     field = DayOfMonthField('day', '2-9/3')
-    eq_(repr(field), 'DayOfMonthField(day, 2-9/3)')
+    eq_(repr(field), "DayOfMonthField('day', '2-9/3')")
     date = datetime(2009, 7, 1)
     eq_(field.get_next_value(date), 2)
     date = datetime(2009, 7, 3)
@@ -67,7 +67,7 @@ def test_range_expression_step():
 
 def test_range_expression_single():
     field = DayOfMonthField('day', 9)
-    eq_(repr(field), 'DayOfMonthField(day, 9)')
+    eq_(repr(field), "DayOfMonthField('day', '9')")
     date = datetime(2009, 7, 1)
     eq_(field.get_next_value(date), 9)
     date = datetime(2009, 7, 9)
@@ -83,7 +83,7 @@ def test_range_expression_invalid():
 
 def test_range_expression_repr():
     expr = RangeExpression(3, 7)
-    eq_(repr(expr), 'RangeExpression(3-7)')
+    eq_(repr(expr), 'RangeExpression(3, 7)')
 
 
 def test_range_expression_single_repr():
@@ -93,19 +93,19 @@ def test_range_expression_single_repr():
 
 def test_range_expression_step_repr():
     expr = RangeExpression(3, 7, 2)
-    eq_(repr(expr), 'RangeExpression(3-7/2)')
+    eq_(repr(expr), 'RangeExpression(3, 7, 2)')
 
 
 def test_weekday_single():
     field = DayOfWeekField('day_of_week', 'WED')
-    eq_(repr(field), 'DayOfWeekField(day_of_week, wed)')
+    eq_(repr(field), "DayOfWeekField('day_of_week', 'wed')")
     date = datetime(2008, 2, 4)
     eq_(field.get_next_value(date), 2)
 
 
 def test_weekday_range():
     field = DayOfWeekField('day_of_week', 'TUE-SAT')
-    eq_(repr(field), 'DayOfWeekField(day_of_week, tue-sat)')
+    eq_(repr(field), "DayOfWeekField('day_of_week', 'tue-sat')")
     date = datetime(2008, 2, 7)
     eq_(field.get_next_value(date), 3)
 
@@ -143,7 +143,7 @@ def test_day_of_week_invalid_name():
 
 def test_weekday_position_expression_repr():
     expr = WeekdayPositionExpression('2nd', 'FRI')
-    eq_(repr(expr), 'WeekdayPositionExpression(2nd fri)')
+    eq_(repr(expr), "WeekdayPositionExpression('2nd', 'fri')")
 
 
 @raises(ValueError)
@@ -158,9 +158,9 @@ def test_day_of_week_invalid_last():
 
 def test_weekday_range_expression_repr():
     expr = WeekdayRangeExpression('tue', 'SUN')
-    eq_(repr(expr), 'WeekdayRangeExpression(tue-sun)')
+    eq_(repr(expr), "WeekdayRangeExpression('tue', 'sun')")
 
 
 def test_weekday_range_expression_single_repr():
     expr = WeekdayRangeExpression('thu')
-    eq_(repr(expr), 'WeekdayRangeExpression(thu)')
+    eq_(repr(expr), "WeekdayRangeExpression('thu')")

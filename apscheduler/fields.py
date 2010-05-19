@@ -66,7 +66,8 @@ class BaseField(object):
         return ','.join(expr_strings)
 
     def __repr__(self):
-        return '%s(%s, %s)' % (self.__class__.__name__, self.name, str(self))
+        return "%s('%s', '%s')" % (self.__class__.__name__, self.name,
+                                   str(self))
 
 
 class WeekField(BaseField):

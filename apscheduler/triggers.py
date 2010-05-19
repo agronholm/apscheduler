@@ -113,6 +113,11 @@ class CronTrigger(object):
         if fieldnum >= 0:
             return next_date
 
+    def __repr__(self):
+        field_reprs = ("%s='%s'" % (f.name, str(f)) for f in self.fields
+                       if str(f) != '*')
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(field_reprs))
+
 
 class DateTrigger(object):
     def __init__(self, run_date):
@@ -121,6 +126,9 @@ class DateTrigger(object):
     def get_next_fire_time(self, start_date):
         if self.run_date >= start_date:
             return self.run_date
+
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, repr(self.run_date))
 
 
 class IntervalTrigger(object):
@@ -156,3 +164,8 @@ class IntervalTrigger(object):
         timediff_seconds = timedelta_seconds(start_date - self.first_fire_date)
         next_interval_num = int(ceil(timediff_seconds / self.interval_length))
         return self.first_fire_date + self.interval * next_interval_num
+
+    def __repr__(self):
+        return "%s(interval=%s, repeat=%d, start_date=%s)" % (
+            self.__class__.__name__, repr(self.interval), self.repeat,
+            repr(self.first_fire_date))
