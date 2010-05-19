@@ -1,6 +1,6 @@
 """
-Fields represent :class:`~CronTrigger` options which map to
-:class:`~datetime.datetime` fields.
+Fields represent :class:`~apscheduler.triggers.CronTrigger` options which map
+to :class:`~datetime.datetime` fields.
 """
 from calendar import monthrange
 
