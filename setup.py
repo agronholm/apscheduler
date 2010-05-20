@@ -7,7 +7,7 @@ except ImportError:
 
 setup(
     name='APScheduler',
-    version='1.3',
+    version='1.3.1',
     description='In-process task scheduler with Cron-like capabilities',
     long_description=open('README.txt').read(),
     author='Alex Gronholm',
