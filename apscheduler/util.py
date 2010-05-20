@@ -3,6 +3,7 @@ This module contains several handy functions primarily meant for internal use.
 """
 
 from datetime import date, datetime, timedelta
+from time import mktime
 
 __all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds',
            'time_difference', 'datetime_ceil')
@@ -73,9 +74,9 @@ def time_difference(date1, date2):
     :type date2: datetime
     :rtype: float
     """
-    if date1 >= date2:
-        return timedelta_seconds(date1 - date2)
-    return -timedelta_seconds(date2 - date1)
+    later = mktime(date1.timetuple())
+    earlier = mktime(date2.timetuple())
+    return int(later - earlier)
 
 
 def datetime_ceil(dateval):

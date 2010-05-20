@@ -1,4 +1,6 @@
 from datetime import date, datetime, timedelta
+import time
+import os
 
 from nose.tools import eq_, raises
 
@@ -73,6 +75,26 @@ def test_time_difference_negative():
     earlier = datetime(2009, 4, 7, second=7)
     later = datetime(2009, 4, 7, second=56)
     eq_(time_difference(earlier, later), -49)
+
+
+class TestDSTTimeDifference(object):
+    def setup(self):
+        os.environ['TZ'] = 'Europe/Helsinki'
+        time.tzset()
+
+    def teardown(self):
+        del os.environ['TZ']
+        time.tzset()
+
+    def test_time_difference_daylight_1(self):
+        earlier = datetime(2010, 3, 28, 2)
+        later = datetime(2010, 3, 28, 4)
+        eq_(time_difference(later, earlier), 3600)
+
+    def test_time_difference_daylight_2(self):
+        earlier = datetime(2010, 10, 31, 2)
+        later = datetime(2010, 10, 31, 5)
+        eq_(time_difference(later, earlier), 14400)
 
 
 def test_datetime_ceil_round():
