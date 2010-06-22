@@ -149,7 +149,7 @@ class IntervalTrigger(object):
             self.first_fire_date = datetime.now() + self.interval
         else:
             self.first_fire_date = convert_to_datetime(start_date)
-        self.first_fire_date -= timedelta(microseconds=\
+        self.first_fire_date -= timedelta(microseconds=
                                           self.first_fire_date.microsecond)
         if repeat > 0:
             self.last_fire_date = self.first_fire_date + interval * (repeat - 1)
