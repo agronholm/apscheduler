@@ -347,7 +347,7 @@ class Scheduler(object):
                 for job in jobs:
                     now = datetime.now()
                     if job.next_run_time + job.misfire_grace_time <= now:
-                        self.threadpool.execute(job)
+                        self.threadpool.execute(job.func, job.args, job.kwargs)
                     job.next_run_time = job.trigger.get_next_run_time(now)
                     if job.next_run_time:
                         if not wakeup_time or wakeup_time > job.next_run_time:
