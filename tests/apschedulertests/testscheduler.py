@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 from time import sleep
+from cStringIO import StringIO
+import os
 
 from nose.tools import eq_, raises
 
@@ -123,7 +125,8 @@ class TestScheduler(object):
         t = TestClass()
         self.scheduler.add_interval_job(t.testMethod, days=1)
         self.scheduler.unschedule_func(t.testMethod)
-        eq_(len(self.scheduler.jobs), 0)
+        jobs = self.scheduler.get_jobs()
+        eq_(len(jobs), 0)
 
     def test_job_finished(self):
         def increment(vals):
@@ -140,7 +143,7 @@ class TestScheduler(object):
             raise TestException
         start_date = datetime(9999, 1, 1)
         job = self.scheduler.add_date_job(failure, start_date)
-        job.run_in_thread()
+        job.run()
 
     def test_interval_schedule(self):
         vals = [0]
@@ -197,9 +200,17 @@ class TestScheduler(object):
         self.scheduler.shutdown()
         self.scheduler.add_interval_job(lambda: 1)
 
-    def test_dump_jobs(self):
-        eq_(self.scheduler.dump_jobs(), 'No jobs currently scheduled.')
+    def test_print_jobs(self):
+        out = StringIO()
+        self.scheduler.print_jobs(out)
+        expected = 'Job store ram:%s'\
+                   '    No jobs currently scheduled.' % os.linesep
+        eq_(out.getvalue(), expected)
+
         self.scheduler.add_date_job(sleep, datetime(2200, 5, 19))
-        eq_(self.scheduler.dump_jobs(),
-            'sleep: DateTrigger(datetime.datetime(2200, 5, 19, 0, 0)) '
-            '(next fire time: 2200-05-19 00:00:00)')
+        out = StringIO()
+        self.scheduler.print_jobs(out)
+        expected = 'Job store ram:%s'\
+                   'sleep: DateTrigger(datetime.datetime(2200, 5, 19, 0, 0)) '\
+                   '(next fire time: 2200-05-19 00:00:00)' % os.linesep
+        eq_(out.getvalue(), expected)

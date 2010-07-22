@@ -2,9 +2,22 @@ from datetime import date, datetime, timedelta
 import time
 import os
 
-from nose.tools import eq_, raises
+from nose.tools import eq_, raises, assert_raises
 
 from apscheduler.util import *
+
+
+class DummyClass(object):
+    def meth(self):
+        pass
+    
+    @staticmethod
+    def staticmeth():
+        pass
+    
+    @classmethod
+    def classmeth(cls):
+        pass
 
 
 @raises(ValueError)
@@ -107,3 +120,14 @@ def test_datetime_ceil_exact():
     dateval = datetime(2009, 4, 7, 2, 10, 16)
     correct_answer = datetime(2009, 4, 7, 2, 10, 16)
     eq_(datetime_ceil(dateval), correct_answer)
+
+
+def test_obj_to_ref():
+    assert_raises(ValueError, obj_to_ref, DummyClass.meth)
+    assert_raises(ValueError, obj_to_ref, DummyClass.staticmeth)
+    assert_raises(ValueError, obj_to_ref, DummyClass.classmeth)
+    eq_(obj_to_ref(time.clock), 'time:clock')
+
+
+def test_ref_to_obj():
+    eq_(ref_to_obj('time:clock'), time.clock)

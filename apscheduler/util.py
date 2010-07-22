@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from time import mktime
 
 __all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds',
-           'time_difference', 'datetime_ceil')
+           'time_difference', 'datetime_ceil', 'obj_to_ref', 'ref_to_obj')
 
 
 def asint(text):
@@ -89,3 +89,49 @@ def datetime_ceil(dateval):
         return dateval + timedelta(seconds=1,
                                    microseconds=-dateval.microsecond)
     return dateval
+
+
+def subconfig(config, prefix):
+    """
+    Returns a subdictionary from keys and values of  ``config`` where the key
+    starts with the given prefix. The keys in the subdictionary have the prefix
+    removed.
+    
+    :type config: dict
+    :type prefix: str
+    :rtype: dict
+    """
+    prefixlen = len(prefix)
+    subconf = {}
+    for key, value in config.items():
+        if key.startswith(prefix):
+            key = key[:-prefixlen]
+            subconf[key] = value
+    return subconf
+
+
+def obj_to_ref(obj):
+    """
+    Returns the path to the given object.
+    """
+    ref = '%s:%s' % (obj.__module__, obj.__name__)
+    try:
+        obj2 = ref_to_obj(ref)
+    except AttributeError:
+        pass
+    else:
+        if obj2 == obj:
+            return ref
+
+    raise ValueError('Only module level objects are supported')
+
+
+def ref_to_obj(ref):
+    """
+    Returns the object pointed to by ``ref``.
+    """
+    modulename, rest = ref.split(':', 1)
+    obj = __import__(modulename)
+    for name in modulename.split('.')[1:] + rest.split('.'):
+        obj = getattr(obj, name)
+    return obj

@@ -1,70 +1,25 @@
 """
-This module is the main part of the library, and is the only module that
-regular users should be concerned with.
+This module is the main part of the library. It houses the Scheduler class
+and related exceptions.
 """
+
 from threading import Thread, Event, Lock
 from datetime import datetime, timedelta
 from logging import getLogger
 import os
+import sys
 
 from apscheduler.util import time_difference, asbool
 from apscheduler.triggers import DateTrigger, IntervalTrigger, CronTrigger
+from apscheduler.jobstore.ram_store import RAMJobStore
+from apscheduler.job import Job
 
 
 logger = getLogger(__name__)
 
-
-class Job(object):
-    """
-    Represents a task scheduled in the scheduler.
-    """
-
-    def __init__(self, trigger, func, args, kwargs):
-        self.thread = None
-        self.trigger = trigger
-        self.func = func
-        self.args = args
-        self.kwargs = kwargs
-        if hasattr(func, '__name__'):
-            self.name = func.__name__
-        else:
-            self.name = str(func)
-
-    def run(self):
-        """
-        Starts the execution of this job in a separate thread.
-        """
-        if (self.thread and self.thread.isAlive()):
-            logger.info('Skipping run of job %s (previously triggered '
-                        'instance is still running)', self)
-        else:
-            self.thread = Thread(target=self.run_in_thread)
-            self.thread.setDaemon(False)
-            self.thread.start()
-
-    def run_in_thread(self):
-        """
-        Runs the associated callable.
-        This method is executed in a dedicated thread.
-        """
-        try:
-            self.func(*self.args, **self.kwargs)
-        except:
-            logger.exception('Error executing job "%s"', self)
-            raise
-
-    def __str__(self):
-        return '%s: %s' % (self.name, repr(self.trigger))
-
-    def __repr__(self):
-        return '%s(%s, %s)' % (self.__class__.__name__, self.name,
-                               repr(self.trigger))
-
-
 class SchedulerShutdownError(Exception):
     """
-    Thrown when attempting to use the scheduler after
-    it's been shut down.
+    Raised when attempting to use the scheduler after it's been shut down.
     """
 
     def __init__(self):
@@ -73,7 +28,7 @@ class SchedulerShutdownError(Exception):
 
 class SchedulerAlreadyRunningError(Exception):
     """
-    Thrown when attempting to start the scheduler, but it's already running.
+    Raised when attempting to start the scheduler, but it's already running.
     """
 
     def __init__(self):
@@ -92,10 +47,11 @@ class Scheduler(object):
     daemonic = True
 
     def __init__(self, **config):
-        self.jobs = []
-        self.jobs_lock = Lock()
         self.wakeup = Event()
         self.configure(config)
+        self._jobstores = {}
+        self._jobstores_lock = Lock()
+        self.add_jobstore(RAMJobStore)
 
     def configure(self, config):
         """
@@ -128,7 +84,7 @@ class Scheduler(object):
         Does not terminate any currently running jobs.
 
         :param timeout: time (in seconds) to wait for the scheduler thread to
-            terminate, 0 to wait forever, None to skip waiting
+            terminate, ``0`` to wait forever, ``None`` to skip waiting
         """
         if self.stopped or not self.thread.isAlive():
             return
@@ -138,87 +94,97 @@ class Scheduler(object):
         self.wakeup.set()
         if timeout is not None:
             self.thread.join(timeout)
-        self.jobs = []
 
-    def cron_schedule(self, year='*', month='*', day='*', week='*',
-                      day_of_week='*', hour='*', minute='*', second='*',
-                      args=None, kwargs=None):
+    def add_jobstore(self, jobstore, alias=None):
         """
-        Decorator that causes its host function to be scheduled
-        according to the given parameters.
-        This decorator does not wrap its host function.
-        The scheduled function will be called without any arguments.
-        See :meth:`add_cron_job` for more information.
-        """
-        def inner(func):
-            self.add_cron_job(func, year, month, day, week, day_of_week, hour,
-                              minute, second, args, kwargs)
-            return func
-        return inner
+        Adds a job store to this scheduler.
 
-    def interval_schedule(self, weeks=0, days=0, hours=0, minutes=0, seconds=0,
-                          start_date=None, repeat=0, args=None, kwargs=None):
+        :param jobstore: job store to be added
+        :param alias: alias for the job store (job store's default used if no
+            value specified)
+        :type jobstore: instance of :class:`~apscheduler.jobstore.base.JobStore`
+        :type alias: str
         """
-        Decorator that causes its host function to be scheduled
-        for execution on specified intervals.
-        This decorator does not wrap its host function.
-        The scheduled function will be called without any arguments.
-        Note that the default repeat value is 0, which means to repeat forever.
-        See :meth:`add_delayed_job` for more information.
-        """
-        def inner(func):
-            self.add_interval_job(func, weeks, days, hours, minutes, seconds,
-                                  start_date, repeat, args, kwargs)
-            return func
-        return inner
+        if hasattr(jobstore, '__call__'):
+            jobstore = jobstore()
+        if alias:
+            jobstore.alias = alias
 
-    def _add_job(self, trigger, func, args, kwargs):
-        """
-        Adds a Job to the job list and notifies the scheduler thread.
+        self._jobstores_lock.acquire()
+        try:
+            if jobstore.alias in self._jobstores:
+                raise KeyError('Alias "%s" is already in use' % jobstore.alias)
+            self._jobstores[jobstore.alias] = jobstore
+        finally:
+            self._jobstores_lock.release()
 
-        :param trigger: trigger for the given callable
-        :param args: list of positional arguments to call func with
-        :param kwargs: dict of keyword arguments to call func with
+        # Notify the scheduler so it can scan the new job store for jobs
+        self.wakeup.set()
+
+    def remove_jobstore(self, alias):
+        """
+        Removes the jobstore by the given alias from this scheduler.
+
+        :type alias: str
+        """
+        self._jobstores_lock.acquire()
+        try:
+            del self._jobstores[alias]
+        finally:
+            self._jobstores_lock.release()
+
+    def _select_jobstore(self, storename, persistent):
+        for alias, jobstore in self._jobstores.items():
+            if alias == storename:
+                return jobstore
+            if persistent and jobstore.stores_persistent:
+                return jobstore
+            if not persistent and jobstore.stores_transient:
+                return jobstore
+
+        raise Exception('No suitable job store found')
+
+    def add_job(self, job, persistent=False, jobstore=None):
+        """
+        Adds the given :class:`~Job` to the job list and notifies the scheduler
+        thread.
+
         :return: the scheduled job
-        :rtype: Job
+        :rtype: :class:`~Job`
         """
         if self.stopped:
             raise SchedulerShutdownError
-        if not hasattr(func, '__call__'):
-            raise TypeError('func must be callable')
+        if job.misfire_grace_time is None:
+            job.misfire_grace_time = self.misfire_grace_time
 
-        if args is None:
-            args = []
-        if kwargs is None:
-            kwargs = {}
-
-        job = Job(trigger, func, args, kwargs)
-        self.jobs_lock.acquire()
-        try:
-            self.jobs.append(job)
-        finally:
-            self.jobs_lock.release()
-        logger.info('Added job "%s"', job)
+        store = self._select_jobstore(jobstore, persistent)
+        store.add_job(job)
+        logger.info('Added job "%s" to job store %s', job, store.alias)
 
         # Notify the scheduler about the new job
         self.wakeup.set()
 
-        return job
-
-    def add_date_job(self, func, date, args=None, kwargs=None):
+    def add_date_job(self, func, date, persistent=False, jobstore=None,
+                     **job_options):
         """
         Adds a job to be completed on a specific date and time.
 
-        :param func: callable to run
-        :param args: positional arguments to call func with
-        :param kwargs: keyword arguments to call func with
+        :param func: callable to run at the given time
+        :param date: 
+        :param persistent: ``True`` to store the job in a persistent job store
+        :param jobstore: stored the job in the named (or given) job store
+        :type date: :class:`datetime.date` or :class:`datetime.datetime`
+        :return: the scheduled job
+        :rtype: :class:`~Job`
         """
         trigger = DateTrigger(date)
-        return self._add_job(trigger, func, args, kwargs)
+        job = Job(trigger, func, **job_options)
+        self.add_job(job, persistent, jobstore)
+        return job
 
     def add_interval_job(self, func, weeks=0, days=0, hours=0, minutes=0,
-                         seconds=0, start_date=None, repeat=0, args=None,
-                         kwargs=None):
+                         seconds=0, start_date=None, repeat=0,
+                         persistent=False, jobstore=None, **job_options):
         """
         Adds a job to be completed on specified intervals.
 
@@ -234,15 +200,22 @@ class Scheduler(object):
             indefinitely)
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
+        :param name: name of the job
+        :param persistent: ``True`` to store the job in a persistent job store
+        :param jobstore: alias of the job store to add the job to
+        :return: the scheduled job
+        :rtype: :class:`~Job`
         """
         interval = timedelta(weeks=weeks, days=days, hours=hours,
                              minutes=minutes, seconds=seconds)
         trigger = IntervalTrigger(interval, repeat, start_date)
-        return self._add_job(trigger, func, args, kwargs)
+        job = Job(trigger, func, **job_options)
+        self.add_job(job, persistent, jobstore)
+        return job
 
     def add_cron_job(self, func, year='*', month='*', day='*', week='*',
                      day_of_week='*', hour='*', minute='*', second='*',
-                     args=None, kwargs=None):
+                     persistent=False, jobstore=None, **job_options):
         """
         Adds a job to be completed on times that match the given expressions.
 
@@ -256,13 +229,56 @@ class Scheduler(object):
         :param second: second to run on
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
+        :param name: name of the job
+        :param persistent: ``True`` to store the job in a persistent job store
+        :param misfire_grace_time: seconds after the designated run time that
+            the job is still allowed to be run
+        :param jobstore: alias of the job store to add the job to
         :return: the scheduled job
-        :rtype: Job
+        :rtype: :class:`~Job`
         """
         trigger = CronTrigger(year=year, month=month, day=day, week=week,
                               day_of_week=day_of_week, hour=hour,
                               minute=minute, second=second)
-        return self._add_job(trigger, func, args, kwargs)
+        job = Job(trigger, func, **job_options)
+        self.add_job(job, persistent, jobstore)
+        return job
+
+    def cron_schedule(self, **options):
+        """
+        Decorator that causes its host function to be scheduled
+        according to the given parameters.
+        This decorator does not wrap its host function.
+        The scheduled function will be called without any arguments.
+        See :meth:`add_cron_job` for more information.
+        """
+        def inner(func):
+            self.add_cron_job(func, **options)
+            return func
+        return inner
+
+    def interval_schedule(self, **options):
+        """
+        Decorator that causes its host function to be scheduled
+        for execution on specified intervals.
+        This decorator does not wrap its host function.
+        The scheduled function will be called without any arguments.
+        Note that the default repeat value is 0, which means to repeat forever.
+        See :meth:`add_delayed_job` for more information.
+        """
+        def inner(func):
+            self.add_interval_job(func, **options)
+            return func
+        return inner
+
+    def get_jobs(self):
+        """
+        Returns a list of all scheduled jobs.
+        """
+        jobs = []
+        for jobstore in self._jobstores.values():
+            jobs.extend(jobstore.get_jobs())
+        return jobs
 
     def is_job_active(self, job):
         """
@@ -270,21 +286,13 @@ class Scheduler(object):
 
         :return: True if the job is still active, False if not
         """
-        self.jobs_lock.acquire()
-        try:
-            return job in self.jobs
-        finally:
-            self.jobs_lock.release()
+        return job in self.get_jobs()
 
     def unschedule_job(self, job):
         """
         Removes a job, preventing it from being fired any more.
         """
-        self.jobs_lock.acquire()
-        try:
-            self.jobs.remove(job)
-        finally:
-            self.jobs_lock.release()
+        job.jobstore.remove_jobs(job)
         logger.info('Removed job "%s"', job)
         self.wakeup.set()
 
@@ -292,91 +300,36 @@ class Scheduler(object):
         """
         Removes all jobs that would execute the given function.
         """
-        self.jobs_lock.acquire()
-        try:
-            remove_list = [job for job in self.jobs if job.func == func]
-            for job in remove_list:
-                self.jobs.remove(job)
-                logger.info('Removed job "%s"', job)
-        finally:
-            self.jobs_lock.release()
+        jobs_removed = 0
+        for jobstore in self._jobstores.values():
+            jobs = tuple(j for j in jobstore.get_jobs() if j.func == func)
+            jobstore.remove_jobs(jobs)
+            jobs_removed += len(jobs)
 
         # Have the scheduler calculate a new wakeup time
-        self.wakeup.set()
+        if jobs_removed:
+            self.wakeup.set()
 
-    def dump_jobs(self):
+    def print_jobs(self, out=sys.stdout):
         """
-        Gives a textual listing of all jobs currently scheduled on this
+        Prints out a textual listing of all jobs currently scheduled on this
         scheduler.
 
-        :rtype: str
+        :param out: a file-like object to print to.
         """
         job_strs = []
-        now = datetime.now()
-        self.jobs_lock.acquire()
-        try:
-            for job in self.jobs:
-                next_fire_time = job.trigger.get_next_fire_time(now)
-                job_str = '%s (next fire time: %s)' % (str(job),
-                                                       next_fire_time)
-                job_strs.append(job_str)
-        finally:
-            self.jobs_lock.release()
+        for jobstore in self._jobstores.values():
+            job_strs.append('Jobstore %s:' % jobstore)
+            jobs = jobstore.get_jobs()
+            if jobs:
+                for job in jobs:
+                    job_str = '    %s (next fire time: %s)'
+                    job_str %= (job, job.next_fire_time)
+                    job_strs.append(job_str)
+            else:
+                job_strs.append('    No scheduled jobs')
 
-        if job_strs:
-            return os.linesep.join(job_strs)
-        return 'No jobs currently scheduled.'
-
-    def _get_next_wakeup_time(self, now):
-        """
-        Determines the time of the next job execution, and removes finished
-        jobs.
-
-        :param now: the result of datetime.now(), generated elsewhere for
-            consistency.
-        """
-        next_wakeup = None
-        finished_jobs = []
-
-        self.jobs_lock.acquire()
-        try:
-            for job in self.jobs:
-                next_run = job.trigger.get_next_fire_time(now)
-                if next_run is None:
-                    finished_jobs.append(job)
-                elif next_run and (next_wakeup is None or \
-                                   next_run < next_wakeup):
-                    next_wakeup = next_run
-
-            # Clear out any finished jobs
-            for job in finished_jobs:
-                self.jobs.remove(job)
-                logger.info('Removed finished job "%s"', job)
-        finally:
-            self.jobs_lock.release()
-
-        return next_wakeup
-
-    def _get_current_jobs(self):
-        """
-        Determines which jobs should be executed right now.
-        """
-        current_jobs = []
-        now = datetime.now()
-        start = now - timedelta(seconds=self.misfire_grace_time)
-
-        self.jobs_lock.acquire()
-        try:
-            for job in self.jobs:
-                next_run = job.trigger.get_next_fire_time(start)
-                if next_run:
-                    time_diff = time_difference(now, next_run)
-                    if next_run < now and time_diff <= self.misfire_grace_time:
-                        current_jobs.append(job)
-        finally:
-            self.jobs_lock.release()
-
-        return current_jobs
+        out.write(os.linesep.join(job_strs))
 
     def run(self):
         """
@@ -384,22 +337,34 @@ class Scheduler(object):
         """
         self.wakeup.clear()
         while not self.stopped:
-            # Execute any jobs scheduled to be run right now
-            for job in self._get_current_jobs():
-                logger.debug('Executing job "%s"', job)
-                job.run()
+            # Iterate through pending jobs in every jobstore, start them
+            # and figure out the next wakeup time
+            start_time = datetime.now()
+            wakeup_time = None
+            for jobstore in self._jobstores.values():
+                jobs = jobstore.get_jobs(start_time)
+                finished_jobs = []
+                for job in jobs:
+                    now = datetime.now()
+                    if job.next_run_time + job.misfire_grace_time <= now:
+                        self.threadpool.execute(job)
+                    job.next_run_time = job.trigger.get_next_run_time(now)
+                    if job.next_run_time:
+                        if not wakeup_time or wakeup_time > job.next_run_time:
+                            wakeup_time = job.next_run_time
+                    else:
+                        finished_jobs.append(job)
 
-            # Figure out when the next job should be run, and
-            # adjust the wait time accordingly
-            now = datetime.now()
-            next_wakeup_time = self._get_next_wakeup_time(now)
+                jobstore.update_jobs(jobs)
+                jobstore.remove_jobs(finished_jobs)
 
             # Sleep until the next job is scheduled to be run,
-            # or a new job is added, or the scheduler is stopped
-            if next_wakeup_time is not None:
-                wait_seconds = time_difference(next_wakeup_time, now)
+            # a new job is added or the scheduler is stopped
+            if wakeup_time is not None:
+                now = datetime.now()
+                wait_seconds = time_difference(wakeup_time, now)
                 logger.debug('Next wakeup is due at %s (in %f seconds)',
-                             next_wakeup_time, wait_seconds)
+                             wakeup_time, wait_seconds)
                 self.wakeup.wait(wait_seconds)
             else:
                 logger.debug('No jobs; waiting until a job is added')
