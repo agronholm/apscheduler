@@ -1,3 +1,7 @@
+"""
+Generic thread pool class. Modeled after Java's ThreadPoolExecutor.
+"""
+
 from Queue import Queue, Empty
 from threading import Thread, Lock
 import logging
@@ -8,24 +12,28 @@ except ImportError:
     from thread import get_ident
 
 
-
 logger = logging.getLogger(__name__)
 
 class ThreadPool(object):
-    def __init__(self, core_threads=0, max_threads=None, thread_class=Thread):
+    def __init__(self, core_threads=0, max_threads=None, keepalive=1,
+                 exception_callback=None):
         """
         :param core_threads: maximum number of persistent threads in the pool
         :param max_threads: maximum number of total threads in the pool
         :param thread_class: callable that creates a Thread object
+        :param keepalive: seconds to keep non-core worker threads waiting
+            for new tasks
+        :param exception_callback: callable to call when task execution raises
+            an exception
         """
         self.queue = Queue()
-        self.closed = False
         self.threads_lock = Lock()
         self.num_threads = 0
         self.busy_threads = 0
         self.core_threads = core_threads
         self.max_threads = max_threads
-        self.thread_class = thread_class
+        self.keepalive = keepalive
+        self.exception_callback = exception_callback
 
         if max_threads:
             self.max_threads = max(max_threads, core_threads, 1)
@@ -35,7 +43,7 @@ class ThreadPool(object):
 
     def _add_thread(self):
         core = self.num_threads < self.core_threads
-        t = self.thread_class(target=self._run_jobs, args=(core,))
+        t = Thread(target=self._run_jobs, args=(core,))
         t.setDaemon(True)
         t.start()
 
@@ -53,24 +61,26 @@ class ThreadPool(object):
         logger.debug('Started thread (id=%d)', get_ident())
         self._add_threadcount(1)
 
-        while not self.closed:
+        block = True
+        timeout = None
+        if not core:
+            block = self.keepalive > 0
+            timeout = self.keepalive
+
+        while True:
             try:
-                if core:
-                    func, args, kwargs = self.queue.get()
-                else:
-                    func, args, kwargs = self.queue.get_nowait()
+                func, args, kwargs = self.queue.get(block, timeout)
             except Empty:
                 break
 
             self._add_busycount(1)
             try:
-                try:
-                    func(*args, **kwargs)
-                except:
-                    pass
-            finally:
-                self._add_busycount(-1)
-                self.queue.task_done()
+                func(*args, **kwargs)
+            except:
+                logger.exception('Exception occurred when running task')
+                if self.exception_callback:
+                    self.exception_callback()
+            self._add_busycount(-1)
 
         self._add_threadcount(-1)
         logger.debug('Exiting thread (id=%d)', get_ident())
@@ -81,12 +91,7 @@ class ThreadPool(object):
             if (self.busy_threads == self.num_threads and not
                 self.max_threads or self.num_threads < self.max_threads):
                 self._add_thread()
-            self.queue.put((func, args, kwargs))
         finally:
             self.threads_lock.release()
 
-    def close(self, timeout):
-        logger.info('Shutting down thread pool')
-        self.closed = True
-        for t in self.threads:
-            t.join(timeout)
+        self.queue.put((func, args, kwargs))
