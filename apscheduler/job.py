@@ -5,7 +5,7 @@ Jobs represent scheduled tasks.
 from datetime import datetime
 import logging
 
-from apscheduler.util import obj_to_ref, ref_to_obj
+from apscheduler.util import obj_to_ref, ref_to_obj, get_callable_name
 
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class Job(object):
         self.args = args or []
         self.kwargs = kwargs or {}
         self.misfire_grace_time = misfire_grace_time
-        self.name = name or '%s.%s' % (func.__module__, func.__name__)
+        self.name = name or get_callable_name(func)
         self.next_run_time = trigger.get_next_fire_time(datetime.now())
 
     def run(self):

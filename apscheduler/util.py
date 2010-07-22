@@ -87,7 +87,7 @@ def datetime_ceil(dateval):
     """
     if dateval.microsecond > 0:
         return dateval + timedelta(seconds=1,
-                                   microseconds=-dateval.microsecond)
+                                   microseconds= -dateval.microsecond)
     return dateval
 
 
@@ -108,6 +108,16 @@ def subconfig(config, prefix):
             key = key[:-prefixlen]
             subconf[key] = value
     return subconf
+
+
+def get_callable_name(func):
+    if hasattr(func, 'im_func'):
+        clsname = func.im_class.__name__
+        funcname = func.im_func.__name__
+        return '%s.%s.%s' % (func.__module__, clsname, funcname)
+    if hasattr(func, '__name__'):
+        return '%s.%s' % (func.__module__, func.__name__)
+    return str(func)
 
 
 def obj_to_ref(obj):
