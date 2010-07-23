@@ -8,7 +8,7 @@ from apscheduler.jobstore.base import JobStore
 class RAMJobStore(JobStore):
     stores_transient = True
 
-    def __init__(self, **options):
+    def __init__(self):
         self.jobs = []
 
     def add_job(self, job):
@@ -35,3 +35,6 @@ class RAMJobStore(JobStore):
                 job.next_run_time < next_run_time):
                 next_run_time = job.next_run_time
         return next_run_time
+
+    def __repr__(self):
+        return self.__class__.__name__

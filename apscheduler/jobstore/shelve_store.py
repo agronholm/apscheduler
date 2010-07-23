@@ -33,7 +33,7 @@ class ShelveJobStore(JobStore):
 
     def update_jobs(self, jobs):
         shelve = self._open_shelve('w')
-        for job in job:
+        for job in shelve.values():
             shelve[job.id] = job
         shelve.close()
 
@@ -56,13 +56,12 @@ class ShelveJobStore(JobStore):
     def get_next_run_time(self, start_time):
         next_run_time = None
         shelve = self._open_shelve('r')
-        for job in self.jobs:
+        for job in shelve.values():
             if (not next_run_time or job.next_run_time > start_time and
                 job.next_run_time < next_run_time):
                 next_run_time = job.next_run_time
         shelve.close()
         return next_run_time
 
-    def str(self):
-        return '%s (%s, %s)' % (self.alias, self.__class__.__name__,
-                                self.path)
+    def __repr__(self):
+        return '%s (%s)' % (self.__class__.__name__, self.path)

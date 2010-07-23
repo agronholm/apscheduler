@@ -8,7 +8,7 @@ class JobStore(object):
     stores_persistent = False
 
     @property
-    def alias(self):
+    def default_alias(self):
         clsname = self.__class__.__name__.lower()
         if clsname.endswith('jobstore'):
             return clsname[:-8]

@@ -31,7 +31,7 @@ class SQLAlchemyJobStore(JobStore):
     def _make_jobs_table(self, name, metadata):
         return Table(name, metadata,
             Column('id', Integer, primary_key=True),
-            Column('name', String(1024)),
+            Column('name', Unicode(1024)),
             Column('job_data', PickleType, nullable=False),
             Column('next_run_time', DateTime, nullable=False))
 
@@ -43,18 +43,14 @@ class SQLAlchemyJobStore(JobStore):
         job.jobstore = self
 
     def update_jobs(self, jobs):
-        update = self.jobs_table.update()
-        update = update.where(self.jobs_table.c.id == bindparam('_id'))
-        update = update.values(name=bindparam('_name'),
-                               job_data=bindparam('_job_data'),
-                               next_run_time=bindparam('_next_run_time'))
+        update = self.jobs_table.update().\
+            where(self.jobs_table.c.id == bindparam('_id')).\
+            values(name=bindparam('_name', type_=Unicode),
+                   job_data=bindparam('_job_data', type_=PickleType),
+                   next_run_time=bindparam('_next_run_time', type_=DateTime))
 
-        params = []
-        for job in jobs:
-            param = dict(_name=job.name, _job_data=job,
-                         _next_run_time=job.next_run_time)
-            params.append(param)
-
+        params = [dict(_id=job.id, _name=job.name, _job_data=job,
+                       _next_run_time=job.next_run_time) for job in jobs]
         self.engine.execute(update, params)
 
     def remove_jobs(self, jobs):
@@ -79,6 +75,5 @@ class SQLAlchemyJobStore(JobStore):
             where(self.jobs_table.c.next_run_time > start_time)
         return self.engine.execute(query).scalar()
 
-    def str(self):
-        return '%s (%s, %s)' % (self.alias, self.__class__.__name__,
-                                self.engine.url)
+    def __repr__(self):
+        return '%s (%s)' % (self.__class__.__name__, self.engine.url)
