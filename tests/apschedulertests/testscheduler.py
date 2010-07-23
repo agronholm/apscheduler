@@ -22,19 +22,19 @@ class TestScheduler(object):
         if not self.scheduler.stopped:
             self.scheduler.shutdown()
 
-    def test_configure(self):
-        options = {'misfire_grace_time': '2',
-                   'daemonic': 'false'}
-        self.scheduler.configure(options)
-        eq_(self.scheduler.misfire_grace_time, 2)
-        eq_(self.scheduler.daemonic, False)
+    def test_configure_no_prefix(self):
+        global_options = {'misfire_grace_time': '2',
+                          'daemonic': 'false'}
+        scheduler = Scheduler(global_options, misfire_grace_time=9)
+        eq_(scheduler.misfire_grace_time, 9)
+        eq_(scheduler.daemonic, True)
 
     def test_configure_prefix(self):
-        options = {'apscheduler.misfire_grace_time': 2,
-                   'apscheduler.daemonic': False}
-        self.scheduler.configure(options)
-        eq_(self.scheduler.misfire_grace_time, 2)
-        eq_(self.scheduler.daemonic, False)
+        global_options = {'apscheduler.misfire_grace_time': 2,
+                          'apscheduler.daemonic': False}
+        scheduler = Scheduler(global_options)
+        eq_(scheduler.misfire_grace_time, 2)
+        eq_(scheduler.daemonic, False)
 
     @raises(TypeError)
     def test_noncallable(self):
