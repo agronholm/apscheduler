@@ -77,7 +77,7 @@ def time_difference(date1, date2):
     """
     later = mktime(date1.timetuple())
     earlier = mktime(date2.timetuple())
-    return int(later - earlier)
+    return float(later - earlier)
 
 
 def datetime_ceil(dateval):
