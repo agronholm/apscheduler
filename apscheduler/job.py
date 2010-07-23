@@ -64,5 +64,5 @@ class Job(object):
             return self is job
         return False
 
-    def __str__(self):
-        return self.name
+    def __repr__(self):
+        return '%s: %s' % (self.name or '(unnamed)', self.trigger)

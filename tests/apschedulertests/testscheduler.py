@@ -46,12 +46,10 @@ class TestScheduler(object):
             pass
         job = self.scheduler.add_interval_job(my_job,
                                               start_date=datetime(2010, 5, 19))
-        eq_(str(job),
-            'my_job: IntervalTrigger(interval=datetime.timedelta(0, 1), '
-            'repeat=0, start_date=datetime.datetime(2010, 5, 19, 0, 0))')
         eq_(repr(job),
-            'Job(my_job, IntervalTrigger(interval=datetime.timedelta(0, 1), '
-            'repeat=0, start_date=datetime.datetime(2010, 5, 19, 0, 0)))')
+            'apschedulertests.testscheduler.my_job: '
+            'IntervalTrigger(interval=datetime.timedelta(0, 1), '
+            'repeat=0, start_date=datetime.datetime(2010, 5, 19, 0, 0))')
 
     def test_interval(self):
         def increment(vals, amount):

@@ -337,9 +337,8 @@ class Scheduler(object):
             jobs = jobstore.get_jobs()
             if jobs:
                 for job in jobs:
-                    job_str = '    %s: %s (next fire time: %s)'
-                    job_str %= (job.name or '(unnamed)', job.trigger,
-                                job.next_run_time)
+                    job_str = '    %s (next fire time: %s)'
+                    job_str %= (job, job.next_run_time)
                     job_strs.append(job_str)
             else:
                 job_strs.append('    No scheduled jobs')
