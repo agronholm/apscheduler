@@ -76,7 +76,9 @@ class Scheduler(object):
 
         # Create a RAMJobStore as the default if there is no default job store
         if not 'default' in self._jobstores:
-            self._jobstores['default'] = RAMJobStore()
+            jobstore = RAMJobStore()
+            jobstore.alias = 'default'
+            self._jobstores['default'] = jobstore
 
     def start(self):
         """
