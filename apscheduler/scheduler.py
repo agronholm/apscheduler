@@ -122,8 +122,7 @@ class Scheduler(object):
         """
         if hasattr(jobstore, '__call__'):
             jobstore = jobstore()
-        if alias:
-            jobstore.alias = alias
+        jobstore.alias = alias or jobstore.default_alias
 
         self._jobstores_lock.acquire()
         try:
@@ -333,13 +332,14 @@ class Scheduler(object):
         :param out: a file-like object to print to.
         """
         job_strs = []
-        for jobstore in self._jobstores.values():
-            job_strs.append('Jobstore %s:' % jobstore)
+        for alias, jobstore in self._jobstores.items():
+            job_strs.append('Jobstore %s:' % alias)
             jobs = jobstore.get_jobs()
             if jobs:
                 for job in jobs:
-                    job_str = '    %s (next fire time: %s)'
-                    job_str %= (job, job.next_fire_time)
+                    job_str = '    %s: %s (next fire time: %s)'
+                    job_str %= (job.name or '(unnamed)', job.trigger,
+                                job.next_run_time)
                     job_strs.append(job_str)
             else:
                 job_strs.append('    No scheduled jobs')

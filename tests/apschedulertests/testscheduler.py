@@ -203,14 +203,14 @@ class TestScheduler(object):
     def test_print_jobs(self):
         out = StringIO()
         self.scheduler.print_jobs(out)
-        expected = 'Job store ram:%s'\
-                   '    No jobs currently scheduled.' % os.linesep
+        expected = 'Jobstore default:%s'\
+                   '    No scheduled jobs' % os.linesep
         eq_(out.getvalue(), expected)
 
         self.scheduler.add_date_job(sleep, datetime(2200, 5, 19))
         out = StringIO()
         self.scheduler.print_jobs(out)
-        expected = 'Job store ram:%s'\
-                   'sleep: DateTrigger(datetime.datetime(2200, 5, 19, 0, 0)) '\
+        expected = 'Jobstore default:%s'\
+                   '    time.sleep: DateTrigger(datetime.datetime(2200, 5, 19, 0, 0)) '\
                    '(next fire time: 2200-05-19 00:00:00)' % os.linesep
         eq_(out.getvalue(), expected)
