@@ -9,10 +9,11 @@ from logging import getLogger
 import os
 import sys
 
-from apscheduler.util import time_difference, asbool
+from apscheduler.util import time_difference, asbool, combine_opts, ref_to_obj
 from apscheduler.triggers import DateTrigger, IntervalTrigger, CronTrigger
 from apscheduler.jobstore.ram_store import RAMJobStore
 from apscheduler.job import Job
+from apscheduler.threadpool import ThreadPool
 
 
 logger = getLogger(__name__)
@@ -43,27 +44,39 @@ class Scheduler(object):
 
     stopped = False
     thread = None
-    misfire_grace_time = 1
-    daemonic = True
 
-    def __init__(self, **config):
+    def __init__(self, gconfig={}, **options):
         self.wakeup = Event()
-        self.configure(config)
         self._jobstores = {}
         self._jobstores_lock = Lock()
-        self.add_jobstore(RAMJobStore)
 
-    def configure(self, config):
-        """
-        Updates the configuration with the given options.
-        """
-        for key, val in config.items():
-            if key.startswith('apscheduler.'):
-                key = key[12:]
-            if key == 'misfire_grace_time':
-                self.misfire_grace_time = int(val)
-            elif key == 'daemonic':
-                self.daemonic = asbool(val)
+        # Set general options
+        config = combine_opts(gconfig, 'apscheduler.', options)
+        self.misfire_grace_time = int(config.pop('misfire_grace_time', 1))
+        self.daemonic = asbool(config.pop('daemonic', True))
+
+        # Configure the thread pool
+        threadpool_opts = combine_opts(config, 'threadpool.')
+        self.threadpool = ThreadPool(**threadpool_opts)
+
+        # Configure job stores
+        jobstore_opts = combine_opts(config, 'jobstore.')
+        jobstores = {}
+        for key, value in jobstore_opts.items():
+            store_name, option = key.split('.', 1)[0]
+            opts_dict = jobstores.setdefault(store_name, {})
+            opts_dict[option] = value
+
+        for alias, opts in jobstores.items():
+            classname = opts.pop('class')
+            cls = ref_to_obj(classname)
+            jobstore = cls(**opts)
+            jobstore.alias = alias
+            self._jobstores[alias] = jobstore
+
+        # Create a RAMJobStore as the default if there is no default job store
+        if not 'default' in self._jobstores:
+            self._jobstores['default'] = RAMJobStore()
 
     def start(self):
         """
@@ -292,7 +305,7 @@ class Scheduler(object):
         """
         Removes a job, preventing it from being fired any more.
         """
-        job.jobstore.remove_jobs(job)
+        job.jobstore.remove_jobs((job,))
         logger.info('Removed job "%s"', job)
         self.wakeup.set()
 
@@ -339,32 +352,38 @@ class Scheduler(object):
         while not self.stopped:
             # Iterate through pending jobs in every jobstore, start them
             # and figure out the next wakeup time
-            start_time = datetime.now()
-            wakeup_time = None
+            end_time = datetime.now()
+            logger.debug('now = %s' % end_time)
+            next_wakeup_time = None
             for jobstore in self._jobstores.values():
-                jobs = jobstore.get_jobs(start_time)
+                for job in jobstore.get_jobs():
+                    logger.debug('job: %s, next run time = %s', job, job.next_run_time)
+                jobs = jobstore.get_jobs(end_time)
+                logger.debug('received %d jobs', len(jobs))
                 finished_jobs = []
+
                 for job in jobs:
                     now = datetime.now()
-                    if job.next_run_time + job.misfire_grace_time <= now:
+                    grace_time = timedelta(seconds=job.misfire_grace_time)
+                    if job.next_run_time + grace_time <= now:
                         self.threadpool.execute(job.func, job.args, job.kwargs)
-                    job.next_run_time = job.trigger.get_next_run_time(now)
-                    if job.next_run_time:
-                        if not wakeup_time or wakeup_time > job.next_run_time:
-                            wakeup_time = job.next_run_time
-                    else:
+                    job.next_run_time = job.trigger.get_next_fire_time(now)
+                    if not job.next_run_time:
                         finished_jobs.append(job)
 
                 jobstore.update_jobs(jobs)
                 jobstore.remove_jobs(finished_jobs)
+                next_run_time = jobstore.get_next_run_time(end_time)
+                if not next_wakeup_time or next_wakeup_time > next_run_time:
+                    next_wakeup_time = next_run_time
 
             # Sleep until the next job is scheduled to be run,
             # a new job is added or the scheduler is stopped
-            if wakeup_time is not None:
+            if next_wakeup_time is not None:
                 now = datetime.now()
-                wait_seconds = time_difference(wakeup_time, now)
+                wait_seconds = time_difference(next_wakeup_time, now)
                 logger.debug('Next wakeup is due at %s (in %f seconds)',
-                             wakeup_time, wait_seconds)
+                             next_wakeup_time, wait_seconds)
                 self.wakeup.wait(wait_seconds)
             else:
                 logger.debug('No jobs; waiting until a job is added')
