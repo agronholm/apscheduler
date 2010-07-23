@@ -122,6 +122,15 @@ def test_datetime_ceil_exact():
     eq_(datetime_ceil(dateval), correct_answer)
 
 
+def test_combine_opts():
+    global_opts = {'someprefix.opt1': '123',
+                   'opt2': '456',
+                   'someprefix.opt3': '789'}
+    local_opts = {'opt3': 'abc'}
+    combined = combine_opts(global_opts, 'someprefix.', local_opts)
+    eq_(combined, dict(opt1='123', opt3='abc'))
+
+
 def test_obj_to_ref():
     assert_raises(ValueError, obj_to_ref, DummyClass.meth)
     assert_raises(ValueError, obj_to_ref, DummyClass.staticmeth)
