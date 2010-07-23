@@ -74,6 +74,11 @@ class SQLAlchemyJobStore(JobStore):
             jobs.append(job)
         return jobs
 
+    def get_next_run_time(self, start_time):
+        query = select([func.min(self.jobs_table.c.next_run_time)]).\
+            where(self.jobs_table.c.next_run_time > start_time)
+        return self.engine.execute(query).scalar()
+
     def str(self):
         return '%s (%s, %s)' % (self.alias, self.__class__.__name__,
                                 self.engine.url)

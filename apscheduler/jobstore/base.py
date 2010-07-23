@@ -30,11 +30,17 @@ class JobStore(object):
         """
         Retrieves jobs scheduled in this store."
         
-        :param start_time: if specified, filter jobs so that only the ones
-            whose next run time (+ misfire_grace_time) must be earlier or equal
-            to end_time. 
+        :param end_time: if specified, filter jobs so that only the ones
+            whose next run time must be earlier or equal to end_time.
         :type start_time: :class:`datetime.datetime`
         :return: list of Jobs matching the filter, if any
+        """
+        raise NotImplementedError
+
+    def get_next_run_time(self, start_time):
+        """
+        Returns the earliest time that a job from this job store is supposed to
+            be run.
         """
         raise NotImplementedError
 

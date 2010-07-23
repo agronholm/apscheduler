@@ -53,6 +53,16 @@ class ShelveJobStore(JobStore):
         shelve.close()
         return jobs
 
+    def get_next_run_time(self, start_time):
+        next_run_time = None
+        shelve = self._open_shelve('r')
+        for job in self.jobs:
+            if (not next_run_time or job.next_run_time > start_time and
+                job.next_run_time < next_run_time):
+                next_run_time = job.next_run_time
+        shelve.close()
+        return next_run_time
+
     def str(self):
         return '%s (%s, %s)' % (self.alias, self.__class__.__name__,
                                 self.path)
