@@ -6,7 +6,8 @@ from datetime import date, datetime, timedelta
 from time import mktime
 
 __all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds',
-           'time_difference', 'datetime_ceil', 'obj_to_ref', 'ref_to_obj')
+           'time_difference', 'datetime_ceil', 'combine_opts', 'obj_to_ref',
+           'ref_to_obj')
 
 
 def asint(text):
@@ -91,22 +92,24 @@ def datetime_ceil(dateval):
     return dateval
 
 
-def subconfig(config, prefix):
+def combine_opts(global_config, prefix, local_config={}):
     """
-    Returns a subdictionary from keys and values of  ``config`` where the key
-    starts with the given prefix. The keys in the subdictionary have the prefix
-    removed.
-    
-    :type config: dict
+    Returns a subdictionary from keys and values of  ``global_config`` where
+    the key starts with the given prefix, combined with options from
+    local_config. The keys in the subdictionary have the prefix removed.
+
+    :type global_config: dict
     :type prefix: str
+    :type local_config: dict
     :rtype: dict
     """
     prefixlen = len(prefix)
     subconf = {}
-    for key, value in config.items():
+    for key, value in global_config.items():
         if key.startswith(prefix):
-            key = key[:-prefixlen]
+            key = key[prefixlen:]
             subconf[key] = value
+    subconf.update(local_config)
     return subconf
 
 
