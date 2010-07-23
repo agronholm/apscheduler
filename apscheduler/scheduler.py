@@ -12,7 +12,7 @@ import sys
 from apscheduler.util import time_difference, asbool, combine_opts, ref_to_obj
 from apscheduler.triggers import DateTrigger, IntervalTrigger, CronTrigger
 from apscheduler.jobstore.ram_store import RAMJobStore
-from apscheduler.job import Job
+from apscheduler.job import SimpleJob
 from apscheduler.threadpool import ThreadPool
 
 
@@ -189,10 +189,10 @@ class Scheduler(object):
         :param jobstore: stored the job in the named (or given) job store
         :type date: :class:`datetime.date` or :class:`datetime.datetime`
         :return: the scheduled job
-        :rtype: :class:`~Job`
+        :rtype: :class:`~SimpleJob`
         """
         trigger = DateTrigger(date)
-        job = Job(trigger, func, **job_options)
+        job = SimpleJob(trigger, func, **job_options)
         self.add_job(job, persistent, jobstore)
         return job
 
@@ -218,12 +218,12 @@ class Scheduler(object):
         :param persistent: ``True`` to store the job in a persistent job store
         :param jobstore: alias of the job store to add the job to
         :return: the scheduled job
-        :rtype: :class:`~Job`
+        :rtype: :class:`~SimpleJob`
         """
         interval = timedelta(weeks=weeks, days=days, hours=hours,
                              minutes=minutes, seconds=seconds)
         trigger = IntervalTrigger(interval, repeat, start_date)
-        job = Job(trigger, func, **job_options)
+        job = SimpleJob(trigger, func, **job_options)
         self.add_job(job, persistent, jobstore)
         return job
 
@@ -249,12 +249,12 @@ class Scheduler(object):
             the job is still allowed to be run
         :param jobstore: alias of the job store to add the job to
         :return: the scheduled job
-        :rtype: :class:`~Job`
+        :rtype: :class:`~SimpleJob`
         """
         trigger = CronTrigger(year=year, month=month, day=day, week=week,
                               day_of_week=day_of_week, hour=hour,
                               minute=minute, second=second)
-        job = Job(trigger, func, **job_options)
+        job = SimpleJob(trigger, func, **job_options)
         self.add_job(job, persistent, jobstore)
         return job
 
@@ -354,15 +354,10 @@ class Scheduler(object):
             # Iterate through pending jobs in every jobstore, start them
             # and figure out the next wakeup time
             end_time = datetime.now()
-            logger.debug('now = %s' % end_time)
             next_wakeup_time = None
             for jobstore in self._jobstores.values():
-                for job in jobstore.get_jobs():
-                    logger.debug('job: %s, next run time = %s', job, job.next_run_time)
                 jobs = jobstore.get_jobs(end_time)
-                logger.debug('received %d jobs', len(jobs))
                 finished_jobs = []
-
                 for job in jobs:
                     now = datetime.now()
                     grace_time = timedelta(seconds=job.misfire_grace_time)
