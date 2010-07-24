@@ -353,6 +353,7 @@ class Scheduler(object):
         while not self.stopped:
             # Iterate through pending jobs in every jobstore, start them
             # and figure out the next wakeup time
+            logger.debug('Scanning jobstores for jobs to run')
             end_time = datetime.now()
             next_wakeup_time = None
             for jobstore in self._jobstores.values():
@@ -361,7 +362,8 @@ class Scheduler(object):
                 for job in jobs:
                     now = datetime.now()
                     grace_time = timedelta(seconds=job.misfire_grace_time)
-                    if job.next_run_time + grace_time <= now:
+                    if job.next_run_time - grace_time <= now:
+                        logger.debug('Running job "%s"', job)
                         self.threadpool.execute(job.func, job.args, job.kwargs)
                     job.next_run_time = job.trigger.get_next_fire_time(now)
                     if not job.next_run_time:
