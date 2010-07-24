@@ -95,12 +95,14 @@ def test_time_difference_negative():
 
 class TestDSTTimeDifference(object):
     def setup(self):
-        os.environ['TZ'] = 'Europe/Helsinki'
-        time.tzset()
+        if hasattr(time, 'tzset'):
+            os.environ['TZ'] = 'Europe/Helsinki'
+            time.tzset()
 
     def teardown(self):
-        del os.environ['TZ']
-        time.tzset()
+        if hasattr(time, 'tzset'):
+            del os.environ['TZ']
+            time.tzset()
 
     def test_time_difference_daylight_1(self):
         earlier = datetime(2010, 3, 28, 2)
@@ -145,15 +147,10 @@ def test_ref_to_obj():
     eq_(ref_to_obj('time:clock'), time.clock)
 
 
-def test_to_unicode_py2():
-    if sys.version_info[0] > 2:
-        raise SkipTest
-    eq_(to_unicode('aaööbb'), unicode('aabb'))
-    eq_(to_unicode(unicode('gfkj')), unicode('gfkj'))
-
-
-def test_to_unicode_py3():
+def test_to_unicode():
     if sys.version_info[0] < 3:
-        raise SkipTest
-    eq_(to_unicode('aaööbb'.encode('utf-8')), 'aabb')
-    eq_(to_unicode('ghkj'), 'gfkj')
+        eq_(to_unicode('aaööbb'), unicode('aabb'))
+        eq_(to_unicode(unicode('gfkj')), unicode('gfkj'))
+    else:
+        eq_(to_unicode('aaööbb'.encode('utf-8')), 'aabb')
+        eq_(to_unicode('ghkj'), 'gfkj')
