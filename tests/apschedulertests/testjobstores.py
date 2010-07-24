@@ -53,12 +53,15 @@ class TestRamJobStore(JobStoreTestBase):
 class TestShelveJobStore(JobStoreTestBase):
     def setup(self):
         filterwarnings('ignore', category=RuntimeWarning)
-        self.path = os.tempnam()
+#        self.path = os.tempnam()
+        self.path = 'shelve-tmp'
         resetwarnings()
         self.jobstore = ShelveJobStore(self.path)
 
     def teardown(self):
-        os.remove(self.path)
+        os.remove(self.path + '.dir')
+        os.remove(self.path + '.dat')
+        os.remove(self.path + '.bak')
 
 
 class TestSQLAlchemyJobStore(JobStoreTestBase):
