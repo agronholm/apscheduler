@@ -220,7 +220,7 @@ def test_configure_prefix():
 def test_jobstore():
     scheduler = Scheduler()
     scheduler.add_jobstore(RAMJobStore(), 'dummy')
-    job = scheduler.add_date_job(lambda: None, datetime.now(),
+    job = scheduler.add_date_job(lambda: None, datetime(2200, 7, 24),
                                  jobstore='dummy')
     eq_(job.jobstore.alias, 'dummy')
     eq_(scheduler.get_jobs(), [job])

@@ -147,10 +147,8 @@ class Scheduler(object):
         finally:
             self._jobstores_lock.release()
 
-    def _select_jobstore(self, storename, persistent):
-        for alias, jobstore in self._jobstores.items():
-            if alias == storename:
-                return jobstore
+    def _select_jobstore(self, persistent):
+        for jobstore in self._jobstores.values():
             if persistent and jobstore.stores_persistent:
                 return jobstore
             if not persistent and jobstore.stores_transient:
@@ -163,6 +161,10 @@ class Scheduler(object):
         Adds the given :class:`~Job` to the job list and notifies the scheduler
         thread.
 
+        :param persistent: ``True`` to store the job in the first default
+            persistent job store, ``False`` to store it in a transient store
+        :param jobstore: alias of the job store to store the job in (overrides
+            the ``persistent`` option)
         :return: the scheduled job
         :rtype: :class:`~Job`
         """
@@ -170,10 +172,16 @@ class Scheduler(object):
             raise SchedulerShutdownError
         if job.misfire_grace_time is None:
             job.misfire_grace_time = self.misfire_grace_time
+        job.next_run_time = job.trigger.get_next_fire_time(datetime.now())
+        if not job.next_run_time:
+            raise ValueError('Not adding job since it would never be run')
 
-        store = self._select_jobstore(jobstore, persistent)
-        store.add_job(job)
-        logger.info('Added job "%s" to job store %s', job, store.alias)
+        if jobstore:
+            jobstore = self._jobstores[jobstore]
+        else:
+            jobstore = self._select_jobstore(persistent)
+        jobstore.add_job(job)
+        logger.info('Added job "%s" to job store %s', job, jobstore.alias)
 
         # Notify the scheduler about the new job
         self.wakeup.set()

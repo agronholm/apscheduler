@@ -25,13 +25,14 @@ class JobStoreTestBase(object):
         trigger_date = datetime(2999, 1, 1)
         trigger = DateTrigger(trigger_date)
         job = SimpleJob(trigger, dummy_func)
+        job.next_run_time = trigger_date
         self.jobstore.add_job(job)
 
         jobs = self.jobstore.get_jobs()
         eq_(jobs, [job])
         eq_(job.jobstore, self.jobstore)
 
-        next_run_time = self.jobstore.get_next_run_time(datetime.now())
+        next_run_time = self.jobstore.get_next_run_time(datetime(2998, 12, 31))
         eq_(next_run_time, trigger_date)
 
         trigger_date += timedelta(days=1)

@@ -2,7 +2,6 @@
 Jobs represent scheduled tasks.
 """
 
-from datetime import datetime
 import logging
 
 from apscheduler.util import obj_to_ref, ref_to_obj, get_callable_name
@@ -18,6 +17,7 @@ class Job(object):
 
     id = None
     jobstore = None
+    next_run_time = None
     num_runs = 0
 
     def __init__(self, trigger, name=None, max_runs=None,
@@ -34,7 +34,6 @@ class Job(object):
         self.max_runs = max_runs
         self.misfire_grace_time = misfire_grace_time
         self.name = name or '(unnamed)'
-        self.next_run_time = trigger.get_next_fire_time(datetime.now())
 
         if not self.trigger:
             raise ValueError('The job must have a trigger')
