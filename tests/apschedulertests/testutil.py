@@ -1,10 +1,13 @@
+# coding: utf-8
 from datetime import date, datetime, timedelta
 import time
 import os
+import sys
 
 from nose.tools import eq_, raises, assert_raises
 
 from apscheduler.util import *
+from nose.plugins.skip import SkipTest
 
 
 class DummyClass(object):
@@ -140,3 +143,17 @@ def test_obj_to_ref():
 
 def test_ref_to_obj():
     eq_(ref_to_obj('time:clock'), time.clock)
+
+
+def test_to_unicode_py2():
+    if sys.version_info[0] > 2:
+        raise SkipTest
+    eq_(to_unicode('aaööbb'), unicode('aabb'))
+    eq_(to_unicode(unicode('gfkj')), unicode('gfkj'))
+
+
+def test_to_unicode_py3():
+    if sys.version_info[0] < 3:
+        raise SkipTest
+    eq_(to_unicode('aaööbb'.encode('utf-8')), 'aabb')
+    eq_(to_unicode('ghkj'), 'gfkj')

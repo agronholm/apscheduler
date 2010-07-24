@@ -156,5 +156,5 @@ def to_unicode(string, encoding='ascii'):
     Python version.
     """
     if hasattr(string, 'decode'):
-        return string.decode(encoding, 'replace')
+        return string.decode(encoding, 'ignore')
     return string
