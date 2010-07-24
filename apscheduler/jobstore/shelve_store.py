@@ -33,7 +33,7 @@ class ShelveJobStore(JobStore):
 
     def update_jobs(self, jobs):
         shelve = self._open_shelve('w')
-        for job in shelve.values():
+        for job in jobs:
             shelve[job.id] = job
         shelve.close()
 
