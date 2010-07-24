@@ -6,11 +6,6 @@ from Queue import Queue, Empty
 from threading import Thread, Lock
 import logging
 
-try:
-    from _thread import get_ident
-except ImportError:
-    from thread import get_ident
-
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +53,7 @@ class ThreadPool(object):
         self.threads_lock.release()
 
     def _run_jobs(self, core):
-        logger.debug('Started thread (id=%d)', get_ident())
+        logger.debug('Started worker thread')
         self._add_threadcount(1)
 
         block = True
@@ -83,7 +78,7 @@ class ThreadPool(object):
             self._add_busycount(-1)
 
         self._add_threadcount(-1)
-        logger.debug('Exiting thread (id=%d)', get_ident())
+        logger.debug('Exiting worker thread')
 
     def execute(self, func, args=(), kwargs={}):
         self.threads_lock.acquire()
