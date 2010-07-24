@@ -22,8 +22,7 @@ class Job(object):
     def __init__(self, trigger, name=None, misfire_grace_time=None):
         """
         :param trigger: trigger for the given callable
-        :param name: name of the job (if none specified, defaults to the name
-            of the function)
+        :param name: name of the job (optional)
         :param misfire_grace_time: seconds after the designated run time that
             the job is still allowed to be run
         """
@@ -39,6 +38,11 @@ class Job(object):
         """
         raise NotImplementedError
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop('jobstore', None)
+        return state
+
     def __eq__(self, job):
         if isinstance(job, Job):
             if self.id is not None:
@@ -51,6 +55,10 @@ class Job(object):
 
 
 class SimpleJob(Job):
+    """
+    Job that runs the given function with the given arguments when triggered.
+    """
+
     def __init__(self, trigger, func, args=None, kwargs=None, name=None,
                  **job_options):
         """
@@ -58,10 +66,12 @@ class SimpleJob(Job):
         :param func: callable to call when the trigger is triggered
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
+        :param name: name of the job (if none specified, defaults to the name
+            of the function)
         """
         if not hasattr(func, '__call__'):
             raise TypeError('func must be callable')
-        
+
         self.func = func
         self.args = args or []
         self.kwargs = kwargs or {}
@@ -80,11 +90,10 @@ class SimpleJob(Job):
             raise
 
     def __getstate__(self):
-        state = self.__dict__.copy()
+        state = Job.__getstate__(self)
         state['func'] = obj_to_ref(state['func'])
         return state
 
     def __setstate__(self, state):
         state['func'] = ref_to_obj(state['func'])
         self.__dict__.update(state)
-    
