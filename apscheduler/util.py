@@ -148,3 +148,13 @@ def ref_to_obj(ref):
     for name in modulename.split('.')[1:] + rest.split('.'):
         obj = getattr(obj, name)
     return obj
+
+
+def to_unicode(string, encoding='ascii'):
+    """
+    Safely converts a string to a unicode representation on any
+    Python version.
+    """
+    if hasattr(string, 'decode'):
+        return string.decode(encoding, 'replace')
+    return string

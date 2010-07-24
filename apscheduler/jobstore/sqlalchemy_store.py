@@ -3,6 +3,7 @@ Stores jobs in a database table using SQLAlchemy.
 """
 
 from apscheduler.jobstore.base import JobStore
+from apscheduler.util import to_unicode
 
 try:
     from sqlalchemy import *
@@ -36,8 +37,8 @@ class SQLAlchemyJobStore(JobStore):
             Column('next_run_time', DateTime, nullable=False))
 
     def add_job(self, job):
-        insert = self.jobs_table.insert().values(name=job.name, job_data=job,
-            next_run_time=job.next_run_time)
+        insert = self.jobs_table.insert().values(name=to_unicode(job.name),
+            job_data=job, next_run_time=job.next_run_time)
         result = self.engine.execute(insert)
         job.id = result.inserted_primary_key[0]
         job.jobstore = self
@@ -49,7 +50,7 @@ class SQLAlchemyJobStore(JobStore):
                    job_data=bindparam('_job_data', type_=PickleType),
                    next_run_time=bindparam('_next_run_time', type_=DateTime))
 
-        params = [dict(_id=job.id, _name=job.name, _job_data=job,
+        params = [dict(_id=job.id, _name=to_unicode(job.name), _job_data=job,
                        _next_run_time=job.next_run_time) for job in jobs]
         self.engine.execute(update, params)
 
