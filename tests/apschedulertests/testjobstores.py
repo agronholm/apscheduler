@@ -10,6 +10,7 @@ from apscheduler.jobstore.sqlalchemy_store import SQLAlchemyJobStore
 from apscheduler.job import SimpleJob
 from apscheduler.triggers import DateTrigger
 from apscheduler.jobstore.base import JobStore
+from nose.plugins.skip import SkipTest
 
 
 def dummy_func():
@@ -52,20 +53,30 @@ class TestRamJobStore(JobStoreTestBase):
 
 class TestShelveJobStore(JobStoreTestBase):
     def setup(self):
+        try:
+            import dbhash
+        except ImportError:
+            raise SkipTest
+
         filterwarnings('ignore', category=RuntimeWarning)
-#        self.path = os.tempnam()
-        self.path = 'shelve-tmp'
+        self.path = os.tempnam()
         resetwarnings()
         self.jobstore = ShelveJobStore(self.path)
 
     def teardown(self):
-        os.remove(self.path + '.dir')
-        os.remove(self.path + '.dat')
-        os.remove(self.path + '.bak')
+        os.remove(self.path)
 
 
 class TestSQLAlchemyJobStore(JobStoreTestBase):
     def setup(self):
+        try:
+            import sqlite3
+        except ImportError:
+            try:
+                import pysqlite2
+            except ImportError:
+                raise SkipTest
+
         self.jobstore = SQLAlchemyJobStore(url='sqlite:///')
 
 
