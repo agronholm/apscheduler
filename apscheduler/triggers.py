@@ -1,6 +1,7 @@
 """
 Triggers determine the times when a job should be executed.
 """
+
 from datetime import datetime, timedelta
 from math import ceil
 
@@ -132,40 +133,30 @@ class DateTrigger(object):
 
 
 class IntervalTrigger(object):
-    def __init__(self, interval, repeat, start_date=None):
+    def __init__(self, interval, start_date=None):
         if not isinstance(interval, timedelta):
             raise TypeError('interval must be a timedelta')
-        if repeat < 0:
-            raise ValueError('Illegal value for repeat; expected >= 0, '
-                             'received %s' % repeat)
 
         self.interval = interval
         self.interval_length = timedelta_seconds(self.interval)
         if self.interval_length == 0:
             self.interval = timedelta(seconds=1)
             self.interval_length = 1
-        self.repeat = repeat
+
         if start_date is None:
             self.first_fire_date = datetime.now() + self.interval
         else:
             self.first_fire_date = convert_to_datetime(start_date)
-        self.first_fire_date -= timedelta(microseconds=
-                                          self.first_fire_date.microsecond)
-        if repeat > 0:
-            self.last_fire_date = self.first_fire_date + interval * (repeat - 1)
-        else:
-            self.last_fire_date = None
 
     def get_next_fire_time(self, start_date):
         if start_date < self.first_fire_date:
             return self.first_fire_date
-        if self.last_fire_date and start_date > self.last_fire_date:
-            return None
+
         timediff_seconds = timedelta_seconds(start_date - self.first_fire_date)
         next_interval_num = int(ceil(timediff_seconds / self.interval_length))
         return self.first_fire_date + self.interval * next_interval_num
 
     def __repr__(self):
-        return "%s(interval=%s, repeat=%d, start_date=%s)" % (
-            self.__class__.__name__, repr(self.interval), self.repeat,
-            repr(self.first_fire_date))
+        return '%s(interval=%s, start_date=%s)' % (self.__class__.__name__,
+                                                   repr(self.interval),
+                                                   repr(self.first_fire_date))

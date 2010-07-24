@@ -7,13 +7,14 @@ from nose.tools import eq_, raises
 
 from apscheduler.scheduler import Scheduler, SchedulerShutdownError
 from apscheduler.scheduler import SchedulerAlreadyRunningError
+from apscheduler.jobstore.ram_store import RAMJobStore
 
 
 class TestException(Exception):
     pass
 
 
-class TestScheduler(object):
+class TestRunningScheduler(object):
     def setUp(self):
         self.scheduler = Scheduler()
         self.scheduler.start()
@@ -21,20 +22,6 @@ class TestScheduler(object):
     def tearDown(self):
         if not self.scheduler.stopped:
             self.scheduler.shutdown()
-
-    def test_configure_no_prefix(self):
-        global_options = {'misfire_grace_time': '2',
-                          'daemonic': 'false'}
-        scheduler = Scheduler(global_options, misfire_grace_time=9)
-        eq_(scheduler.misfire_grace_time, 9)
-        eq_(scheduler.daemonic, True)
-
-    def test_configure_prefix(self):
-        global_options = {'apscheduler.misfire_grace_time': 2,
-                          'apscheduler.daemonic': False}
-        scheduler = Scheduler(global_options)
-        eq_(scheduler.misfire_grace_time, 2)
-        eq_(scheduler.daemonic, False)
 
     @raises(TypeError)
     def test_noncallable(self):
@@ -49,15 +36,14 @@ class TestScheduler(object):
         eq_(repr(job),
             'apschedulertests.testscheduler.my_job: '
             'IntervalTrigger(interval=datetime.timedelta(0, 1), '
-            'repeat=0, start_date=datetime.datetime(2010, 5, 19, 0, 0))')
+            'start_date=datetime.datetime(2010, 5, 19, 0, 0))')
 
     def test_interval(self):
         def increment(vals, amount):
             vals[0] += amount
             vals[1] += 1
         vals = [0, 0]
-        self.scheduler.add_interval_job(increment, seconds=1, repeat=2,
-                                        args=[vals, 2])
+        self.scheduler.add_interval_job(increment, seconds=1, args=[vals, 2])
         sleep(2.2)
         eq_(vals, [4, 2])
 
@@ -70,8 +56,7 @@ class TestScheduler(object):
             vals[0] += 1
             sleep(2)
         vals = [0]
-        self.scheduler.add_interval_job(increment, seconds=1, repeat=2,
-                                        args=[vals])
+        self.scheduler.add_interval_job(increment, seconds=1, args=[vals])
         sleep(2.2)
         eq_(vals, [1])
 
@@ -86,7 +71,7 @@ class TestScheduler(object):
                 self.val += 1
 
         a = A()
-        self.scheduler.add_interval_job(a, seconds=1, repeat=2)
+        self.scheduler.add_interval_job(a, seconds=1)
         sleep(2.2)
         eq_(a.val, 2)
 
@@ -129,24 +114,26 @@ class TestScheduler(object):
     def test_job_finished(self):
         def increment(vals):
             vals[0] += 1
+
         vals = [0]
-        job = self.scheduler.add_interval_job(increment, repeat=1, args=[vals])
+        job = self.scheduler.add_interval_job(increment, args=[vals])
         sleep(1.2)
         eq_(vals, [1])
-        eq_(self.scheduler.is_job_active(job), False)
+        assert job in self.scheduler.get_jobs()
 
     @raises(TestException)
     def test_job_exception(self):
         def failure():
             raise TestException
+
         start_date = datetime(9999, 1, 1)
         job = self.scheduler.add_date_job(failure, start_date)
         job.run()
 
     def test_interval_schedule(self):
         vals = [0]
-        @self.scheduler.interval_schedule(seconds=1, repeat=2, args=[vals])
-        def increment(vals): #IGNORE:W0612
+        @self.scheduler.interval_schedule(seconds=1, args=[vals])
+        def increment(vals):
             vals[0] += 1
         sleep(2.2)
         eq_(vals, [2])
@@ -154,7 +141,7 @@ class TestScheduler(object):
     def test_cron_schedule(self):
         vals = [0]
         @self.scheduler.cron_schedule(args=[vals])
-        def increment(vals): #IGNORE:W0612
+        def increment(vals):
             vals[0] += 1
         sleep(2.2)
         assert vals[0] >= 2
@@ -212,3 +199,30 @@ class TestScheduler(object):
                    '    time.sleep: DateTrigger(datetime.datetime(2200, 5, 19, 0, 0)) '\
                    '(next fire time: 2200-05-19 00:00:00)' % os.linesep
         eq_(out.getvalue(), expected)
+
+
+def test_configure_no_prefix():
+    global_options = {'misfire_grace_time': '2',
+                      'daemonic': 'false'}
+    scheduler = Scheduler(global_options, misfire_grace_time=9)
+    eq_(scheduler.misfire_grace_time, 9)
+    eq_(scheduler.daemonic, True)
+
+
+def test_configure_prefix():
+    global_options = {'apscheduler.misfire_grace_time': 2,
+                      'apscheduler.daemonic': False}
+    scheduler = Scheduler(global_options)
+    eq_(scheduler.misfire_grace_time, 2)
+    eq_(scheduler.daemonic, False)
+
+
+def test_jobstore():
+    scheduler = Scheduler()
+    scheduler.add_jobstore(RAMJobStore(), 'dummy')
+    job = scheduler.add_date_job(lambda: None, datetime.now(),
+                                 jobstore='dummy')
+    eq_(job.jobstore.alias, 'dummy')
+    eq_(scheduler.get_jobs(), [job])
+    scheduler.remove_jobstore('dummy')
+    eq_(scheduler.get_jobs(), [])

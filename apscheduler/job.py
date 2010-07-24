@@ -18,18 +18,30 @@ class Job(object):
 
     id = None
     jobstore = None
+    num_runs = 0
 
-    def __init__(self, trigger, name=None, misfire_grace_time=None):
+    def __init__(self, trigger, name=None, max_runs=None,
+                 misfire_grace_time=1):
         """
         :param trigger: trigger for the given callable
         :param name: name of the job (optional)
+        :param max_runs: maximum number of times this job is allowed to be
+            triggered
         :param misfire_grace_time: seconds after the designated run time that
             the job is still allowed to be run
         """
         self.trigger = trigger
+        self.max_runs = max_runs
         self.misfire_grace_time = misfire_grace_time
         self.name = name or '(unnamed)'
         self.next_run_time = trigger.get_next_fire_time(datetime.now())
+
+        if not self.trigger:
+            raise ValueError('The job must have a trigger')
+        if self.max_runs is not None and self.max_runs <= 0:
+            raise ValueError('max_runs must be a positive value or None')
+        if self.misfire_grace_time <= 0:
+            raise ValueError('misfire_grace_time must be a positive value')
 
     def run(self):
         """

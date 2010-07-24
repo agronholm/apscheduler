@@ -197,8 +197,8 @@ class Scheduler(object):
         return job
 
     def add_interval_job(self, func, weeks=0, days=0, hours=0, minutes=0,
-                         seconds=0, start_date=None, repeat=0,
-                         persistent=False, jobstore=None, **job_options):
+                         seconds=0, start_date=None, persistent=False,
+                         jobstore=None, **job_options):
         """
         Adds a job to be completed on specified intervals.
 
@@ -210,8 +210,6 @@ class Scheduler(object):
         :param seconds: number of seconds to wait
         :param start_date: when to first execute the job and start the
             counter (default is after the given interval)
-        :param repeat: number of times the job will be run (0 = repeat
-            indefinitely)
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
         :param name: name of the job
@@ -222,7 +220,7 @@ class Scheduler(object):
         """
         interval = timedelta(weeks=weeks, days=days, hours=hours,
                              minutes=minutes, seconds=seconds)
-        trigger = IntervalTrigger(interval, repeat, start_date)
+        trigger = IntervalTrigger(interval, start_date)
         job = SimpleJob(trigger, func, **job_options)
         self.add_job(job, persistent, jobstore)
         return job
@@ -294,14 +292,6 @@ class Scheduler(object):
             jobs.extend(jobstore.get_jobs())
         return jobs
 
-    def is_job_active(self, job):
-        """
-        Determines if the given job is still on the job list.
-
-        :return: True if the job is still active, False if not
-        """
-        return job in self.get_jobs()
-
     def unschedule_job(self, job):
         """
         Removes a job, preventing it from being fired any more.
@@ -345,6 +335,32 @@ class Scheduler(object):
 
         out.write(os.linesep.join(job_strs))
 
+    def _handle_job(self, job):
+        # See if the job missed its run time window, and handle possible
+        # misfires accordingly
+        now = datetime.now()
+        difference = now - job.next_run_time
+        grace_time = timedelta(seconds=job.misfire_grace_time)
+        if difference > grace_time:
+            late = difference - grace_time
+            logger.error('Run time of job "%s" (%s) was missed by %s',
+                         job, late)
+            # TODO: handle misfire
+        else:
+            logger.debug('Running job "%s"', job)
+            self.threadpool.execute(job.func, job.args, job.kwargs)
+            job.num_runs += 1
+
+        # If the job has reached maximum number of runs, don't run it anymore
+        if job.max_runs and job.num_runs >= job.max_runs:
+            return True
+
+        # Compute the next run time, and mark the job finished if no new
+        # run time is available
+        job.next_run_time = job.trigger.get_next_fire_time(now)
+        if not job.next_run_time:
+            return True
+
     def run(self):
         """
         Runs the main loop of the scheduler.
@@ -357,19 +373,13 @@ class Scheduler(object):
             end_time = datetime.now()
             next_wakeup_time = None
             for jobstore in self._jobstores.values():
-                jobs = jobstore.get_jobs(end_time)
-                finished_jobs = []
+                jobs = frozenset(jobstore.get_jobs(end_time))
+                finished_jobs = set()
                 for job in jobs:
-                    now = datetime.now()
-                    grace_time = timedelta(seconds=job.misfire_grace_time)
-                    if job.next_run_time - grace_time <= now:
-                        logger.debug('Running job "%s"', job)
-                        self.threadpool.execute(job.func, job.args, job.kwargs)
-                    job.next_run_time = job.trigger.get_next_fire_time(now)
-                    if not job.next_run_time:
-                        finished_jobs.append(job)
+                    if self._handle_job(job):
+                        finished_jobs.add(job)
 
-                jobstore.update_jobs(jobs)
+                jobstore.update_jobs(jobs - finished_jobs)
                 jobstore.remove_jobs(finished_jobs)
                 next_run_time = jobstore.get_next_run_time(end_time)
                 if not next_wakeup_time or next_wakeup_time > next_run_time:
