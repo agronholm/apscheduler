@@ -75,9 +75,9 @@ def time_difference(date1, date2):
     :type date2: datetime
     :rtype: float
     """
-    later = mktime(date1.timetuple())
-    earlier = mktime(date2.timetuple())
-    return float(later - earlier)
+    later = mktime(date1.timetuple()) + date1.microsecond / 1000000.0
+    earlier = mktime(date2.timetuple()) + date2.microsecond / 1000000.0    
+    return later - earlier
 
 
 def datetime_ceil(dateval):
