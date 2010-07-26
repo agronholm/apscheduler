@@ -3,11 +3,11 @@ from datetime import date, datetime, timedelta
 import time
 import os
 import sys
+import shelve
 
 from nose.tools import eq_, raises, assert_raises
 
 from apscheduler.util import *
-from nose.plugins.skip import SkipTest
 
 
 class DummyClass(object):
@@ -44,11 +44,13 @@ def test_asint_none():
 def test_asbool_true():
     for val in (' True', 'true ', 'Yes', ' yes ', '1  '):
         eq_(asbool(val), True)
+    assert asbool(True) is True
 
 
 def test_asbool_false():
     for val in (' False', 'false ', 'No', ' no ', '0  '):
         eq_(asbool(val), False)
+    assert asbool(False) is False
 
 
 @raises(ValueError)
@@ -140,11 +142,11 @@ def test_obj_to_ref():
     assert_raises(ValueError, obj_to_ref, DummyClass.meth)
     assert_raises(ValueError, obj_to_ref, DummyClass.staticmeth)
     assert_raises(ValueError, obj_to_ref, DummyClass.classmeth)
-    eq_(obj_to_ref(time.clock), 'time:clock')
+    eq_(obj_to_ref(shelve.open), 'shelve:open')
 
 
 def test_ref_to_obj():
-    eq_(ref_to_obj('time:clock'), time.clock)
+    eq_(ref_to_obj('shelve:open'), shelve.open)
 
 
 def test_to_unicode():
