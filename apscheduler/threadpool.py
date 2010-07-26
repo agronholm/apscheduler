@@ -76,9 +76,9 @@ class ThreadPool(object):
     def execute(self, func, args=(), kwargs={}):
         self.threads_lock.acquire()
         try:
+            self.queue.put((func, args, kwargs))
             if (self.busy_threads == self.num_threads and not
                 self.max_threads or self.num_threads < self.max_threads):
                 self._add_thread()
-            self.queue.put_nowait((func, args, kwargs))
         finally:
             self.threads_lock.release()
