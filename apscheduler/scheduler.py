@@ -48,8 +48,16 @@ class Scheduler(object):
 
     def __init__(self, gconfig={}, **options):
         self.wakeup = Event()
-        self._jobstores = {}
         self._jobstores_lock = Lock()
+        self.configure(gconfig, **options)
+    
+    def configure(self, gconfig={}, **options):
+        """
+        Reconfigures the scheduler with the given options. Can only be done
+        when the scheduler isn't running.
+        """
+        if self.running:
+            raise SchedulerAlreadyRunningError
 
         # Set general options
         config = combine_opts(gconfig, 'apscheduler.', options)
@@ -61,14 +69,14 @@ class Scheduler(object):
         self.threadpool = ThreadPool(**threadpool_opts)
 
         # Configure job stores
+        self._jobstores = {}
         jobstore_opts = combine_opts(config, 'jobstore.')
-        jobstores = {}
         for key, value in jobstore_opts.items():
             store_name, option = key.split('.', 1)[0]
-            opts_dict = jobstores.setdefault(store_name, {})
+            opts_dict = self._jobstores.setdefault(store_name, {})
             opts_dict[option] = value
 
-        for alias, opts in jobstores.items():
+        for alias, opts in self._jobstores.items():
             classname = opts.pop('class')
             cls = ref_to_obj(classname)
             jobstore = cls(**opts)
@@ -85,7 +93,7 @@ class Scheduler(object):
         """
         Starts the scheduler in a new thread.
         """
-        if self.thread and self.thread.isAlive():
+        if self.running:
             raise SchedulerAlreadyRunningError
 
         self.stopped = False
@@ -102,7 +110,7 @@ class Scheduler(object):
         :param timeout: time (in seconds) to wait for the scheduler thread to
             terminate, ``0`` to wait forever, ``None`` to skip waiting
         """
-        if self.stopped or not self.thread.isAlive():
+        if not self.running:
             return
 
         logger.info('Scheduler shutting down')
@@ -110,6 +118,10 @@ class Scheduler(object):
         self.wakeup.set()
         if timeout is not None:
             self.thread.join(timeout)
+    
+    @property
+    def running(self):
+        return not self.stopped and self.thread and self.thread.isAlive()
 
     def add_jobstore(self, jobstore, alias=None):
         """
