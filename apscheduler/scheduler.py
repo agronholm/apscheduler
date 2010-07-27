@@ -49,6 +49,7 @@ class Scheduler(object):
     def __init__(self, gconfig={}, **options):
         self.wakeup = Event()
         self._jobstores_lock = Lock()
+        self._pending_jobs = []
         self.configure(gconfig, **options)
     
     def configure(self, gconfig={}, **options):
@@ -178,15 +179,22 @@ class Scheduler(object):
             persistent job store, ``False`` to store it in a transient store
         :param jobstore: alias of the job store to store the job in (overrides
             the ``persistent`` option)
-        :return: scheduling metadata for the job
+        :return: scheduling metadata for the job if the scheduler is running,
+            else ``None``
         :rtype: :class:`~JobMeta`
         """
-        if self.stopped:
-            raise SchedulerShutdownError
+        if not self.running:
+            pending = ((job, trigger, persistent, jobstore), (options))
+            self._pending_jobs.add(pending)
+            jobname = options.get('name', '(unnamed)')
+            logger.info('Adding job "%s" tentatively -- job will be scheduled '
+                        'when the scheduler starts', jobname)
+            return
 
         jobmeta = JobMeta(job, trigger, **options)
         if jobmeta.misfire_grace_time is None:
             jobmeta.misfire_grace_time = self.misfire_grace_time
+
         jobmeta.next_run_time = trigger.get_next_fire_time(datetime.now())
         if not jobmeta.next_run_time:
             raise ValueError('Not adding job since it would never be run')
@@ -393,9 +401,16 @@ class Scheduler(object):
 
     def run(self):
         """
-        Runs the main loop of the scheduler.
+        Adds any pending jobs to the scheduler and then runs the the main loop.
         """
         self.wakeup.clear()
+        for args, options in self._pending_jobs:
+            try:
+                self.add_job(*args, **options)
+            except:
+                pass
+        del self._pending_jobs[:]
+
         while not self.stopped:
             # Iterate through pending jobs in every jobstore, start them
             # and figure out the next wakeup time
