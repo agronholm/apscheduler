@@ -1,90 +1,117 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from warnings import filterwarnings, resetwarnings
 import os
 
 from nose.tools import eq_, assert_raises
+from nose.plugins.skip import SkipTest
 
 from apscheduler.jobstore.ram_store import RAMJobStore
 from apscheduler.jobstore.shelve_store import ShelveJobStore
 from apscheduler.jobstore.sqlalchemy_store import SQLAlchemyJobStore
-from apscheduler.job import SimpleJob
-from apscheduler.triggers import DateTrigger
 from apscheduler.jobstore.base import JobStore
-from nose.plugins.skip import SkipTest
+from apscheduler.triggers import DateTrigger
+from apscheduler.job import JobMeta
 
 
-def dummy_func():
-    pass
+class StatefulJob(object):
+    counter = 0
 
-
-class DummyStore(JobStore):
-    pass
+    def run(self):
+        self.counter += 1
 
 
 class JobStoreTestBase(object):
-    def test_add_remove_job(self):
-        trigger_date = datetime(2999, 1, 1)
-        trigger = DateTrigger(trigger_date)
-        job = SimpleJob(trigger, dummy_func)
-        job.next_run_time = trigger_date
-        self.jobstore.add_job(job)
-
-        jobs = self.jobstore.get_jobs()
-        eq_(jobs, [job])
-        eq_(job.jobstore, self.jobstore)
-
-        next_run_time = self.jobstore.get_next_run_time(datetime(2998, 12, 31))
-        eq_(next_run_time, trigger_date)
-
-        trigger_date += timedelta(days=1)
-        jobs[0].next_run_time = trigger_date
-        self.jobstore.update_jobs(jobs)
-        jobs = self.jobstore.get_jobs()
-        eq_(jobs[0].next_run_time, trigger_date)
-
-        self.jobstore.remove_jobs((job,))
-        eq_(self.jobstore.get_jobs(), [])
-
-
-class TestRamJobStore(JobStoreTestBase):
     def setup(self):
+        self.trigger_date = datetime(2999, 1, 1)
+        self.earlier_date = datetime(2998, 12, 31)
+        self.trigger = DateTrigger(self.trigger_date)
+        self.job = StatefulJob()
+        self.jobmeta = JobMeta(self.job, self.trigger)
+        self.jobmeta.next_run_time = self.trigger_date
+
+    def test_jobstore_add_list_remove(self):
+        self.jobstore.add_job(self.jobmeta)
+
+        jobmetas = self.jobstore.list_jobs()
+        eq_(jobmetas, [self.jobmeta])
+        eq_(jobmetas[0].jobstore, self.jobstore)
+
+        self.jobstore.remove_job(jobmetas[0])
+        eq_(self.jobstore.list_jobs(), [])
+
+    def test_jobstore_add_checkout_update(self):
+        jobmetas = self.jobstore.checkout_jobs(self.trigger_date)
+        eq_(jobmetas, [])
+
+        self.jobstore.add_job(self.jobmeta)
+        eq_(self.jobmeta.time_started, None)
+
+        jobmetas = self.jobstore.checkout_jobs(self.earlier_date)
+        eq_(jobmetas, [])
+
+        jobmetas = self.jobstore.checkout_jobs(self.trigger_date)
+        eq_(jobmetas, [self.jobmeta])
+        eq_(jobmetas[0].jobstore, self.jobstore)
+        eq_(jobmetas[0].time_started, None)
+        eq_(jobmetas[0].job.counter, 0)
+
+        jobmetas[0].job.run()
+        self.jobstore.checkin_job(jobmetas[0])
+
+        jobmetas = self.jobstore.list_jobs()
+        eq_(jobmetas, [self.jobmeta])
+        eq_(jobmetas[0].job.counter, 1)
+
+
+class TestRAMJobStore(JobStoreTestBase):
+    def setup(self):
+        JobStoreTestBase.setup(self)
         self.jobstore = RAMJobStore()
+
+    def test_repr(self):
+        eq_(repr(self.jobstore), 'RAMJobStore')
 
 
 class TestShelveJobStore(JobStoreTestBase):
     def setup(self):
+        JobStoreTestBase.setup(self)
+
         try:
-            import dbhash
+            filterwarnings('ignore', category=RuntimeWarning)
+            from os import tempnam
+            self.path = tempnam()
+            resetwarnings()
+            self.jobstore = ShelveJobStore(self.path)
         except ImportError:
             raise SkipTest
 
-        filterwarnings('ignore', category=RuntimeWarning)
-        self.path = os.tempnam()
-        resetwarnings()
-        self.jobstore = ShelveJobStore(self.path)
-
     def teardown(self):
-        os.remove(self.path)
+        if os.path.exists(self.path):
+            os.remove(self.path)
+
+    def test_repr(self):
+        eq_(repr(self.jobstore), 'ShelveJobStore (%s)' % self.path)
 
 
 class TestSQLAlchemyJobStore(JobStoreTestBase):
     def setup(self):
+        JobStoreTestBase.setup(self)
         try:
-            import sqlite3
+            self.jobstore = SQLAlchemyJobStore(url='sqlite:///')
         except ImportError:
-            try:
-                import pysqlite2
-            except ImportError:
-                raise SkipTest
+            raise SkipTest
 
-        self.jobstore = SQLAlchemyJobStore(url='sqlite:///')
+    def test_repr(self):
+        eq_(repr(self.jobstore), 'SQLAlchemyJobStore (sqlite:///)')
 
 
 def test_unimplemented_job_store():
+    class DummyStore(JobStore): pass
     jobstore = DummyStore()
     assert_raises(NotImplementedError, getattr, jobstore, 'default_alias')
     assert_raises(NotImplementedError, jobstore.add_job, None)
-    assert_raises(NotImplementedError, jobstore.update_jobs, ())
-    assert_raises(NotImplementedError, jobstore.remove_jobs, ())
-    assert_raises(NotImplementedError, jobstore.get_jobs)
+    assert_raises(NotImplementedError, jobstore.checkin_job, None)
+    assert_raises(NotImplementedError, jobstore.remove_job, None)
+    assert_raises(NotImplementedError, jobstore.checkout_jobs, None)
+    assert_raises(NotImplementedError, jobstore.list_jobs)
     assert_raises(NotImplementedError, jobstore.get_next_run_time, None)

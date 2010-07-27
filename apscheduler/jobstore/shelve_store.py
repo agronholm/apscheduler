@@ -2,66 +2,34 @@
 Stores jobs in a file governed by the :mod:`shelve` module.
 """
 
+from copy import copy
 import shelve
 import pickle
-import random
 
-from apscheduler.jobstore.base import JobStore
+from apscheduler.jobstore.base import DictJobStore
 
 
-class ShelveJobStore(JobStore):
-    MAX_ID = 1000000
-
+class ShelveJobStore(DictJobStore):
     stores_persistent = True
 
     def __init__(self, path, protocol=pickle.HIGHEST_PROTOCOL):
+        DictJobStore.__init__(self)
         self.path = path
         self.protocol = protocol
 
-    def _open_shelve(self, mode):
-        return shelve.open(self.path, mode, self.protocol)
+    def _open_store(self):
+        return shelve.open(self.path, 'c', self.protocol)
 
-    def add_job(self, job):
-        job.jobstore = self
-        shelve = self._open_shelve('c')
-        while not job.id:
-            id = str(random.randint(1, self.MAX_ID))
-            if not id in shelve:
-                job.id = id
-                shelve[id] = job
-        shelve.close()
+    def _close_store(self, store):
+        store.close()
 
-    def update_jobs(self, jobs):
-        shelve = self._open_shelve('w')
-        for job in jobs:
-            shelve[job.id] = job
-        shelve.close()
+    def _export_jobmeta(self, jobmeta):
+        jobmeta = copy(jobmeta)
+        jobmeta.jobstore = self
+        return jobmeta
 
-    def remove_jobs(self, jobs):
-        shelve = self._open_shelve('w')
-        for job in jobs:
-            if job.id in shelve:
-                del shelve[job.id]
-        shelve.close()
-
-    def get_jobs(self, end_time=None):
-        jobs = []
-        shelve = self._open_shelve('r')
-        for job in shelve.values():
-            if not end_time or job.next_run_time <= end_time:
-                jobs.append(job)
-        shelve.close()
-        return jobs
-
-    def get_next_run_time(self, start_time):
-        next_run_time = None
-        shelve = self._open_shelve('r')
-        for job in shelve.values():
-            if (not next_run_time or job.next_run_time > start_time and
-                job.next_run_time < next_run_time):
-                next_run_time = job.next_run_time
-        shelve.close()
-        return next_run_time
+    def _put_jobmeta(self, store, jobmeta):
+        store[jobmeta.id] = jobmeta
 
     def __repr__(self):
         return '%s (%s)' % (self.__class__.__name__, self.path)

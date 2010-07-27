@@ -2,79 +2,116 @@
 Stores jobs in a database table using SQLAlchemy.
 """
 
+from datetime import datetime
+from copy import copy
+
 from apscheduler.jobstore.base import JobStore
-from apscheduler.util import to_unicode
+from apscheduler.job import JobMeta
 
 try:
     from sqlalchemy import *
+    from sqlalchemy.orm import *
+    from sqlalchemy.orm.session import sessionmaker
 except ImportError:
     raise ImportError('SQLAlchemyJobStore requires SQLAlchemy installed')
 
 
-class SQLAlchemyJobStore(JobStore):
-    BINARY_COLUMN_LENGTH = 8192
+def session(func):
+    def wrapper(self, *args, **kwargs):
+        session = self.sessionmaker()
+        try:
+            retval = func(self, session, *args, **kwargs)
+        except:
+            session.rollback()
+            raise
 
+        session.commit()
+        return retval
+    return wrapper
+
+
+class SQLAlchemyJobStore(JobStore):
     stores_persistent = True
 
-    def __init__(self, engine=None, url=None, metadata=None,
-                 tablename='apscheduler_jobs'):
+    def __init__(self, engine=None, url=None, tablename=None):
         if engine:
-            self.engine = engine
+            self.url = engine.url
         elif url:
-            self.engine = create_engine(url)
+            engine = create_engine(url)
+            self.url = url
         else:
-            raise ValueError('Need either "engine" or "url" specified!')
+            raise ValueError('Need either "engine" or "url" defined')
 
-        metadata = metadata or MetaData()
-        self.jobs_table = self._make_jobs_table(tablename, metadata)
-        self.jobs_table.create(self.engine, True)
+        self.sessionmaker = sessionmaker(bind=engine)
+        if tablename:
+            jobmeta_table.name = tablename
+        jobmeta_table.create(engine, True)
 
-    def _make_jobs_table(self, name, metadata):
-        return Table(name, metadata,
-            Column('id', Integer, primary_key=True),
-            Column('name', Unicode(1024)),
-            Column('job_data', PickleType, nullable=False),
-            Column('next_run_time', DateTime, nullable=False))
+    def _export_jobmeta(self, jobmeta):
+        jobmeta = copy(jobmeta)
+        make_transient(jobmeta)
+        jobmeta.jobstore = self
+        return jobmeta
 
-    def add_job(self, job):
-        insert = self.jobs_table.insert().values(name=to_unicode(job.name),
-            job_data=job, next_run_time=job.next_run_time)
-        result = self.engine.execute(insert)
-        job.id = result.inserted_primary_key[0]
-        job.jobstore = self
+    @session
+    def add_job(self, session, jobmeta):
+        session.add(jobmeta)
+        jobmeta.jobstore = self
 
-    def update_jobs(self, jobs):
-        update = self.jobs_table.update().\
-            where(self.jobs_table.c.id == bindparam('_id')).\
-            values(name=bindparam('_name', type_=Unicode),
-                   job_data=bindparam('_job_data', type_=PickleType),
-                   next_run_time=bindparam('_next_run_time', type_=DateTime))
+    @session
+    def remove_job(self, session, jobmeta):
+        session.query(JobMeta).filter_by(id=jobmeta.id).delete(False)
 
-        params = [dict(_id=job.id, _name=to_unicode(job.name), _job_data=job,
-                       _next_run_time=job.next_run_time) for job in jobs]
-        self.engine.execute(update, params)
+    @session
+    def checkout_jobs(self, session, end_time):
+        query = session.query(JobMeta).\
+            filter(JobMeta.next_run_time <= end_time).\
+            filter(or_(JobMeta.max_runs == None,
+                       JobMeta.runs < JobMeta.max_runs)).\
+            filter(JobMeta.time_started == None).\
+            with_lockmode('update')
+        now = datetime.now()
+        jobmetas = []
+        for jobmeta in query:
+            jobmetas.append(self._export_jobmeta(jobmeta))
 
-    def remove_jobs(self, jobs):
-        job_ids = set(job.id for job in jobs)
-        delete = self.jobs_table.delete(self.jobs_table.c.id.in_(job_ids))
-        self.engine.execute(delete)
+            # Mark this job as started and compute the next run time
+            jobmeta.time_started = now
+            jobmeta.next_run_time = jobmeta.trigger.get_next_fire_time(now)
+        return jobmetas
 
-    def get_jobs(self, end_time=None):
-        query = select([self.jobs_table.c.id, self.jobs_table.c.job_data])
-        if end_time:
-            query = query.where(self.jobs_table.c.next_run_time <= end_time)
+    @session
+    def checkin_job(self, session, jobmeta):
+        storedmeta = session.query(JobMeta).get(jobmeta.id)
+        storedmeta.job = jobmeta.job
+        storedmeta.time_started = None
+        storedmeta.runs += 1
 
-        results = self.engine.execute(query)
-        jobs = []
-        for id, job in results:
-            job.id = id
-            jobs.append(job)
-        return jobs
+    @session
+    def list_jobs(self, session):
+        query = session.query(JobMeta)
+        jobmetas = []
+        for jobmeta in query:
+            jobmetas.append(self._export_jobmeta(jobmeta))
+        return jobmetas
 
-    def get_next_run_time(self, start_time):
-        query = select([func.min(self.jobs_table.c.next_run_time)]).\
-            where(self.jobs_table.c.next_run_time > start_time)
-        return self.engine.execute(query).scalar()
+    @session
+    def get_next_run_time(self, session, start_time):
+        return session.query(func.min(JobMeta.next_run_time)).scalar()
 
     def __repr__(self):
-        return '%s (%s)' % (self.__class__.__name__, self.engine.url)
+        return '%s (%s)' % (self.__class__.__name__, self.url)
+
+
+jobmeta_table = Table('apscheduler_jobs', MetaData(),
+    Column('id', Integer, primary_key=True),
+    Column('job', PickleType(mutable=False), nullable=False),
+    Column('trigger', PickleType(mutable=False), nullable=False),
+    Column('name', Unicode(1024), unique=True),
+    Column('next_run_time', DateTime, nullable=False, index=True),
+    Column('time_started', DateTime),
+    Column('max_runs', Integer),
+    Column('runs', BigInteger, nullable=False),
+    Column('misfire_grace_time', Integer, nullable=False))
+
+mapper(JobMeta, jobmeta_table)

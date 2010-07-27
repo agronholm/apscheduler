@@ -3,6 +3,11 @@ Abstract base class that provides the interface needed by all job stores.
 Job store methods are also documented here.
 """
 
+from threading import Lock
+from datetime import datetime
+import random
+
+
 class JobStore(object):
     stores_transient = False
     stores_persistent = False
@@ -14,26 +19,38 @@ class JobStore(object):
             return clsname[:-8]
         raise NotImplementedError('No default alias defined')
 
-    def add_job(self, job):
+    def add_job(self, jobmeta):
         """Adds the given job from this store."""
         raise NotImplementedError
 
-    def update_jobs(self, jobs):
-        """Updates the persistent record of the given Jobs."""
+    def remove_job(self, jobmeta):
+        """Removes the given jobs from this store."""
         raise NotImplementedError
 
-    def remove_jobs(self, jobs):
-        """Removes the given job from this store."""
-        raise NotImplementedError
-
-    def get_jobs(self, end_time=None):
+    def checkout_jobs(self, end_time):
         """
-        Retrieves jobs scheduled in this store."
+        Checks out the currently pending jobs for execution.
+        The job store's responsibility is to increment the number of running
+        instances, possibly within a transaction.
         
-        :param end_time: if specified, filter jobs so that only the ones
-            whose next run time must be earlier or equal to end_time.
-        :type start_time: :class:`datetime.datetime`
-        :return: list of Jobs matching the filter, if any
+        :param end_time: current time, used to filter out jobs that aren't
+            supposed to be run yet
+        :type end_time: :class:`datetime.datetime`
+        :return: list of pending jobs
+        """
+        raise NotImplementedError
+
+    def checkin_job(self, jobmeta):
+        """
+        Updates the persistent record of the given job and increments its run
+        counter.
+        """
+        raise NotImplementedError
+
+    def list_jobs(self):
+        """
+        Retrieves a list of jobs stored in this store. This list may not be
+        used to modify the contents of the store, so it must be a copy.
         """
         raise NotImplementedError
 
@@ -46,3 +63,90 @@ class JobStore(object):
 
     def str(self):
         return '%s (%s)' % (self.alias, self.__class__.__name__)
+
+
+def store(func):
+    """
+    Wrapper for methods of DictJobStore that acquires the lock and opens the
+    backend at the beginning of the invocation and closes/unlocks at the end.
+    """
+    def wrapper(self, *args, **kwargs):
+        self._lock.acquire()
+        store = self._open_store()
+        try:
+            return func(self, store, *args, **kwargs)
+        finally:
+            self._close_store(store)
+            self._lock.release()
+    return wrapper
+
+
+class DictJobStore(JobStore):
+    """
+    Base class for job stores backed by a dict-like object.
+    """
+    MAX_ID = 1000000
+
+    def __init__(self):
+        self._lock = Lock()
+
+    def _generate_id(self, store):
+        id = None
+        while not id:
+            id = str(random.randint(1, self.MAX_ID))
+            if not id in store:
+                return id
+
+    @store
+    def add_job(self, store, jobmeta):
+        jobmeta.id = self._generate_id(store)
+        jobmeta.jobstore = self
+        self._put_jobmeta(store, jobmeta)
+
+    @store
+    def remove_job(self, store, jobmeta):
+        store.pop(jobmeta.id, None)
+
+    @store
+    def checkout_jobs(self, store, end_time):
+        jobmetas = []
+        now = datetime.now()
+        for jobmeta in store.values():
+            if (jobmeta.next_run_time <= end_time and
+                (not jobmeta.max_runs or jobmeta.runs < jobmeta.max_runs) and
+                not jobmeta.time_started):
+                jobmetas.append(self._export_jobmeta(jobmeta))
+
+                # Mark this job as started and compute the next run time
+                jobmeta.time_started = now
+                jobmeta.next_run_time = jobmeta.trigger.get_next_fire_time(now)
+                if jobmeta.next_run_time:
+                    self._put_jobmeta(store, jobmeta)
+                else:
+                    store.pop(jobmeta.id)
+        return jobmetas
+
+    @store
+    def checkin_job(self, store, jobmeta):
+        storedmeta = store[jobmeta.id]
+        storedmeta.job = jobmeta.job
+        storedmeta.time_started = None
+        storedmeta.runs += 1
+        self._put_jobmeta(store, storedmeta)
+
+    @store
+    def list_jobs(self, store):
+        return [self._export_jobmeta(jm) for jm in store.values()]
+
+    @store
+    def get_next_run_time(self, store, start_time):
+        next_run_time = None
+        for jobmeta in store.values():
+            assert jobmeta.next_run_time
+            if (jobmeta.next_run_time > start_time and (not next_run_time or
+                jobmeta.next_run_time < next_run_time)):
+                next_run_time = jobmeta.next_run_time
+        return next_run_time
+
+    def __repr__(self):
+        return self.__class__.__name__

@@ -4,81 +4,80 @@ Jobs represent scheduled tasks.
 
 import logging
 
-from apscheduler.util import obj_to_ref, ref_to_obj, get_callable_name
+from apscheduler.util import obj_to_ref, ref_to_obj, to_unicode
 
 
 logger = logging.getLogger(__name__)
 
-class Job(object):
+class JobMeta(object):
     """
-    Abstract base class for jobs. Custom stateful jobs should inherit from this
-    class.
+    Encapsulates the actual Job along with its metadata.
     """
 
     id = None
     jobstore = None
     next_run_time = None
-    num_runs = 0
+    time_started = None
 
-    def __init__(self, trigger, name=None, max_runs=None,
-                 misfire_grace_time=1):
+    def __init__(self, job, trigger, name=None, max_runs=None,
+                 max_running_instances=1, misfire_grace_time=1):
         """
-        :param trigger: trigger for the given callable
+        :param job: the job object (contains the "run" method)
+        :param trigger: trigger that determines the execution times of the
+            enclosed job
         :param name: name of the job (optional)
         :param max_runs: maximum number of times this job is allowed to be
             triggered
         :param misfire_grace_time: seconds after the designated run time that
             the job is still allowed to be run
         """
+        self.job = job
         self.trigger = trigger
+        self.name = name
+        self.runs = 0
         self.max_runs = max_runs
         self.misfire_grace_time = misfire_grace_time
-        self.name = name or '(unnamed)'
 
         if not self.trigger:
-            raise ValueError('The job must have a trigger')
+            raise ValueError('The trigger must not be None')
+        if not self.job:
+            raise ValueError('The job must not be None')
+        if name:
+            self.name = to_unicode(name)
         if self.max_runs is not None and self.max_runs <= 0:
             raise ValueError('max_runs must be a positive value or None')
         if self.misfire_grace_time <= 0:
             raise ValueError('misfire_grace_time must be a positive value')
-
-    def run(self):
-        """
-        Runs the job. This method is executed in a separate thread.
-        Subclasses should override this.
-        """
-        raise NotImplementedError
 
     def __getstate__(self):
         state = self.__dict__.copy()
         state.pop('jobstore', None)
         return state
 
-    def __eq__(self, job):
-        if isinstance(job, Job):
+    def __cmp__(self, other):
+        return cmp(self.next_run_time, other.next_run_time)
+
+    def __eq__(self, other):
+        if isinstance(other, JobMeta):
             if self.id is not None:
-                return job.id == self.id
-            return self is job
+                return other.id == self.id
+            return self is other
         return False
 
     def __repr__(self):
         return '%s: %s' % (self.name, self.trigger)
 
 
-class SimpleJob(Job):
+class SimpleJob(object):
     """
     Job that runs the given function with the given arguments when triggered.
     """
 
-    def __init__(self, trigger, func, args=None, kwargs=None, name=None,
-                 **job_options):
+    def __init__(self, func, args=None, kwargs=None):
         """
-        :param trigger: trigger for the given callable
         :param func: callable to call when the trigger is triggered
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
-        :param name: name of the job (if none specified, defaults to the name
-            of the function)
         """
         if not hasattr(func, '__call__'):
             raise TypeError('func must be callable')
@@ -86,8 +85,6 @@ class SimpleJob(Job):
         self.func = func
         self.args = args or []
         self.kwargs = kwargs or {}
-        name = name or get_callable_name(func)
-        Job.__init__(self, trigger, name=name, **job_options)
 
     def run(self):
         """
@@ -101,7 +98,7 @@ class SimpleJob(Job):
             raise
 
     def __getstate__(self):
-        state = Job.__getstate__(self)
+        state = self.__dict__.copy()
         state['func'] = obj_to_ref(state['func'])
         return state
 
