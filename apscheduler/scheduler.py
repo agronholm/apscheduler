@@ -9,8 +9,7 @@ from logging import getLogger
 import os
 import sys
 
-from apscheduler.util import time_difference, asbool, combine_opts, ref_to_obj, \
-    get_callable_name
+from apscheduler.util import *
 from apscheduler.triggers import DateTrigger, IntervalTrigger, CronTrigger
 from apscheduler.jobstore.ram_store import RAMJobStore
 from apscheduler.job import SimpleJob, JobMeta
@@ -43,11 +42,11 @@ class Scheduler(object):
     their execution.
     """
 
-    stopped = False
-    thread = None
+    _stopped = False
+    _thread = None
 
     def __init__(self, gconfig={}, **options):
-        self.wakeup = Event()
+        self._wakeup = Event()
         self._jobstores_lock = Lock()
         self._pending_jobs = []
         self.configure(gconfig, **options)
@@ -67,7 +66,7 @@ class Scheduler(object):
 
         # Configure the thread pool
         threadpool_opts = combine_opts(config, 'threadpool.')
-        self.threadpool = ThreadPool(**threadpool_opts)
+        self._threadpool = ThreadPool(**threadpool_opts)
 
         # Configure job stores
         self._jobstores = {}
@@ -97,10 +96,10 @@ class Scheduler(object):
         if self.running:
             raise SchedulerAlreadyRunningError
 
-        self.stopped = False
-        self.thread = Thread(target=self.run, name='APScheduler')
-        self.thread.setDaemon(self.daemonic)
-        self.thread.start()
+        self._stopped = False
+        self._thread = Thread(target=self._main_loop, name='APScheduler')
+        self._thread.setDaemon(self.daemonic)
+        self._thread.start()
         logger.info('Scheduler started')
 
     def shutdown(self, timeout=0):
@@ -115,14 +114,14 @@ class Scheduler(object):
             return
 
         logger.info('Scheduler shutting down')
-        self.stopped = True
-        self.wakeup.set()
+        self._stopped = True
+        self._wakeup.set()
         if timeout is not None:
-            self.thread.join(timeout)
+            self._thread.join(timeout)
     
     @property
     def running(self):
-        return not self.stopped and self.thread and self.thread.isAlive()
+        return not self._stopped and self._thread and self._thread.isAlive()
 
     def add_jobstore(self, jobstore, alias=None):
         """
@@ -147,7 +146,7 @@ class Scheduler(object):
             self._jobstores_lock.release()
 
         # Notify the scheduler so it can scan the new job store for jobs
-        self.wakeup.set()
+        self._wakeup.set()
 
     def remove_jobstore(self, alias):
         """
@@ -185,7 +184,7 @@ class Scheduler(object):
         """
         if not self.running:
             pending = ((job, trigger, persistent, jobstore), (options))
-            self._pending_jobs.add(pending)
+            self._pending_jobs.append(pending)
             jobname = options.get('name', '(unnamed)')
             logger.info('Adding job "%s" tentatively -- job will be scheduled '
                         'when the scheduler starts', jobname)
@@ -207,7 +206,7 @@ class Scheduler(object):
         logger.info('Added job "%s" to job store %s', jobmeta, jobstore.alias)
 
         # Notify the scheduler about the new job
-        self.wakeup.set()
+        self._wakeup.set()
 
         return jobmeta
 
@@ -330,7 +329,7 @@ class Scheduler(object):
         """
         job.jobstore.remove_job(job)
         logger.info('Removed job "%s"', job)
-        self.wakeup.set()
+        self._wakeup.set()
 
     def print_jobs(self, out=sys.stdout):
         """
@@ -397,13 +396,13 @@ class Scheduler(object):
             # TODO: handle misfire
             return
 
-        self.threadpool.execute(self._run_job, [jobmeta])
+        self._threadpool.execute(self._run_job, [jobmeta])
 
-    def run(self):
+    def _main_loop(self):
         """
         Adds any pending jobs to the scheduler and then runs the the main loop.
         """
-        self.wakeup.clear()
+        self._wakeup.clear()
         for args, options in self._pending_jobs:
             try:
                 self.add_job(*args, **options)
@@ -411,7 +410,7 @@ class Scheduler(object):
                 pass
         del self._pending_jobs[:]
 
-        while not self.stopped:
+        while not self._stopped:
             # Iterate through pending jobs in every jobstore, start them
             # and figure out the next wakeup time
             logger.debug('Scanning jobstores for jobs to run')
@@ -433,8 +432,8 @@ class Scheduler(object):
                 wait_seconds = time_difference(next_wakeup_time, now)
                 logger.debug('Next wakeup is due at %s (in %f seconds)',
                              next_wakeup_time, wait_seconds)
-                self.wakeup.wait(wait_seconds)
+                self._wakeup.wait(wait_seconds)
             else:
                 logger.debug('No jobs; waiting until a job is added')
-                self.wakeup.wait()
-            self.wakeup.clear()
+                self._wakeup.wait()
+            self._wakeup.clear()
