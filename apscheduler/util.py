@@ -6,8 +6,8 @@ from datetime import date, datetime, timedelta
 from time import mktime
 
 __all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds',
-           'time_difference', 'datetime_ceil', 'combine_opts', 'obj_to_ref',
-           'ref_to_obj', 'to_unicode')
+           'time_difference', 'datetime_ceil', 'combine_opts',
+           'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'to_unicode')
 
 
 def asint(text):
