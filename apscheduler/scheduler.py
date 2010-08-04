@@ -180,7 +180,7 @@ class Scheduler(object):
             the ``persistent`` option)
         :return: scheduling metadata for the job if the scheduler is running,
             else ``None``
-        :rtype: :class:`~JobMeta`
+        :rtype: :class:`~apscheduler.job.JobMeta`
         """
         if not self.running:
             pending = ((job, trigger, persistent, jobstore), (options))
@@ -226,7 +226,7 @@ class Scheduler(object):
         :param jobstore: stored the job in the named (or given) job store
         :type date: :class:`datetime.date` or :class:`datetime.datetime`
         :return: the scheduled job
-        :rtype: :class:`~JobMeta`
+        :rtype: :class:`~apscheduler.job.JobMeta`
         """
         trigger = DateTrigger(date)
         return self._add_simple_job(trigger, func, args, kwargs, **options)
@@ -251,7 +251,7 @@ class Scheduler(object):
         :param persistent: ``True`` to store the job in a persistent job store
         :param jobstore: alias of the job store to add the job to
         :return: the scheduled job
-        :rtype: :class:`~JobMeta`
+        :rtype: :class:`~apscheduler.job.JobMeta`
         """
         interval = timedelta(weeks=weeks, days=days, hours=hours,
                              minutes=minutes, seconds=seconds)
@@ -280,7 +280,7 @@ class Scheduler(object):
             the job is still allowed to be run
         :param jobstore: alias of the job store to add the job to
         :return: the scheduled job
-        :rtype: :class:`~JobMeta`
+        :rtype: :class:`~apscheduler.job.JobMeta`
         """
         trigger = CronTrigger(year=year, month=month, day=day, week=week,
                               day_of_week=day_of_week, hour=hour,
@@ -371,20 +371,9 @@ class Scheduler(object):
             jobmeta.jobstore.remove_job(jobmeta)
             return
 
-#        if not jobmeta.next_run_time:
-#            logger.info('Job "%s" has no next run time, removing it from '
-#                        'jobstore', jobmeta)
-#            jobmeta.jobstore.remove_job(jobmeta)
-#        else:
         jobmeta.jobstore.checkin_job(jobmeta)
 
     def _start_job(self, jobmeta):
-        # Check if this job is already being run
-#        if jobmeta.time_started:
-#            logger.error('Not running job "%s" since it is already being run',
-#                         jobmeta)
-#            return
-
         # See if the job missed its run time window, and handle possible
         # misfires accordingly
         difference = datetime.now() - jobmeta.next_run_time

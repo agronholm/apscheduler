@@ -11,7 +11,18 @@ logger = logging.getLogger(__name__)
 
 class JobMeta(object):
     """
-    Encapsulates the actual Job along with its metadata.
+    Encapsulates the actual Job along with its metadata. JobMeta instances
+    are created by the scheduler when adding jobs, and it should not be
+    directly instantiated.
+
+    :param job: the job object (contains the "run" method)
+    :param trigger: trigger that determines the execution times of the
+        enclosed job
+    :param name: name of the job (optional)
+    :param max_runs: maximum number of times this job is allowed to be
+        triggered
+    :param misfire_grace_time: seconds after the designated run time that
+        the job is still allowed to be run
     """
 
     id = None
@@ -21,16 +32,6 @@ class JobMeta(object):
 
     def __init__(self, job, trigger, name=None, max_runs=None,
                  max_running_instances=1, misfire_grace_time=1):
-        """
-        :param job: the job object (contains the "run" method)
-        :param trigger: trigger that determines the execution times of the
-            enclosed job
-        :param name: name of the job (optional)
-        :param max_runs: maximum number of times this job is allowed to be
-            triggered
-        :param misfire_grace_time: seconds after the designated run time that
-            the job is still allowed to be run
-        """
         self.job = job
         self.trigger = trigger
         self.name = name
@@ -71,14 +72,15 @@ class JobMeta(object):
 class SimpleJob(object):
     """
     Job that runs the given function with the given arguments when triggered.
+    These are instantiated by the scheduler's shortcut methods and it should
+    not be necessary to create these directly.
+
+    :param func: callable to call when the trigger is triggered
+    :param args: list of positional arguments to call func with
+    :param kwargs: dict of keyword arguments to call func with
     """
 
     def __init__(self, func, args=None, kwargs=None):
-        """
-        :param func: callable to call when the trigger is triggered
-        :param args: list of positional arguments to call func with
-        :param kwargs: dict of keyword arguments to call func with
-        """
         if not hasattr(func, '__call__'):
             raise TypeError('func must be callable')
 
