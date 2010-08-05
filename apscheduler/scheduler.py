@@ -148,7 +148,10 @@ class Scheduler(object):
         """
         self._jobstores_lock.acquire()
         try:
-            del self._jobstores[alias]
+            try:
+                del self._jobstores[alias]
+            except KeyError:
+                raise KeyError('No such jobstore: %s' % alias)
         finally:
             self._jobstores_lock.release()
 
@@ -191,9 +194,13 @@ class Scheduler(object):
             raise ValueError('Not adding job since it would never be run')
 
         if jobstore:
-            jobstore = self._jobstores[jobstore]
+            try:
+                jobstore = self._jobstores[jobstore]
+            except KeyError:
+                raise KeyError('No such jobstore: %s' % jobstore)
         else:
             jobstore = self._select_jobstore(persistent)
+
         jobstore.add_job(jobmeta)
         logger.info('Added job "%s" to job store %s', jobmeta, jobstore.alias)
 
