@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from nose.tools import eq_, raises
 
-from apscheduler.triggers import CronTrigger, DateTrigger, IntervalTrigger
+from apscheduler.triggers import CronTrigger, SimpleTrigger, IntervalTrigger
 
 
 def test_cron_trigger_1():
@@ -106,22 +106,22 @@ def test_cron_increment_weekday():
 
 def test_date_trigger_earlier():
     fire_date = datetime(2009, 7, 6)
-    trigger = DateTrigger(fire_date)
-    eq_(repr(trigger), "DateTrigger(datetime.datetime(2009, 7, 6, 0, 0))")
+    trigger = SimpleTrigger(fire_date)
+    eq_(repr(trigger), "SimpleTrigger(datetime.datetime(2009, 7, 6, 0, 0))")
     start_date = datetime(2008, 12, 1)
     eq_(trigger.get_next_fire_time(start_date), fire_date)
 
 
 def test_date_trigger_exact():
     fire_date = datetime(2009, 7, 6)
-    trigger = DateTrigger(fire_date)
+    trigger = SimpleTrigger(fire_date)
     start_date = datetime(2009, 7, 6)
     eq_(trigger.get_next_fire_time(start_date), fire_date)
 
 
 def test_date_trigger_later():
     fire_date = datetime(2009, 7, 6)
-    trigger = DateTrigger(fire_date)
+    trigger = SimpleTrigger(fire_date)
     start_date = datetime(2009, 7, 7)
     eq_(trigger.get_next_fire_time(start_date), None)
 

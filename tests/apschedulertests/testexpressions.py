@@ -2,8 +2,8 @@ from datetime import datetime
 
 from nose.tools import eq_, raises
 
-from apscheduler.expressions import *
-from apscheduler.fields import DayOfMonthField, BaseField, DayOfWeekField
+from apscheduler.triggers.cron.expressions import *
+from apscheduler.triggers.cron.fields import *
 
 
 def test_all_expression():

@@ -1,6 +1,7 @@
 """
 This module contains the expressions applicable for CronTrigger's fields.
 """
+
 from calendar import monthrange
 import re
 
@@ -9,8 +10,8 @@ from apscheduler.util import asint
 __all__ = ('AllExpression', 'RangeExpression', 'WeekdayRangeExpression',
            'WeekdayPositionExpression')
 
-WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
+WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
 class AllExpression(object):
     value_re = re.compile(r'\*(?:/(?P<step>\d+))?$')

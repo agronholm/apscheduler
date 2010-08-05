@@ -1,12 +1,14 @@
 """
-Fields represent :class:`~apscheduler.triggers.CronTrigger` options which map
-to :class:`~datetime.datetime` fields.
+Fields represent CronTrigger options which map to :class:`~datetime.datetime`
+fields.
 """
+
 from calendar import monthrange
 
-from apscheduler.expressions import *
+from apscheduler.triggers.cron.expressions import *
 
 __all__ = ('BaseField', 'WeekField', 'DayOfMonthField', 'DayOfWeekField')
+
 
 MIN_VALUES = {'year': 1970, 'month': 1, 'day': 1, 'week': 1,
               'day_of_week': 0, 'hour': 0, 'minute': 0, 'second': 0}

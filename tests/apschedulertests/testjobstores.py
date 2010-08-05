@@ -5,11 +5,11 @@ import os
 from nose.tools import eq_, assert_raises
 from nose.plugins.skip import SkipTest
 
-from apscheduler.jobstore.ram_store import RAMJobStore
-from apscheduler.jobstore.shelve_store import ShelveJobStore
-from apscheduler.jobstore.sqlalchemy_store import SQLAlchemyJobStore
-from apscheduler.jobstore.base import JobStore
-from apscheduler.triggers import DateTrigger
+from apscheduler.jobstores.ram_store import RAMJobStore
+from apscheduler.jobstores.shelve_store import ShelveJobStore
+from apscheduler.jobstores.sqlalchemy_store import SQLAlchemyJobStore
+from apscheduler.jobstores.base import JobStore
+from apscheduler.triggers import SimpleTrigger
 from apscheduler.job import JobMeta
 
 
@@ -24,7 +24,7 @@ class JobStoreTestBase(object):
     def setup(self):
         self.trigger_date = datetime(2999, 1, 1)
         self.earlier_date = datetime(2998, 12, 31)
-        self.trigger = DateTrigger(self.trigger_date)
+        self.trigger = SimpleTrigger(self.trigger_date)
         self.job = StatefulJob()
         self.jobmeta = JobMeta(self.job, self.trigger)
         self.jobmeta.next_run_time = self.trigger_date

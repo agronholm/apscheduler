@@ -10,8 +10,8 @@ import os
 import sys
 
 from apscheduler.util import *
-from apscheduler.triggers import DateTrigger, IntervalTrigger, CronTrigger
-from apscheduler.jobstore.ram_store import RAMJobStore
+from apscheduler.triggers import SimpleTrigger, IntervalTrigger, CronTrigger
+from apscheduler.jobstores.ram_store import RAMJobStore
 from apscheduler.job import SimpleJob, JobMeta
 from apscheduler.threadpool import ThreadPool
 
@@ -228,7 +228,7 @@ class Scheduler(object):
         :return: the scheduled job
         :rtype: :class:`~apscheduler.job.JobMeta`
         """
-        trigger = DateTrigger(date)
+        trigger = SimpleTrigger(date)
         return self._add_simple_job(trigger, func, args, kwargs, **options)
 
     def add_interval_job(self, func, weeks=0, days=0, hours=0, minutes=0,
