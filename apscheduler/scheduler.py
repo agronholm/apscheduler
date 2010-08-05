@@ -18,22 +18,14 @@ from apscheduler.threadpool import ThreadPool
 
 logger = getLogger(__name__)
 
-class SchedulerShutdownError(Exception):
-    """
-    Raised when attempting to use the scheduler after it's been shut down.
-    """
-
-    def __init__(self):
-        Exception.__init__(self, 'Scheduler has already been shut down')
-
-
 class SchedulerAlreadyRunningError(Exception):
     """
-    Raised when attempting to start the scheduler, but it's already running.
+    Raised when attempting to start or configure the scheduler when it's
+    already running.
     """
 
-    def __init__(self):
-        Exception.__init__(self, 'Scheduler is already running')
+    def __str__(self):
+        return 'Scheduler is already running'
 
 
 class Scheduler(object):
@@ -50,7 +42,7 @@ class Scheduler(object):
         self._jobstores_lock = Lock()
         self._pending_jobs = []
         self.configure(gconfig, **options)
-    
+
     def configure(self, gconfig={}, **options):
         """
         Reconfigures the scheduler with the given options. Can only be done
@@ -118,7 +110,7 @@ class Scheduler(object):
         self._wakeup.set()
         if timeout is not None:
             self._thread.join(timeout)
-    
+
     @property
     def running(self):
         return not self._stopped and self._thread and self._thread.isAlive()
