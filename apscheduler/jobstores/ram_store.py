@@ -4,7 +4,7 @@ Stores jobs in an array in RAM. Provides no persistence support.
 
 from copy import copy
 
-from apscheduler.jobstore.base import DictJobStore
+from apscheduler.jobstores.base import DictJobStore
 
 
 class RAMJobStore(DictJobStore):

@@ -6,7 +6,7 @@ from copy import copy
 import shelve
 import pickle
 
-from apscheduler.jobstore.base import DictJobStore
+from apscheduler.jobstores.base import DictJobStore
 
 
 class ShelveJobStore(DictJobStore):

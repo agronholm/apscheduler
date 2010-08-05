@@ -5,7 +5,7 @@ Stores jobs in a database table using SQLAlchemy.
 from datetime import datetime
 from copy import copy
 
-from apscheduler.jobstore.base import JobStore
+from apscheduler.jobstores.base import JobStore
 from apscheduler.job import JobMeta
 
 try:
