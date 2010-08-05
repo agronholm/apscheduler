@@ -31,7 +31,7 @@ class JobMeta(object):
     time_started = None
 
     def __init__(self, job, trigger, name=None, max_runs=None,
-                 max_running_instances=1, misfire_grace_time=1):
+                 misfire_grace_time=1):
         self.job = job
         self.trigger = trigger
         self.name = name
