@@ -8,6 +8,4 @@ Module Contents
 
 .. autoclass:: Scheduler
     :members:
-.. autoclass:: Job
-.. autoexception:: SchedulerShutdownError
 .. autoexception:: SchedulerAlreadyRunningError
