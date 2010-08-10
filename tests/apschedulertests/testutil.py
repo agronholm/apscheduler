@@ -156,3 +156,18 @@ def test_to_unicode():
     else:
         eq_(to_unicode('aaööbb'.encode('utf-8')), 'aabb')
         eq_(to_unicode('ghkj'), 'gfkj')
+
+
+def test_datestring_parse_date():
+    correct_date = datetime.fromtimestamp(1281387600.0)
+    eq_(parse_datestring('2010-8-10'), correct_date)
+
+
+def test_datestring_parse_datetime():
+    correct_date = datetime.fromtimestamp(1281456240.0)
+    eq_(parse_datestring('2010-8-10 19:04:00'), correct_date)
+
+
+def test_datestring_parse_datetime_micro():
+    correct_date = datetime.fromtimestamp(1281456240.843821)
+    eq_(parse_datestring('2010-8-10 19:04:00.843821'), correct_date)

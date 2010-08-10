@@ -4,10 +4,12 @@ This module contains several handy functions primarily meant for internal use.
 
 from datetime import date, datetime, timedelta
 from time import mktime
+import re
 
 __all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds',
            'time_difference', 'datetime_ceil', 'combine_opts',
-           'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'to_unicode')
+           'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'to_unicode',
+           'parse_datestring')
 
 
 def asint(text):
@@ -158,3 +160,22 @@ def to_unicode(string, encoding='ascii'):
     if hasattr(string, 'decode'):
         return string.decode(encoding, 'ignore')
     return string
+
+
+_DATE_REGEX = re.compile(r'(?P<year>\d{4})-(?P<month>\d{1,2})-(?P<day>\d{1,2})'
+                         r'(?: (?P<hour>\d{1,2}):(?P<minute>\d{1,2}):'
+                         r'(?P<second>\d{1,2})(?:.(?P<microsecond>\d{1,6})?))?')
+
+def parse_datestring(datestr):
+    """
+    Parses a date string into a datetime object.
+    Date strings are accepted in three different forms: date only (Y-m-d),
+    date with time (Y-m-d H:M:S) or with date+time with microseconds
+    (Y-m-d H:M:S.micro).
+    """
+    m = _DATE_REGEX.match(datestr)
+    if not m:
+        raise ValueError('Invalid date string')
+    values = [(k, int(v or 0)) for k, v in m.groupdict().items()]
+    values = dict(values)
+    return datetime(**values)
