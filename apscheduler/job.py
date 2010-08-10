@@ -28,15 +28,11 @@ class JobMeta(object):
     id = None
     jobstore = None
     next_run_time = None
-    time_started = None
 
-    def __init__(self, job, trigger, name=None, max_runs=None,
-                 misfire_grace_time=1):
+    def __init__(self, job, trigger, name=None, misfire_grace_time=1):
         self.job = job
         self.trigger = trigger
         self.name = name
-        self.runs = 0
-        self.max_runs = max_runs
         self.misfire_grace_time = misfire_grace_time
 
         if not self.trigger:
@@ -45,8 +41,6 @@ class JobMeta(object):
             raise ValueError('The job must not be None')
         if name:
             self.name = to_unicode(name)
-        if self.max_runs is not None and self.max_runs <= 0:
-            raise ValueError('max_runs must be a positive value or None')
         if self.misfire_grace_time <= 0:
             raise ValueError('misfire_grace_time must be a positive value')
 

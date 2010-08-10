@@ -44,7 +44,7 @@ class JobStoreTestBase(object):
         eq_(jobmetas, [])
 
         self.jobstore.add_job(self.jobmeta)
-        eq_(self.jobmeta.time_started, None)
+        eq_(self.jobmeta.checkin_time, None)
 
         jobmetas = self.jobstore.checkout_jobs(self.earlier_date)
         eq_(jobmetas, [])
@@ -52,7 +52,7 @@ class JobStoreTestBase(object):
         jobmetas = self.jobstore.checkout_jobs(self.trigger_date)
         eq_(jobmetas, [self.jobmeta])
         eq_(jobmetas[0].jobstore, self.jobstore)
-        eq_(jobmetas[0].time_started, None)
+        eq_(jobmetas[0].checkin_time, None)
         eq_(jobmetas[0].job.counter, 0)
 
         jobmetas[0].job.run()

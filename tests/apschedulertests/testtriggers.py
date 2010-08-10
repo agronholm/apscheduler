@@ -128,18 +128,30 @@ def test_date_trigger_later():
 
 @raises(TypeError)
 def test_interval_invalid_interval():
-    IntervalTrigger('1-6')
+    IntervalTrigger('1-6', 3)
+
+
+@raises(ValueError)
+def test_interval_invalid_repeat():
+    interval = timedelta(seconds=1)
+    IntervalTrigger(interval, -1)
+
+
+def test_interval_infinite():
+    interval = timedelta(seconds=1)
+    trigger = IntervalTrigger(interval, 0)
+    eq_(trigger.last_fire_date, None)
 
 
 class TestInterval(object):
     def setUp(self):
         interval = timedelta(seconds=1)
         trigger_start_date = datetime(2009, 8, 4, second=2)
-        self.trigger = IntervalTrigger(interval, trigger_start_date)
+        self.trigger = IntervalTrigger(interval, 3, trigger_start_date)
 
     def test_interval_repr(self):
         eq_(repr(self.trigger),
-            "IntervalTrigger(interval=datetime.timedelta(0, 1), "
+            "IntervalTrigger(interval=datetime.timedelta(0, 1), repeat=3, "
             "start_date=datetime.datetime(2009, 8, 4, 0, 0, 2))")
 
     def test_interval_before(self):
@@ -151,3 +163,7 @@ class TestInterval(object):
         start_date = datetime(2009, 8, 4, second=2, microsecond=1000)
         correct_next_date = datetime(2009, 8, 4, second=3)
         eq_(self.trigger.get_next_fire_time(start_date), correct_next_date)
+
+    def test_interval_after(self):
+        start_date = datetime(2009, 8, 4, second=4, microsecond=1000)
+        eq_(self.trigger.get_next_fire_time(start_date), None)

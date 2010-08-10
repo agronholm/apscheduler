@@ -364,12 +364,6 @@ class Scheduler(object):
         else:
             logger.debug('Finished job "%s"', jobmeta)
 
-        if jobmeta.max_runs and jobmeta.runs + 1 == jobmeta.max_runs:
-            logger.info('Job "%s" reached its maximum runs (%d) -- removing '
-                        'it from jobstore', jobmeta, jobmeta.max_runs)
-            jobmeta.jobstore.remove_job(jobmeta)
-            return
-
         jobmeta.jobstore.checkin_job(jobmeta)
 
     def _start_job(self, jobmeta):
