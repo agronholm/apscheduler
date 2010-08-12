@@ -117,5 +117,5 @@ class CronTrigger(object):
         options = ["%s='%s'" % (f.name, str(f)) for f in self.fields
                    if str(f) != '*']
         if self.start_date:
-            options.append("start_date='%s'" % self.start_date.isoformat())
+            options.append("start_date='%s'" % self.start_date.isoformat(' '))
         return '%s(%s)' % (self.__class__.__name__, ', '.join(options))
