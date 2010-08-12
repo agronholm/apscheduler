@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from apscheduler.triggers.cron.fields import *
-from apscheduler.util import datetime_ceil
+from apscheduler.util import datetime_ceil, parse_datestring
 
 
 class CronTrigger(object):
@@ -17,6 +17,10 @@ class CronTrigger(object):
                   'second': BaseField}
 
     def __init__(self, **values):
+        self.start_date = values.pop('start_date', None)
+        if self.start_date and not isinstance(self.start_date, date):
+            self.start_date = parse_datestring(self.start_date)
+
         self.fields = []
         for field_name in self.FIELD_NAMES:
             exprs = values.get(field_name) or '*'
@@ -80,6 +84,8 @@ class CronTrigger(object):
         return datetime(**values)
 
     def get_next_fire_time(self, start_date):
+        if self.start_date:
+            start_date = max(start_date, self.start_date)
         next_date = datetime_ceil(start_date)
         fieldnum = 0
         while 0 <= fieldnum < len(self.fields):
@@ -108,6 +114,8 @@ class CronTrigger(object):
             return next_date
 
     def __repr__(self):
-        field_reprs = ("%s='%s'" % (f.name, str(f)) for f in self.fields
-                       if str(f) != '*')
-        return '%s(%s)' % (self.__class__.__name__, ', '.join(field_reprs))
+        options = ["%s='%s'" % (f.name, str(f)) for f in self.fields
+                   if str(f) != '*']
+        if self.start_date:
+            options.append("start_date='%s'" % self.start_date.isoformat())
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(options))
