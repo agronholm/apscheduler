@@ -220,10 +220,13 @@ class Scheduler(object):
         Adds a job to be completed on a specific date and time.
 
         :param func: callable to run at the given time
-        :param date: 
-        :param persistent: ``True`` to store the job in a persistent job store
+        :param date: the date/time to run the job at
+        :param name: name of the job
+        :param persistent: ``True`` to store the job in any persistent job store
         :param jobstore: stored the job in the named (or given) job store
-        :type date: :class:`datetime.date` or :class:`datetime.datetime`
+        :param misfire_grace_time: seconds after the designated run time that
+            the job is still allowed to be run
+        :type date: :class:`datetime.date`
         :return: the scheduled job
         :rtype: :class:`~apscheduler.job.JobMeta`
         """
@@ -231,8 +234,8 @@ class Scheduler(object):
         return self._add_simple_job(trigger, func, args, kwargs, **options)
 
     def add_interval_job(self, func, weeks=0, days=0, hours=0, minutes=0,
-                         seconds=0, start_date=None, args=None, kwargs=None,
-                         **options):
+                         seconds=0, start_date=None, repeat=0, args=None,
+                         kwargs=None):
         """
         Adds a job to be completed on specified intervals.
 
@@ -244,22 +247,26 @@ class Scheduler(object):
         :param seconds: number of seconds to wait
         :param start_date: when to first execute the job and start the
             counter (default is after the given interval)
+        :param repeat: number of times the job will be run (0 = repeat
+            indefinitely)
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
         :param name: name of the job
-        :param persistent: ``True`` to store the job in a persistent job store
+        :param persistent: ``True`` to store the job in any persistent job store
         :param jobstore: alias of the job store to add the job to
+        :param misfire_grace_time: seconds after the designated run time that
+            the job is still allowed to be run
         :return: the scheduled job
         :rtype: :class:`~apscheduler.job.JobMeta`
         """
         interval = timedelta(weeks=weeks, days=days, hours=hours,
                              minutes=minutes, seconds=seconds)
-        trigger = IntervalTrigger(interval, start_date)
-        return self._add_simple_job(trigger, func, args, kwargs, **options)
+        trigger = IntervalTrigger(interval, repeat, start_date)
+        return self._add_simple_job(trigger, func, args, kwargs)
 
     def add_cron_job(self, func, year='*', month='*', day='*', week='*',
                      day_of_week='*', hour='*', minute='*', second='*',
-                     args=None, kwargs=None, **options):
+                     start_date=None, args=None, kwargs=None, **options):
         """
         Adds a job to be completed on times that match the given expressions.
 
@@ -274,16 +281,17 @@ class Scheduler(object):
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
         :param name: name of the job
-        :param persistent: ``True`` to store the job in a persistent job store
+        :param persistent: ``True`` to store the job in any persistent job store
+        :param jobstore: alias of the job store to add the job to
         :param misfire_grace_time: seconds after the designated run time that
             the job is still allowed to be run
-        :param jobstore: alias of the job store to add the job to
         :return: the scheduled job
         :rtype: :class:`~apscheduler.job.JobMeta`
         """
         trigger = CronTrigger(year=year, month=month, day=day, week=week,
                               day_of_week=day_of_week, hour=hour,
-                              minute=minute, second=second)
+                              minute=minute, second=second,
+                              start_date=start_date)
         return self._add_simple_job(trigger, func, args, kwargs, **options)
 
     def cron_schedule(self, **options):
