@@ -30,8 +30,8 @@ class JobStore(object):
     def checkout_jobs(self, end_time):
         """
         Checks out the currently pending jobs for execution.
-        The job store's responsibility is to increment the number of running
-        instances, possibly within a transaction.
+        The job store's responsibility is to mark the job as running and
+        set a new run time for the job using the job's trigger.
         
         :param end_time: current time, used to filter out jobs that aren't
             supposed to be run yet
@@ -57,7 +57,7 @@ class JobStore(object):
     def get_next_run_time(self, start_time):
         """
         Returns the earliest time that a job from this job store is supposed to
-            be run.
+        be run.
         """
         raise NotImplementedError
 
