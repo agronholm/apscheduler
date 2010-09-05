@@ -28,6 +28,7 @@ class JobMeta(object):
     id = None
     jobstore = None
     next_run_time = None
+    checkout_time = None
 
     def __init__(self, job, trigger, name=None, misfire_grace_time=1):
         self.job = job

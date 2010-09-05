@@ -112,11 +112,11 @@ class DictJobStore(JobStore):
         jobmetas = []
         now = datetime.now()
         for jobmeta in store.values():
-            if jobmeta.next_run_time <= end_time and not jobmeta.checkin_time:
+            if jobmeta.next_run_time <= end_time and not jobmeta.checkout_time:
                 jobmetas.append(self._export_jobmeta(jobmeta))
 
                 # Mark this job as started and compute the next run time
-                jobmeta.checkin_time = now
+                jobmeta.checkout_time = now
                 jobmeta.next_run_time = jobmeta.trigger.get_next_fire_time(now)
                 if jobmeta.next_run_time:
                     self._put_jobmeta(store, jobmeta)
@@ -128,7 +128,7 @@ class DictJobStore(JobStore):
     def checkin_job(self, store, jobmeta):
         storedmeta = store[jobmeta.id]
         storedmeta.job = jobmeta.job
-        storedmeta.checkin_time = None
+        storedmeta.checkout_time = None
         self._put_jobmeta(store, storedmeta)
 
     @store

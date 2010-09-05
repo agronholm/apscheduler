@@ -66,7 +66,7 @@ class SQLAlchemyJobStore(JobStore):
     def checkout_jobs(self, session, end_time):
         query = session.query(JobMeta).\
             filter(JobMeta.next_run_time <= end_time).\
-            filter(JobMeta.checkin_time == None).\
+            filter(JobMeta.checkout_time == None).\
             with_lockmode('update')
         now = datetime.now()
         jobmetas = []
@@ -74,7 +74,7 @@ class SQLAlchemyJobStore(JobStore):
             jobmetas.append(self._export_jobmeta(jobmeta))
 
             # Mark this job as started and compute the next run time
-            jobmeta.checkin_time = now
+            jobmeta.checkout_time = now
             jobmeta.next_run_time = jobmeta.trigger.get_next_fire_time(now)
         return jobmetas
 
@@ -82,7 +82,7 @@ class SQLAlchemyJobStore(JobStore):
     def checkin_job(self, session, jobmeta):
         storedmeta = session.query(JobMeta).get(jobmeta.id)
         storedmeta.job = jobmeta.job
-        storedmeta.checkin_time = None
+        storedmeta.checkout_time = None
 
     @session
     def list_jobs(self, session):
@@ -107,6 +107,6 @@ jobmeta_table = Table('apscheduler_jobs', MetaData(),
     Column('name', Unicode(1024), unique=True),
     Column('next_run_time', DateTime, nullable=False, index=True),
     Column('misfire_grace_time', Integer, nullable=False),
-    Column('checkin_time', DateTime))
+    Column('checkout_time', DateTime))
 
 mapper(JobMeta, jobmeta_table)
