@@ -209,15 +209,25 @@ class Scheduler(object):
 
         return jobmeta
 
-    def _add_simple_job(self, trigger, func, args, kwargs, name=None,
-                        **options):
+    def add_simple_job(self, trigger, func, args, kwargs, name=None,
+                       **options):
+        """
+        Schedules a "simple" job that executes the given function with the
+        given positional and keyword arguments.
+        
+        :param trigger: the trigger instance that controls the execution
+            schedule
+        :param args: positional arguments with which ``func`` is executed
+        :param kwargs: keyword arguments with which ``func`` is executed
+        :param name: optional name for the job
+        """
         job = SimpleJob(func, args, kwargs)
         name = name or get_callable_name(func)
         return self.add_job(job, trigger, name=name, **options)
 
     def add_date_job(self, func, date, args=None, kwargs=None, **options):
         """
-        Adds a job to be completed on a specific date and time.
+        Schedules a job to be completed on a specific date and time.
 
         :param func: callable to run at the given time
         :param date: the date/time to run the job at
@@ -231,13 +241,13 @@ class Scheduler(object):
         :rtype: :class:`~apscheduler.job.JobMeta`
         """
         trigger = SimpleTrigger(date)
-        return self._add_simple_job(trigger, func, args, kwargs, **options)
+        return self.add_simple_job(trigger, func, args, kwargs, **options)
 
     def add_interval_job(self, func, weeks=0, days=0, hours=0, minutes=0,
                          seconds=0, start_date=None, repeat=0, args=None,
                          kwargs=None):
         """
-        Adds a job to be completed on specified intervals.
+        Schedules a job to be completed on specified intervals.
 
         :param func: callable to run
         :param weeks: number of weeks to wait
@@ -262,13 +272,14 @@ class Scheduler(object):
         interval = timedelta(weeks=weeks, days=days, hours=hours,
                              minutes=minutes, seconds=seconds)
         trigger = IntervalTrigger(interval, repeat, start_date)
-        return self._add_simple_job(trigger, func, args, kwargs)
+        return self.add_simple_job(trigger, func, args, kwargs)
 
     def add_cron_job(self, func, year='*', month='*', day='*', week='*',
                      day_of_week='*', hour='*', minute='*', second='*',
                      start_date=None, args=None, kwargs=None, **options):
         """
-        Adds a job to be completed on times that match the given expressions.
+        Schedules a job to be completed on times that match the given
+        expressions.
 
         :param func: callable to run
         :param year: year to run on
@@ -292,7 +303,7 @@ class Scheduler(object):
                               day_of_week=day_of_week, hour=hour,
                               minute=minute, second=second,
                               start_date=start_date)
-        return self._add_simple_job(trigger, func, args, kwargs, **options)
+        return self.add_simple_job(trigger, func, args, kwargs, **options)
 
     def cron_schedule(self, **options):
         """
