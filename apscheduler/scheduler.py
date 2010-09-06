@@ -423,7 +423,8 @@ class Scheduler(object):
                     self._start_job(jobmeta)
 
                 next_run_time = jobstore.get_next_run_time(end_time)
-                if not next_wakeup_time or next_wakeup_time > next_run_time:
+                if next_run_time and (not next_wakeup_time or
+                                      next_run_time < next_wakeup_time):
                     next_wakeup_time = next_run_time
 
             # Sleep until the next job is scheduled to be run,
