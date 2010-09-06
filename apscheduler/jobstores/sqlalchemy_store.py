@@ -33,7 +33,7 @@ def session(func):
 class SQLAlchemyJobStore(JobStore):
     stores_persistent = True
 
-    def __init__(self, engine=None, url=None, tablename=None):
+    def __init__(self, url=None, engine=None, tablename=None):
         if engine:
             self.url = engine.url
         elif url:
