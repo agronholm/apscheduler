@@ -71,12 +71,13 @@ class SQLAlchemyJobStore(JobStore):
         now = datetime.now()
         jobmetas = []
         for jobmeta in query:
-            jobmetas.append(self._export_jobmeta(jobmeta))
+            jobmetas.append(jobmeta)
 
             # Mark this job as started and compute the next run time
             jobmeta.checkout_time = now
             jobmeta.next_run_time = jobmeta.trigger.get_next_fire_time(now)
-        return jobmetas
+        session.flush()
+        return tuple(self._export_jobmeta(jobmeta) for jobmeta in jobmetas)
 
     @session
     def checkin_job(self, session, jobmeta):
