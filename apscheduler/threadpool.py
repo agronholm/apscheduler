@@ -4,6 +4,7 @@ Generic thread pool class. Modeled after Java's ThreadPoolExecutor.
 
 from Queue import Queue, Empty
 from threading import Thread, Lock, currentThread
+from weakref import ref
 import logging
 import atexit
 
@@ -15,8 +16,10 @@ _threadpools = set()
 # an explicit shutdown of the thread pool. The following trick is necessary
 # to allow worker threads to finish cleanly.
 def _shutdown_all():
-    for pool in tuple(_threadpools):
-        pool.shutdown()
+    for pool_ref in tuple(_threadpools):
+        pool = pool_ref()
+        if pool:
+            pool.shutdown()
 
 atexit.register(_shutdown_all)
 
@@ -42,7 +45,7 @@ class ThreadPool(object):
         if max_threads is not None:
             self.max_threads = max(max_threads, core_threads, 1)
 
-        _threadpools.add(self)
+        _threadpools.add(ref(self))
         logger.info('Started thread pool with %d core threads and %s maximum '
                     'threads', core_threads, max_threads or 'unlimited')
 
