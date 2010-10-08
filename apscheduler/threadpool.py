@@ -39,7 +39,6 @@ class ThreadPool(object):
         self._queue = Queue()
         self._threads_lock = Lock()
         self._threads = set()
-        self._busy_threads = 0
         self._shutdown = False
 
         if max_threads is not None:
@@ -49,17 +48,24 @@ class ThreadPool(object):
         logger.info('Started thread pool with %d core threads and %s maximum '
                     'threads', core_threads, max_threads or 'unlimited')
 
-    def _add_thread(self):
-        core = self.num_threads < self.core_threads
+    def _adjust_threadcount(self):
+        self._threads_lock.acquire()
+        try:
+            qsize = self._queue.qsize()
+            if self.num_threads < self.core_threads: 
+                self._add_thread(True)
+            elif qsize > 1 and self.num_threads < self.max_threads:
+                self._add_thread(False)
+            elif self.num_threads == 0:
+                self._add_thread(False)
+        finally:
+            self._threads_lock.release()
+
+    def _add_thread(self, core):
         t = Thread(target=self._run_jobs, args=(core,))
         t.setDaemon(True)
         t.start()
         self._threads.add(t)
-
-    def _add_busycount(self, increment):
-        self._threads_lock.acquire()
-        self._busy_threads += increment
-        self._threads_lock.release()
 
     def _run_jobs(self, core):
         logger.debug('Started worker thread')
@@ -78,15 +84,13 @@ class ThreadPool(object):
             if self._shutdown:
                 break
 
-            self._add_busycount(1)
             try:
                 func(*args, **kwargs)
             except:
                 logger.exception('Error in worker thread')
-            self._add_busycount(-1)
 
         self._threads_lock.acquire()
-        self._threads.discard(currentThread())
+        self._threads.remove(currentThread())
         self._threads_lock.release()
 
         logger.debug('Exiting worker thread')
@@ -95,32 +99,23 @@ class ThreadPool(object):
     def num_threads(self):
         return len(self._threads)
 
-    @property
-    def busy_threads(self):
-        return self._busy_threads
-
     def execute(self, func, args=(), kwargs={}):
         if self._shutdown:
             raise Exception('Thread pool has already been shut down')
 
-        self._threads_lock.acquire()
-        try:
-            self._queue.put((func, args, kwargs))
-            if (self.busy_threads == self.num_threads and not
-                self.max_threads or self.num_threads < self.max_threads):
-                self._add_thread()
-        finally:
-            self._threads_lock.release()
+        self._queue.put((func, args, kwargs))
+        self._adjust_threadcount()
 
     def shutdown(self, wait=True):
         if self._shutdown:
             return
 
-        self._shutdown = True
         logging.info('Shutting down thread pool')
+        self._shutdown = True
+        _threadpools.remove(ref(self))
 
         self._threads_lock.acquire()
-        for _ in range(len(self._threads)):
+        for _ in range(self.num_threads):
             self._queue.put((None, None, None))
         self._threads_lock.release()
 
@@ -129,5 +124,9 @@ class ThreadPool(object):
                 thread.join()
 
     def __repr__(self):
-        return '<ThreadPool at %x; threads=%d busy=%d>' % (id(self),
-            len(self._threads), self._busy_threads)
+        if self.max_threads:
+            threadcount = '%d/%d' % (self.num_threads, self.max_threads)
+        else:
+            threadcount = '%d' % self.num_threads
+            
+        return '<ThreadPool at %x; threads=%s>' % (id(self), threadcount)
