@@ -77,7 +77,7 @@ class SQLAlchemyJobStore(JobStore):
             jobmeta.checkout_time = now
             jobmeta.next_run_time = jobmeta.trigger.get_next_fire_time(now)
         session.flush()
-        return tuple(self._export_jobmeta(jobmeta) for jobmeta in jobmetas)
+        return [self._export_jobmeta(jobmeta) for jobmeta in jobmetas]
 
     @session
     def checkin_job(self, session, jobmeta):
@@ -95,7 +95,8 @@ class SQLAlchemyJobStore(JobStore):
 
     @session
     def get_next_run_time(self, session, start_time):
-        return session.query(func.min(JobMeta.next_run_time)).scalar()
+        return session.query(func.min(JobMeta.next_run_time)).\
+            filter(JobMeta.checkout_time == None).scalar()
 
     def __repr__(self):
         return '%s (%s)' % (self.__class__.__name__, self.url)
