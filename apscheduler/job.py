@@ -2,103 +2,108 @@
 Jobs represent scheduled tasks.
 """
 
-import logging
+from apscheduler.util import to_unicode, ref_to_obj, get_callable_name
 
-from apscheduler.util import obj_to_ref, ref_to_obj, to_unicode
+__all__ = ('Job', 'STATUS_OK', 'STATUS_ERROR', 'STATUS_MISSED',
+           'STATUS_FINISHED', 'STATUS_ALL', 'JobStatus')
 
 
-logger = logging.getLogger(__name__)
-
-class JobMeta(object):
+class Job(object):
     """
     Encapsulates the actual Job along with its metadata. JobMeta instances
     are created by the scheduler when adding jobs, and it should not be
     directly instantiated.
 
-    :param job: the job object (contains the "run" method)
-    :param trigger: trigger that determines the execution times of the
-        enclosed job
+    :param trigger: trigger that determines the execution times
+    :param func: callable to call when the trigger is triggered
+    :param args: list of positional arguments to call func with
+    :param kwargs: dict of keyword arguments to call func with
     :param name: name of the job (optional)
-    :param max_runs: maximum number of times this job is allowed to be
-        triggered
     :param misfire_grace_time: seconds after the designated run time that
         the job is still allowed to be run
+    :param max_runs: maximum number of times this job is allowed to be
+        triggered
+    :param max_running_instances: maximum number of concurrently running
+        instances of this job
     """
 
     id = None
-    jobstore = None
     next_run_time = None
-    checkout_time = None
 
-    def __init__(self, job, trigger, name=None, misfire_grace_time=1):
-        self.job = job
-        self.trigger = trigger
-        self.name = name
-        self.misfire_grace_time = misfire_grace_time
-
-        if not self.trigger:
+    def __init__(self, trigger, func, args, kwargs, name=None,
+                 misfire_grace_time=1, max_runs=None, max_concurrency=1):
+        if not trigger:
             raise ValueError('The trigger must not be None')
-        if not self.job:
-            raise ValueError('The job must not be None')
-        if name:
-            self.name = to_unicode(name)
-        if self.misfire_grace_time <= 0:
+        if not hasattr(func, '__call__'):
+            raise TypeError('func must be callable')
+        if not hasattr(args, '__getitem__'):
+            raise TypeError('args must be a list-like object')
+        if not hasattr(kwargs, '__getitem__'):
+            raise TypeError('kwargs must be a dict-like object')
+        if misfire_grace_time <= 0:
             raise ValueError('misfire_grace_time must be a positive value')
+        if max_runs is not None and max_runs <= 0:
+            raise ValueError('max_runs must be a positive value')
+        if max_concurrency <= 0:
+            raise ValueError('max_concurrency must be a positive value')
+
+        self.trigger = trigger
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+        self.name = to_unicode(name or get_callable_name(func))
+        self.misfire_grace_time = misfire_grace_time
+        self.max_runs = max_runs
+        self.max_concurrency = max_concurrency
+        self.runs = 0
+        self.instances = 0
+
+    def compute_next_run_time(self, now):
+        if self.runs == self.max_runs:
+            self.next_run_time = None
+        else:
+            self.next_run_time = self.trigger.get_next_fire_time(now)
 
     def __getstate__(self):
+        # Prevents the unwanted pickling of transient or unpicklable variables
         state = self.__dict__.copy()
-        state.pop('jobstore', None)
+        state.pop('instances', None)
+        state.pop('func', None)
         return state
+
+    def __setstate__(self, state):
+        state['instances'] = 0
+        state['func'] = ref_to_obj(state['func_ref'])
+        self.__dict__ = state
 
     def __cmp__(self, other):
         return cmp(self.next_run_time, other.next_run_time)
 
     def __eq__(self, other):
-        if isinstance(other, JobMeta):
-            if self.id is not None:
-                return other.id == self.id
-            return self is other
+        if isinstance(other, Job):
+            return self.id is not None and other.id == self.id or self is other
         return False
 
     def __repr__(self):
-        return '%s: %s' % (self.name, self.trigger)
+        return '<Job (name=%s, trigger=%s)>' % (self.name, repr(self.trigger))
+
+    def __str__(self):
+        return '%s (trigger: %s, next run at: %s)' % (self.name,
+            str(self.trigger), str(self.next_run_time))
 
 
-class SimpleJob(object):
-    """
-    Job that runs the given function with the given arguments when triggered.
-    These are instantiated by the scheduler's shortcut methods and it should
-    not be necessary to create these directly.
+STATUS_OK = 1
+STATUS_ERROR = 2
+STATUS_MISSED = 4
+STATUS_FINISHED = 8
+STATUS_ALL = STATUS_OK | STATUS_ERROR | STATUS_MISSED | STATUS_FINISHED
 
-    :param func: callable to call when the trigger is triggered
-    :param args: list of positional arguments to call func with
-    :param kwargs: dict of keyword arguments to call func with
-    """
+class JobStatus(object):
+    code = None
+    retval = None
+    exception = None
+    traceback = None
 
-    def __init__(self, func, args=None, kwargs=None):
-        if not hasattr(func, '__call__'):
-            raise TypeError('func must be callable')
-
-        self.func = func
-        self.args = args or []
-        self.kwargs = kwargs or {}
-
-    def run(self):
-        """
-        Runs the associated callable.
-        This method is executed in a separate thread.
-        """
-        try:
-            self.func(*self.args, **self.kwargs)
-        except:
-            logger.exception('Error executing job "%s"', self)
-            raise
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        state['func'] = obj_to_ref(state['func'])
-        return state
-
-    def __setstate__(self, state):
-        state['func'] = ref_to_obj(state['func'])
-        self.__dict__.update(state)
+    def __init__(self, job, scheduled_run_time):
+        self.job = job
+        self.scheduled_run_time = scheduled_run_time

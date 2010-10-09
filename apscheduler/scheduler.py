@@ -12,7 +12,7 @@ import sys
 from apscheduler.util import *
 from apscheduler.triggers import SimpleTrigger, IntervalTrigger, CronTrigger
 from apscheduler.jobstores.ram_store import RAMJobStore
-from apscheduler.job import SimpleJob, JobMeta
+from apscheduler.job import *
 from apscheduler.threadpool import ThreadPool
 
 
@@ -39,7 +39,10 @@ class Scheduler(object):
 
     def __init__(self, gconfig={}, **options):
         self._wakeup = Event()
+        self._jobstores = {}
         self._jobstores_lock = Lock()
+        self._listeners = []
+        self._listeners_lock = Lock()
         self._pending_jobs = []
         self.configure(gconfig, **options)
 
@@ -61,7 +64,6 @@ class Scheduler(object):
         self._threadpool = ThreadPool(**threadpool_opts)
 
         # Configure job stores
-        self._jobstores = {}
         jobstore_opts = combine_opts(config, 'jobstore.')
         for key, value in jobstore_opts.items():
             store_name, option = key.split('.', 1)[0]
@@ -72,14 +74,7 @@ class Scheduler(object):
             classname = opts.pop('class')
             cls = ref_to_obj(classname)
             jobstore = cls(**opts)
-            jobstore.alias = alias
-            self._jobstores[alias] = jobstore
-
-        # Create a RAMJobStore as the default if there is no default job store
-        if not 'default' in self._jobstores:
-            jobstore = RAMJobStore()
-            jobstore.alias = 'default'
-            self._jobstores['default'] = jobstore
+            self.add_jobstore(jobstore, alias, True)
 
     def start(self):
         """
@@ -87,6 +82,15 @@ class Scheduler(object):
         """
         if self.running:
             raise SchedulerAlreadyRunningError
+
+        # Create a RAMJobStore as the default if there is no default job store
+        if not 'default' in self._jobstores:
+            self.add_jobstore(RAMJobStore(), 'default', True)
+
+        # Add pending jobs as actual jobs
+        for trigger, func, args, kwargs, jobstore, opts in self._pending_jobs:
+            self.add_job(trigger, func, args, kwargs, jobstore, True, **opts)
+        del self._pending_jobs[:]
 
         self._stopped = False
         self._thread = Thread(target=self._main_loop, name='APScheduler')
@@ -115,7 +119,7 @@ class Scheduler(object):
     def running(self):
         return not self._stopped and self._thread and self._thread.isAlive()
 
-    def add_jobstore(self, jobstore, alias=None):
+    def add_jobstore(self, jobstore, alias=None, quiet=False):
         """
         Adds a job store to this scheduler.
 
@@ -125,8 +129,6 @@ class Scheduler(object):
         :type jobstore: instance of :class:`~apscheduler.jobstore.base.JobStore`
         :type alias: str
         """
-        if hasattr(jobstore, '__call__'):
-            jobstore = jobstore()
         jobstore.alias = alias or jobstore.default_alias
 
         self._jobstores_lock.acquire()
@@ -134,15 +136,17 @@ class Scheduler(object):
             if jobstore.alias in self._jobstores:
                 raise KeyError('Alias "%s" is already in use' % jobstore.alias)
             self._jobstores[jobstore.alias] = jobstore
+            jobstore.load_jobs()
         finally:
             self._jobstores_lock.release()
 
         # Notify the scheduler so it can scan the new job store for jobs
-        self._wakeup.set()
+        if not quiet:
+            self._wakeup.set()
 
     def remove_jobstore(self, alias):
         """
-        Removes the jobstore by the given alias from this scheduler.
+        Removes the job store by the given alias from this scheduler.
 
         :type alias: str
         """
@@ -151,79 +155,71 @@ class Scheduler(object):
             try:
                 del self._jobstores[alias]
             except KeyError:
-                raise KeyError('No such jobstore: %s' % alias)
+                raise KeyError('No such job store: %s' % alias)
         finally:
             self._jobstores_lock.release()
 
-    def _select_jobstore(self, persistent):
-        for jobstore in self._jobstores.values():
-            if persistent and jobstore.stores_persistent:
-                return jobstore
-            if not persistent and jobstore.stores_transient:
-                return jobstore
+    def add_listener(self, callback, mask):
+        self._listeners_lock.acquire()
+        try:
+            self._listeners.append((callback, mask))
+        finally:
+            self._listeners_lock.release()
 
-        raise Exception('No suitable job store found')
+    def remove_listener(self, callback):
+        self._listeners_lock.acquire()
+        try:
+            for i, (cb, _) in enumerate(self._listeners):
+                if callback == cb:
+                    del self._listeners[i]
+        finally:
+            self._listeners_lock.release()
 
-    def add_job(self, job, trigger, persistent=False, jobstore=None,
-                **options):
+    def _notify_listeners(self, status):
+        for cb, mask in tuple(self._listeners):
+            if status.code & mask:
+                try:
+                    cb(status)
+                except:
+                    logger.exception('Error notifying listener')
+
+    def add_job(self, trigger, func, args, kwargs, jobstore='default',
+                quiet=False, **options):
         """
         Adds the given job to the job list and notifies the scheduler thread.
 
-        :param persistent: ``True`` to store the job in the first default
-            persistent job store, ``False`` to store it in a transient store
         :param jobstore: alias of the job store to store the job in (overrides
             the ``persistent`` option)
         :return: scheduling metadata for the job if the scheduler is running,
             else ``None``
-        :rtype: :class:`~apscheduler.job.JobMeta`
+        :rtype: :class:`~apscheduler.job.Job`
         """
-        if not self.running:
-            pending = ((job, trigger, persistent, jobstore), (options))
-            self._pending_jobs.append(pending)
-            jobname = options.get('name', '(unnamed)')
-            logger.info('Adding job "%s" tentatively -- job will be scheduled '
-                        'when the scheduler starts', jobname)
+        if not self.running and not quiet:
+            args = trigger, func, args, kwargs, jobstore, options
+            self._pending_jobs.append(args)
+            logger.info('Adding job tentatively -- it will be properly '
+                        'scheduled when the scheduler starts')
             return
 
-        jobmeta = JobMeta(job, trigger, **options)
-        if jobmeta.misfire_grace_time is None:
-            jobmeta.misfire_grace_time = self.misfire_grace_time
-
-        jobmeta.next_run_time = trigger.get_next_fire_time(datetime.now())
-        if not jobmeta.next_run_time:
+        job = Job(trigger, func, args or [], kwargs or {}, **options)
+        if job.misfire_grace_time is None:
+            job.misfire_grace_time = self.misfire_grace_time
+        job.next_run_time = trigger.get_next_fire_time(datetime.now())
+        if not job.next_run_time:
             raise ValueError('Not adding job since it would never be run')
 
-        if jobstore:
-            try:
-                jobstore = self._jobstores[jobstore]
-            except KeyError:
-                raise KeyError('No such jobstore: %s' % jobstore)
-        else:
-            jobstore = self._select_jobstore(persistent)
-
-        jobstore.add_job(jobmeta)
-        logger.info('Added job "%s" to job store %s', jobmeta, jobstore.alias)
+        try:
+            store = self._jobstores[jobstore]
+        except KeyError:
+            raise KeyError('No such job store: %s' % jobstore)
+        store.add_job(job)
+        logger.info('Added job "%s" to job store "%s"', job, jobstore)
 
         # Notify the scheduler about the new job
-        self._wakeup.set()
+        if not quiet:
+            self._wakeup.set()
 
-        return jobmeta
-
-    def add_simple_job(self, trigger, func, args, kwargs, name=None,
-                       **options):
-        """
-        Schedules a "simple" job that executes the given function with the
-        given positional and keyword arguments.
-        
-        :param trigger: the trigger instance that controls the execution
-            schedule
-        :param args: positional arguments with which ``func`` is executed
-        :param kwargs: keyword arguments with which ``func`` is executed
-        :param name: optional name for the job
-        """
-        job = SimpleJob(func, args, kwargs)
-        name = name or get_callable_name(func)
-        return self.add_job(job, trigger, name=name, **options)
+        return job
 
     def add_date_job(self, func, date, args=None, kwargs=None, **options):
         """
@@ -232,20 +228,21 @@ class Scheduler(object):
         :param func: callable to run at the given time
         :param date: the date/time to run the job at
         :param name: name of the job
-        :param persistent: ``True`` to store the job in any persistent job store
+        :param persistent: ``True`` to store the job in any persistent job
+            store
         :param jobstore: stored the job in the named (or given) job store
         :param misfire_grace_time: seconds after the designated run time that
             the job is still allowed to be run
         :type date: :class:`datetime.date`
         :return: the scheduled job
-        :rtype: :class:`~apscheduler.job.JobMeta`
+        :rtype: :class:`~apscheduler.job.Job`
         """
         trigger = SimpleTrigger(date)
-        return self.add_simple_job(trigger, func, args, kwargs, **options)
+        return self.add_job(trigger, func, args, kwargs, **options)
 
     def add_interval_job(self, func, weeks=0, days=0, hours=0, minutes=0,
-                         seconds=0, start_date=None, repeat=0, args=None,
-                         kwargs=None):
+                         seconds=0, start_date=None, args=None, kwargs=None,
+                         **options):
         """
         Schedules a job to be completed on specified intervals.
 
@@ -267,12 +264,12 @@ class Scheduler(object):
         :param misfire_grace_time: seconds after the designated run time that
             the job is still allowed to be run
         :return: the scheduled job
-        :rtype: :class:`~apscheduler.job.JobMeta`
+        :rtype: :class:`~apscheduler.job.Job`
         """
         interval = timedelta(weeks=weeks, days=days, hours=hours,
                              minutes=minutes, seconds=seconds)
-        trigger = IntervalTrigger(interval, repeat, start_date)
-        return self.add_simple_job(trigger, func, args, kwargs)
+        trigger = IntervalTrigger(interval, start_date)
+        return self.add_job(trigger, func, args, kwargs, **options)
 
     def add_cron_job(self, func, year='*', month='*', day='*', week='*',
                      day_of_week='*', hour='*', minute='*', second='*',
@@ -292,18 +289,19 @@ class Scheduler(object):
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
         :param name: name of the job
-        :param persistent: ``True`` to store the job in any persistent job store
+        :param persistent: ``True`` to store the job in any persistent job
+            store
         :param jobstore: alias of the job store to add the job to
         :param misfire_grace_time: seconds after the designated run time that
             the job is still allowed to be run
         :return: the scheduled job
-        :rtype: :class:`~apscheduler.job.JobMeta`
+        :rtype: :class:`~apscheduler.job.Job`
         """
         trigger = CronTrigger(year=year, month=month, day=day, week=week,
                               day_of_week=day_of_week, hour=hour,
                               minute=minute, second=second,
                               start_date=start_date)
-        return self.add_simple_job(trigger, func, args, kwargs, **options)
+        return self.add_job(trigger, func, args, kwargs, **options)
 
     def cron_schedule(self, **options):
         """
@@ -338,16 +336,20 @@ class Scheduler(object):
         """
         jobs = []
         for jobstore in self._jobstores.values():
-            jobs.extend(jobstore.list_jobs())
+            jobs.extend(jobstore.jobs)
         return jobs
 
     def unschedule_job(self, job):
         """
-        Removes a job, preventing it from being fired any more.
+        Removes a job, preventing it from being run any more.
         """
-        job.jobstore.remove_job(job)
-        logger.info('Removed job "%s"', job)
-        self._wakeup.set()
+        for jobstore in self._jobstores.values():
+            if job in jobstore.jobs:
+                jobstore.remove_job(job)
+                logger.info('Removed job "%s"', job)
+                return
+
+        raise ValueError('Job "%s" is not scheduled in any job store' % job)
 
     def print_jobs(self, out=sys.stdout):
         """
@@ -359,78 +361,84 @@ class Scheduler(object):
         job_strs = []
         for alias, jobstore in self._jobstores.items():
             job_strs.append('Jobstore %s:' % alias)
-            jobmetas = jobstore.list_jobs()
-            if jobmetas:
-                for jobmeta in jobmetas:
-                    job_str = '    %s (next fire time: %s)'
-                    job_str %= (jobmeta, jobmeta.next_run_time)
-                    job_strs.append(job_str)
+            if jobstore.jobs:
+                for job in jobstore.jobs:
+                    job_strs.append('    %s' % job)
             else:
                 job_strs.append('    No scheduled jobs')
 
         out.write(os.linesep.join(job_strs))
 
-    @staticmethod
-    def _run_job(jobmeta):
+    def _run_job(self, job, run_time):
         """
         Acts as a harness that runs the actual job code in a thread.
         """
-        logger.debug('Running job "%s"', jobmeta)
-        try:
-            jobmeta.job.run()
-        except:
-            logger.exception('Job "%s" raised an exception', jobmeta)
-        else:
-            logger.debug('Finished job "%s"', jobmeta)
+        logger.debug('Running job "%s" (scheduled at %s)', job, run_time)
+        status = JobStatus(job, run_time)
 
-        jobmeta.jobstore.checkin_job(jobmeta)
-
-    def _start_job(self, jobmeta):
         # See if the job missed its run time window, and handle possible
         # misfires accordingly
-        difference = datetime.now() - jobmeta.next_run_time
-        grace_time = timedelta(seconds=jobmeta.misfire_grace_time)
+        difference = datetime.now() - run_time
+        grace_time = timedelta(seconds=job.misfire_grace_time)
         if difference > grace_time:
-            late = difference - grace_time
-            logger.error('Run time of job "%s" (%s) was missed by %s',
-                         jobmeta, late)
-            # TODO: handle misfire
-            return
+            status.code = STATUS_MISSED
+            logger.warning('Run time of job "%s" was missed by %s',
+                           job, difference)
+        elif job.instances == job.max_concurrency:
+            status.code = STATUS_MISSED
+            logger.warning('Execution of job "%s" skipped: too many instances '
+                           'running already (%d)', job, job.max_concurrency)
+        else:
+            job.instances -= 1
+            try:
+                status.retval = job.func(*job.args, **job.kwargs)
+            except:
+                job.instances -= 1
+                job.runs += 1
+                status.exception, status.traceback = sys.exc_info()[1:]
+                status.code = STATUS_ERROR
+                logger.exception('Job "%s" raised an exception', job)
+            else:
+                job.instances -= 1
+                job.runs += 1
+                status.code = STATUS_OK
+                logger.debug('Job "%s" executed successfully', job)
 
-        self._threadpool.execute(self._run_job, [jobmeta])
+        if not job.next_run_time:
+            status.code |= STATUS_FINISHED
+            logger.info('Job "%s" has finished and will no longer be '
+                        'executed', job)
+
+        self._notify_listeners(status)
 
     def _main_loop(self):
-        """
-        Adds any pending jobs to the scheduler and then runs the the main loop.
-        """
-        self._wakeup.clear()
-        for args, options in self._pending_jobs:
-            try:
-                self.add_job(*args, **options)
-            except:
-                pass
-        del self._pending_jobs[:]
+        """Executes jobs on schedule."""
 
+        self._wakeup.clear()
         while not self._stopped:
             # Iterate through pending jobs in every jobstore, start them
             # and figure out the next wakeup time
-            logger.debug('Scanning jobstores for jobs to run')
-            end_time = datetime.now()
+            logger.debug('Looking for jobs to run')
+            now = datetime.now()
             next_wakeup_time = None
             for jobstore in self._jobstores.values():
-                jobmetas = jobstore.checkout_jobs(end_time)
-                for jobmeta in jobmetas:
-                    self._start_job(jobmeta)
-
-                next_run_time = jobstore.get_next_run_time(end_time)
-                if next_run_time and (not next_wakeup_time or
-                                      next_run_time < next_wakeup_time):
-                    next_wakeup_time = next_run_time
+                for job in tuple(jobstore.jobs):
+                    run_time = job.next_run_time
+                    if run_time <= now:
+                        job.runs += 1
+                        job.compute_next_run_time(now)
+                        args = [job, run_time]
+                        self._threadpool.execute(self._run_job, args)
+                    if not next_wakeup_time:
+                        next_wakeup_time = job.next_run_time
+                    elif job.next_run_time:
+                        next_wakeup_time = min(next_wakeup_time,
+                                               job.next_run_time)
+                    jobstore.update_job(job)
 
             # Sleep until the next job is scheduled to be run,
             # a new job is added or the scheduler is stopped
             if next_wakeup_time is not None:
-                now = datetime.now()
                 wait_seconds = time_difference(next_wakeup_time, now)
                 logger.debug('Next wakeup is due at %s (in %f seconds)',
                              next_wakeup_time, wait_seconds)

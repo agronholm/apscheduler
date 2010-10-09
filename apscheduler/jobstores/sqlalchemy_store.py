@@ -2,11 +2,9 @@
 Stores jobs in a database table using SQLAlchemy.
 """
 
-from datetime import datetime
-from copy import copy
-
 from apscheduler.jobstores.base import JobStore
-from apscheduler.job import JobMeta
+from apscheduler.job import Job
+from apscheduler.util import obj_to_ref
 
 try:
     from sqlalchemy import *
@@ -31,9 +29,9 @@ def session(func):
 
 
 class SQLAlchemyJobStore(JobStore):
-    stores_persistent = True
-
     def __init__(self, url=None, engine=None, tablename=None):
+        self.jobs = []
+
         if engine:
             self.url = engine.url
         elif url:
@@ -44,71 +42,47 @@ class SQLAlchemyJobStore(JobStore):
 
         self.sessionmaker = sessionmaker(bind=engine)
         if tablename:
-            jobmeta_table.name = tablename
-        jobmeta_table.create(engine, True)
+            jobs_table.name = tablename
+        jobs_table.create(engine, True)
 
-    def _export_jobmeta(self, jobmeta):
-        jobmeta = copy(jobmeta)
-        make_transient(jobmeta)
-        jobmeta.jobstore = self
-        return jobmeta
+    def _export_job(self, job):
+        make_transient(job)
+        return job
 
     @session
-    def add_job(self, session, jobmeta):
-        session.add(jobmeta)
-        jobmeta.jobstore = self
+    def add_job(self, session, job):
+        job.func_ref = obj_to_ref(job.func)
+        session.add(job)
+        self.jobs.append(job)
 
     @session
-    def remove_job(self, session, jobmeta):
-        session.query(JobMeta).filter_by(id=jobmeta.id).delete(False)
+    def remove_job(self, session, job):
+        session.query(Job).filter_by(id=job.id).delete(False)
+        self.jobs.remove(job)
 
     @session
-    def checkout_jobs(self, session, end_time):
-        query = session.query(JobMeta).\
-            filter(JobMeta.next_run_time <= end_time).\
-            filter(JobMeta.checkout_time == None).\
-            with_lockmode('update')
-        now = datetime.now()
-        jobmetas = []
-        for jobmeta in query:
-            jobmetas.append(jobmeta)
-
-            # Mark this job as started and compute the next run time
-            jobmeta.checkout_time = now
-            jobmeta.next_run_time = jobmeta.trigger.get_next_fire_time(now)
-        session.flush()
-        return [self._export_jobmeta(jobmeta) for jobmeta in jobmetas]
+    def load_jobs(self, session):
+        self.jobs = [self._export_job(job) for job in session.query(Job)]
 
     @session
-    def checkin_job(self, session, jobmeta):
-        storedmeta = session.query(JobMeta).get(jobmeta.id)
-        storedmeta.job = jobmeta.job
-        storedmeta.checkout_time = None
-
-    @session
-    def list_jobs(self, session):
-        query = session.query(JobMeta)
-        jobmetas = []
-        for jobmeta in query:
-            jobmetas.append(self._export_jobmeta(jobmeta))
-        return jobmetas
-
-    @session
-    def get_next_run_time(self, session, start_time):
-        return session.query(func.min(JobMeta.next_run_time)).\
-            filter(JobMeta.checkout_time == None).scalar()
+    def update_job(self, session, job):
+        session.merge(job)
 
     def __repr__(self):
-        return '%s (%s)' % (self.__class__.__name__, self.url)
+        return '<%s (url=%s)>' % (self.__class__.__name__, self.url)
 
 
-jobmeta_table = Table('apscheduler_jobs', MetaData(),
+jobs_table = Table('apscheduler_jobs', MetaData(),
     Column('id', Integer, primary_key=True),
-    Column('job', PickleType(mutable=False), nullable=False),
     Column('trigger', PickleType(mutable=False), nullable=False),
+    Column('func_ref', String(1024), nullable=False),
+    Column('args', PickleType(mutable=False), nullable=False),
+    Column('kwargs', PickleType(mutable=False), nullable=False),
     Column('name', Unicode(1024), unique=True),
-    Column('next_run_time', DateTime, nullable=False, index=True),
     Column('misfire_grace_time', Integer, nullable=False),
-    Column('checkout_time', DateTime))
+    Column('max_runs', Integer),
+    Column('max_concurrency', Integer),
+    Column('next_run_time', DateTime, nullable=False),
+    Column('runs', BigInteger))
 
-mapper(JobMeta, jobmeta_table)
+mapper(Job, jobs_table)

@@ -4,6 +4,7 @@ from nose.tools import eq_, raises
 
 from apscheduler.jobstores.ram_store import RAMJobStore
 from apscheduler.scheduler import Scheduler
+from apscheduler.job import STATUS_OK, JobStatus, STATUS_ERROR
 
 
 class TestOfflineScheduler(object):
@@ -37,3 +38,22 @@ class TestOfflineScheduler(object):
         self.scheduler.configure(global_options)
         eq_(self.scheduler.misfire_grace_time, 2)
         eq_(self.scheduler.daemonic, False)
+
+    def test_add_listener(self):
+        def cb(status):
+            val[0] += 1
+        val = [0]
+        self.scheduler.add_listener(cb, STATUS_OK)
+
+        status = JobStatus(None, None)
+        status.code = STATUS_OK
+        self.scheduler._notify_listeners(status)
+        eq_(val[0], 1)
+
+        status.code = STATUS_ERROR
+        self.scheduler._notify_listeners(status)
+        eq_(val[0], 1)
+
+        self.scheduler.remove_listener(cb)
+        self.scheduler._notify_listeners(status)
+        eq_(val[0], 1)

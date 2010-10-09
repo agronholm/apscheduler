@@ -2,34 +2,60 @@
 Stores jobs in a file governed by the :mod:`shelve` module.
 """
 
-from copy import copy
 import shelve
 import pickle
+import random
 
-from apscheduler.jobstores.base import DictJobStore
+from apscheduler.jobstores.base import JobStore
+from apscheduler.util import obj_to_ref
 
 
-class ShelveJobStore(DictJobStore):
-    stores_persistent = True
+def store(mode):
+    def outer(func):
+        def wrapper(self, *args, **kwargs):
+            store = shelve.open(self.path, mode, self.protocol)
+            try:
+                return func(self, store, *args, **kwargs)
+            finally:
+                store.close()
+        return wrapper
+    return outer
+
+
+class ShelveJobStore(JobStore):
+    MAX_ID = 1000000
 
     def __init__(self, path, protocol=pickle.HIGHEST_PROTOCOL):
-        DictJobStore.__init__(self)
+        self.jobs = []
         self.path = path
         self.protocol = protocol
 
-    def _open_store(self):
-        return shelve.open(self.path, 'c', self.protocol)
+    def _generate_id(self, store):
+        id = None
+        while not id:
+            id = str(random.randint(1, self.MAX_ID))
+            if not id in store:
+                return id
 
-    def _close_store(self, store):
-        store.close()
+    @store('c')
+    def add_job(self, store, job):
+        job.func_ref = obj_to_ref(job.func)
+        job.id = self._generate_id(store)
+        self.jobs.append(job)
+        store[job.id] = job
 
-    def _export_jobmeta(self, jobmeta):
-        jobmeta = copy(jobmeta)
-        jobmeta.jobstore = self
-        return jobmeta
+    @store('w')
+    def update_job(self, store, job):
+        store[job.id] = job
 
-    def _put_jobmeta(self, store, jobmeta):
-        store[jobmeta.id] = jobmeta
+    @store('w')
+    def remove_job(self, store, job):
+        del store[job.id]
+        self.jobs.remove(job)
+
+    @store('r')
+    def load_jobs(self, store):
+        self.jobs = store.values()
 
     def __repr__(self):
-        return '%s (%s)' % (self.__class__.__name__, self.path)
+        return '<%s (path=%s)>' % (self.__class__.__name__, self.path)

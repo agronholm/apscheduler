@@ -8,11 +8,19 @@ Version history
 
 * Added optional job persistency
 
+* Added job listeners (job execution, error, misfire, finish)
+
 * Jobs are now run in a (configurable) thread pool
 
-* Allow configuration of misfire grace times on a per-job basis
+* Allowed configuration of misfire grace times on a per-job basis
 
-* Allow jobs to be explicitly named
+* Allowed jobs to be explicitly named
+
+* Maximum run count can be configured for all jobs, not just those using
+  IntervalTrigger
+
+* A maximum concurrency value can be configured for jobs, so only X instances
+  will be allowed to run at once (will be considered a misfire otherwise)
 
 
 1.3.1

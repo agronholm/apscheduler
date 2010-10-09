@@ -2,28 +2,24 @@
 Stores jobs in an array in RAM. Provides no persistence support.
 """
 
-from copy import copy
-
-from apscheduler.jobstores.base import DictJobStore
+from apscheduler.jobstores.base import JobStore
 
 
-class RAMJobStore(DictJobStore):
-    stores_transient = True
-
+class RAMJobStore(JobStore):
     def __init__(self):
-        DictJobStore.__init__(self)
-        self._jobmetas = {}
+        self.jobs = []
+    
+    def add_job(self, job):
+        self.jobs.append(job)
 
-    def _open_store(self):
-        return self._jobmetas
-
-    def _close_store(self, store):
+    def update_job(self, job):
         pass
 
-    def _export_jobmeta(self, jobmeta):
-        jobmeta = copy(jobmeta)
-        jobmeta.jobstore = self
-        return jobmeta
+    def remove_job(self, job):
+        self.jobs.remove(job)
 
-    def _put_jobmeta(self, store, jobmeta):
-        store[jobmeta.id] = copy(jobmeta)
+    def load_jobs(self):
+        pass
+
+    def __repr__(self):
+        return '<%s>' % (self.__class__.__name__)

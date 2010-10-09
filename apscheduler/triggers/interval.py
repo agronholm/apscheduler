@@ -5,11 +5,9 @@ from apscheduler.util import convert_to_datetime, timedelta_seconds
 
 
 class IntervalTrigger(object):
-    def __init__(self, interval, repeat=0, start_date=None):
+    def __init__(self, interval, start_date=None):
         if not isinstance(interval, timedelta):
             raise TypeError('interval must be a timedelta')
-        if repeat < 0:
-            raise ValueError('repeat must be a positive value or 0')
         if start_date and not isinstance(start_date, date):
             raise TypeError('start_date must be a date or a datetime')
 
@@ -24,24 +22,18 @@ class IntervalTrigger(object):
         else:
             self.first_fire_date = convert_to_datetime(start_date)
 
-        self.repeat = repeat
-        if repeat:
-            self.last_fire_date = self.first_fire_date + interval * (repeat - 1)
-        else:
-            self.last_fire_date = None
-
     def get_next_fire_time(self, start_date):
         if start_date < self.first_fire_date:
             return self.first_fire_date
-        if self.last_fire_date and start_date > self.last_fire_date:
-            return None
 
         timediff_seconds = timedelta_seconds(start_date - self.first_fire_date)
         next_interval_num = int(ceil(timediff_seconds / self.interval_length))
         return self.first_fire_date + self.interval * next_interval_num
 
-    def __repr__(self):
-        return "%s(interval=%s, repeat=%d, start_date=%s)" % (
-            self.__class__.__name__, repr(self.interval), self.repeat,
-            repr(self.first_fire_date))
+    def __str__(self):
+        return 'interval[%s]' % str(self.interval)
 
+    def __repr__(self):
+        return "<%s (interval=%s, start_date=%s)>" % (
+            self.__class__.__name__, repr(self.interval),
+            repr(self.first_fire_date))

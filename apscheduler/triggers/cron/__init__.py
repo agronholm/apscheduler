@@ -113,9 +113,14 @@ class CronTrigger(object):
         if fieldnum >= 0:
             return next_date
 
+    def __str__(self):
+        options = ["%s='%s'" % (f.name, str(f)) for f in self.fields
+                   if str(f) != '*']
+        return 'cron[%s]' % (', '.join(options))
+
     def __repr__(self):
         options = ["%s='%s'" % (f.name, str(f)) for f in self.fields
                    if str(f) != '*']
         if self.start_date:
             options.append("start_date='%s'" % self.start_date.isoformat(' '))
-        return '%s(%s)' % (self.__class__.__name__, ', '.join(options))
+        return '<%s (%s)>' % (self.__class__.__name__, ', '.join(options))

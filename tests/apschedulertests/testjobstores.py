@@ -10,14 +10,15 @@ from apscheduler.jobstores.shelve_store import ShelveJobStore
 from apscheduler.jobstores.sqlalchemy_store import SQLAlchemyJobStore
 from apscheduler.jobstores.base import JobStore
 from apscheduler.triggers import SimpleTrigger
-from apscheduler.job import JobMeta
+from apscheduler.job import Job
 
 
-class StatefulJob(object):
-    counter = 0
+class DummyStore(JobStore):
+    pass
 
-    def run(self):
-        self.counter += 1
+
+def dummy_job():
+    pass
 
 
 class JobStoreTestBase(object):
@@ -25,42 +26,28 @@ class JobStoreTestBase(object):
         self.trigger_date = datetime(2999, 1, 1)
         self.earlier_date = datetime(2998, 12, 31)
         self.trigger = SimpleTrigger(self.trigger_date)
-        self.job = StatefulJob()
-        self.jobmeta = JobMeta(self.job, self.trigger)
-        self.jobmeta.next_run_time = self.trigger_date
+        self.job = Job(self.trigger, dummy_job, [], {})
+        self.job.next_run_time = self.trigger_date
 
-    def test_jobstore_add_list_remove(self):
-        self.jobstore.add_job(self.jobmeta)
+    def test_jobstore_add_update_remove(self):
+        eq_(self.jobstore.jobs, [])
 
-        jobmetas = self.jobstore.list_jobs()
-        eq_(jobmetas, [self.jobmeta])
-        eq_(jobmetas[0].jobstore, self.jobstore)
+        self.jobstore.add_job(self.job)
+        eq_(self.jobstore.jobs, [self.job])
+        eq_(self.jobstore.jobs[0], self.job)
+        eq_(self.jobstore.jobs[0].runs, 0)
 
-        self.jobstore.remove_job(jobmetas[0])
-        eq_(self.jobstore.list_jobs(), [])
+        self.job.runs += 1
+        self.jobstore.update_job(self.job)
+        self.jobstore.load_jobs()
+        eq_(len(self.jobstore.jobs), 1)
+        eq_(self.jobstore.jobs, [self.job])
+        eq_(self.jobstore.jobs[0].runs, 1)
 
-    def test_jobstore_add_checkout_update(self):
-        jobmetas = self.jobstore.checkout_jobs(self.trigger_date)
-        eq_(jobmetas, [])
-
-        self.jobstore.add_job(self.jobmeta)
-        eq_(self.jobmeta.checkout_time, None)
-
-        jobmetas = self.jobstore.checkout_jobs(self.earlier_date)
-        eq_(jobmetas, [])
-
-        jobmetas = self.jobstore.checkout_jobs(self.trigger_date)
-        eq_(jobmetas, [self.jobmeta])
-        eq_(jobmetas[0].jobstore, self.jobstore)
-        eq_(jobmetas[0].checkout_time, None)
-        eq_(jobmetas[0].job.counter, 0)
-
-        jobmetas[0].job.run()
-        self.jobstore.checkin_job(jobmetas[0])
-
-        jobmetas = self.jobstore.list_jobs()
-        eq_(jobmetas, [self.jobmeta])
-        eq_(jobmetas[0].job.counter, 1)
+        self.jobstore.remove_job(self.job)
+        eq_(self.jobstore.jobs, [])
+        self.jobstore.load_jobs()
+        eq_(self.jobstore.jobs, [])
 
 
 class TestRAMJobStore(JobStoreTestBase):
@@ -68,8 +55,12 @@ class TestRAMJobStore(JobStoreTestBase):
         JobStoreTestBase.setup(self)
         self.jobstore = RAMJobStore()
 
+    @SkipTest
+    def test_jobstore_add_update_remove(self):
+        pass
+
     def test_repr(self):
-        eq_(repr(self.jobstore), 'RAMJobStore')
+        eq_(repr(self.jobstore), '<RAMJobStore>')
 
 
 class TestShelveJobStore(JobStoreTestBase):
@@ -90,7 +81,7 @@ class TestShelveJobStore(JobStoreTestBase):
             os.remove(self.path)
 
     def test_repr(self):
-        eq_(repr(self.jobstore), 'ShelveJobStore (%s)' % self.path)
+        eq_(repr(self.jobstore), '<ShelveJobStore (path=%s)>' % self.path)
 
 
 class TestSQLAlchemyJobStore(JobStoreTestBase):
@@ -102,16 +93,13 @@ class TestSQLAlchemyJobStore(JobStoreTestBase):
             raise SkipTest
 
     def test_repr(self):
-        eq_(repr(self.jobstore), 'SQLAlchemyJobStore (sqlite:///)')
+        eq_(repr(self.jobstore), '<SQLAlchemyJobStore (url=sqlite:///)>')
 
 
 def test_unimplemented_job_store():
-    class DummyStore(JobStore): pass
     jobstore = DummyStore()
     assert_raises(NotImplementedError, getattr, jobstore, 'default_alias')
     assert_raises(NotImplementedError, jobstore.add_job, None)
-    assert_raises(NotImplementedError, jobstore.checkin_job, None)
+    assert_raises(NotImplementedError, jobstore.update_job, None)
     assert_raises(NotImplementedError, jobstore.remove_job, None)
-    assert_raises(NotImplementedError, jobstore.checkout_jobs, None)
-    assert_raises(NotImplementedError, jobstore.list_jobs)
-    assert_raises(NotImplementedError, jobstore.get_next_run_time, None)
+    assert_raises(NotImplementedError, jobstore.load_jobs)
