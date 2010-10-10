@@ -126,7 +126,8 @@ class Scheduler(object):
         :param jobstore: job store to be added
         :param alias: alias for the job store (job store's default used if no
             value specified)
-        :type jobstore: instance of :class:`~apscheduler.jobstore.base.JobStore`
+        :type jobstore: instance of
+            :class:`~apscheduler.jobstores.base.JobStore`
         :type alias: str
         """
         jobstore.alias = alias or jobstore.default_alias
@@ -188,8 +189,11 @@ class Scheduler(object):
         """
         Adds the given job to the job list and notifies the scheduler thread.
 
-        :param jobstore: alias of the job store to store the job in (overrides
-            the ``persistent`` option)
+        :param trigger: alias of the job store to store the job in
+        :param func: alias of the job store to store the job in
+        :param args: alias of the job store to store the job in
+        :param kwargs: alias of the job store to store the job in
+        :param jobstore: alias of the job store to store the job in
         :return: scheduling metadata for the job if the scheduler is running,
             else ``None``
         :rtype: :class:`~apscheduler.job.Job`
@@ -228,8 +232,6 @@ class Scheduler(object):
         :param func: callable to run at the given time
         :param date: the date/time to run the job at
         :param name: name of the job
-        :param persistent: ``True`` to store the job in any persistent job
-            store
         :param jobstore: stored the job in the named (or given) job store
         :param misfire_grace_time: seconds after the designated run time that
             the job is still allowed to be run
@@ -254,12 +256,9 @@ class Scheduler(object):
         :param seconds: number of seconds to wait
         :param start_date: when to first execute the job and start the
             counter (default is after the given interval)
-        :param repeat: number of times the job will be run (0 = repeat
-            indefinitely)
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
         :param name: name of the job
-        :param persistent: ``True`` to store the job in any persistent job store
         :param jobstore: alias of the job store to add the job to
         :param misfire_grace_time: seconds after the designated run time that
             the job is still allowed to be run
@@ -289,8 +288,6 @@ class Scheduler(object):
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
         :param name: name of the job
-        :param persistent: ``True`` to store the job in any persistent job
-            store
         :param jobstore: alias of the job store to add the job to
         :param misfire_grace_time: seconds after the designated run time that
             the job is still allowed to be run
@@ -322,7 +319,6 @@ class Scheduler(object):
         for execution on specified intervals.
         This decorator does not wrap its host function.
         The scheduled function will be called without any arguments.
-        Note that the default repeat value is 0, which means to repeat forever.
         See :meth:`add_delayed_job` for more information.
         """
         def inner(func):
