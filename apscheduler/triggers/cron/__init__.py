@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
 from apscheduler.triggers.cron.fields import *
-from apscheduler.util import datetime_ceil, parse_datestring
+from apscheduler.util import datetime_ceil, convert_to_datetime
 
 
 class CronTrigger(object):
@@ -18,8 +18,8 @@ class CronTrigger(object):
 
     def __init__(self, **values):
         self.start_date = values.pop('start_date', None)
-        if self.start_date and not isinstance(self.start_date, date):
-            self.start_date = parse_datestring(self.start_date)
+        if self.start_date:
+            self.start_date = convert_to_datetime(self.start_date)
 
         self.fields = []
         for field_name in self.FIELD_NAMES:

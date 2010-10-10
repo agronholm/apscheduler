@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from math import ceil
 
 from apscheduler.util import convert_to_datetime, timedelta_seconds
@@ -8,8 +8,8 @@ class IntervalTrigger(object):
     def __init__(self, interval, start_date=None):
         if not isinstance(interval, timedelta):
             raise TypeError('interval must be a timedelta')
-        if start_date and not isinstance(start_date, date):
-            raise TypeError('start_date must be a date or a datetime')
+        if start_date:
+            start_date = convert_to_datetime(start_date)
 
         self.interval = interval
         self.interval_length = timedelta_seconds(self.interval)
