@@ -1,5 +1,7 @@
 """
 Generic thread pool class. Modeled after Java's ThreadPoolExecutor.
+Please note that this ThreadPool does *not* fully implement the PEP 3148
+ThreadPool!
 """
 
 from Queue import Queue, Empty
@@ -99,7 +101,7 @@ class ThreadPool(object):
     def num_threads(self):
         return len(self._threads)
 
-    def execute(self, func, args=(), kwargs={}):
+    def submit(self, func, *args, **kwargs):
         if self._shutdown:
             raise Exception('Thread pool has already been shut down')
 

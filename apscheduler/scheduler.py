@@ -423,8 +423,7 @@ class Scheduler(object):
                     if run_time <= now:
                         job.runs += 1
                         job.compute_next_run_time(now)
-                        args = [job, run_time]
-                        self._threadpool.execute(self._run_job, args)
+                        self._threadpool.submit(self._run_job, job, run_time)
                     if not next_wakeup_time:
                         next_wakeup_time = job.next_run_time
                     elif job.next_run_time:

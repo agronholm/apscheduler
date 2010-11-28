@@ -11,9 +11,9 @@ def test_threadpool():
     event1 = Event()
     event2 = Event()
     event3 = Event()
-    pool.execute(event1.set)
-    pool.execute(event2.set)
-    pool.execute(event3.set)
+    pool.submit(event1.set)
+    pool.submit(event2.set)
+    pool.submit(event3.set)
     event1.wait(1)
     event2.wait(1)
     event3.wait(1)
@@ -29,13 +29,13 @@ def test_threadpool():
     pool.shutdown()
 
     # Make sure one can't submit tasks to a thread pool that has been shut down
-    assert_raises(Exception, pool.execute, event1.set)
+    assert_raises(Exception, pool.submit, event1.set)
 
 
 def test_threadpool_nocore():
     pool = ThreadPool(keepalive=0)
     event = Event()
-    pool.execute(event.set)
+    pool.submit(event.set)
     event.wait(1)
     assert event.isSet()
     sleep(1)
