@@ -190,12 +190,12 @@ class Scheduler(object):
         Adds the given job to the job list and notifies the scheduler thread.
 
         :param trigger: alias of the job store to store the job in
-        :param func: alias of the job store to store the job in
-        :param args: alias of the job store to store the job in
-        :param kwargs: alias of the job store to store the job in
+        :param func: callable to run at the given time
+        :param args: list of positional arguments to call func with
+        :param kwargs: dict of keyword arguments to call func with
         :param jobstore: alias of the job store to store the job in
-        :return: scheduling metadata for the job if the scheduler is running,
-            else ``None``
+        :return: the newly scheduled job if the scheduler is running, else
+            ``None``
         :rtype: :class:`~apscheduler.job.Job`
         """
         if not self.running and not quiet:
