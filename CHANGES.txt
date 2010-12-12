@@ -8,19 +8,29 @@ Version history
 
 * Added optional job persistency
 
-* Added job listeners (job execution, error, misfire, finish)
+* Added the possibility to listen for job events (execution, error, misfire,
+  finish) on a scheduler
 
-* Jobs are now run in a (configurable) thread pool
+* Added an optional start time for cron-style jobs
 
 * Allowed configuration of misfire grace times on a per-job basis
 
 * Allowed jobs to be explicitly named
 
+* All triggers now accept dates in string form (YYYY-m-d HH:MM:SS)
+
+* Jobs are now run in a thread pool; you can either supply your own PEP 3148
+  compliant thread pool or let APScheduler create a new one
+
 * Maximum run count can be configured for all jobs, not just those using
-  IntervalTrigger
+  interval-based scheduling
 
 * A maximum concurrency value can be configured for jobs, so only X instances
   will be allowed to run at once (will be considered a misfire otherwise)
+
+Some API changes were necessary -- see the migration section of the
+documentation to find out what you need to change when migrating your
+application from APScheduler v1.x to v2.0.
 
 
 1.3.1
