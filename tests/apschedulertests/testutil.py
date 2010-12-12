@@ -72,9 +72,24 @@ def test_convert_datetime_passthrough():
     eq_(convertedval, datetimeval)
 
 
+def test_convert_datetime_text1():
+    convertedval = convert_to_datetime('2009-8-1')
+    eq_(convertedval, datetime(2009, 8, 1))
+
+
+def test_convert_datetime_text2():
+    convertedval = convert_to_datetime('2009-8-1 5:16:12')
+    eq_(convertedval, datetime(2009, 8, 1, 5, 16, 12))
+
+
+def test_datestring_parse_datetime_micro():
+    convertedval = convert_to_datetime('2009-8-1 5:16:12.843821')
+    eq_(convertedval, datetime(2009, 8, 1, 5, 16, 12, 843821))
+
+
 @raises(TypeError)
 def test_convert_datetime_invalid():
-    convert_to_datetime('2009-4-5')
+    convert_to_datetime(995302092123)
 
 
 def test_timedelta_seconds():
@@ -149,6 +164,11 @@ def test_ref_to_obj():
     eq_(ref_to_obj('shelve:open'), shelve.open)
 
 
+def test_maybe_ref():
+    eq_(maybe_ref('shelve:open'), shelve.open)
+    eq_(maybe_ref(shelve.open), shelve.open)
+
+
 def test_to_unicode():
     if sys.version_info[0] < 3:
         eq_(to_unicode('aaööbb'), unicode('aabb'))
@@ -156,18 +176,3 @@ def test_to_unicode():
     else:
         eq_(to_unicode('aaööbb'.encode('utf-8')), 'aabb')
         eq_(to_unicode('ghkj'), 'gfkj')
-
-
-def test_datestring_parse_date():
-    correct_date = datetime.fromtimestamp(1281387600.0)
-    eq_(parse_datestring('2010-8-10'), correct_date)
-
-
-def test_datestring_parse_datetime():
-    correct_date = datetime.fromtimestamp(1281456240.0)
-    eq_(parse_datestring('2010-8-10 19:04:00'), correct_date)
-
-
-def test_datestring_parse_datetime_micro():
-    correct_date = datetime.fromtimestamp(1281456240.843821)
-    eq_(parse_datestring('2010-8-10 19:04:00.843821'), correct_date)

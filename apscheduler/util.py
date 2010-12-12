@@ -8,7 +8,8 @@ import re
 
 __all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds',
            'time_difference', 'datetime_ceil', 'combine_opts',
-           'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'to_unicode')
+           'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref',
+           'to_unicode')
 
 
 def asint(text):
@@ -165,6 +166,16 @@ def ref_to_obj(ref):
     for name in modulename.split('.')[1:] + rest.split('.'):
         obj = getattr(obj, name)
     return obj
+
+
+def maybe_ref(ref):
+    """
+    Returns the object that the given reference points to, if it is indeed
+    a reference. If it is not a reference, the object is returned as-is.
+    """
+    if not isinstance(ref, str):
+        return ref
+    return ref_to_obj(ref)
 
 
 def to_unicode(string, encoding='ascii'):
