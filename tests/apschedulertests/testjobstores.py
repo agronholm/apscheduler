@@ -1,20 +1,25 @@
 from datetime import datetime
 from warnings import filterwarnings, resetwarnings
+from os import tempnam
 import os
 
-from nose.tools import eq_, assert_raises
+from nose.tools import eq_, assert_raises, raises
 from nose.plugins.skip import SkipTest
 
 from apscheduler.jobstores.ram_store import RAMJobStore
-from apscheduler.jobstores.shelve_store import ShelveJobStore
-from apscheduler.jobstores.sqlalchemy_store import SQLAlchemyJobStore
 from apscheduler.jobstores.base import JobStore
 from apscheduler.triggers import SimpleTrigger
 from apscheduler.job import Job
 
+try:
+    from apscheduler.jobstores.shelve_store import ShelveJobStore
+except ImportError:
+    ShelveJobStore = None
 
-class DummyStore(JobStore):
-    pass
+try:
+    from apscheduler.jobstores.sqlalchemy_store import SQLAlchemyJobStore
+except ImportError:
+    SQLAlchemyJobStore = None
 
 
 def dummy_job():
@@ -65,16 +70,14 @@ class TestRAMJobStore(JobStoreTestBase):
 
 class TestShelveJobStore(JobStoreTestBase):
     def setup(self):
-        JobStoreTestBase.setup(self)
-
-        try:
-            filterwarnings('ignore', category=RuntimeWarning)
-            from os import tempnam
-            self.path = tempnam()
-            resetwarnings()
-            self.jobstore = ShelveJobStore(self.path)
-        except ImportError:
+        if not ShelveJobStore:
             raise SkipTest
+
+        JobStoreTestBase.setup(self)
+        filterwarnings('ignore', category=RuntimeWarning)
+        self.path = tempnam()
+        resetwarnings()
+        self.jobstore = ShelveJobStore(self.path)
 
     def teardown(self):
         if os.path.exists(self.path):
@@ -84,21 +87,53 @@ class TestShelveJobStore(JobStoreTestBase):
         eq_(repr(self.jobstore), '<ShelveJobStore (path=%s)>' % self.path)
 
 
-class TestSQLAlchemyJobStore(JobStoreTestBase):
+class TestSQLAlchemyJobStore1(JobStoreTestBase):
     def setup(self):
-        JobStoreTestBase.setup(self)
-        try:
-            self.jobstore = SQLAlchemyJobStore(url='sqlite:///')
-        except ImportError:
+        if not SQLAlchemyJobStore:
             raise SkipTest
+
+        JobStoreTestBase.setup(self)
+        self.jobstore = SQLAlchemyJobStore(url='sqlite:///')
 
     def test_repr(self):
         eq_(repr(self.jobstore), '<SQLAlchemyJobStore (url=sqlite:///)>')
 
 
+class TestSQLAlchemyJobStore2(JobStoreTestBase):
+    def setup(self):
+        if not SQLAlchemyJobStore:
+            raise SkipTest
+
+        from sqlalchemy import create_engine
+
+        JobStoreTestBase.setup(self)
+        engine = create_engine('sqlite:///')
+        self.jobstore = SQLAlchemyJobStore(engine=engine)
+
+    def test_repr(self):
+        eq_(repr(self.jobstore), '<SQLAlchemyJobStore (url=sqlite:///)>')
+
+
+@raises(ValueError)
+def test_sqlalchemy_invalid_args():
+    if not SQLAlchemyJobStore:
+        raise SkipTest
+
+    SQLAlchemyJobStore()
+
+
+def test_sqlalchemy_alternate_tablename():
+    if not SQLAlchemyJobStore:
+        raise SkipTest
+
+    SQLAlchemyJobStore('sqlite:///', tablename='test_table')
+    from apscheduler.jobstores.sqlalchemy_store import jobs_table
+    eq_(jobs_table.name, 'test_table')
+
+
 def test_unimplemented_job_store():
-    jobstore = DummyStore()
-    assert_raises(NotImplementedError, getattr, jobstore, 'default_alias')
+    class DummyJobStore(JobStore): pass
+    jobstore = DummyJobStore()
     assert_raises(NotImplementedError, jobstore.add_job, None)
     assert_raises(NotImplementedError, jobstore.update_job, None)
     assert_raises(NotImplementedError, jobstore.remove_job, None)

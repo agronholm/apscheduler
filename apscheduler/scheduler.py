@@ -133,13 +133,16 @@ class Scheduler(object):
             :class:`~apscheduler.jobstores.base.JobStore`
         :type alias: str
         """
-        jobstore.alias = alias or jobstore.default_alias
+        if not alias:
+            alias = jobstore.__class__.__name__.lower()
+            if alias.endswith('jobstore'):
+                alias = alias[:-8]
 
         self._jobstores_lock.acquire()
         try:
-            if jobstore.alias in self._jobstores:
-                raise KeyError('Alias "%s" is already in use' % jobstore.alias)
-            self._jobstores[jobstore.alias] = jobstore
+            if alias in self._jobstores:
+                raise KeyError('Alias "%s" is already in use' % alias)
+            self._jobstores[alias] = jobstore
             jobstore.load_jobs()
         finally:
             self._jobstores_lock.release()
