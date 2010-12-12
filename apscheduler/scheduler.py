@@ -60,8 +60,11 @@ class Scheduler(object):
         self.daemonic = asbool(config.pop('daemonic', True))
 
         # Configure the thread pool
-        threadpool_opts = combine_opts(config, 'threadpool.')
-        self._threadpool = ThreadPool(**threadpool_opts)
+        if 'threadpool' in config:
+            self._threadpool = maybe_ref(config['threadpool'])
+        else:
+            threadpool_opts = combine_opts(config, 'threadpool.')
+            self._threadpool = ThreadPool(**threadpool_opts)
 
         # Configure job stores
         jobstore_opts = combine_opts(config, 'jobstore.')
@@ -72,7 +75,7 @@ class Scheduler(object):
 
         for alias, opts in self._jobstores.items():
             classname = opts.pop('class')
-            cls = ref_to_obj(classname)
+            cls = maybe_ref(classname)
             jobstore = cls(**opts)
             self.add_jobstore(jobstore, alias, True)
 
