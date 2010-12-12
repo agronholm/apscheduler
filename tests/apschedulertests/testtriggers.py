@@ -138,6 +138,12 @@ def test_date_trigger_later():
     eq_(trigger.get_next_fire_time(start_date), None)
 
 
+def test_date_trigger_text():
+    trigger = SimpleTrigger('2009-7-6')
+    start_date = datetime(2009, 7, 6)
+    eq_(trigger.get_next_fire_time(start_date), datetime(2009, 7, 6))
+
+
 @raises(TypeError)
 def test_interval_invalid_interval():
     IntervalTrigger('1-6')
