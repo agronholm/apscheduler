@@ -8,6 +8,12 @@ time that satisfies the conditions in every field.
 This behavior closely resembles the "Cron" utility found in most UNIX-like
 operating systems.
 
+You can also specify the starting date for the cron-style schedule through the
+``start_date`` parameter, which can be given as a date/datetime object or text.
+See the :doc:`Date-based scheduling section <dateschedule>` for examples on
+that.
+
+
 Available fields
 ----------------
 
@@ -25,6 +31,7 @@ Field           Description
 =============== ======================================================
 
 .. Note:: The first weekday is always **monday**.
+
 
 Expression types
 ----------------
@@ -48,6 +55,7 @@ Expression   Field     Description
                        of any of the above expressions
 ============ ========= ======================================================
 
+
 Example
 -------
 
@@ -67,6 +75,7 @@ Example
     # to 3 am
     sched.add_cron_job(job_function, month='6-8,11-12', day='3rd fri',
                        hour='0-3')
+
 
 Decorator syntax
 ----------------
