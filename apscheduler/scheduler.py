@@ -391,18 +391,16 @@ class Scheduler(object):
             logger.warning('Execution of job "%s" skipped: too many instances '
                            'running already (%d)', job, job.max_concurrency)
         else:
-            job.instances -= 1
+            job.add_instance()
             try:
                 status.retval = job.func(*job.args, **job.kwargs)
             except:
-                job.instances -= 1
-                job.runs += 1
+                job.remove_instance()
                 status.exception, status.traceback = sys.exc_info()[1:]
                 status.code = STATUS_ERROR
                 logger.exception('Job "%s" raised an exception', job)
             else:
-                job.instances -= 1
-                job.runs += 1
+                job.remove_instance()
                 status.code = STATUS_OK
                 logger.debug('Job "%s" executed successfully', job)
 
@@ -430,17 +428,18 @@ class Scheduler(object):
                         job.runs += 1
                         job.compute_next_run_time(now)
                         self._threadpool.submit(self._run_job, job, run_time)
+
+                        # Update the job, but don't keep finished jobs around 
+                        if job.next_run_time:
+                            jobstore.update_job(job)
+                        else:
+                            jobstore.remove_job(job)
+
                     if not next_wakeup_time:
                         next_wakeup_time = job.next_run_time
                     elif job.next_run_time:
                         next_wakeup_time = min(next_wakeup_time,
                                                job.next_run_time)
-
-                    # Update the job, but don't keep finished jobs around 
-                    if job.next_run_time:
-                        jobstore.update_job(job)
-                    else:
-                        jobstore.remove_job(job)
 
             # Sleep until the next job is scheduled to be run,
             # a new job is added or the scheduler is stopped

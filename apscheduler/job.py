@@ -2,6 +2,8 @@
 Jobs represent scheduled tasks.
 """
 
+from threading import Lock
+
 from apscheduler.util import to_unicode, ref_to_obj, get_callable_name
 
 __all__ = ('Job', 'STATUS_OK', 'STATUS_ERROR', 'STATUS_MISSED',
@@ -57,6 +59,7 @@ class Job(object):
         self.max_concurrency = max_concurrency
         self.runs = 0
         self.instances = 0
+        self.lock = Lock()
 
     def compute_next_run_time(self, now):
         if self.runs == self.max_runs:
@@ -64,16 +67,28 @@ class Job(object):
         else:
             self.next_run_time = self.trigger.get_next_fire_time(now)
 
+    def add_instance(self):
+        self.lock.acquire()
+        self.instances += 1
+        self.lock.release()
+
+    def remove_instance(self):
+        self.lock.acquire()
+        self.instances -= 1
+        self.lock.release()
+
     def __getstate__(self):
         # Prevents the unwanted pickling of transient or unpicklable variables
         state = self.__dict__.copy()
         state.pop('instances', None)
         state.pop('func', None)
+        state.pop('lock', None)
         return state
 
     def __setstate__(self, state):
         state['instances'] = 0
         state['func'] = ref_to_obj(state['func_ref'])
+        state['lock'] = Lock()
         self.__dict__ = state
 
     def __cmp__(self, other):
