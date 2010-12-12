@@ -432,7 +432,12 @@ class Scheduler(object):
                     elif job.next_run_time:
                         next_wakeup_time = min(next_wakeup_time,
                                                job.next_run_time)
-                    jobstore.update_job(job)
+
+                    # Update the job, but don't keep finished jobs around 
+                    if job.next_run_time:
+                        jobstore.update_job(job)
+                    else:
+                        jobstore.remove_job(job)
 
             # Sleep until the next job is scheduled to be run,
             # a new job is added or the scheduler is stopped
