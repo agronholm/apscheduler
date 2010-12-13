@@ -92,6 +92,11 @@ def test_convert_datetime_invalid():
     convert_to_datetime(995302092123)
 
 
+@raises(ValueError)
+def test_convert_datetime_invalid_str():
+    convert_to_datetime('19700-12-1')
+
+
 def test_timedelta_seconds():
     delta = timedelta(minutes=2, seconds=30)
     seconds = timedelta_seconds(delta)
