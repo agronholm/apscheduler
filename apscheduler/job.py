@@ -49,6 +49,8 @@ class Job(object):
         if max_concurrency <= 0:
             raise ValueError('max_concurrency must be a positive value')
 
+        self._lock = Lock()
+
         self.trigger = trigger
         self.func = func
         self.args = args
@@ -59,7 +61,6 @@ class Job(object):
         self.max_concurrency = max_concurrency
         self.runs = 0
         self.instances = 0
-        self.lock = Lock()
 
     def compute_next_run_time(self, now):
         if self.runs == self.max_runs:
@@ -68,27 +69,27 @@ class Job(object):
             self.next_run_time = self.trigger.get_next_fire_time(now)
 
     def add_instance(self):
-        self.lock.acquire()
+        self._lock.acquire()
         self.instances += 1
-        self.lock.release()
+        self._lock.release()
 
     def remove_instance(self):
-        self.lock.acquire()
+        self._lock.acquire()
         self.instances -= 1
-        self.lock.release()
+        self._lock.release()
 
     def __getstate__(self):
         # Prevents the unwanted pickling of transient or unpicklable variables
         state = self.__dict__.copy()
         state.pop('instances', None)
         state.pop('func', None)
-        state.pop('lock', None)
+        state.pop('_lock', None)
         return state
 
     def __setstate__(self, state):
         state['instances'] = 0
         state['func'] = ref_to_obj(state['func_ref'])
-        state['lock'] = Lock()
+        state['_lock'] = Lock()
         self.__dict__ = state
 
     def __cmp__(self, other):
