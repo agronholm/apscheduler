@@ -74,6 +74,8 @@ class Job(object):
         self._lock.release()
 
     def remove_instance(self):
+        if self.instances == 0:
+            raise ValueError('Already at 0 instances')
         self._lock.acquire()
         self.instances -= 1
         self._lock.release()
@@ -88,17 +90,19 @@ class Job(object):
 
     def __setstate__(self, state):
         state['instances'] = 0
-        state['func'] = ref_to_obj(state['func_ref'])
+        state['func'] = ref_to_obj(state.pop('func_ref'))
         state['_lock'] = Lock()
         self.__dict__ = state
 
-    def __cmp__(self, other):
-        return cmp(self.next_run_time, other.next_run_time)
+    def __lt__(self, other):
+        if isinstance(other, Job):
+            return self.next_run_time < other.next_run_time
+        return NotImplemented
 
     def __eq__(self, other):
         if isinstance(other, Job):
             return self.id is not None and other.id == self.id or self is other
-        return False
+        return NotImplemented
 
     def __repr__(self):
         return '<Job (name=%s, trigger=%s)>' % (self.name, repr(self.trigger))
