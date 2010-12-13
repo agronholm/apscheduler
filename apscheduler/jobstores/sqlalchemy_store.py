@@ -8,24 +8,8 @@ from apscheduler.util import obj_to_ref
 
 try:
     from sqlalchemy import *
-    from sqlalchemy.orm import *
-    from sqlalchemy.orm.session import sessionmaker
 except ImportError:
     raise ImportError('SQLAlchemyJobStore requires SQLAlchemy installed')
-
-
-def session(func):
-    def wrapper(self, *args, **kwargs):
-        session = self.sessionmaker()
-        try:
-            retval = func(self, session, *args, **kwargs)
-        except:
-            session.rollback()
-            raise
-
-        session.commit()
-        return retval
-    return wrapper
 
 
 class SQLAlchemyJobStore(JobStore):
@@ -33,46 +17,48 @@ class SQLAlchemyJobStore(JobStore):
         self.jobs = []
 
         if engine:
-            self.url = engine.url
+            self.engine = engine
         elif url:
-            engine = create_engine(url)
-            self.url = url
+            self.engine = create_engine(url)
         else:
             raise ValueError('Need either "engine" or "url" defined')
 
-        self.sessionmaker = sessionmaker(bind=engine)
         if tablename:
-            jobs_table.name = tablename
-        jobs_table.create(engine, True)
+            jobs_t.name = tablename
+        jobs_t.create(self.engine, True)
 
-    def _export_job(self, job):
-        make_transient(job)
-        return job
-
-    @session
-    def add_job(self, session, job):
+    def add_job(self, job):
         job.func_ref = obj_to_ref(job.func)
-        session.add(job)
+        job_dict = job.__getstate__()
+        result = self.engine.execute(jobs_t.insert().values(**job_dict))
+        job.id = result.inserted_primary_key[0]
         self.jobs.append(job)
 
-    @session
-    def remove_job(self, session, job):
-        session.query(Job).filter_by(id=job.id).delete(False)
+    def remove_job(self, job):
+        self.engine.execute(jobs_t.delete().where(jobs_t.c.id == job.id))
         self.jobs.remove(job)
 
-    @session
-    def load_jobs(self, session):
-        self.jobs = [self._export_job(job) for job in session.query(Job)]
+    def load_jobs(self):
+        jobs = []
+        for row in self.engine.execute(select([jobs_t])):
+            job = Job.__new__(Job)
+            job_dict = dict(row.items())
+            job.__setstate__(job_dict)
+            jobs.append(job)
+        self.jobs = jobs
 
-    @session
-    def update_job(self, session, job):
-        session.merge(job)
+    def update_job(self, job):
+        job_dict = job.__getstate__()
+        update = jobs_t.update().where(jobs_t.c.id == job.id).\
+            values(next_run_time=job_dict['next_run_time'],
+                   runs=job_dict['runs'])
+        self.engine.execute(update)
 
     def __repr__(self):
-        return '<%s (url=%s)>' % (self.__class__.__name__, self.url)
+        return '<%s (url=%s)>' % (self.__class__.__name__, self.engine.url)
 
 
-jobs_table = Table('apscheduler_jobs', MetaData(),
+jobs_t = Table('apscheduler_jobs', MetaData(),
     Column('id', Integer, primary_key=True),
     Column('trigger', PickleType(mutable=False), nullable=False),
     Column('func_ref', String(1024), nullable=False),
@@ -84,5 +70,3 @@ jobs_table = Table('apscheduler_jobs', MetaData(),
     Column('max_concurrency', Integer),
     Column('next_run_time', DateTime, nullable=False),
     Column('runs', BigInteger))
-
-mapper(Job, jobs_table)
