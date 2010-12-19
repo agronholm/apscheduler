@@ -1,6 +1,6 @@
 from datetime import datetime
 from warnings import filterwarnings, resetwarnings
-from os import tempnam
+from tempfile import NamedTemporaryFile
 import os
 
 from nose.tools import eq_, assert_raises, raises
@@ -20,6 +20,11 @@ try:
     from apscheduler.jobstores.sqlalchemy_store import SQLAlchemyJobStore
 except ImportError:
     SQLAlchemyJobStore = None
+
+try:
+    from apscheduler.jobstores.mongodb_store import MongoDBJobStore
+except ImportError:
+    MongoDBJobStore = None
 
 
 def dummy_job():
@@ -75,7 +80,9 @@ class TestShelveJobStore(JobStoreTestBase):
 
         JobStoreTestBase.setup(self)
         filterwarnings('ignore', category=RuntimeWarning)
-        self.path = tempnam()
+        f = NamedTemporaryFile(prefix='apscheduler_')
+        f.close()
+        self.path = f.name
         resetwarnings()
         self.jobstore = ShelveJobStore(self.path)
 
@@ -114,6 +121,23 @@ class TestSQLAlchemyJobStore2(JobStoreTestBase):
         eq_(repr(self.jobstore), '<SQLAlchemyJobStore (url=sqlite:///)>')
 
 
+class TestMongoDBJobStore(JobStoreTestBase):
+    def setup(self):
+        if not MongoDBJobStore:
+            raise SkipTest
+
+        JobStoreTestBase.setup(self)
+        self.jobstore = MongoDBJobStore()
+
+    def teardown(self):
+        connection = self.jobstore.collection.database.connection
+        connection.drop_database(self.jobstore._dbname)
+
+    def test_repr(self):
+        eq_(repr(self.jobstore),
+            "<MongoDBJobStore (connection=Connection('localhost', 27017))>")
+
+
 @raises(ValueError)
 def test_sqlalchemy_invalid_args():
     if not SQLAlchemyJobStore:
@@ -126,8 +150,8 @@ def test_sqlalchemy_alternate_tablename():
     if not SQLAlchemyJobStore:
         raise SkipTest
 
-    SQLAlchemyJobStore('sqlite:///', tablename='test_table')
     from apscheduler.jobstores.sqlalchemy_store import jobs_t
+    SQLAlchemyJobStore('sqlite:///', tablename='test_table')
     eq_(jobs_t.name, 'test_table')
 
 
