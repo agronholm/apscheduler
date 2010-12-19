@@ -4,11 +4,15 @@ Please note that this ThreadPool does *not* fully implement the PEP 3148
 ThreadPool!
 """
 
-from Queue import Queue, Empty
 from threading import Thread, Lock, currentThread
 from weakref import ref
 import logging
 import atexit
+
+try:
+    from queue import Queue, Empty
+except ImportError:
+    from Queue import Queue, Empty
 
 
 logger = logging.getLogger(__name__)
