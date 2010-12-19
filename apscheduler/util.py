@@ -5,11 +5,12 @@ This module contains several handy functions primarily meant for internal use.
 from datetime import date, datetime, timedelta
 from time import mktime
 import re
+import sys
 
 __all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds',
            'time_difference', 'datetime_ceil', 'combine_opts',
            'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref',
-           'to_unicode')
+           'to_unicode', 'dict_values')
 
 
 def asint(text):
@@ -186,3 +187,10 @@ def to_unicode(string, encoding='ascii'):
     if hasattr(string, 'decode'):
         return string.decode(encoding, 'ignore')
     return string
+
+
+def dict_values(dict_):
+    if sys.version_info < (3, 0):
+        return dict_.values()
+    else:
+        return list(dict_.values())

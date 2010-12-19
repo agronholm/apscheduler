@@ -7,7 +7,7 @@ import pickle
 import random
 
 from apscheduler.jobstores.base import JobStore
-from apscheduler.util import obj_to_ref
+from apscheduler.util import obj_to_ref, dict_values
 
 
 def store(func):
@@ -53,7 +53,7 @@ class ShelveJobStore(JobStore):
 
     @store
     def load_jobs(self, store):
-        self.jobs = store.values()
+        self.jobs = dict_values(store)
 
     def __repr__(self):
         return '<%s (path=%s)>' % (self.__class__.__name__, self.path)
