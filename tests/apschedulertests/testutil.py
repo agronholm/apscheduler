@@ -180,4 +180,4 @@ def test_to_unicode():
         eq_(to_unicode(unicode('gfkj')), unicode('gfkj'))
     else:
         eq_(to_unicode('aaööbb'.encode('utf-8')), 'aabb')
-        eq_(to_unicode('ghkj'), 'gfkj')
+        eq_(to_unicode('gfkj'), 'gfkj')
