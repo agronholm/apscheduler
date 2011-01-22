@@ -12,7 +12,7 @@ from apscheduler.util import obj_to_ref, dict_values
 
 def store(func):
     def wrapper(self, *args, **kwargs):
-        store = shelve.open(self.path, 'c', self.protocol)
+        store = shelve.open(self.path, 'c', self.pickle_protocol)
         try:
             return func(self, store, *args, **kwargs)
         finally:
@@ -23,10 +23,10 @@ def store(func):
 class ShelveJobStore(JobStore):
     MAX_ID = 1000000
 
-    def __init__(self, path, protocol=pickle.HIGHEST_PROTOCOL):
+    def __init__(self, path, pickle_protocol=pickle.HIGHEST_PROTOCOL):
         self.jobs = []
         self.path = path
-        self.protocol = protocol
+        self.pickle_protocol = pickle_protocol
 
     def _generate_id(self, store):
         id = None

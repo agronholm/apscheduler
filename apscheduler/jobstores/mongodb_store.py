@@ -30,8 +30,10 @@ class MongoDBJobStore(JobStore):
     PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL
 
     def __init__(self, database='apscheduler', collection='jobs',
-                 connection=None, **connect_args):
+                 connection=None, pickle_protocol=pickle.HIGHEST_PROTOCOL,
+                 **connect_args):
         self.jobs = []
+        self.pickle_protocol = pickle_protocol
 
         if connection:
             self._connection = connection
@@ -61,9 +63,12 @@ class MongoDBJobStore(JobStore):
     def add_job(self, job):
         job.func_ref = obj_to_ref(job.func)
         job_dict = job.__getstate__()
-        job_dict['trigger'] = Binary(pickle.dumps(job.trigger))
-        job_dict['args'] = Binary(pickle.dumps(job.args))
-        job_dict['kwargs'] = Binary(pickle.dumps(job.kwargs))
+        job_dict['trigger'] = Binary(pickle.dumps(job.trigger,
+                                                  self.pickle_protocol))
+        job_dict['args'] = Binary(pickle.dumps(job.args,
+                                               self.pickle_protocol))
+        job_dict['kwargs'] = Binary(pickle.dumps(job.kwargs,
+                                                 self.pickle_protocol))
         job.id = self.collection.insert(job_dict)
         self.jobs.append(job)
 
