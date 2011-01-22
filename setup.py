@@ -16,7 +16,7 @@ setup(
     name='APScheduler',
     version=apscheduler.release,
     description='In-process task scheduler with Cron-like capabilities',
-    long_description=open('README.txt').read(),
+    long_description=open('README.rst').read(),
     author='Alex Gronholm',
     author_email='apscheduler@nextday.fi',
     url='http://pypi.python.org/pypi/APScheduler/',
