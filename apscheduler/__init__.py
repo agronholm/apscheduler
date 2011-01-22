@@ -1,3 +1,3 @@
-version = (2, 0)
-version_str = '.'.join(str(n) for n in version)
-release = version_str + "dev"
+version_info = (2, 0, 0, 'alpha')
+version = '.'.join(str(n) for n in version_info[:3])
+release = version + ''.join(str(n) for n in version_info[3:])
