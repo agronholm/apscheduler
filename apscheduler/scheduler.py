@@ -337,7 +337,7 @@ class Scheduler(object):
         Returns a list of all scheduled jobs.
         """
         jobs = []
-        for jobstore in self._jobstores.values():
+        for jobstore in dict_values(self._jobstores):
             jobs.extend(jobstore.jobs)
         return jobs
 
@@ -345,7 +345,7 @@ class Scheduler(object):
         """
         Removes a job, preventing it from being run any more.
         """
-        for jobstore in self._jobstores.values():
+        for jobstore in dict_values(self._jobstores):
             if job in jobstore.jobs:
                 jobstore.remove_job(job)
                 logger.info('Removed job "%s"', job)
@@ -361,7 +361,7 @@ class Scheduler(object):
         :param out: a file-like object to print to.
         """
         job_strs = []
-        for alias, jobstore in self._jobstores.items():
+        for alias, jobstore in dict_items(self._jobstores):
             job_strs.append('Jobstore %s:' % alias)
             if jobstore.jobs:
                 for job in jobstore.jobs:
@@ -421,7 +421,7 @@ class Scheduler(object):
             logger.debug('Looking for jobs to run')
             now = datetime.now()
             next_wakeup_time = None
-            for jobstore in self._jobstores.values():
+            for jobstore in dict_values(self._jobstores):
                 for job in tuple(jobstore.jobs):
                     run_time = job.next_run_time
                     if run_time <= now:

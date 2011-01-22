@@ -10,7 +10,7 @@ import sys
 __all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds',
            'time_difference', 'datetime_ceil', 'combine_opts',
            'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref',
-           'to_unicode', 'dict_values')
+           'to_unicode', 'dict_keys', 'dict_values', 'dict_items')
 
 
 def asint(text):
