@@ -150,9 +150,8 @@ def test_sqlalchemy_alternate_tablename():
     if not SQLAlchemyJobStore:
         raise SkipTest
 
-    from apscheduler.jobstores.sqlalchemy_store import jobs_t
-    SQLAlchemyJobStore('sqlite:///', tablename='test_table')
-    eq_(jobs_t.name, 'test_table')
+    store = SQLAlchemyJobStore('sqlite:///', tablename='test_table')
+    eq_(store.jobs_t.name, 'test_table')
 
 
 def test_unimplemented_job_store():
