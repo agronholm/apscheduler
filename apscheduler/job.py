@@ -94,11 +94,6 @@ class Job(object):
         state['_lock'] = Lock()
         self.__dict__ = state
 
-    def __lt__(self, other):
-        if isinstance(other, Job):
-            return self.next_run_time < other.next_run_time
-        return NotImplemented
-
     def __eq__(self, other):
         if isinstance(other, Job):
             return self.id is not None and other.id == self.id or self is other

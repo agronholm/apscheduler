@@ -36,13 +36,6 @@ class TestJob(object):
         self.job.compute_next_run_time(self.RUNTIME)
         eq_(self.job.next_run_time, None)         
 
-    def test_jobs_compare(self):
-        job2 = Job(SimpleTrigger(self.RUNTIME + timedelta(microseconds=1)),
-                   dummyfunc, [], {})
-        self.job.compute_next_run_time(self.RUNTIME)
-        job2.compute_next_run_time(self.RUNTIME)
-        assert job2 > self.job
-
     def test_getstate(self):
         state = self.job.__getstate__()
         eq_(state, dict(trigger=self.trigger,
