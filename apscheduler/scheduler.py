@@ -315,7 +315,7 @@ class Scheduler(object):
         See :meth:`add_cron_job` for more information.
         """
         def inner(func):
-            self.add_cron_job(func, **options)
+            func.job = self.add_cron_job(func, **options)
             return func
         return inner
 
@@ -328,7 +328,7 @@ class Scheduler(object):
         See :meth:`add_delayed_job` for more information.
         """
         def inner(func):
-            self.add_interval_job(func, **options)
+            func.job = self.add_interval_job(func, **options)
             return func
         return inner
 
@@ -422,7 +422,7 @@ class Scheduler(object):
                 run_time = job.next_run_time
                 if run_time <= now:
                     job.runs += 1
-                    job.compute_next_run_time(now)
+                    job.compute_next_run_time(now + timedelta(microseconds=1))
                     self._threadpool.submit(self._run_job, job, run_time)
 
                     # Update the job, but don't keep finished jobs around 
