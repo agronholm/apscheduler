@@ -13,22 +13,12 @@ except ImportError:
     import pickle
 
 try:
-    from cStringIO import StringIO
-except ImportError:
-    try:
-        from io import StringIO
-    except ImportError:
-        from StringIO import StringIO
-
-try:
     from pymongo.connection import Connection
 except ImportError:
     raise ImportError('MongoDBJobStore requires PyMongo installed')
 
 
 class MongoDBJobStore(JobStore):
-    PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL
-
     def __init__(self, database='apscheduler', collection='jobs',
                  connection=None, pickle_protocol=pickle.HIGHEST_PROTOCOL,
                  **connect_args):
