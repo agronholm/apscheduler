@@ -411,35 +411,41 @@ class Scheduler(object):
 
         self._notify_listeners(status)
 
+    def _process_jobs(self, now):
+        """
+        Iterates through jobs in every jobstore, starts pending jobs
+        and figures out the next wakeup time.
+        """
+        next_wakeup_time = None
+        for jobstore in dict_values(self._jobstores):
+            for job in tuple(jobstore.jobs):
+                run_time = job.next_run_time
+                if run_time <= now:
+                    job.runs += 1
+                    job.compute_next_run_time(now)
+                    self._threadpool.submit(self._run_job, job, run_time)
+
+                    # Update the job, but don't keep finished jobs around 
+                    if job.next_run_time:
+                        jobstore.update_job(job)
+                    else:
+                        jobstore.remove_job(job)
+
+                if not next_wakeup_time:
+                    next_wakeup_time = job.next_run_time
+                elif job.next_run_time:
+                    next_wakeup_time = min(next_wakeup_time,
+                                           job.next_run_time)
+        return next_wakeup_time
+
     def _main_loop(self):
         """Executes jobs on schedule."""
 
         self._wakeup.clear()
         while not self._stopped:
-            # Iterate through pending jobs in every jobstore, start them
-            # and figure out the next wakeup time
             logger.debug('Looking for jobs to run')
             now = datetime.now()
-            next_wakeup_time = None
-            for jobstore in dict_values(self._jobstores):
-                for job in tuple(jobstore.jobs):
-                    run_time = job.next_run_time
-                    if run_time <= now:
-                        job.runs += 1
-                        job.compute_next_run_time(now)
-                        self._threadpool.submit(self._run_job, job, run_time)
-
-                        # Update the job, but don't keep finished jobs around 
-                        if job.next_run_time:
-                            jobstore.update_job(job)
-                        else:
-                            jobstore.remove_job(job)
-
-                    if not next_wakeup_time:
-                        next_wakeup_time = job.next_run_time
-                    elif job.next_run_time:
-                        next_wakeup_time = min(next_wakeup_time,
-                                               job.next_run_time)
+            next_wakeup_time = self._process_jobs(now)
 
             # Sleep until the next job is scheduled to be run,
             # a new job is added or the scheduler is stopped
