@@ -1,8 +1,6 @@
 """
 Stores jobs in a MongoDB database.
 """
-from bson.binary import Binary
-
 from apscheduler.jobstores.base import JobStore
 from apscheduler.job import Job
 from apscheduler.util import obj_to_ref
@@ -13,6 +11,7 @@ except ImportError:
     import pickle
 
 try:
+    from bson.binary import Binary
     from pymongo.connection import Connection
 except ImportError:
     raise ImportError('MongoDBJobStore requires PyMongo installed')
