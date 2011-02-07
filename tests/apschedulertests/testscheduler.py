@@ -29,6 +29,11 @@ class TestOfflineScheduler(object):
         eq_(job, None)
         eq_(self.scheduler.get_jobs(), [])
 
+    def test_configure_jobstore(self):
+        conf = {'apscheduler.jobstore.ramstore.class': 'apscheduler.jobstores.ram_store:RAMJobStore'}
+        self.scheduler.configure(conf)
+        self.scheduler.remove_jobstore('ramstore')
+
     def test_shutdown_offline(self):
         self.scheduler.shutdown()
 
@@ -261,6 +266,10 @@ class TestRunningScheduler(object):
     @raises(SchedulerAlreadyRunningError)
     def test_scheduler_double_start(self):
         self.scheduler.start()
+
+    @raises(SchedulerAlreadyRunningError)
+    def test_scheduler_configure_running(self):
+        self.scheduler.configure({})
 
     def test_scheduler_double_shutdown(self):
         self.scheduler.shutdown(1)
