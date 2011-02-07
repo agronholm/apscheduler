@@ -127,7 +127,7 @@ class TestMongoDBJobStore(JobStoreTestBase):
             raise SkipTest
 
         JobStoreTestBase.setup(self)
-        self.jobstore = MongoDBJobStore()
+        self.jobstore = MongoDBJobStore(database='apscheduler_unittest')
 
     def teardown(self):
         connection = self.jobstore.collection.database.connection
