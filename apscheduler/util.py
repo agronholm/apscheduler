@@ -133,13 +133,17 @@ def combine_opts(global_config, prefix, local_config={}):
 
 
 def get_callable_name(func):
-    if hasattr(func, 'im_func'):
-        clsname = func.im_class.__name__
-        funcname = func.im_func.__name__
-        return '%s.%s.%s' % (func.__module__, clsname, funcname)
+    """
+    Returns the best available display name for the given function/callable.
+    """
+    name = func.__module__
+    if hasattr(func, '__self__') and func.__self__:
+        name += '.' + func.__self__.__name__
+    elif hasattr(func, 'im_self') and func.im_self:     # py2.4, 2.5
+        name += '.' + func.im_self.__name__
     if hasattr(func, '__name__'):
-        return '%s.%s' % (func.__module__, func.__name__)
-    return str(func)
+        name += '.' + func.__name__
+    return name
 
 
 def obj_to_ref(obj):
