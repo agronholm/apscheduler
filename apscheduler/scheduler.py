@@ -123,22 +123,17 @@ class Scheduler(object):
     def running(self):
         return not self._stopped and self._thread and self._thread.isAlive()
 
-    def add_jobstore(self, jobstore, alias=None, quiet=False):
+    def add_jobstore(self, jobstore, alias, quiet=False):
         """
         Adds a job store to this scheduler.
 
         :param jobstore: job store to be added
-        :param alias: alias for the job store (job store's default used if no
-            value specified)
+        :param alias: alias for the job store
+        :param quiet: True to suppress scheduler thread wakeup
         :type jobstore: instance of
             :class:`~apscheduler.jobstores.base.JobStore`
         :type alias: str
         """
-        if not alias:
-            alias = jobstore.__class__.__name__.lower()
-            if alias.endswith('jobstore'):
-                alias = alias[:-8]
-
         self._jobstores_lock.acquire()
         try:
             if alias in self._jobstores:
