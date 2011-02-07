@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from logging import StreamHandler, ERROR
 from copy import copy
 import os
 
@@ -7,6 +8,7 @@ from nose.tools import eq_, raises
 from apscheduler.jobstores.ram_store import RAMJobStore
 from apscheduler.scheduler import Scheduler, SchedulerAlreadyRunningError
 from apscheduler.job import STATUS_OK, STATUS_ERROR, JobStatus
+from apscheduler import scheduler
 
 try:
     from StringIO import StringIO
@@ -86,12 +88,20 @@ class DummyException(Exception):
 
 
 class TestJobExecution(object):
-    def setUp(self):
+    def setup(self):
         self.scheduler = Scheduler(threadpool=FakeThreadPool())
         self.scheduler.add_jobstore(RAMJobStore(), 'default')
 
         # Make the scheduler think it's running
         self.scheduler._thread = FakeThread()
+        
+        self.logstream = StringIO()
+        self.loghandler = StreamHandler(self.logstream)
+        self.loghandler.setLevel(ERROR)
+        scheduler.logger.addHandler(self.loghandler)
+
+    def teardown(self):
+        scheduler.logger.removeHandler(self.loghandler)
 
     @raises(TypeError)
     def test_noncallable(self):
@@ -144,14 +154,13 @@ class TestJobExecution(object):
         eq_(vals, [1])
         assert job not in self.scheduler.get_jobs()
 
-    @raises(DummyException)
     def test_job_exception(self):
         def failure():
             raise DummyException
 
-        start_date = datetime(9999, 1, 1)
-        job = self.scheduler.add_date_job(failure, start_date)
-        job.func()
+        job = self.scheduler.add_date_job(failure, datetime(9999, 9, 9))
+        self.scheduler._process_jobs(job.next_run_time)
+        assert 'DummyException' in self.logstream.getvalue()
 
     def test_interval(self):
         def increment(amount):
