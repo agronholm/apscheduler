@@ -24,30 +24,17 @@ class MongoDBJobStore(JobStore):
         self.jobs = []
         self.pickle_protocol = pickle_protocol
 
-        if connection:
-            self._connection = connection
-        else:
-            self._connection = None
-            self._connect_args = connect_args
-
         if not database:
             raise ValueError('The "database" parameter must not be empty')
         if not collection:
             raise ValueError('The "collection" parameter must not be empty')
 
-        self._dbname = database
-        self._collname = collection
-        self._collection = None
+        if connection:
+            self.connection = connection
+        else:
+            self.connection = Connection(**connect_args)
 
-    @property
-    def collection(self):
-        if (not self._collection or not
-            self._collection.database.connection.host):
-            if not self._connection:
-                self._connection = Connection(**self._connect_args)
-            self._collection = self._connection[self._dbname][self._collname]
-
-        return self._collection
+        self.collection = self.connection[database][collection]
 
     def add_job(self, job):
         job.func_ref = obj_to_ref(job.func)
@@ -82,6 +69,9 @@ class MongoDBJobStore(JobStore):
         document = {'$set': {'next_run_time': job.next_run_time},
                     '$inc': {'runs': 1}}
         self.collection.update(spec, document)
+
+    def close(self):
+        self.connection.disconnect()
 
     def __repr__(self):
         connection = self.collection.database.connection

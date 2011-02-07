@@ -19,3 +19,6 @@ class JobStore(object):
     def load_jobs(self):
         """Loads jobs from this store into memory."""
         raise NotImplementedError
+
+    def close(self):
+        """Frees any resources still bound to this job store."""

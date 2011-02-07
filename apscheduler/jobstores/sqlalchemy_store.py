@@ -71,6 +71,9 @@ class SQLAlchemyJobStore(JobStore):
             values(next_run_time=job_dict['next_run_time'],
                    runs=job_dict['runs'])
         self.engine.execute(update)
+    
+    def close(self):
+        self.engine.dispose()
 
     def __repr__(self):
         return '<%s (url=%s)>' % (self.__class__.__name__, self.engine.url)
