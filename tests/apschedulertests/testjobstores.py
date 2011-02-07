@@ -61,77 +61,85 @@ class JobStoreTestBase(object):
 
 
 class TestRAMJobStore(JobStoreTestBase):
-    def setup(self):
-        JobStoreTestBase.setup(self)
-        self.jobstore = RAMJobStore()
-
-    @SkipTest
-    def test_jobstore_add_update_remove(self):
-        pass
+    @classmethod
+    def setup_class(cls):
+        cls.jobstore = RAMJobStore()
 
     def test_repr(self):
         eq_(repr(self.jobstore), '<RAMJobStore>')
 
 
 class TestShelveJobStore(JobStoreTestBase):
-    def setup(self):
+    @classmethod
+    def setup_class(cls):
         if not ShelveJobStore:
             raise SkipTest
 
-        JobStoreTestBase.setup(self)
         filterwarnings('ignore', category=RuntimeWarning)
         f = NamedTemporaryFile(prefix='apscheduler_')
         f.close()
-        self.path = f.name
         resetwarnings()
-        self.jobstore = ShelveJobStore(self.path)
+        cls.jobstore = ShelveJobStore(f.name)
 
-    def teardown(self):
-        if os.path.exists(self.path):
-            os.remove(self.path)
+    @classmethod
+    def teardown_class(cls):
+        cls.jobstore.close()
+        if os.path.exists(cls.jobstore.path):
+            os.remove(cls.jobstore.path)
 
     def test_repr(self):
-        eq_(repr(self.jobstore), '<ShelveJobStore (path=%s)>' % self.path)
+        eq_(repr(self.jobstore),
+            '<ShelveJobStore (path=%s)>' % self.jobstore.path)
 
 
 class TestSQLAlchemyJobStore1(JobStoreTestBase):
-    def setup(self):
+    @classmethod
+    def setup_class(cls):
         if not SQLAlchemyJobStore:
             raise SkipTest
 
-        JobStoreTestBase.setup(self)
-        self.jobstore = SQLAlchemyJobStore(url='sqlite:///')
+        cls.jobstore = SQLAlchemyJobStore(url='sqlite:///')
+
+    @classmethod
+    def teardown_class(cls):
+        cls.jobstore.close()
 
     def test_repr(self):
         eq_(repr(self.jobstore), '<SQLAlchemyJobStore (url=sqlite:///)>')
 
 
 class TestSQLAlchemyJobStore2(JobStoreTestBase):
-    def setup(self):
+    @classmethod
+    def setup_class(cls):
         if not SQLAlchemyJobStore:
             raise SkipTest
 
         from sqlalchemy import create_engine
 
-        JobStoreTestBase.setup(self)
         engine = create_engine('sqlite:///')
-        self.jobstore = SQLAlchemyJobStore(engine=engine)
+        cls.jobstore = SQLAlchemyJobStore(engine=engine)
+
+    @classmethod
+    def teardown_class(cls):
+        cls.jobstore.close()
 
     def test_repr(self):
         eq_(repr(self.jobstore), '<SQLAlchemyJobStore (url=sqlite:///)>')
 
 
 class TestMongoDBJobStore(JobStoreTestBase):
-    def setup(self):
+    @classmethod
+    def setup_class(cls):
         if not MongoDBJobStore:
             raise SkipTest
 
-        JobStoreTestBase.setup(self)
-        self.jobstore = MongoDBJobStore(database='apscheduler_unittest')
+        cls.jobstore = MongoDBJobStore(database='apscheduler_unittest')
 
-    def teardown(self):
-        connection = self.jobstore.collection.database.connection
-        connection.drop_database(self.jobstore._dbname)
+    @classmethod
+    def teardown_class(cls):
+        connection = cls.jobstore.collection.database.connection
+        connection.drop_database(cls.jobstore.collection.database.name)
+        cls.jobstore.close()
 
     def test_repr(self):
         eq_(repr(self.jobstore),

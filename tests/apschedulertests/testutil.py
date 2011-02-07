@@ -158,6 +158,20 @@ def test_combine_opts():
     eq_(combined, dict(opt1='123', opt3='abc'))
 
 
+def test_callable_name():
+    name = '%s.test_callable_name' % __name__
+    eq_(get_callable_name(test_callable_name), name)
+
+    name = '%s.staticmeth' % __name__
+    eq_(get_callable_name(DummyClass.staticmeth), name)
+
+    name = '%s.DummyClass.classmeth' % __name__
+    eq_(get_callable_name(DummyClass.classmeth), name)
+
+    name = '%s.meth' % __name__
+    eq_(get_callable_name(DummyClass.meth), name)
+
+
 def test_obj_to_ref():
     assert_raises(ValueError, obj_to_ref, DummyClass.meth)
     assert_raises(ValueError, obj_to_ref, DummyClass.staticmeth)

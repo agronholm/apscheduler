@@ -36,6 +36,10 @@ class TestJob(object):
         self.job.compute_next_run_time(self.RUNTIME)
         eq_(self.job.next_run_time, None)         
 
+    def test_eq_num(self):
+        # Just increasing coverage here
+        assert not self.job == 'dummyfunc'
+
     def test_getstate(self):
         state = self.job.__getstate__()
         eq_(state, dict(trigger=self.trigger,

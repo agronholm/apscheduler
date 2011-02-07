@@ -118,6 +118,19 @@ class TestJobExecution(object):
             'trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), '
             'start_date=datetime.datetime(2010, 5, 19, 0, 0))>)>')
 
+    def test_pending_jobs(self):
+        # Tests that pending jobs are properly added to the jobs list when
+        # the scheduler is started (and not before!)
+        del self.scheduler._thread
+        self.scheduler._main_loop = lambda: None
+
+        self.scheduler.add_date_job(lambda: None, datetime(9999, 9, 9))
+        eq_(self.scheduler.get_jobs(), [])
+
+        self.scheduler.start()
+        jobs = self.scheduler.get_jobs()
+        eq_(len(jobs), 1)
+
     def test_schedule_object(self):
         # Tests that any callable object is accepted (and not just functions)
         class A:
@@ -243,6 +256,10 @@ class TestJobExecution(object):
         self.scheduler.remove_jobstore('dummy')
         eq_(self.scheduler.get_jobs(), [])
 
+    @raises(KeyError)
+    def test_remove_nonexistent_jobstore(self):
+        self.scheduler.remove_jobstore('dummy2')
+
     def test_job_next_run_time(self):
         # Tests against bug #5
         def job_1():
@@ -271,7 +288,7 @@ class TestRunningScheduler(object):
 
     def test_shutdown_timeout(self):
         self.scheduler.shutdown(3)
-    
+
     @raises(SchedulerAlreadyRunningError)
     def test_scheduler_double_start(self):
         self.scheduler.start()

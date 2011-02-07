@@ -32,6 +32,17 @@ def test_threadpool():
     assert_raises(Exception, pool.submit, event1.set)
 
 
+def test_threadpool_maxthreads():
+    pool = ThreadPool(core_threads=2, max_threads=1)
+    eq_(pool.max_threads, 2)
+
+    pool = ThreadPool(core_threads=2, max_threads=3)
+    eq_(pool.max_threads, 3)
+
+    pool = ThreadPool(core_threads=0, max_threads=0)
+    eq_(pool.max_threads, 1)
+
+
 def test_threadpool_nocore():
     pool = ThreadPool(keepalive=0)
     event = Event()
