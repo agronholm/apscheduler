@@ -124,9 +124,12 @@ class ThreadPool(object):
         for _ in range(self.num_threads):
             self._queue.put((None, None, None))
         self._threads_lock.release()
-
+    
         if wait:
-            for thread in tuple(self._threads):
+            self._threads_lock.acquire()
+            threads = tuple(self._threads)
+            self._threads_lock.release()
+            for thread in threads:
                 thread.join()
 
     def __repr__(self):
