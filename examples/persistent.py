@@ -19,7 +19,7 @@ def alarm(time):
 
 if __name__ == '__main__':
     scheduler = Scheduler()
-    scheduler.add_jobstore(ShelveJobStore('example.db'))
+    scheduler.add_jobstore(ShelveJobStore('example.db'), 'shelve')
     alarm_time = datetime.now() + timedelta(minutes=1)
     scheduler.add_date_job(alarm, alarm_time, name='alarm',
                            jobstore='shelve', args=[datetime.now()])
