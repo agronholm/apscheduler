@@ -32,8 +32,8 @@ class Job(object):
     id = None
     next_run_time = None
 
-    def __init__(self, trigger, func, args, kwargs, name=None,
-                 misfire_grace_time=1, max_runs=None, max_concurrency=1):
+    def __init__(self, trigger, func, args, kwargs, misfire_grace_time,
+                 name=None, max_runs=None, max_concurrency=1):
         if not trigger:
             raise ValueError('The trigger must not be None')
         if not hasattr(func, '__call__'):

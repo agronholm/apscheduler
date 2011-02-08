@@ -18,7 +18,7 @@ class TestJob(object):
 
     def setup(self):
         self.trigger = SimpleTrigger(self.RUNTIME)
-        self.job = Job(self.trigger, dummyfunc, [], {})
+        self.job = Job(self.trigger, dummyfunc, [], {}, 1)
 
     def test_compute_next_run_time(self):
         self.job.compute_next_run_time(self.RUNTIME - timedelta(microseconds=1))
@@ -65,7 +65,7 @@ class TestJob(object):
     def test_jobs_equal(self):
         assert self.job == self.job
 
-        job2 = Job(SimpleTrigger(self.RUNTIME), lambda: None, [], {})
+        job2 = Job(SimpleTrigger(self.RUNTIME), lambda: None, [], {}, 1)
         assert self.job != job2
 
         job2.id = self.job.id = 123
@@ -98,35 +98,35 @@ class TestJob(object):
 
 @raises(ValueError)
 def test_create_job_no_trigger():
-    Job(None, lambda: None, [], {})
+    Job(None, lambda: None, [], {}, 1)
 
 
 @raises(TypeError)
 def test_create_job_invalid_func():
-    Job(SimpleTrigger(datetime.now()), 'bleh', [], {})
+    Job(SimpleTrigger(datetime.now()), 'bleh', [], {}, 1)
 
 
 @raises(TypeError)
 def test_create_job_invalid_args():
-    Job(SimpleTrigger(datetime.now()), lambda: None, None, {})
+    Job(SimpleTrigger(datetime.now()), lambda: None, None, {}, 1)
 
 
 @raises(TypeError)
 def test_create_job_invalid_kwargs():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], None)
+    Job(SimpleTrigger(datetime.now()), lambda: None, [], None, 1)
 
 
 @raises(ValueError)
 def test_create_job_invalid_misfire():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], {},
-        misfire_grace_time=0)
+    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 0)
 
 
 @raises(ValueError)
 def test_create_job_invalid_maxruns():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, max_runs=0)
+    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 1, max_runs=0)
 
 
 @raises(ValueError)
 def test_create_job_invalid_maxconcurrency():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, max_concurrency=0)
+    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 1,
+        max_concurrency=0)

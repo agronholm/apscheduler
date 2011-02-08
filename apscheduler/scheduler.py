@@ -187,7 +187,7 @@ class Scheduler(object):
                     logger.exception('Error notifying listener')
 
     def add_job(self, trigger, func, args, kwargs, jobstore='default',
-                quiet=False, **options):
+                quiet=False, misfire_grace_time=None, **options):
         """
         Adds the given job to the job list and notifies the scheduler thread.
 
@@ -207,9 +207,8 @@ class Scheduler(object):
                         'scheduled when the scheduler starts')
             return
 
-        job = Job(trigger, func, args or [], kwargs or {}, **options)
-        if job.misfire_grace_time is None:
-            job.misfire_grace_time = self.misfire_grace_time
+        job = Job(trigger, func, args or [], kwargs or {},
+                  misfire_grace_time or self.misfire_grace_time, **options)
         job.next_run_time = trigger.get_next_fire_time(datetime.now())
         if not job.next_run_time:
             raise ValueError('Not adding job since it would never be run')

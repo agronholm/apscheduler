@@ -118,6 +118,15 @@ class TestJobExecution(object):
             'trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), '
             'start_date=datetime.datetime(2010, 5, 19, 0, 0))>)>')
 
+    def test_misfire_grace_time(self):
+        self.scheduler.misfire_grace_time = 3
+        job = self.scheduler.add_interval_job(lambda: None, seconds=1)
+        eq_(job.misfire_grace_time, 3)
+
+        job = self.scheduler.add_interval_job(lambda: None, seconds=1,
+                                              misfire_grace_time=2)
+        eq_(job.misfire_grace_time, 2)
+
     def test_pending_jobs(self):
         # Tests that pending jobs are properly added to the jobs list when
         # the scheduler is started (and not before!)
