@@ -6,7 +6,7 @@ Version history
 
 * Added configurable job stores
 
-* Added optional job persistency
+* Added optional job persistency (via shelve, SQLAlchemy or MongoDB)
 
 * Added the possibility to listen for job events (execution, error, misfire,
   finish) on a scheduler
@@ -17,7 +17,7 @@ Version history
 
 * Allowed jobs to be explicitly named
 
-* All triggers now accept dates in string form (YYYY-m-d HH:MM:SS)
+* All triggers now accept dates in string form (YYYY-mm-dd HH:MM:SS)
 
 * Jobs are now run in a thread pool; you can either supply your own PEP 3148
   compliant thread pool or let APScheduler create a new one
@@ -27,6 +27,10 @@ Version history
 
 * A maximum concurrency value can be configured for jobs, so only X instances
   will be allowed to run at once (will be considered a misfire otherwise)
+
+* Fixed a v1.x design flaw that caused jobs to be executed twice when the
+  scheduler thread was woken up while still within the allowable range of their
+  previous execution time (issues #5, #7)
 
 Some API changes were necessary -- see the migration section of the
 documentation to find out what you need to change when migrating your
