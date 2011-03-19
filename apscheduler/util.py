@@ -46,6 +46,7 @@ _DATE_REGEX = re.compile(
     r'(?: (?P<hour>\d{1,2}):(?P<minute>\d{1,2}):(?P<second>\d{1,2})'
     r'(?:\.(?P<microsecond>\d{1,6}))?)?')
 
+
 def convert_to_datetime(input):
     """
     Converts the given object to a datetime object, if possible.
@@ -95,7 +96,7 @@ def time_difference(date1, date2):
     :rtype: float
     """
     later = mktime(date1.timetuple()) + date1.microsecond / 1000000.0
-    earlier = mktime(date2.timetuple()) + date2.microsecond / 1000000.0    
+    earlier = mktime(date2.timetuple()) + date2.microsecond / 1000000.0
     return later - earlier
 
 
@@ -107,7 +108,7 @@ def datetime_ceil(dateval):
     """
     if dateval.microsecond > 0:
         return dateval + timedelta(seconds=1,
-                                   microseconds= -dateval.microsecond)
+                                   microseconds=-dateval.microsecond)
     return dateval
 
 

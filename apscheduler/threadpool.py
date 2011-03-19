@@ -14,9 +14,9 @@ try:
 except ImportError:
     from Queue import Queue, Empty
 
-
 logger = logging.getLogger(__name__)
 _threadpools = set()
+
 
 # Worker threads are daemonic in order to let the interpreter exit without
 # an explicit shutdown of the thread pool. The following trick is necessary
@@ -58,7 +58,7 @@ class ThreadPool(object):
         self._threads_lock.acquire()
         try:
             qsize = self._queue.qsize()
-            if self.num_threads < self.core_threads: 
+            if self.num_threads < self.core_threads:
                 self._add_thread(True)
             elif qsize > 1 and self.num_threads < self.max_threads:
                 self._add_thread(False)
@@ -124,7 +124,7 @@ class ThreadPool(object):
         for _ in range(self.num_threads):
             self._queue.put((None, None, None))
         self._threads_lock.release()
-    
+
         if wait:
             self._threads_lock.acquire()
             threads = tuple(self._threads)
@@ -137,5 +137,5 @@ class ThreadPool(object):
             threadcount = '%d/%d' % (self.num_threads, self.max_threads)
         else:
             threadcount = '%d' % self.num_threads
-            
+
         return '<ThreadPool at %x; threads=%s>' % (id(self), threadcount)

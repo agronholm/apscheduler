@@ -3,11 +3,12 @@ Abstract base class that provides the interface needed by all job stores.
 Job store methods are also documented here.
 """
 
+
 class JobStore(object):
     def add_job(self, job):
         """Adds the given job from this store."""
         raise NotImplementedError
-    
+
     def update_job(self, job):
         """Persists the running state of the given job."""
         raise NotImplementedError

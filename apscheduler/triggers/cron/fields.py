@@ -15,6 +15,7 @@ MIN_VALUES = {'year': 1970, 'month': 1, 'day': 1, 'week': 1,
 MAX_VALUES = {'year': 2 ** 63, 'month': 12, 'day:': 31, 'week': 53,
               'day_of_week': 6, 'hour': 23, 'minute': 59, 'second': 59}
 
+
 class BaseField(object):
     REAL = True
     COMPILERS = [AllExpression, RangeExpression]
