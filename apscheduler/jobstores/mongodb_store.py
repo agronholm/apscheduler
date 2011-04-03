@@ -7,13 +7,13 @@ from apscheduler.util import obj_to_ref
 
 try:
     import cPickle as pickle
-except ImportError:
+except ImportError:  # pragma: nocover
     import pickle
 
 try:
     from bson.binary import Binary
     from pymongo.connection import Connection
-except ImportError:
+except ImportError:  # pragma: nocover
     raise ImportError('MongoDBJobStore requires PyMongo installed')
 
 

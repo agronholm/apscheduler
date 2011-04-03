@@ -9,7 +9,7 @@ from apscheduler.util import obj_to_ref
 
 try:
     from sqlalchemy import *
-except ImportError:
+except ImportError:  # pragma: nocover
     raise ImportError('SQLAlchemyJobStore requires SQLAlchemy installed')
 
 

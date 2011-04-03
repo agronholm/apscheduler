@@ -194,11 +194,11 @@ def to_unicode(string, encoding='ascii'):
     return string
 
 
-if sys.version_info < (3, 0):
+if sys.version_info < (3, 0):  # pragma: nocover
     dict_keys = lambda d: d.keys()
     dict_values = lambda d: d.values()
     dict_items = lambda d: d.items()
-else:
+else:  # pragma: nocover
     dict_keys = lambda d: list(d.keys())
     dict_values = lambda d: list(d.values())
     dict_items = lambda d: list(d.items())
