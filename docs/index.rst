@@ -245,8 +245,40 @@ Scheduler events
 ----------------
 
 It is possible to attach event listeners to the scheduler. Scheduler events are
-fired whenever jobs are executed, added to or removed from the scheduler, or
-when a job's execution time is missed.
+fired on certain occasions, and may carry additional information in them
+concerning the details of that particular event. It is possible to listen to
+only particular types of events by giving the appropriate ``mask`` argument to
+:meth:`~apscheduler.scheduler.Scheduler.add_listener`, OR'ing
+the different constants together. The listener callable is called with one
+argument, the event object. The type of the event object is tied to the event
+code as shown below:
+
+========================== ============== ==========================================
+Constant                   Event class    Triggered when...
+========================== ============== ==========================================
+EVENT_SCHEDULER_START      SchedulerEvent The scheduler is started
+EVENT_SCHEDULER_SHUTDOWN   SchedulerEvent The scheduler is shut down
+EVENT_JOBSTORE_ADDED       JobStoreEvent  A job store is added to the scheduler
+EVENT_JOBSTORE_REMOVED     JobStoreEvent  A job store is removed from the scheduler
+EVENT_JOBSTORE_JOB_ADDED   JobStoreEvent  A job is added to a job store
+EVENT_JOBSTORE_JOB_REMOVED JobStoreEvent  A job is removed from a job store
+EVENT_JOB_EXECUTED         JobEvent       A job is executed successfully
+EVENT_JOB_ERROR            JobEvent       A job raised an exception during execution
+EVENT_JOB_MISSED           JobEvent       A job's execution time is missed
+========================== ============== ==========================================
+
+See the documentation for the :mod:`~apscheduler.events` module for specifics
+on the available event attributes.
+
+Example::
+
+    def my_listener(event):
+        if event.exception:
+            print 'The job crashed :('
+        else:
+            print 'The job worked :)'
+
+    scheduler.add_listener(my_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
 
 Getting a list of scheduled jobs
