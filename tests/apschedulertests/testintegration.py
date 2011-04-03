@@ -1,181 +1,114 @@
 from datetime import datetime, timedelta
 from time import sleep
-from StringIO import StringIO
-from copy import copy
+from warnings import filterwarnings, resetwarnings
+from tempfile import NamedTemporaryFile
 import os
 
 from nose.tools import eq_, raises
+from nose.plugins.skip import SkipTest
 
-from apscheduler.scheduler import Scheduler, SchedulerAlreadyRunningError
-from apscheduler.jobstores.ram_store import RAMJobStore
+from apscheduler.scheduler import Scheduler
+
+try:
+    from apscheduler.jobstores.shelve_store import ShelveJobStore
+except ImportError:
+    ShelveJobStore = None
+
+try:
+    from apscheduler.jobstores.sqlalchemy_store import SQLAlchemyJobStore
+except ImportError:
+    SQLAlchemyJobStore = None
+
+try:
+    from apscheduler.jobstores.mongodb_store import MongoDBJobStore
+except ImportError:
+    MongoDBJobStore = None
 
 
-class TestException(Exception):
-    pass
+def increment(vals):
+    vals[0] += 1
+    sleep(2)
 
 
-class TestRunningScheduler(object):
-    def setUp(self):
-        self.scheduler = Scheduler()
-        self.scheduler.start()
+def renameTestMethods(cls, name):
+    for attr in dir(cls):
+        if attr.startswith('test_'):
+            method = getattr(cls, attr)
+            if hasattr(method, 'im_func'):
+                method = method.im_func
+            method.__doc__ = '%s/%s' % (name, attr)
 
-    def tearDown(self):
-        if self.scheduler.running:
-            self.scheduler.shutdown()
 
-    @raises(TypeError)
-    def test_noncallable(self):
-        date = datetime.now() + timedelta(days=1)
-        self.scheduler.add_date_job('wontwork', date)
-
-    def test_job_name(self):
-        def my_job():
-            pass
-
-        job = self.scheduler.add_interval_job(my_job,
-                                              start_date=datetime(2010, 5, 19))
-        eq_(repr(job), '<Job (name=apschedulertests.testintegration.my_job, '
-            'trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), '
-            'start_date=datetime.datetime(2010, 5, 19, 0, 0))>)>')
-
-    def test_interval(self):
-        def increment(vals, amount):
-            vals[0] += amount
-            vals[1] += 1
-
-        vals = [0, 0]
-        self.scheduler.add_interval_job(increment, seconds=1, args=[vals, 2])
-        sleep(2.2)
-        eq_(vals, [4, 2])
+class IntegrationTestBase(object):
+    @classmethod
+    def setup_class(cls):
+        cls.jobstore = cls.make_jobstore()
+        cls.scheduler = Scheduler()
+        cls.scheduler.add_jobstore(cls.jobstore, 'persistent')
+        cls.scheduler.start()
 
     def test_overlapping_runs(self):
         # Makes sure that "increment" is only ran once, since it will still be
         # running when the next appointed time hits.
-        def increment(vals):
-            vals[0] += 1
-            sleep(2)
 
         vals = [0]
-        self.scheduler.add_interval_job(increment, seconds=1, args=[vals])
+        self.scheduler.add_interval_job(increment, jobstore='persistent',
+                                        seconds=1, args=[vals])
         sleep(2.2)
         eq_(vals, [1])
 
-    def test_schedule_object(self):
-        # Tests that any callable object is accepted (and not just functions)
-        class A:
-            def __init__(self):
-                self.val = 0
-            def __call__(self):
-                self.val += 1
 
-        a = A()
-        self.scheduler.add_interval_job(a, seconds=1)
-        sleep(2.2)
-        eq_(a.val, 2)
+class TestShelveIntegration(IntegrationTestBase):
+    @staticmethod
+    def make_jobstore():
+        if not ShelveJobStore:
+            raise SkipTest
 
-    def test_unschedule_job(self):
-        def increment(vals):
-            vals[0] += 1
+        filterwarnings('ignore', category=RuntimeWarning)
+        f = NamedTemporaryFile(prefix='apscheduler_')
+        f.close()
+        resetwarnings()
+        return ShelveJobStore(f.name)
 
-        vals = [0]
-        job = self.scheduler.add_cron_job(increment, args=[vals])
-        sleep(1)
-        ref_value = vals[0]
-        assert ref_value >= 1
-        self.scheduler.unschedule_job(job)
-        sleep(1.2)
-        eq_(vals[0], ref_value)
+    @classmethod
+    def teardown_class(cls):
+        cls.scheduler.shutdown()
+        cls.jobstore.close()
+        if os.path.exists(cls.jobstore.path):
+            os.remove(cls.jobstore.path)
 
-    def test_job_finished(self):
-        def increment(vals):
-            vals[0] += 1
 
-        vals = [0]
-        job = self.scheduler.add_interval_job(increment, args=[vals])
-        sleep(1.2)
-        eq_(vals, [1])
-        assert job in self.scheduler.get_jobs()
+class TestSQLAlchemyIntegration(IntegrationTestBase):
+    @staticmethod
+    def make_jobstore():
+        if not SQLAlchemyJobStore:
+            raise SkipTest
 
-    @raises(TestException)
-    def test_job_exception(self):
-        def failure():
-            raise TestException
+        return SQLAlchemyJobStore(url='sqlite:///example.sqlite')
 
-        start_date = datetime(9999, 1, 1)
-        job = self.scheduler.add_date_job(failure, start_date)
-        job.func()
+    @classmethod
+    def teardown_class(cls):
+        cls.scheduler.shutdown()
+        cls.jobstore.close()
+        if os.path.exists('example.sqlite'):
+            os.remove('example.sqlite')
 
-    def test_interval_schedule(self):
-        vals = [0]
+renameTestMethods(TestSQLAlchemyIntegration, 'SQLAlchemy')
 
-        @self.scheduler.interval_schedule(seconds=1, args=[vals])
-        def increment(vals):
-            vals[0] += 1
 
-        sleep(2.2)
-        eq_(vals, [2])
+class TestMongoDBIntegration(IntegrationTestBase):
+    @staticmethod
+    def make_jobstore():
+        if not MongoDBJobStore:
+            raise SkipTest
 
-    def test_cron_schedule(self):
-        vals = [0]
+        return MongoDBJobStore(database='apscheduler_unittest')
 
-        @self.scheduler.cron_schedule(args=[vals])
-        def increment(vals):
-            vals[0] += 1
+    @classmethod
+    def teardown_class(cls):
+        cls.scheduler.shutdown()
+        connection = cls.jobstore.collection.database.connection
+        connection.drop_database(cls.jobstore.collection.database.name)
+        cls.jobstore.close()
 
-        sleep(2.2)
-        assert vals[0] >= 2
-
-    def test_date(self):
-        def append_val(value):
-            vals.append(value)
-
-        vals = []
-        date = datetime.now() + timedelta(seconds=1)
-        self.scheduler.add_date_job(append_val, date, kwargs={'value': 'test'})
-        sleep(2.2)
-        eq_(vals, ['test'])
-
-    def test_cron(self):
-        def increment(vals, amount):
-            vals[0] += amount
-            vals[1] += 1
-
-        vals = [0, 0]
-        self.scheduler.add_cron_job(increment, args=[vals, 3])
-        sleep(3)
-        assert vals[0] >= 6
-        assert vals[1] >= 3
-
-    def test_shutdown_timeout(self):
-        self.scheduler.shutdown(3)
-
-    @raises(SchedulerAlreadyRunningError)
-    def test_scheduler_double_start(self):
-        self.scheduler.start()
-
-    def test_scheduler_double_shutdown(self):
-        self.scheduler.shutdown(1)
-        self.scheduler.shutdown()
-
-    def test_print_jobs(self):
-        out = StringIO()
-        self.scheduler.print_jobs(out)
-        expected = 'Jobstore default:%s'\
-                   '    No scheduled jobs' % os.linesep
-        eq_(out.getvalue(), expected)
-
-        self.scheduler.add_date_job(copy, datetime(2200, 5, 19))
-        out = StringIO()
-        self.scheduler.print_jobs(out)
-        expected = 'Jobstore default:%s    '\
-            'copy.copy (trigger: date[2200-05-19 00:00:00], '\
-            'next run at: 2200-05-19 00:00:00)' % os.linesep
-        eq_(out.getvalue(), expected)
-
-    def test_jobstore(self):
-        self.scheduler.add_jobstore(RAMJobStore(), 'dummy')
-        job = self.scheduler.add_date_job(lambda: None, datetime(2200, 7, 24),
-                                          jobstore='dummy')
-        eq_(self.scheduler.get_jobs(), [job])
-        self.scheduler.remove_jobstore('dummy')
-        eq_(self.scheduler.get_jobs(), [])
+renameTestMethods(TestMongoDBIntegration, 'MongoDB')

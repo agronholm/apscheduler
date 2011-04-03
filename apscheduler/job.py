@@ -5,9 +5,7 @@ Jobs represent scheduled tasks.
 from threading import Lock
 
 from apscheduler.util import to_unicode, ref_to_obj, get_callable_name
-
-__all__ = ('Job', 'STATUS_OK', 'STATUS_ERROR', 'STATUS_MISSED',
-           'STATUS_FINISHED', 'STATUS_ALL', 'JobStatus')
+from apscheduler.actions import ACTION_NONE
 
 
 class Job(object):
@@ -33,7 +31,8 @@ class Job(object):
     next_run_time = None
 
     def __init__(self, trigger, func, args, kwargs, misfire_grace_time,
-                 name=None, max_runs=None, max_concurrency=1):
+                 misfire_action=ACTION_NONE, name=None, max_runs=None,
+                 max_concurrency=1):
         if not trigger:
             raise ValueError('The trigger must not be None')
         if not hasattr(func, '__call__'):
@@ -57,6 +56,7 @@ class Job(object):
         self.kwargs = kwargs
         self.name = to_unicode(name or get_callable_name(func))
         self.misfire_grace_time = misfire_grace_time
+        self.misfire_action = misfire_action
         self.max_runs = max_runs
         self.max_concurrency = max_concurrency
         self.runs = 0
@@ -105,20 +105,3 @@ class Job(object):
     def __str__(self):
         return '%s (trigger: %s, next run at: %s)' % (self.name,
             str(self.trigger), str(self.next_run_time))
-
-
-STATUS_OK = 1
-STATUS_ERROR = 2
-STATUS_MISSED = 4
-STATUS_FINISHED = 8
-STATUS_ALL = STATUS_OK | STATUS_ERROR | STATUS_MISSED | STATUS_FINISHED
-
-class JobStatus(object):
-    code = None
-    retval = None
-    exception = None
-    traceback = None
-
-    def __init__(self, job, scheduled_run_time):
-        self.job = job
-        self.scheduled_run_time = scheduled_run_time

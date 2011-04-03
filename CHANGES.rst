@@ -13,6 +13,8 @@ Version history
 
 * Added an optional start time for cron-style jobs
 
+* Allowed configuration of misfire actions (globally and per job)
+
 * Allowed configuration of misfire grace times on a per-job basis
 
 * Allowed jobs to be explicitly named

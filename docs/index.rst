@@ -110,9 +110,9 @@ threadpool.core_threads 0        Maximum number of persistent threads in the poo
 threadpool.max_threads  None     Maximum number of total threads in the pool
 threadpool.keepalive    1        Seconds to keep non-core worker threads waiting
                                  for new tasks
-jobstore.X.class                 Class of the jobstore named X (specified as
+jobstores.X.class                Class of the jobstore named X (specified as
                                  module.name:classname)
-jobstore.X.Y                     Constructor option Y of jobstore X
+jobstores.X.Y                    Constructor option Y of jobstore X
 ======================= ======== ==============================================
 
 
@@ -121,47 +121,51 @@ Job stores
 
 APScheduler keeps all the scheduled jobs in `job stores`. Job stores are
 configurable adapters to some back-end that may or may not support persisting
-job configurations on disk database or something else. Each job store in the
-scheduler has an alias. By default, APScheduler only has one job store
-configured ("default", of type
-:class:`~apscheduler.jobstore.ram_store.RAMJobStore`).
-More job stores can be added either through configuration options or the
+job configurations on disk, database or something else. Job stores are added
+to the scheduler and identified by their aliases. The alias "default" is special
+in that if the user does not explicitly specify a job store alias when scheduling
+a job, it goes to the "default" job store. If there is no job store in the
+scheduler by that name when the scheduler is started, a new job store of type
+:class:`~apscheduler.jobstores.ram_store.RAMJobStore` is created to serve as
+the default.
+
+Job stores can be added either through configuration options or the
 :meth:`~apscheduler.scheduler.Scheduler.add_jobstore` method. The following
 are therefore equal::
 
-    config = {'apscheduler.jobstore.file.class': 'apscheduler.jobstore.shelve_store:ShelveJobStore',
-              'apscheduler.jobstore.file.path': '/tmp/dbfile'}
+    config = {'apscheduler.jobstores.file.class': 'apscheduler.jobstores.shelve_store:ShelveJobStore',
+              'apscheduler.jobstores.file.path': '/tmp/dbfile'}
     sched = Scheduler(config)
 
 and::
 
-    from apscheduler.jobstore.shelve_store import ShelveJobStore
+    from apscheduler.jobstores.shelve_store import ShelveJobStore
 
 	sched = Scheduler()
 	sched.add_jobstore(ShelveJobStore('/tmp/dbfile'), 'file')
 
-APScheduler can work with multiple configured job stores. The example
-configuration above results in the scheduler having two jobstores -- one
-(:class:`~apscheduler.jobstore.ram_store.RAMJobStore`) and one
-(:class:`~apscheduler.jobstore.shelve_store.ShelveJobStore`).
+The example configuration above results in the scheduler having two
+job stores -- one
+(:class:`~apscheduler.jobstores.ram_store.RAMJobStore`) and one
+(:class:`~apscheduler.jobstores.shelve_store.ShelveJobStore`).
 
 In addition to the built-in job stores, it is possible to extend APScheduler to
 support other persistence mechanisms as well. See the
 :doc:`Extending APScheduler <extending>` section for details.
 
 
-Persistent job stores
----------------------
+Job persistency
+---------------
 
-Job stores such as (:class:`~apscheduler.jobstore.shelve_store.ShelveJobStore`)
-and (:class:`~apscheduler.jobstore.sqlalchemy_store.SQLAlchemyJobStore`) store
-jobs in a durable manner. This means that when you schedule jobs in them, shut
-down the scheduler, restart it and readd the job store in question, it will
-load the previously scheduled jobs automatically. It can automatically find the
-callback function using a textual reference saved when the job was added.
-Unfortunately this means that **you can only schedule top level functions with
-persistent job stores**. The job store will raise an exception if you attempt
-to schedule a noncompliant callable.
+The built-in job stores (save the
+:class:`~apscheduler.jobstores.ram_store.RAMJobStore`) store jobs in a durable
+manner. This means that when you schedule jobs in them, shut down the scheduler,
+restart it and readd the job store in question, it will load the previously
+scheduled jobs automatically. It can automatically find the callback function
+using a textual reference saved when the job was added. Unfortunately this
+means that **you can only schedule top level functions with persistent job
+stores**. The job store will raise an exception if you attempt to schedule a
+noncompliant callable.
 
 
 Triggers
@@ -172,7 +176,7 @@ APScheduler comes with three built-in triggers --
 :class:`~apscheduler.triggers.simple.SimpleTrigger`,
 :class:`~apscheduler.triggers.interval.IntervalTrigger` and
 :class:`~apscheduler.triggers.cron.CronTrigger`. You don't normally use these
-directly, however. The scheduler has shortcut methods for these built-in
+directly, since the scheduler has shortcut methods for these built-in
 triggers, as discussed in the next section.
 
 
@@ -190,7 +194,7 @@ the shortcut methods provided by the scheduler:
    cronschedule
 
 These shortcuts cover the vast majority of use cases. However, if you need
-to use a custom trigger or schedule a stateful job, you need to use the
+to use a custom trigger, you need to use the
 :meth:`~apscheduler.scheduler.Scheduler.add_job` method.
 
 When a scheduled job is triggered, it is handed over to the thread pool for
@@ -198,7 +202,7 @@ execution.
 
 You can request a job to be added to a specific job store by giving the target
 job store's alias in the ``jobstore`` option to
-:meth:`~apscheduler.scheduler.Scheduler.add_job` or any of the shortcut
+:meth:`~apscheduler.scheduler.Scheduler.add_job` or any of the above shortcut
 methods.
 
 You can schedule jobs on the scheduler **at any time**. If the scheduler is not
@@ -206,9 +210,43 @@ running when the job is added, the job will be scheduled `tentatively` and its
 first run time will only be computed when the scheduler starts. Jobs will not
 run retroactively in such cases.
 
-No two instances of the same job will ever be run concurrently. This means that
-if the job is about to be run but the previous run hasn't finished yet, then
-the latest run is counted as a misfire.
+By default, no two instances of the same job will be run concurrently. This
+means that if the job is about to be run but the previous run hasn't finished
+yet, then the latest run is counted as a misfire. It is possible to set the
+maximum number of instances of a particular job that the scheduler will let run
+concurrently, by using the ``max_concurrency`` keyword argument when adding the
+job. This value should be set to 2 or more if you wish to alter the default
+behavior.
+
+
+Misfire actions
+---------------
+
+Sometimes the scheduler may be unable to execute a scheduled job at the time
+it was scheduled to run. The most common case is when a job is scheduled in a
+persistent job store and the scheduler is shut down and restarted after the job
+was supposed to execute. Another case is when there are several concurrently
+firing jobs and the thread pool size is inadequate to handle them all, although
+this rarely happens. The scheduler allows you to configure the appropriate
+action to take when the job misfires. This is done through the
+``misfire_action`` keyword argument to
+:meth:`~apscheduler.scheduler.Scheduler.add_job` and other job scheduling
+methods. The possible options (importable from ``apscheduler.job``) are:
+
+  * ACTION_NONE: No action
+  * ACTION_RUN_ONCE: Execute the job once
+  * ACTION_RUN_ALL: Execute the job retroactively, once for every time its
+    execution time was missed
+
+The default is to take no action.
+
+
+Scheduler events
+----------------
+
+It is possible to attach event listeners to the scheduler. Scheduler events are
+fired whenever jobs are executed, added to or removed from the scheduler, or
+when a job's execution time is missed.
 
 
 Getting a list of scheduled jobs
@@ -284,7 +322,7 @@ A `bug tracker <http://bitbucket.org/agronholm/apscheduler/issues/>`_
 is provided by bitbucket.org.
 
 
-.. include:: ../CHANGES.txt
+.. include:: ../CHANGES.rst
 
 
 Indices and tables

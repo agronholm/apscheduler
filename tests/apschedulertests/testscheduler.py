@@ -7,8 +7,12 @@ from nose.tools import eq_, raises
 
 from apscheduler.jobstores.ram_store import RAMJobStore
 from apscheduler.scheduler import Scheduler, SchedulerAlreadyRunningError
-from apscheduler.job import STATUS_OK, STATUS_ERROR, JobStatus
+from apscheduler.job import *
 from apscheduler import scheduler
+from apscheduler.events import EVENT_JOB_EXECUTED, SchedulerEvent, \
+    EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOB_MISSED, \
+    EVENT_JOBSTORE_JOB_ADDED
+from apscheduler.actions import ACTION_RUN_ALL, ACTION_RUN_ONCE
 
 try:
     from StringIO import StringIO
@@ -19,6 +23,10 @@ except ImportError:
 class TestOfflineScheduler(object):
     def setup(self):
         self.scheduler = Scheduler()
+
+    def teardown(self):
+        if self.scheduler.running:
+            self.scheduler.shutdown()
 
     @raises(KeyError)
     def test_jobstore_twice(self):
@@ -45,7 +53,7 @@ class TestOfflineScheduler(object):
         self.scheduler.configure(global_options)
         eq_(self.scheduler.misfire_grace_time, 1)
         eq_(self.scheduler.daemonic, True)
-    
+
     def test_configure_prefix(self):
         global_options = {'apscheduler.misfire_grace_time': 2,
                           'apscheduler.daemonic': False}
@@ -54,23 +62,32 @@ class TestOfflineScheduler(object):
         eq_(self.scheduler.daemonic, False)
 
     def test_add_listener(self):
-        def cb(status):
-            val[0] += 1
-        val = [0]
-        self.scheduler.add_listener(cb, STATUS_OK)
+        val = []
+        self.scheduler.add_listener(val.append)
 
-        status = JobStatus(None, None)
-        status.code = STATUS_OK
-        self.scheduler._notify_listeners(status)
-        eq_(val[0], 1)
+        event = SchedulerEvent(EVENT_SCHEDULER_START)
+        self.scheduler._notify_listeners(event)
+        eq_(len(val), 1)
+        eq_(val[0], event)
 
-        status.code = STATUS_ERROR
-        self.scheduler._notify_listeners(status)
-        eq_(val[0], 1)
+        event = SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN)
+        self.scheduler._notify_listeners(event)
+        eq_(len(val), 2)
+        eq_(val[1], event)
 
-        self.scheduler.remove_listener(cb)
-        self.scheduler._notify_listeners(status)
-        eq_(val[0], 1)
+        self.scheduler.remove_listener(val.append)
+        self.scheduler._notify_listeners(event)
+        eq_(len(val), 2)
+
+    def test_pending_jobs(self):
+        # Tests that pending jobs are properly added to the jobs list when
+        # the scheduler is started (and not before!)
+        self.scheduler.add_date_job(lambda: None, datetime(9999, 9, 9))
+        eq_(self.scheduler.get_jobs(), [])
+
+        self.scheduler.start()
+        jobs = self.scheduler.get_jobs()
+        eq_(len(jobs), 1)
 
 
 class FakeThread(object):
@@ -87,6 +104,16 @@ class DummyException(Exception):
     pass
 
 
+original_now = datetime(2011, 4, 3, 18, 40)
+
+class FakeDateTime(datetime):
+    _now = original_now
+
+    @classmethod
+    def now(cls):
+        return cls._now
+
+
 class TestJobExecution(object):
     def setup(self):
         self.scheduler = Scheduler(threadpool=FakeThreadPool())
@@ -94,7 +121,7 @@ class TestJobExecution(object):
 
         # Make the scheduler think it's running
         self.scheduler._thread = FakeThread()
-        
+
         self.logstream = StringIO()
         self.loghandler = StreamHandler(self.logstream)
         self.loghandler.setLevel(ERROR)
@@ -102,6 +129,9 @@ class TestJobExecution(object):
 
     def teardown(self):
         scheduler.logger.removeHandler(self.loghandler)
+        if scheduler.datetime == FakeDateTime:
+            scheduler.datetime = datetime
+        FakeDateTime._now = original_now
 
     @raises(TypeError)
     def test_noncallable(self):
@@ -117,28 +147,6 @@ class TestJobExecution(object):
         eq_(repr(job), '<Job (name=apschedulertests.testscheduler.my_job, '
             'trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), '
             'start_date=datetime.datetime(2010, 5, 19, 0, 0))>)>')
-
-    def test_misfire_grace_time(self):
-        self.scheduler.misfire_grace_time = 3
-        job = self.scheduler.add_interval_job(lambda: None, seconds=1)
-        eq_(job.misfire_grace_time, 3)
-
-        job = self.scheduler.add_interval_job(lambda: None, seconds=1,
-                                              misfire_grace_time=2)
-        eq_(job.misfire_grace_time, 2)
-
-    def test_pending_jobs(self):
-        # Tests that pending jobs are properly added to the jobs list when
-        # the scheduler is started (and not before!)
-        del self.scheduler._thread
-        self.scheduler._main_loop = lambda: None
-
-        self.scheduler.add_date_job(lambda: None, datetime(9999, 9, 9))
-        eq_(self.scheduler.get_jobs(), [])
-
-        self.scheduler.start()
-        jobs = self.scheduler.get_jobs()
-        eq_(len(jobs), 1)
 
     def test_schedule_object(self):
         # Tests that any callable object is accepted (and not just functions)
@@ -183,6 +191,86 @@ class TestJobExecution(object):
         job = self.scheduler.add_date_job(failure, datetime(9999, 9, 9))
         self.scheduler._process_jobs(job.next_run_time)
         assert 'DummyException' in self.logstream.getvalue()
+
+    def test_misfire_grace_time(self):
+        self.scheduler.misfire_grace_time = 3
+        job = self.scheduler.add_interval_job(lambda: None, seconds=1)
+        eq_(job.misfire_grace_time, 3)
+
+        job = self.scheduler.add_interval_job(lambda: None, seconds=1,
+                                              misfire_grace_time=2)
+        eq_(job.misfire_grace_time, 2)
+
+    def test_misfire_none(self):
+        # Makes sure that the job is not executed when misfire_action is set
+        # to ACTION_NONE, and that exactly one misfire event is sent
+        def increment():
+            vals[0] += 1
+
+        vals = [0]
+        events = []
+        scheduler.datetime = FakeDateTime
+        self.scheduler.add_listener(events.append,
+                                    EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
+        self.scheduler.add_interval_job(increment, seconds=5,
+            start_date=FakeDateTime.now(), misfire_action=ACTION_NONE)
+
+        # Turn the clock 14 seconds forward 
+        FakeDateTime._now += timedelta(seconds=14)
+
+        self.scheduler._process_jobs(FakeDateTime.now())
+        eq_(len(events), 1)
+        eq_(events[0].code, EVENT_JOB_MISSED)
+        eq_(vals, [0])
+
+    def test_misfire_once(self):
+        # Makes sure that the job is executed exactly once when misfire_action
+        # is set to ACTION_RUN_ONCE, and that exactly one misfire event is sent
+        def increment():
+            vals[0] += 1
+
+        vals = [0]
+        events = []
+        scheduler.datetime = FakeDateTime
+        self.scheduler.add_listener(events.append,
+                                    EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
+        self.scheduler.add_interval_job(increment, seconds=5,
+            start_date=FakeDateTime.now(), misfire_action=ACTION_RUN_ONCE)
+
+        # Turn the clock 14 seconds forward 
+        FakeDateTime._now += timedelta(seconds=14)
+
+        self.scheduler._process_jobs(FakeDateTime.now())
+        eq_(len(events), 2)
+        eq_(events[0].code, EVENT_JOB_MISSED)
+        eq_(events[1].code, EVENT_JOB_EXECUTED)
+        eq_(vals, [1])
+
+    def test_misfire_all(self):
+        # Makes sure that the job is executed for every missed time when
+        # misfire_action is set to ACTION_RUN_ALL, and that exactly one misfire
+        # event is sent
+        def increment():
+            vals[0] += 1
+
+        vals = [0]
+        events = []
+        scheduler.datetime = FakeDateTime
+        self.scheduler.add_listener(events.append,
+                                    EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
+        self.scheduler.add_interval_job(increment, seconds=5,
+            start_date=FakeDateTime.now(), misfire_action=ACTION_RUN_ALL)
+
+        # Turn the clock 14 seconds forward 
+        FakeDateTime._now += timedelta(seconds=14)
+
+        self.scheduler._process_jobs(FakeDateTime.now())
+        eq_(len(events), 4)
+        eq_(events[0].code, EVENT_JOB_MISSED)
+        eq_(events[1].code, EVENT_JOB_EXECUTED)
+        eq_(events[2].code, EVENT_JOB_EXECUTED)
+        eq_(events[3].code, EVENT_JOB_EXECUTED)
+        eq_(vals, [3])
 
     def test_interval(self):
         def increment(amount):
@@ -290,7 +378,7 @@ class TestRunningScheduler(object):
     def setup(self):
         self.scheduler = Scheduler()
         self.scheduler.start()
-    
+
     def teardown(self):
         if self.scheduler.running:
             self.scheduler.shutdown()

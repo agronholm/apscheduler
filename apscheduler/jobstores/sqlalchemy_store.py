@@ -37,6 +37,7 @@ class SQLAlchemyJobStore(JobStore):
                    nullable=False),
             Column('name', Unicode(1024), unique=True),
             Column('misfire_grace_time', Integer, nullable=False),
+            Column('misfire_action', Integer, nullable=False),
             Column('max_runs', Integer),
             Column('max_concurrency', Integer),
             Column('next_run_time', DateTime, nullable=False),

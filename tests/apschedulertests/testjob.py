@@ -3,7 +3,7 @@ from threading import Lock
 
 from nose.tools import eq_, raises, assert_raises
 
-from apscheduler.job import Job
+from apscheduler.job import Job, ACTION_NONE
 from apscheduler.triggers.simple import SimpleTrigger
 
 
@@ -44,7 +44,8 @@ class TestJob(object):
         state = self.job.__getstate__()
         eq_(state, dict(trigger=self.trigger,
                         name='apschedulertests.testjob.dummyfunc', args=[],
-                        kwargs={}, misfire_grace_time=1, max_runs=None,
+                        kwargs={}, misfire_grace_time=1,
+                        misfire_action=ACTION_NONE, max_runs=None,
                         max_concurrency=1, runs=0))
 
     def test_setstate(self):
