@@ -45,7 +45,7 @@ copyright = u'2010, Alex Grönholm'
 # built documents.
 #
 # The short X.Y version.
-version = apscheduler.version_str
+version = apscheduler.version
 # The full version, including alpha/beta/rc tags.
 release = apscheduler.release
 
