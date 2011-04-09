@@ -90,6 +90,7 @@ misfire_grace_time      1        If the scheduler misses the execution of a task
                                  (due to high CPU load for example) by an amount 
                                  of seconds equal to or less than this value, 
                                  then it will still be executed.
+coalesce                False    Roll several pending executions of jobs into one
 daemonic                True     Controls whether the scheduler thread is
                                  daemonic or not.
                                  
@@ -210,35 +211,31 @@ running when the job is added, the job will be scheduled `tentatively` and its
 first run time will only be computed when the scheduler starts. Jobs will not
 run retroactively in such cases.
 
+
+Limiting the concurrently executing instances of a job
+------------------------------------------------------
+
 By default, no two instances of the same job will be run concurrently. This
 means that if the job is about to be run but the previous run hasn't finished
-yet, then the latest run is counted as a misfire. It is possible to set the
-maximum number of instances of a particular job that the scheduler will let run
-concurrently, by using the ``max_concurrency`` keyword argument when adding the
-job. This value should be set to 2 or more if you wish to alter the default
-behavior.
+yet, then the latest run is considered a misfire. It is possible to set the
+maximum number of instances for a particular job that the scheduler will let
+run concurrently, by using the ``max_concurrency`` keyword argument when adding
+the job.
 
 
-Misfire actions
----------------
+Coalescing job executions
+-------------------------
 
 Sometimes the scheduler may be unable to execute a scheduled job at the time
 it was scheduled to run. The most common case is when a job is scheduled in a
 persistent job store and the scheduler is shut down and restarted after the job
-was supposed to execute. Another case is when there are several concurrently
-firing jobs and the thread pool size is inadequate to handle them all, although
-this rarely happens. The scheduler allows you to configure the appropriate
-action to take when the job misfires. This is done through the
-``misfire_action`` keyword argument to
-:meth:`~apscheduler.scheduler.Scheduler.add_job` and other job scheduling
-methods. The possible options (importable from ``apscheduler.job``) are:
-
-  * ACTION_NONE: No action
-  * ACTION_RUN_ONCE: Execute the job once
-  * ACTION_RUN_ALL: Execute the job retroactively, once for every time its
-    execution time was missed
-
-The default is to take no action.
+was supposed to execute. Normally the scheduler would execute the job as many
+times as its misfire_grace_time option permits. This can be undesireable in
+many cases, such as backing up data or sending notifications. By setting the
+``coalesce`` option to ``True`` when adding the job (or globally on the
+scheduler) you can avoid unintended successive executions of the job. The
+bypassed runs of the job are not considered misfires nor do they count towards
+any maximum run count of the job.
 
 
 Scheduler events

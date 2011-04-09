@@ -3,8 +3,9 @@ from threading import Lock
 
 from nose.tools import eq_, raises, assert_raises
 
-from apscheduler.job import Job, ACTION_NONE
+from apscheduler.job import Job
 from apscheduler.triggers.simple import SimpleTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 
 lock_type = type(Lock())
@@ -18,7 +19,7 @@ class TestJob(object):
 
     def setup(self):
         self.trigger = SimpleTrigger(self.RUNTIME)
-        self.job = Job(self.trigger, dummyfunc, [], {}, 1)
+        self.job = Job(self.trigger, dummyfunc, [], {}, 1, False)
 
     def test_compute_next_run_time(self):
         self.job.compute_next_run_time(self.RUNTIME - timedelta(microseconds=1))
@@ -29,6 +30,22 @@ class TestJob(object):
 
         self.job.compute_next_run_time(self.RUNTIME + timedelta(microseconds=1))
         eq_(self.job.next_run_time, None)
+
+    def test_compute_run_times(self):
+        expected_times = [self.RUNTIME + timedelta(seconds=1),
+                          self.RUNTIME + timedelta(seconds=2)]
+        self.job.trigger = IntervalTrigger(timedelta(seconds=1), self.RUNTIME)
+        self.job.compute_next_run_time(expected_times[0])
+        eq_(self.job.next_run_time, expected_times[0])
+
+        run_times = self.job.get_run_times(self.RUNTIME)
+        eq_(run_times, [])
+
+        run_times = self.job.get_run_times(expected_times[0])
+        eq_(run_times, [expected_times[0]])
+
+        run_times = self.job.get_run_times(expected_times[1])
+        eq_(run_times, expected_times)
 
     def test_max_runs(self):
         self.job.max_runs = 1
@@ -45,7 +62,7 @@ class TestJob(object):
         eq_(state, dict(trigger=self.trigger,
                         name='apschedulertests.testjob.dummyfunc', args=[],
                         kwargs={}, misfire_grace_time=1,
-                        misfire_action=ACTION_NONE, max_runs=None,
+                        coalesce=False, max_runs=None,
                         max_concurrency=1, runs=0))
 
     def test_setstate(self):
@@ -53,11 +70,12 @@ class TestJob(object):
         state = dict(trigger=trigger, name='apschedulertests.testjob.dummyfunc',
                      func_ref='apschedulertests.testjob:dummyfunc',
                      args=[], kwargs={}, misfire_grace_time=2, max_runs=2,
-                     max_concurrency=2, runs=1)
+                     coalesce=True, max_concurrency=2, runs=1)
         self.job.__setstate__(state)
         eq_(self.job.trigger, trigger)
         eq_(self.job.func, dummyfunc)
         eq_(self.job.max_runs, 2)
+        eq_(self.job.coalesce, True)
         eq_(self.job.max_concurrency, 2)
         eq_(self.job.runs, 1)
         assert not hasattr(self.job, 'func_ref')
@@ -66,7 +84,7 @@ class TestJob(object):
     def test_jobs_equal(self):
         assert self.job == self.job
 
-        job2 = Job(SimpleTrigger(self.RUNTIME), lambda: None, [], {}, 1)
+        job2 = Job(SimpleTrigger(self.RUNTIME), lambda: None, [], {}, 1, False)
         assert self.job != job2
 
         job2.id = self.job.id = 123
@@ -84,7 +102,7 @@ class TestJob(object):
         eq_(self.job.instances, 1)
         self.job.remove_instance()
         eq_(self.job.instances, 0)
-        assert_raises(ValueError, self.job.remove_instance)
+        assert_raises(AssertionError, self.job.remove_instance)
 
     def test_repr(self):
         self.job.compute_next_run_time(self.RUNTIME)
@@ -99,35 +117,36 @@ class TestJob(object):
 
 @raises(ValueError)
 def test_create_job_no_trigger():
-    Job(None, lambda: None, [], {}, 1)
+    Job(None, lambda: None, [], {}, 1, False)
 
 
 @raises(TypeError)
 def test_create_job_invalid_func():
-    Job(SimpleTrigger(datetime.now()), 'bleh', [], {}, 1)
+    Job(SimpleTrigger(datetime.now()), 'bleh', [], {}, 1, False)
 
 
 @raises(TypeError)
 def test_create_job_invalid_args():
-    Job(SimpleTrigger(datetime.now()), lambda: None, None, {}, 1)
+    Job(SimpleTrigger(datetime.now()), lambda: None, None, {}, 1, False)
 
 
 @raises(TypeError)
 def test_create_job_invalid_kwargs():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], None, 1)
+    Job(SimpleTrigger(datetime.now()), lambda: None, [], None, 1, False)
 
 
 @raises(ValueError)
 def test_create_job_invalid_misfire():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 0)
+    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 0, False)
 
 
 @raises(ValueError)
 def test_create_job_invalid_maxruns():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 1, max_runs=0)
+    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 1, False,
+        max_runs=0)
 
 
 @raises(ValueError)
 def test_create_job_invalid_maxconcurrency():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 1,
+    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 1, False,
         max_concurrency=0)

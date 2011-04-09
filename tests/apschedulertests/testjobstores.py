@@ -36,7 +36,7 @@ class JobStoreTestBase(object):
         self.trigger_date = datetime(2999, 1, 1)
         self.earlier_date = datetime(2998, 12, 31)
         self.trigger = SimpleTrigger(self.trigger_date)
-        self.job = Job(self.trigger, dummy_job, [], {}, 1)
+        self.job = Job(self.trigger, dummy_job, [], {}, 1, False)
         self.job.next_run_time = self.trigger_date
 
     def test_jobstore_add_update_remove(self):

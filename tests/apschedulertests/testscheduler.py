@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from logging import StreamHandler, ERROR
 from copy import copy
 import os
@@ -10,9 +10,7 @@ from apscheduler.scheduler import Scheduler, SchedulerAlreadyRunningError
 from apscheduler.job import *
 from apscheduler import scheduler
 from apscheduler.events import EVENT_JOB_EXECUTED, SchedulerEvent, \
-    EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOB_MISSED, \
-    EVENT_JOBSTORE_JOB_ADDED
-from apscheduler.actions import ACTION_RUN_ALL, ACTION_RUN_ONCE
+    EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOB_MISSED
 
 try:
     from StringIO import StringIO
@@ -36,7 +34,7 @@ class TestOfflineScheduler(object):
     def test_add_tentative_job(self):
         job = self.scheduler.add_date_job(lambda: None, datetime(2200, 7, 24),
                                           jobstore='dummy')
-        eq_(job, None)
+        assert isinstance(job, Job)
         eq_(self.scheduler.get_jobs(), [])
 
     def test_configure_jobstore(self):
@@ -201,9 +199,9 @@ class TestJobExecution(object):
                                               misfire_grace_time=2)
         eq_(job.misfire_grace_time, 2)
 
-    def test_misfire_none(self):
-        # Makes sure that the job is not executed when misfire_action is set
-        # to ACTION_NONE, and that exactly one misfire event is sent
+    def test_coalesce_on(self):
+        # Makes sure that the job is only executed once when it is scheduled
+        # to be executed twice in a row
         def increment():
             vals[0] += 1
 
@@ -212,44 +210,21 @@ class TestJobExecution(object):
         scheduler.datetime = FakeDateTime
         self.scheduler.add_listener(events.append,
                                     EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        self.scheduler.add_interval_job(increment, seconds=5,
-            start_date=FakeDateTime.now(), misfire_action=ACTION_NONE)
+        job = self.scheduler.add_interval_job(increment, seconds=1,
+            start_date=FakeDateTime.now(), coalesce=True, misfire_grace_time=2)
 
         # Turn the clock 14 seconds forward 
-        FakeDateTime._now += timedelta(seconds=14)
+        FakeDateTime._now += timedelta(seconds=2)
 
         self.scheduler._process_jobs(FakeDateTime.now())
+        eq_(job.runs, 1)
         eq_(len(events), 1)
-        eq_(events[0].code, EVENT_JOB_MISSED)
-        eq_(vals, [0])
-
-    def test_misfire_once(self):
-        # Makes sure that the job is executed exactly once when misfire_action
-        # is set to ACTION_RUN_ONCE, and that exactly one misfire event is sent
-        def increment():
-            vals[0] += 1
-
-        vals = [0]
-        events = []
-        scheduler.datetime = FakeDateTime
-        self.scheduler.add_listener(events.append,
-                                    EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        self.scheduler.add_interval_job(increment, seconds=5,
-            start_date=FakeDateTime.now(), misfire_action=ACTION_RUN_ONCE)
-
-        # Turn the clock 14 seconds forward 
-        FakeDateTime._now += timedelta(seconds=14)
-
-        self.scheduler._process_jobs(FakeDateTime.now())
-        eq_(len(events), 2)
-        eq_(events[0].code, EVENT_JOB_MISSED)
-        eq_(events[1].code, EVENT_JOB_EXECUTED)
+        eq_(events[0].code, EVENT_JOB_EXECUTED)
         eq_(vals, [1])
 
-    def test_misfire_all(self):
-        # Makes sure that the job is executed for every missed time when
-        # misfire_action is set to ACTION_RUN_ALL, and that exactly one misfire
-        # event is sent
+    def test_coalesce_off(self):
+        # Makes sure that every scheduled run for the job is executed even
+        # when they are in the past (but still within misfire_grace_time)
         def increment():
             vals[0] += 1
 
@@ -258,18 +233,18 @@ class TestJobExecution(object):
         scheduler.datetime = FakeDateTime
         self.scheduler.add_listener(events.append,
                                     EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        self.scheduler.add_interval_job(increment, seconds=5,
-            start_date=FakeDateTime.now(), misfire_action=ACTION_RUN_ALL)
+        job = self.scheduler.add_interval_job(increment, seconds=1,
+            start_date=FakeDateTime.now(), coalesce=False, misfire_grace_time=2)
 
-        # Turn the clock 14 seconds forward 
-        FakeDateTime._now += timedelta(seconds=14)
+        # Turn the clock 2 seconds forward 
+        FakeDateTime._now += timedelta(seconds=2)
 
         self.scheduler._process_jobs(FakeDateTime.now())
-        eq_(len(events), 4)
-        eq_(events[0].code, EVENT_JOB_MISSED)
+        eq_(job.runs, 3)
+        eq_(len(events), 3)
+        eq_(events[0].code, EVENT_JOB_EXECUTED)
         eq_(events[1].code, EVENT_JOB_EXECUTED)
         eq_(events[2].code, EVENT_JOB_EXECUTED)
-        eq_(events[3].code, EVENT_JOB_EXECUTED)
         eq_(vals, [3])
 
     def test_interval(self):
@@ -359,17 +334,21 @@ class TestJobExecution(object):
 
     def test_job_next_run_time(self):
         # Tests against bug #5
-        def job_1():
+        def increment():
             vars[0] += 1
 
         vars = [0]
-        job = self.scheduler.add_interval_job(job_1, seconds=1,
-                                              misfire_grace_time=3)
+        scheduler.datetime = FakeDateTime
+        job = self.scheduler.add_interval_job(increment, seconds=1,
+            misfire_grace_time=3, start_date=FakeDateTime.now())
         start = job.next_run_time
+
         self.scheduler._process_jobs(start)
         eq_(vars, [1])
+
         self.scheduler._process_jobs(start)
         eq_(vars, [1])
+
         self.scheduler._process_jobs(start + timedelta(seconds=1))
         eq_(vars, [2])
 

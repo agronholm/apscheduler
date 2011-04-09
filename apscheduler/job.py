@@ -3,9 +3,9 @@ Jobs represent scheduled tasks.
 """
 
 from threading import Lock
+from datetime import timedelta
 
 from apscheduler.util import to_unicode, ref_to_obj, get_callable_name
-from apscheduler.actions import ACTION_NONE
 
 
 class Job(object):
@@ -21,18 +21,18 @@ class Job(object):
     :param name: name of the job (optional)
     :param misfire_grace_time: seconds after the designated run time that
         the job is still allowed to be run
+    :param coalesce: run once instead of many times if the scheduler determines
+        that the job should be run more than once in succession
     :param max_runs: maximum number of times this job is allowed to be
         triggered
     :param max_running_instances: maximum number of concurrently running
         instances of this job
     """
-
     id = None
     next_run_time = None
 
     def __init__(self, trigger, func, args, kwargs, misfire_grace_time,
-                 misfire_action=ACTION_NONE, name=None, max_runs=None,
-                 max_concurrency=1):
+                 coalesce, name=None, max_runs=None, max_concurrency=1):
         if not trigger:
             raise ValueError('The trigger must not be None')
         if not hasattr(func, '__call__'):
@@ -56,7 +56,7 @@ class Job(object):
         self.kwargs = kwargs
         self.name = to_unicode(name or get_callable_name(func))
         self.misfire_grace_time = misfire_grace_time
-        self.misfire_action = misfire_action
+        self.coalesce = coalesce
         self.max_runs = max_runs
         self.max_concurrency = max_concurrency
         self.runs = 0
@@ -68,17 +68,34 @@ class Job(object):
         else:
             self.next_run_time = self.trigger.get_next_fire_time(now)
 
+        return self.next_run_time
+
+    def get_run_times(self, now):
+        """
+        Computes the scheduled run times between ``next_run_time`` and ``now``.
+        """
+        run_times = []
+        run_time = self.next_run_time
+        increment = timedelta(microseconds=1)
+        while ((not self.max_runs or self.runs < self.max_runs) and
+               run_time and run_time <= now):
+            run_times.append(run_time)
+            run_time = self.trigger.get_next_fire_time(run_time + increment)
+
+        return run_times
+
     def add_instance(self):
         self._lock.acquire()
         self.instances += 1
         self._lock.release()
 
     def remove_instance(self):
-        if self.instances == 0:
-            raise ValueError('Already at 0 instances')
         self._lock.acquire()
-        self.instances -= 1
-        self._lock.release()
+        try:
+            assert self.instances > 0, 'Already at 0 instances'
+            self.instances -= 1
+        finally:
+            self._lock.release()
 
     def __getstate__(self):
         # Prevents the unwanted pickling of transient or unpicklable variables

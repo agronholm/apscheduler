@@ -1,10 +1,9 @@
-from datetime import datetime, timedelta
 from time import sleep
 from warnings import filterwarnings, resetwarnings
 from tempfile import NamedTemporaryFile
 import os
 
-from nose.tools import eq_, raises
+from nose.tools import eq_
 from nose.plugins.skip import SkipTest
 
 from apscheduler.scheduler import Scheduler
@@ -30,15 +29,6 @@ def increment(vals):
     sleep(2)
 
 
-def renameTestMethods(cls, name):
-    for attr in dir(cls):
-        if attr.startswith('test_'):
-            method = getattr(cls, attr)
-            if hasattr(method, 'im_func'):
-                method = method.im_func
-            method.__doc__ = '%s/%s' % (name, attr)
-
-
 class IntegrationTestBase(object):
     @classmethod
     def setup_class(cls):
@@ -54,7 +44,7 @@ class IntegrationTestBase(object):
         vals = [0]
         self.scheduler.add_interval_job(increment, jobstore='persistent',
                                         seconds=1, args=[vals])
-        sleep(2.2)
+        sleep(2.5)
         eq_(vals, [1])
 
 
@@ -69,6 +59,10 @@ class TestShelveIntegration(IntegrationTestBase):
         f.close()
         resetwarnings()
         return ShelveJobStore(f.name)
+
+    def test_overlapping_runs(self):
+        """Shelve/test_overlapping_runs"""
+        IntegrationTestBase.test_overlapping_runs(self)
 
     @classmethod
     def teardown_class(cls):
@@ -86,14 +80,16 @@ class TestSQLAlchemyIntegration(IntegrationTestBase):
 
         return SQLAlchemyJobStore(url='sqlite:///example.sqlite')
 
+    def test_overlapping_runs(self):
+        """SQLAlchemy/test_overlapping_runs"""
+        IntegrationTestBase.test_overlapping_runs(self)
+
     @classmethod
     def teardown_class(cls):
         cls.scheduler.shutdown()
         cls.jobstore.close()
         if os.path.exists('example.sqlite'):
             os.remove('example.sqlite')
-
-renameTestMethods(TestSQLAlchemyIntegration, 'SQLAlchemy')
 
 
 class TestMongoDBIntegration(IntegrationTestBase):
@@ -104,11 +100,13 @@ class TestMongoDBIntegration(IntegrationTestBase):
 
         return MongoDBJobStore(database='apscheduler_unittest')
 
+    def test_overlapping_runs(self):
+        """MongoDB/test_overlapping_runs"""
+        IntegrationTestBase.test_overlapping_runs(self)
+
     @classmethod
     def teardown_class(cls):
         cls.scheduler.shutdown()
         connection = cls.jobstore.collection.database.connection
         connection.drop_database(cls.jobstore.collection.database.name)
         cls.jobstore.close()
-
-renameTestMethods(TestMongoDBIntegration, 'MongoDB')
