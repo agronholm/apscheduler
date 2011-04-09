@@ -11,7 +11,7 @@ __all__ = ('AllExpression', 'RangeExpression', 'WeekdayRangeExpression',
            'WeekdayPositionExpression')
 
 
-WEEKDAYS = ('mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun')
+WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
 
 class AllExpression(object):
