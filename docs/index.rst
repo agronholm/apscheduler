@@ -9,6 +9,12 @@ This can be a far better alternative to externally run cron scripts for
 long-running applications (e.g. web applications), as it is platform neutral
 and can directly access your application's variables and functions.
 
+The development of APScheduler was heavily influenced by the `Quartz
+<http://www.quartz-scheduler.org/>`_ task scheduler written in Java.
+APScheduler provides most of the major features that Quartz does, but it also
+provides features not present in Quartz (such as multiple job stores).
+
+
 Features
 --------
 
@@ -26,6 +32,7 @@ Features
   * RAM 
   * File-based simple database (shelve)
   * `SQLAlchemy <http://www.sqlalchemy.org/>`_ (any supported RDBMS works)
+  * `MongoDB <http://www.mongodb.org/>`_
 
 
 Usage
