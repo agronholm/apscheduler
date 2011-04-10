@@ -4,16 +4,19 @@ Version history
 2.0
 ---
 
-* Added configurable job stores
-
-* Added optional job persistency (via shelve, SQLAlchemy or MongoDB)
+* Added configurable job stores with several persistent back-ends
+  (shelve, SQLAlchemy and MongoDB)
 
 * Added the possibility to listen for job events (execution, error, misfire,
   finish) on a scheduler
 
 * Added an optional start time for cron-style jobs
 
-* Allowed configuration of misfire actions (globally and per job)
+* Added optional job execution coalescing for situations where several
+  executions of the job are due
+
+* Added an option to limit the maximum number of concurrenctly executing
+  instances of the job
 
 * Allowed configuration of misfire grace times on a per-job basis
 
@@ -22,13 +25,10 @@ Version history
 * All triggers now accept dates in string form (YYYY-mm-dd HH:MM:SS)
 
 * Jobs are now run in a thread pool; you can either supply your own PEP 3148
-  compliant thread pool or let APScheduler create a new one
+  compliant thread pool or let APScheduler create its own
 
 * Maximum run count can be configured for all jobs, not just those using
   interval-based scheduling
-
-* A maximum concurrency value can be configured for jobs, so only X instances
-  will be allowed to run at once (will be considered a misfire otherwise)
 
 * Fixed a v1.x design flaw that caused jobs to be executed twice when the
   scheduler thread was woken up while still within the allowable range of their
