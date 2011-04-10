@@ -38,7 +38,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'APScheduler'
-copyright = u'2010, Alex Grönholm'
+copyright = u'Alex Grönholm'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

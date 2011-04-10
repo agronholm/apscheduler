@@ -9,7 +9,8 @@ This can be a far better alternative to externally run cron scripts for
 long-running applications (e.g. web applications), as it is platform neutral
 and can directly access your application's variables and functions.
 
-**Features:**
+Features
+--------
 
 * No (hard) external dependencies
 * Thread-safe API
@@ -27,8 +28,11 @@ and can directly access your application's variables and functions.
   * `SQLAlchemy <http://www.sqlalchemy.org/>`_ (any supported RDBMS works)
 
 
-Installation
-============
+Usage
+=====
+
+Installing APScheduler
+----------------------
 
 The preferred method of installation is with
 `pip <http://pypi.python.org/pypi/pip/>`_ or
@@ -47,11 +51,8 @@ install it::
     $ python setup.py install
 
 
-Usage
-=====
-
-Startup and configuration
--------------------------
+Starting the scheduler
+----------------------
 
 To start the scheduler with default settings::
 
@@ -81,15 +82,74 @@ Scheduler instance available from the very beginning::
     sched.configure(options_from_ini_file)
     sched.start()
 
-Available configuration options:
+
+Scheduling jobs
+---------------
+
+The simplest way to schedule jobs using the built-in triggers is to use one of
+the shortcut methods provided by the scheduler:
+
+.. toctree::
+   :maxdepth: 1
+
+   dateschedule
+   intervalschedule
+   cronschedule
+
+These shortcuts cover the vast majority of use cases. However, if you need
+to use a custom trigger, you need to use the
+:meth:`~apscheduler.scheduler.Scheduler.add_job` method.
+
+When a scheduled job is triggered, it is handed over to the thread pool for
+execution.
+
+You can request a job to be added to a specific job store by giving the target
+job store's alias in the ``jobstore`` option to
+:meth:`~apscheduler.scheduler.Scheduler.add_job` or any of the above shortcut
+methods.
+
+You can schedule jobs on the scheduler **at any time**. If the scheduler is not
+running when the job is added, the job will be scheduled `tentatively` and its
+first run time will only be computed when the scheduler starts. Jobs will not
+run retroactively in such cases.
+
+
+Shutting down the scheduler
+---------------------------
+
+::
+
+    sched.shutdown()
+
+A scheduler that has been shut down can be restarted, but the shutdown
+procedure clears any scheduled non-persistent jobs.
+
+If you want to make sure that the scheduler has really terminated, you
+can specify a timeout (in seconds)::
+
+    sched.shutdown(10)
+
+This will wait at most 10 seconds for the scheduler thread to terminate,
+and then proceed anyways.
+
+To make sure that the scheduler has terminated, you can specify
+a timeout of 0. This will disable the waiting timeout and will wait as long as
+it takes for the scheduler to shut down.
+
+.. note::
+	Shutting down the scheduler does not guarantee that all jobs have
+	terminated.
+
+
+Scheduler configuration options
+-------------------------------
 
 ======================= ======== ==============================================
 Directive               Default  Definition
 ======================= ======== ==============================================
-misfire_grace_time      1        If the scheduler misses the execution of a task 
-                                 (due to high CPU load for example) by an amount 
-                                 of seconds equal to or less than this value, 
-                                 then it will still be executed.
+misfire_grace_time      1        Maximum time in seconds for the job execution
+                                 to be allowed to delay before it is considered
+                                 a misfire
 coalesce                False    Roll several pending executions of jobs into one
 daemonic                True     Controls whether the scheduler thread is
                                  daemonic or not.
@@ -181,37 +241,6 @@ directly, since the scheduler has shortcut methods for these built-in
 triggers, as discussed in the next section.
 
 
-Scheduling jobs
----------------
-
-The simplest way to schedule jobs using the built-in triggers is to use one of
-the shortcut methods provided by the scheduler:
-
-.. toctree::
-   :maxdepth: 1
-
-   dateschedule
-   intervalschedule
-   cronschedule
-
-These shortcuts cover the vast majority of use cases. However, if you need
-to use a custom trigger, you need to use the
-:meth:`~apscheduler.scheduler.Scheduler.add_job` method.
-
-When a scheduled job is triggered, it is handed over to the thread pool for
-execution.
-
-You can request a job to be added to a specific job store by giving the target
-job store's alias in the ``jobstore`` option to
-:meth:`~apscheduler.scheduler.Scheduler.add_job` or any of the above shortcut
-methods.
-
-You can schedule jobs on the scheduler **at any time**. If the scheduler is not
-running when the job is added, the job will be scheduled `tentatively` and its
-first run time will only be computed when the scheduler starts. Jobs will not
-run retroactively in such cases.
-
-
 Limiting the concurrently executing instances of a job
 ------------------------------------------------------
 
@@ -293,33 +322,6 @@ as an argument to this method, it will output the results in that file.
 To get a machine processable list of the scheduled jobs, you can use the
 :meth:`~apscheduler.scheduler.Scheduler.get_jobs` scheduler method. It will
 return a list of :class:`~apscheduler.job.Job` instances.
-
-
-Shutting down
--------------
-
-::
-
-    sched.shutdown()
-
-A scheduler that has been shut down can be restarted, but the shutdown
-procedure clears any scheduled transient jobs.
-
-If you want to make sure that the scheduler has really terminated, you
-can specify a timeout (in seconds)::
-
-    sched.shutdown(10)
-
-This will wait at most 10 seconds for the scheduler thread to terminate,
-and then proceed anyways.
-
-To make sure that the scheduler has terminated, you can specify
-a timeout of 0. This will disable the waiting timeout and will wait as long as
-it takes for the scheduler to shut down.
-
-.. note::
-	Shutting down the scheduler does not guarantee that all jobs have
-	terminated.
 
 
 FAQ

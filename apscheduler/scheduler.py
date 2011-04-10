@@ -178,6 +178,15 @@ class Scheduler(object):
         self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_REMOVED, alias))
 
     def add_listener(self, callback, mask=EVENT_ALL):
+        """
+        Adds a listener for scheduler events. When a matching event occurs,
+        ``callback`` is executed with the event object as its sole argument.
+        If the ``mask`` parameter is not provided, the callback will receive
+        events of all types.
+
+        :param callback: any callable that takes one argument
+        :param mask: bitmask that indicates which events should be listened to
+        """
         self._listeners_lock.acquire()
         try:
             self._listeners.append((callback, mask))
@@ -185,6 +194,7 @@ class Scheduler(object):
             self._listeners_lock.release()
 
     def remove_listener(self, callback):
+        """Removes a previously added event listener."""
         self._listeners_lock.acquire()
         try:
             for i, (cb, _) in enumerate(self._listeners):
@@ -232,8 +242,6 @@ class Scheduler(object):
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
         :param jobstore: alias of the job store to store the job in
-        :return: the newly scheduled job if the scheduler is running, else
-            ``None``
         :rtype: :class:`~apscheduler.job.Job`
         """
         job = Job(trigger, func, args or [], kwargs or {},
@@ -267,7 +275,6 @@ class Scheduler(object):
         :param misfire_grace_time: seconds after the designated run time that
             the job is still allowed to be run
         :type date: :class:`datetime.date`
-        :return: the scheduled job
         :rtype: :class:`~apscheduler.job.Job`
         """
         trigger = SimpleTrigger(date)
@@ -293,7 +300,6 @@ class Scheduler(object):
         :param jobstore: alias of the job store to add the job to
         :param misfire_grace_time: seconds after the designated run time that
             the job is still allowed to be run
-        :return: the scheduled job
         :rtype: :class:`~apscheduler.job.Job`
         """
         interval = timedelta(weeks=weeks, days=days, hours=hours,
@@ -333,11 +339,10 @@ class Scheduler(object):
 
     def cron_schedule(self, **options):
         """
-        Decorator that causes its host function to be scheduled
-        according to the given parameters.
+        Decorator version of :meth:`add_cron_job`.
         This decorator does not wrap its host function.
-        The scheduled function will be called without any arguments.
-        See :meth:`add_cron_job` for more information.
+        Unscheduling decorated functions is possible by passing the ``job``
+        attribute of the scheduled function to :meth:`unschedule_job`.
         """
         def inner(func):
             func.job = self.add_cron_job(func, **options)
@@ -346,11 +351,10 @@ class Scheduler(object):
 
     def interval_schedule(self, **options):
         """
-        Decorator that causes its host function to be scheduled
-        for execution on specified intervals.
+        Decorator version of :meth:`add_interval_job`.
         This decorator does not wrap its host function.
-        The scheduled function will be called without any arguments.
-        See :meth:`add_delayed_job` for more information.
+        Unscheduling decorated functions is possible by passing the ``job``
+        attribute of the scheduled function to :meth:`unschedule_job`.
         """
         def inner(func):
             func.job = self.add_interval_job(func, **options)
@@ -360,6 +364,8 @@ class Scheduler(object):
     def get_jobs(self):
         """
         Returns a list of all scheduled jobs.
+
+        :return: list of :class:`~apscheduler.job.Job` objects
         """
         jobs = []
         for jobstore in dict_values(self._jobstores):
@@ -377,13 +383,15 @@ class Scheduler(object):
 
         raise ValueError('Job "%s" is not scheduled in any job store' % job)
 
-    def print_jobs(self, out=sys.stdout):
+    def print_jobs(self, out=None):
         """
         Prints out a textual listing of all jobs currently scheduled on this
         scheduler.
 
-        :param out: a file-like object to print to.
+        :param out: a file-like object to print to (defaults to **sys.stdout**
+                    if nothing is given)
         """
+        out = out or sys.stdout
         job_strs = []
         for alias, jobstore in dict_items(self._jobstores):
             job_strs.append('Jobstore %s:' % alias)

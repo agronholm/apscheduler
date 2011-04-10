@@ -91,3 +91,7 @@ parameter, obviously.
     @sched.cron_schedule(day='last sun')
     def some_decorated_task():
         print "I am printed on the last sunday of every month!"
+
+If you need to unschedule the decorated functions, you can do it this way::
+
+    scheduler.unschedule_job(job_function.job)

@@ -49,3 +49,7 @@ decorator can be attached to any function, and has the same syntax as
     @sched.interval_schedule(hours=2)
     def job_function():
         print "Hello World"
+
+If you need to unschedule the decorated functions, you can do it this way::
+
+    scheduler.unschedule_job(job_function.job)
