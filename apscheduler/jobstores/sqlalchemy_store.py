@@ -43,7 +43,7 @@ class SQLAlchemyJobStore(JobStore):
             Column('misfire_grace_time', Integer, nullable=False),
             Column('coalesce', Boolean, nullable=False),
             Column('max_runs', Integer),
-            Column('max_concurrency', Integer),
+            Column('max_instances', Integer),
             Column('next_run_time', DateTime, nullable=False),
             Column('runs', BigInteger))
 

@@ -11,7 +11,7 @@ from apscheduler.util import to_unicode, ref_to_obj, get_callable_name,\
 
 class Job(object):
     """
-    Encapsulates the actual Job along with its metadata. JobMeta instances
+    Encapsulates the actual Job along with its metadata. Job instances
     are created by the scheduler when adding jobs, and it should not be
     directly instantiated.
 
@@ -26,14 +26,14 @@ class Job(object):
         that the job should be run more than once in succession
     :param max_runs: maximum number of times this job is allowed to be
         triggered
-    :param max_running_instances: maximum number of concurrently running
-        instances of this job
+    :param max_instances: maximum number of concurrently running
+        instances allowed for this job
     """
     id = None
     next_run_time = None
 
     def __init__(self, trigger, func, args, kwargs, misfire_grace_time,
-                 coalesce, name=None, max_runs=None, max_concurrency=1):
+                 coalesce, name=None, max_runs=None, max_instances=1):
         if not trigger:
             raise ValueError('The trigger must not be None')
         if not hasattr(func, '__call__'):
@@ -46,8 +46,8 @@ class Job(object):
             raise ValueError('misfire_grace_time must be a positive value')
         if max_runs is not None and max_runs <= 0:
             raise ValueError('max_runs must be a positive value')
-        if max_concurrency <= 0:
-            raise ValueError('max_concurrency must be a positive value')
+        if max_instances <= 0:
+            raise ValueError('max_instances must be a positive value')
 
         self._lock = Lock()
 
@@ -59,7 +59,7 @@ class Job(object):
         self.misfire_grace_time = misfire_grace_time
         self.coalesce = coalesce
         self.max_runs = max_runs
-        self.max_concurrency = max_concurrency
+        self.max_instances = max_instances
         self.runs = 0
         self.instances = 0
 

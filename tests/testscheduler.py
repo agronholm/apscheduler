@@ -161,16 +161,36 @@ class TestJobExecution(object):
         eq_(a.val, 2)
 
     def test_unschedule_job(self):
-        def increment(vals):
+        def increment():
             vals[0] += 1
 
         vals = [0]
-        job = self.scheduler.add_cron_job(increment, args=[vals])
+        job = self.scheduler.add_cron_job(increment)
         self.scheduler._process_jobs(job.next_run_time)
         eq_(vals[0], 1)
         self.scheduler.unschedule_job(job)
         self.scheduler._process_jobs(job.next_run_time)
         eq_(vals[0], 1)
+
+    def test_unschedule_func(self):
+        def increment():
+            vals[0] += 1
+
+        def increment2():
+            vals[0] += 1
+
+        vals = [0]
+        job1 = self.scheduler.add_cron_job(increment)
+        job2 = self.scheduler.add_cron_job(increment2)
+        job3 = self.scheduler.add_cron_job(increment)
+        eq_(self.scheduler.get_jobs(), [job1, job2, job3])
+
+        self.scheduler.unschedule_func(increment)
+        eq_(self.scheduler.get_jobs(), [job2])
+
+    @raises(KeyError)
+    def test_unschedule_func_notfound(self):
+        self.scheduler.unschedule_func(copy)
 
     def test_job_finished(self):
         def increment():

@@ -196,6 +196,12 @@ scheduler by that name when the scheduler is started, a new job store of type
 :class:`~apscheduler.jobstores.ram_store.RAMJobStore` is created to serve as
 the default.
 
+The built-in job stores are:
+
+* :class:`~apscheduler.jobstores.shelve_store.ShelveJobStore`
+* :class:`~apscheduler.jobstores.sqlalchemy_store.SQLAlchemyJobStore`
+* :class:`~apscheduler.jobstores.mongodb_store.MongoDBJobStore`
+
 Job stores can be added either through configuration options or the
 :meth:`~apscheduler.scheduler.Scheduler.add_jobstore` method. The following
 are therefore equal::
@@ -213,8 +219,8 @@ and::
 
 The example configuration above results in the scheduler having two
 job stores -- one
-(:class:`~apscheduler.jobstores.ram_store.RAMJobStore`) and one
-(:class:`~apscheduler.jobstores.shelve_store.ShelveJobStore`).
+:class:`~apscheduler.jobstores.ram_store.RAMJobStore` and one
+:class:`~apscheduler.jobstores.shelve_store.ShelveJobStore`.
 
 In addition to the built-in job stores, it is possible to extend APScheduler to
 support other persistence mechanisms as well. See the
@@ -247,14 +253,14 @@ directly, since the scheduler has shortcut methods for these built-in
 triggers, as discussed in the next section.
 
 
-Limiting the concurrently executing instances of a job
-------------------------------------------------------
+Limiting the number of concurrently executing instances of a job
+----------------------------------------------------------------
 
 By default, no two instances of the same job will be run concurrently. This
 means that if the job is about to be run but the previous run hasn't finished
 yet, then the latest run is considered a misfire. It is possible to set the
 maximum number of instances for a particular job that the scheduler will let
-run concurrently, by using the ``max_concurrency`` keyword argument when adding
+run concurrently, by using the ``max_instances`` keyword argument when adding
 the job.
 
 

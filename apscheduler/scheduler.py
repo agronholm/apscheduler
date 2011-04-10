@@ -194,7 +194,9 @@ class Scheduler(object):
             self._listeners_lock.release()
 
     def remove_listener(self, callback):
-        """Removes a previously added event listener."""
+        """
+        Removes a previously added event listener.
+        """
         self._listeners_lock.acquire()
         try:
             for i, (cb, _) in enumerate(self._listeners):
@@ -377,11 +379,26 @@ class Scheduler(object):
         Removes a job, preventing it from being run any more.
         """
         for alias, jobstore in dict_items(self._jobstores):
-            if job in jobstore.jobs:
+            if job in list(jobstore.jobs):
                 self._remove_job(job, alias, jobstore)
                 return
 
-        raise ValueError('Job "%s" is not scheduled in any job store' % job)
+        raise KeyError('Job "%s" is not scheduled in any job store' % job)
+
+    def unschedule_func(self, func):
+        """
+        Removes all jobs that would execute the given function.
+        """
+        found = False
+        for alias, jobstore in dict_items(self._jobstores):
+            for job in list(jobstore.jobs):
+                if job.func == func:
+                    self._remove_job(job, alias, jobstore)
+                    found = True
+
+        if not found:
+            raise KeyError('The given function is not scheduled in this '
+                           'scheduler')
 
     def print_jobs(self, out=None):
         """
@@ -417,11 +434,11 @@ class Scheduler(object):
                 self._notify_listeners(JobEvent(EVENT_JOB_MISSED, job, run_time))
                 logger.warning('Run time of job "%s" was missed by %s',
                                job, difference)
-            elif job.instances == job.max_concurrency:
+            elif job.instances == job.max_instances:
                 # Notify listeners about a missed run
                 self._notify_listeners(JobEvent(EVENT_JOB_MISSED, job, run_time))
                 logger.warning('Execution of job "%s" skipped: too many instances '
-                               'running already (%d)', job, job.max_concurrency)
+                               'running already (%d)', job, job.max_instances)
             else:
                 logger.info('Running job "%s" (scheduled at %s)', job, run_time)
                 job.add_instance()

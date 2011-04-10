@@ -64,20 +64,20 @@ class TestJob(object):
                         name='tests.testjob.dummyfunc', args=[],
                         kwargs={}, misfire_grace_time=1,
                         coalesce=False, max_runs=None,
-                        max_concurrency=1, runs=0))
+                        max_instances=1, runs=0))
 
     def test_setstate(self):
         trigger = SimpleTrigger('2010-12-14 13:05:00')
         state = dict(trigger=trigger, name='apschedulertests.testjob.dummyfunc',
                      func_ref='tests.testjob:dummyfunc',
                      args=[], kwargs={}, misfire_grace_time=2, max_runs=2,
-                     coalesce=True, max_concurrency=2, runs=1)
+                     coalesce=True, max_instances=2, runs=1)
         self.job.__setstate__(state)
         eq_(self.job.trigger, trigger)
         eq_(self.job.func, dummyfunc)
         eq_(self.job.max_runs, 2)
         eq_(self.job.coalesce, True)
-        eq_(self.job.max_concurrency, 2)
+        eq_(self.job.max_instances, 2)
         eq_(self.job.runs, 1)
         assert not hasattr(self.job, 'func_ref')
         assert isinstance(self.job._lock, lock_type)
@@ -148,6 +148,6 @@ def test_create_job_invalid_maxruns():
 
 
 @raises(ValueError)
-def test_create_job_invalid_maxconcurrency():
+def test_create_job_invalid_maxinstances():
     Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 1, False,
-        max_concurrency=0)
+        max_instances=0)
