@@ -26,7 +26,6 @@ Features
   * Cron-like scheduling
   * Delayed scheduling of single run jobs (like the UNIX "at" command)
   * Interval-based (run a job at specified time intervals)
-* Persistent, stateful jobs
 * Multiple, simultaneously active job stores:
 
   * RAM 
