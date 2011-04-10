@@ -5,9 +5,13 @@ Stores jobs in a file governed by the :mod:`shelve` module.
 import shelve
 import pickle
 import random
+import logging
 
 from apscheduler.jobstores.base import JobStore
-from apscheduler.util import obj_to_ref, dict_values
+from apscheduler.job import Job
+from apscheduler.util import dict_values
+
+logger = logging.getLogger(__name__)
 
 
 class ShelveJobStore(JobStore):
@@ -27,20 +31,32 @@ class ShelveJobStore(JobStore):
                 return id
 
     def add_job(self, job):
-        job.func_ref = obj_to_ref(job.func)
         job.id = self._generate_id()
         self.jobs.append(job)
-        self.store[job.id] = job
+        self.store[job.id] = job.__getstate__()
 
     def update_job(self, job):
-        self.store[job.id] = job
+        job_dict = self.store[job.id]
+        job_dict['next_run_time'] = job.next_run_time
+        job_dict['runs'] = job.runs
+        self.store[job.id] = job_dict
 
     def remove_job(self, job):
         del self.store[job.id]
         self.jobs.remove(job)
 
     def load_jobs(self):
-        self.jobs = dict_values(self.store)
+        jobs = []
+        for job_dict in dict_values(self.store):
+            try:
+                job = Job.__new__(Job)
+                job.__setstate__(job_dict)
+                jobs.append(job)
+            except Exception:
+                job_name = job_dict.get('name', '(unknown)')
+                logger.exception('Unable to restore job "%s"', job_name)
+
+        self.jobs = jobs
 
     def close(self):
         self.store.close()

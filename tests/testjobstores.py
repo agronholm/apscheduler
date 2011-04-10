@@ -31,6 +31,14 @@ def dummy_job():
     pass
 
 
+def dummy_job2():
+    pass
+
+
+def dummy_job3():
+    pass
+
+
 class JobStoreTestBase(object):
     def setup(self):
         self.trigger_date = datetime(2999, 1, 1)
@@ -60,6 +68,26 @@ class JobStoreTestBase(object):
         eq_(self.jobstore.jobs, [])
 
 
+class PersistentJobstoreTestBase(JobStoreTestBase):
+    def test_one_job_fails_to_load(self):
+        global dummy_job2, dummy_job_temp
+        job1 = Job(self.trigger, dummy_job, [], {}, 1, False)
+        job2 = Job(self.trigger, dummy_job2, [], {}, 1, False)
+        job3 = Job(self.trigger, dummy_job3, [], {}, 1, False)
+        for job in job1, job2, job3:
+            job.next_run_time = self.trigger_date
+            self.jobstore.add_job(job)
+
+        dummy_job_temp = dummy_job2
+        del dummy_job2
+        try:
+            self.jobstore.load_jobs()
+            eq_(len(self.jobstore.jobs), 2)
+        finally:
+            dummy_job2 = dummy_job_temp
+            del dummy_job_temp
+
+
 class TestRAMJobStore(JobStoreTestBase):
     @classmethod
     def setup_class(cls):
@@ -69,7 +97,7 @@ class TestRAMJobStore(JobStoreTestBase):
         eq_(repr(self.jobstore), '<RAMJobStore>')
 
 
-class TestShelveJobStore(JobStoreTestBase):
+class TestShelveJobStore(PersistentJobstoreTestBase):
     @classmethod
     def setup_class(cls):
         if not ShelveJobStore:
@@ -92,7 +120,7 @@ class TestShelveJobStore(JobStoreTestBase):
             '<ShelveJobStore (path=%s)>' % self.jobstore.path)
 
 
-class TestSQLAlchemyJobStore1(JobStoreTestBase):
+class TestSQLAlchemyJobStore1(PersistentJobstoreTestBase):
     @classmethod
     def setup_class(cls):
         if not SQLAlchemyJobStore:
@@ -108,7 +136,7 @@ class TestSQLAlchemyJobStore1(JobStoreTestBase):
         eq_(repr(self.jobstore), '<SQLAlchemyJobStore (url=sqlite:///)>')
 
 
-class TestSQLAlchemyJobStore2(JobStoreTestBase):
+class TestSQLAlchemyJobStore2(PersistentJobstoreTestBase):
     @classmethod
     def setup_class(cls):
         if not SQLAlchemyJobStore:
@@ -127,7 +155,7 @@ class TestSQLAlchemyJobStore2(JobStoreTestBase):
         eq_(repr(self.jobstore), '<SQLAlchemyJobStore (url=sqlite:///)>')
 
 
-class TestMongoDBJobStore(JobStoreTestBase):
+class TestMongoDBJobStore(PersistentJobstoreTestBase):
     @classmethod
     def setup_class(cls):
         if not MongoDBJobStore:

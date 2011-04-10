@@ -5,7 +5,8 @@ Jobs represent scheduled tasks.
 from threading import Lock
 from datetime import timedelta
 
-from apscheduler.util import to_unicode, ref_to_obj, get_callable_name
+from apscheduler.util import to_unicode, ref_to_obj, get_callable_name,\
+    obj_to_ref
 
 
 class Job(object):
@@ -103,6 +104,7 @@ class Job(object):
         state.pop('instances', None)
         state.pop('func', None)
         state.pop('_lock', None)
+        state['func_ref'] = obj_to_ref(self.func)
         return state
 
     def __setstate__(self, state):

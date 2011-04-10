@@ -60,6 +60,7 @@ class TestJob(object):
     def test_getstate(self):
         state = self.job.__getstate__()
         eq_(state, dict(trigger=self.trigger,
+                        func_ref='tests.testjob:dummyfunc',
                         name='tests.testjob.dummyfunc', args=[],
                         kwargs={}, misfire_grace_time=1,
                         coalesce=False, max_runs=None,

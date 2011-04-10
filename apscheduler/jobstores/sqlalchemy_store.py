@@ -2,15 +2,17 @@
 Stores jobs in a database table using SQLAlchemy.
 """
 import pickle
+import logging
 
 from apscheduler.jobstores.base import JobStore
 from apscheduler.job import Job
-from apscheduler.util import obj_to_ref
 
 try:
     from sqlalchemy import *
 except ImportError:  # pragma: nocover
     raise ImportError('SQLAlchemyJobStore requires SQLAlchemy installed')
+
+logger = logging.getLogger(__name__)
 
 
 class SQLAlchemyJobStore(JobStore):
@@ -48,7 +50,6 @@ class SQLAlchemyJobStore(JobStore):
         self.jobs_t.create(self.engine, True)
 
     def add_job(self, job):
-        job.func_ref = obj_to_ref(job.func)
         job_dict = job.__getstate__()
         result = self.engine.execute(self.jobs_t.insert().values(**job_dict))
         job.id = result.inserted_primary_key[0]
@@ -62,10 +63,14 @@ class SQLAlchemyJobStore(JobStore):
     def load_jobs(self):
         jobs = []
         for row in self.engine.execute(select([self.jobs_t])):
-            job = Job.__new__(Job)
-            job_dict = dict(row.items())
-            job.__setstate__(job_dict)
-            jobs.append(job)
+            try:
+                job = Job.__new__(Job)
+                job_dict = dict(row.items())
+                job.__setstate__(job_dict)
+                jobs.append(job)
+            except Exception:
+                job_name = job_dict.get('name', '(unknown)')
+                logger.exception('Unable to restore job "%s"', job_name)
         self.jobs = jobs
 
     def update_job(self, job):

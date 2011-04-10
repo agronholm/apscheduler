@@ -1,9 +1,10 @@
 """
 Stores jobs in a MongoDB database.
 """
+import logging
+
 from apscheduler.jobstores.base import JobStore
 from apscheduler.job import Job
-from apscheduler.util import obj_to_ref
 
 try:
     import cPickle as pickle
@@ -15,6 +16,8 @@ try:
     from pymongo.connection import Connection
 except ImportError:  # pragma: nocover
     raise ImportError('MongoDBJobStore requires PyMongo installed')
+
+logger = logging.getLogger(__name__)
 
 
 class MongoDBJobStore(JobStore):
@@ -37,7 +40,6 @@ class MongoDBJobStore(JobStore):
         self.collection = self.connection[database][collection]
 
     def add_job(self, job):
-        job.func_ref = obj_to_ref(job.func)
         job_dict = job.__getstate__()
         job_dict['trigger'] = Binary(pickle.dumps(job.trigger,
                                                   self.pickle_protocol))
@@ -55,13 +57,17 @@ class MongoDBJobStore(JobStore):
     def load_jobs(self):
         jobs = []
         for job_dict in self.collection.find():
-            job = Job.__new__(Job)
-            job_dict['id'] = job_dict.pop('_id')
-            job_dict['trigger'] = pickle.loads(job_dict['trigger'])
-            job_dict['args'] = pickle.loads(job_dict['args'])
-            job_dict['kwargs'] = pickle.loads(job_dict['kwargs'])
-            job.__setstate__(job_dict)
-            jobs.append(job)
+            try:
+                job = Job.__new__(Job)
+                job_dict['id'] = job_dict.pop('_id')
+                job_dict['trigger'] = pickle.loads(job_dict['trigger'])
+                job_dict['args'] = pickle.loads(job_dict['args'])
+                job_dict['kwargs'] = pickle.loads(job_dict['kwargs'])
+                job.__setstate__(job_dict)
+                jobs.append(job)
+            except Exception:
+                job_name = job_dict.get('name', '(unknown)')
+                logger.exception('Unable to restore job "%s"', job_name)
         self.jobs = jobs
 
     def update_job(self, job):
