@@ -27,7 +27,9 @@ class SQLAlchemyJobStore(JobStore):
             raise ValueError('Need either "engine" or "url" defined')
 
         self.jobs_t = Table(tablename, metadata or MetaData(),
-            Column('id', Integer, primary_key=True),
+            Column('id', Integer,
+                   Sequence(tablename + '_id_seq', optional=True),
+                   primary_key=True),
             Column('trigger', PickleType(pickle_protocol, mutable=False),
                    nullable=False),
             Column('func_ref', String(1024), nullable=False),
@@ -72,7 +74,7 @@ class SQLAlchemyJobStore(JobStore):
             values(next_run_time=job_dict['next_run_time'],
                    runs=job_dict['runs'])
         self.engine.execute(update)
-    
+
     def close(self):
         self.engine.dispose()
 
