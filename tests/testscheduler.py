@@ -142,7 +142,7 @@ class TestJobExecution(object):
 
         job = self.scheduler.add_interval_job(my_job,
                                               start_date=datetime(2010, 5, 19))
-        eq_(repr(job), '<Job (name=apschedulertests.testscheduler.my_job, '
+        eq_(repr(job), '<Job (name=tests.testscheduler.my_job, '
             'trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), '
             'start_date=datetime.datetime(2010, 5, 19, 0, 0))>)>')
 

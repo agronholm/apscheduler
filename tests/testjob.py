@@ -60,7 +60,7 @@ class TestJob(object):
     def test_getstate(self):
         state = self.job.__getstate__()
         eq_(state, dict(trigger=self.trigger,
-                        name='apschedulertests.testjob.dummyfunc', args=[],
+                        name='tests.testjob.dummyfunc', args=[],
                         kwargs={}, misfire_grace_time=1,
                         coalesce=False, max_runs=None,
                         max_concurrency=1, runs=0))
@@ -68,7 +68,7 @@ class TestJob(object):
     def test_setstate(self):
         trigger = SimpleTrigger('2010-12-14 13:05:00')
         state = dict(trigger=trigger, name='apschedulertests.testjob.dummyfunc',
-                     func_ref='apschedulertests.testjob:dummyfunc',
+                     func_ref='tests.testjob:dummyfunc',
                      args=[], kwargs={}, misfire_grace_time=2, max_runs=2,
                      coalesce=True, max_concurrency=2, runs=1)
         self.job.__setstate__(state)
@@ -107,10 +107,10 @@ class TestJob(object):
     def test_repr(self):
         self.job.compute_next_run_time(self.RUNTIME)
         eq_(repr(self.job),
-            "<Job (name=apschedulertests.testjob.dummyfunc, "
+            "<Job (name=tests.testjob.dummyfunc, "
             "trigger=<SimpleTrigger (run_date=datetime.datetime(2010, 12, 13, 0, 8))>)>")
         eq_(str(self.job),
-            "apschedulertests.testjob.dummyfunc "
+            "tests.testjob.dummyfunc "
             "(trigger: date[2010-12-13 00:08:00], "
             "next run at: 2010-12-13 00:08:00)")
 
