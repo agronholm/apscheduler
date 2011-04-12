@@ -9,6 +9,10 @@ from apscheduler.util import to_unicode, ref_to_obj, get_callable_name,\
     obj_to_ref
 
 
+class MaxInstancesReachedError(Exception):
+    pass
+
+
 class Job(object):
     """
     Encapsulates the actual Job along with its metadata. Job instances
@@ -87,8 +91,12 @@ class Job(object):
 
     def add_instance(self):
         self._lock.acquire()
-        self.instances += 1
-        self._lock.release()
+        try:
+            if self.instances == self.max_instances:
+                raise MaxInstancesReachedError
+            self.instances += 1
+        finally:
+            self._lock.release()
 
     def remove_instance(self):
         self._lock.acquire()

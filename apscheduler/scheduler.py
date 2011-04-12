@@ -12,7 +12,7 @@ import sys
 from apscheduler.util import *
 from apscheduler.triggers import SimpleTrigger, IntervalTrigger, CronTrigger
 from apscheduler.jobstores.ram_store import RAMJobStore
-from apscheduler.job import Job
+from apscheduler.job import Job, MaxInstancesReachedError
 from apscheduler.events import *
 from apscheduler.threadpool import ThreadPool
 
@@ -431,17 +431,24 @@ class Scheduler(object):
             grace_time = timedelta(seconds=job.misfire_grace_time)
             if difference > grace_time:
                 # Notify listeners about a missed run
-                self._notify_listeners(JobEvent(EVENT_JOB_MISSED, job, run_time))
+                event = JobEvent(EVENT_JOB_MISSED, job, run_time)
+                self._notify_listeners(event)
                 logger.warning('Run time of job "%s" was missed by %s',
                                job, difference)
-            elif job.instances == job.max_instances:
-                # Notify listeners about a missed run
-                self._notify_listeners(JobEvent(EVENT_JOB_MISSED, job, run_time))
-                logger.warning('Execution of job "%s" skipped: too many instances '
-                               'running already (%d)', job, job.max_instances)
             else:
-                logger.info('Running job "%s" (scheduled at %s)', job, run_time)
-                job.add_instance()
+                try:
+                    job.add_instance()
+                except MaxInstancesReachedError:
+                    event = JobEvent(EVENT_JOB_MISSED, job, run_time)
+                    self._notify_listeners(event)
+                    logger.warning('Execution of job "%s" skipped: '
+                                   'maximum number of running instances '
+                                   'reached (%d)', job, job.max_instances)
+                    break
+
+                logger.info('Running job "%s" (scheduled at %s)', job,
+                            run_time)
+
                 try:
                     retval = job.func(*job.args, **job.kwargs)
                 except:
@@ -459,6 +466,7 @@ class Scheduler(object):
                     self._notify_listeners(event)
 
                     logger.info('Job "%s" executed successfully', job)
+
                 job.remove_instance()
 
                 # If coalescing is enabled, don't attempt any further runs

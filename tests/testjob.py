@@ -3,7 +3,7 @@ from threading import Lock
 
 from nose.tools import eq_, raises, assert_raises
 
-from apscheduler.job import Job
+from apscheduler.job import Job, MaxInstancesReachedError
 from apscheduler.triggers.simple import SimpleTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -94,15 +94,23 @@ class TestJob(object):
         assert self.job != 'bleh'
 
     def test_instances(self):
+        self.job.max_instances = 2
         eq_(self.job.instances, 0)
+ 
         self.job.add_instance()
         eq_(self.job.instances, 1)
+
         self.job.add_instance()
         eq_(self.job.instances, 2)
+
+        assert_raises(MaxInstancesReachedError, self.job.add_instance)
+
         self.job.remove_instance()
         eq_(self.job.instances, 1)
+
         self.job.remove_instance()
         eq_(self.job.instances, 0)
+
         assert_raises(AssertionError, self.job.remove_instance)
 
     def test_repr(self):

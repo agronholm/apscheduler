@@ -7,6 +7,7 @@ from nose.tools import eq_
 from nose.plugins.skip import SkipTest
 
 from apscheduler.scheduler import Scheduler
+from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_MISSED
 
 try:
     from apscheduler.jobstores.shelve_store import ShelveJobStore
@@ -30,12 +31,11 @@ def increment(vals):
 
 
 class IntegrationTestBase(object):
-    @classmethod
-    def setup_class(cls):
-        cls.jobstore = cls.make_jobstore()
-        cls.scheduler = Scheduler()
-        cls.scheduler.add_jobstore(cls.jobstore, 'persistent')
-        cls.scheduler.start()
+    def setup(self):
+        self.jobstore = self.make_jobstore()
+        self.scheduler = Scheduler()
+        self.scheduler.add_jobstore(self.jobstore, 'persistent')
+        self.scheduler.start()
 
     def test_overlapping_runs(self):
         # Makes sure that "increment" is only ran once, since it will still be
@@ -46,6 +46,19 @@ class IntegrationTestBase(object):
                                         seconds=1, args=[vals])
         sleep(2.5)
         eq_(vals, [1])
+
+    def test_max_instances(self):
+        vals = [0]
+        events = []
+        self.scheduler.add_listener(events.append,
+                                    EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
+        self.scheduler.add_interval_job(increment, jobstore='persistent',
+            seconds=0.3, max_instances=2, max_runs=4, args=[vals])
+        sleep(1.5)
+        eq_(vals, [2])
+        eq_(events[0].code, EVENT_JOB_EXECUTED)
+        eq_(events[1].code, EVENT_JOB_EXECUTED)
+        eq_(events[2].code, EVENT_JOB_MISSED)
 
 
 class TestShelveIntegration(IntegrationTestBase):
@@ -64,12 +77,11 @@ class TestShelveIntegration(IntegrationTestBase):
         """Shelve/test_overlapping_runs"""
         IntegrationTestBase.test_overlapping_runs(self)
 
-    @classmethod
-    def teardown_class(cls):
-        cls.scheduler.shutdown()
-        cls.jobstore.close()
-        if os.path.exists(cls.jobstore.path):
-            os.remove(cls.jobstore.path)
+    def teardown(self):
+        self.scheduler.shutdown()
+        self.jobstore.close()
+        if os.path.exists(self.jobstore.path):
+            os.remove(self.jobstore.path)
 
 
 class TestSQLAlchemyIntegration(IntegrationTestBase):
@@ -84,10 +96,9 @@ class TestSQLAlchemyIntegration(IntegrationTestBase):
         """SQLAlchemy/test_overlapping_runs"""
         IntegrationTestBase.test_overlapping_runs(self)
 
-    @classmethod
-    def teardown_class(cls):
-        cls.scheduler.shutdown()
-        cls.jobstore.close()
+    def teardown(self):
+        self.scheduler.shutdown()
+        self.jobstore.close()
         if os.path.exists('example.sqlite'):
             os.remove('example.sqlite')
 
@@ -104,9 +115,8 @@ class TestMongoDBIntegration(IntegrationTestBase):
         """MongoDB/test_overlapping_runs"""
         IntegrationTestBase.test_overlapping_runs(self)
 
-    @classmethod
-    def teardown_class(cls):
-        cls.scheduler.shutdown()
-        connection = cls.jobstore.collection.database.connection
-        connection.drop_database(cls.jobstore.collection.database.name)
-        cls.jobstore.close()
+    def teardown(self):
+        self.scheduler.shutdown()
+        connection = self.jobstore.collection.database.connection
+        connection.drop_database(self.jobstore.collection.database.name)
+        self.jobstore.close()
