@@ -107,7 +107,7 @@ class ThreadPool(object):
 
     def submit(self, func, *args, **kwargs):
         if self._shutdown:
-            raise Exception('Thread pool has already been shut down')
+            raise RuntimeError('Cannot schedule new tasks after shutdown')
 
         self._queue.put((func, args, kwargs))
         self._adjust_threadcount()

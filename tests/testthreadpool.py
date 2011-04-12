@@ -29,7 +29,7 @@ def test_threadpool():
     pool.shutdown()
 
     # Make sure one can't submit tasks to a thread pool that has been shut down
-    assert_raises(Exception, pool.submit, event1.set)
+    assert_raises(RuntimeError, pool.submit, event1.set)
 
 
 def test_threadpool_maxthreads():
