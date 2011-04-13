@@ -103,30 +103,27 @@ class Scheduler(object):
         self._thread.setDaemon(self.daemonic)
         self._thread.start()
 
-        # Notify listeners that the scheduler has been started
-        self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_START))
-
-        logger.info('Scheduler started')
-
-    def shutdown(self, timeout=0):
+    def shutdown(self, wait=True, shutdown_threadpool=True):
         """
         Shuts down the scheduler and terminates the thread.
-        Does not terminate any currently running jobs.
+        Does not interrupt any currently running jobs.
 
-        :param timeout: time (in seconds) to wait for the scheduler thread to
-            terminate, ``0`` to wait forever, ``None`` to skip waiting
+        :param wait: ``True`` to wait until all currently executing jobs have
+                     finished (if ``shutdown_threadpool`` is also ``True``)
+        :param shutdown_threadpool: ``True`` to shut down the thread pool
         """
         if not self.running:
             return
 
-        logger.info('Scheduler shutting down')
         self._stopped = True
         self._wakeup.set()
-        if timeout is not None:
-            self._thread.join(timeout)
 
-        # Notify listeners that the scheduler has been shut down
-        self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN))
+        # Shut down the thread pool
+        if shutdown_threadpool:
+            self._threadpool.shutdown(wait)
+
+        # Wait until the scheduler thread terminates
+        self._thread.join()
 
     @property
     def running(self):
@@ -507,6 +504,7 @@ class Scheduler(object):
     def _main_loop(self):
         """Executes jobs on schedule."""
 
+        logger.info('Scheduler started')
         self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_START))
 
         self._wakeup.clear()
@@ -527,4 +525,5 @@ class Scheduler(object):
                 self._wakeup.wait()
             self._wakeup.clear()
 
+        logger.info('Scheduler has been shut down')
         self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN))

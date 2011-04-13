@@ -383,7 +383,7 @@ class TestRunningScheduler(object):
             self.scheduler.shutdown()
 
     def test_shutdown_timeout(self):
-        self.scheduler.shutdown(3)
+        self.scheduler.shutdown()
 
     @raises(SchedulerAlreadyRunningError)
     def test_scheduler_double_start(self):
@@ -394,5 +394,5 @@ class TestRunningScheduler(object):
         self.scheduler.configure({})
 
     def test_scheduler_double_shutdown(self):
-        self.scheduler.shutdown(1)
         self.scheduler.shutdown()
+        self.scheduler.shutdown(False)

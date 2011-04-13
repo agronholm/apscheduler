@@ -20,6 +20,8 @@ API changes
   universal ``max_runs`` option
 * :meth:`~apscheduler.scheduler.Scheduler.unschedule_func` now raises a
   KeyError if the given function is not scheduled
+* The semantics of :meth:`~apscheduler.scheduler.Scheduler.shutdown`` have
+  changed -- the method no longer accepts a numeric argument, but two booleans;
 
 
 Configuration changes

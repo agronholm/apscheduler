@@ -123,28 +123,24 @@ run retroactively in such cases.
 Shutting down the scheduler
 ---------------------------
 
-::
+To shut down the scheduler::
 
     sched.shutdown()
 
-A scheduler that has been shut down can be restarted, but the shutdown
-procedure clears any scheduled non-persistent jobs.
+By default, the scheduler shuts down its thread pool and waits until all
+currently executing jobs are finished. For a faster exit you can do::
 
-If you want to make sure that the scheduler has really terminated, you
-can specify a timeout (in seconds)::
+    sched.shutdown(wait=False)
 
-    sched.shutdown(10)
+This will still shut down the thread pool but does not wait for any running
+tasks to complete. Also, if you gave the scheduler a thread pool that you want
+to manage elsewhere, you probably want to skip the thread pool shutdown
+altogether::
 
-This will wait at most 10 seconds for the scheduler thread to terminate,
-and then proceed anyways.
+    sched.shutdown(shutdown_threadpool=False)
 
-To make sure that the scheduler has terminated, you can specify
-a timeout of 0. This will disable the waiting timeout and will wait as long as
-it takes for the scheduler to shut down.
-
-.. note::
-	Shutting down the scheduler does not guarantee that all jobs have
-	terminated.
+This implies ``wait=False``, since there is no way to wait for the scheduler's
+tasks to finish without shutting down the thread pool.
 
 
 Scheduler configuration options
