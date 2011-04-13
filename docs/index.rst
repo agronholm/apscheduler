@@ -182,7 +182,7 @@ jobstores.X.Y                    Constructor option Y of jobstore X
 Job stores
 ----------
 
-APScheduler keeps all the scheduled jobs in `job stores`. Job stores are
+APScheduler keeps all the scheduled jobs in *job stores*. Job stores are
 configurable adapters to some back-end that may or may not support persisting
 job configurations on disk, database or something else. Job stores are added
 to the scheduler and identified by their aliases. The alias "default" is special
@@ -235,18 +235,6 @@ using a textual reference saved when the job was added. Unfortunately this
 means that **you can only schedule top level functions with persistent job
 stores**. The job store will raise an exception if you attempt to schedule a
 noncompliant callable.
-
-
-Triggers
---------
-
-Triggers determine the times when the jobs should be run.
-APScheduler comes with three built-in triggers --
-:class:`~apscheduler.triggers.simple.SimpleTrigger`,
-:class:`~apscheduler.triggers.interval.IntervalTrigger` and
-:class:`~apscheduler.triggers.cron.CronTrigger`. You don't normally use these
-directly, since the scheduler has shortcut methods for these built-in
-triggers, as discussed in the next section.
 
 
 Limiting the number of concurrently executing instances of a job

@@ -8,6 +8,14 @@ APScheduler, such as custom triggers or job stores.
 Writing and using custom triggers
 ---------------------------------
 
+Triggers determine the times when the jobs should be run.
+APScheduler comes with three built-in triggers --
+:class:`~apscheduler.triggers.simple.SimpleTrigger`,
+:class:`~apscheduler.triggers.interval.IntervalTrigger` and
+:class:`~apscheduler.triggers.cron.CronTrigger`. You don't normally use these
+directly, since the scheduler has shortcut methods for these built-in
+triggers.
+
 If you need to use some specialized scheduling algorithm, you can implement
 that as a custom trigger class. The only method a trigger class has to
 implement is ``get_next_fire_time``. This method receives a starting date
