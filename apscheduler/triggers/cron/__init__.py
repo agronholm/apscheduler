@@ -23,7 +23,7 @@ class CronTrigger(object):
 
         self.fields = []
         for field_name in self.FIELD_NAMES:
-            exprs = values.get(field_name) or '*'
+            exprs = values.get(field_name, '*')
             field_class = self.FIELDS_MAP[field_name]
             field = field_class(field_name, exprs)
             self.fields.append(field)

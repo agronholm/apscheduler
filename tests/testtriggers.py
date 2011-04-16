@@ -29,6 +29,11 @@ def test_cron_trigger_3():
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
 
+def test_cron_zero_value():
+    trigger = CronTrigger(year=2009, month=2, hour=0)
+    eq_(repr(trigger), "<CronTrigger (year='2009', month='2', hour='0')>")
+
+
 def test_cron_year_list():
     trigger = CronTrigger(year='2009,2008')
     eq_(repr(trigger), "<CronTrigger (year='2009,2008')>")
