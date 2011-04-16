@@ -34,7 +34,7 @@ Features
 Documentation
 =============
 
-Documentation can be found `here <http://packages.python.org/APScheduler/>`_.
+Documentation can be found `here <http://readthedocs.org/docs/apscheduler/en/latest/>`_.
 
 
 Source
