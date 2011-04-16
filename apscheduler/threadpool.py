@@ -31,7 +31,7 @@ atexit.register(_shutdown_all)
 
 
 class ThreadPool(object):
-    def __init__(self, core_threads=0, max_threads=None, keepalive=1):
+    def __init__(self, core_threads=0, max_threads=20, keepalive=1):
         """
         :param core_threads: maximum number of persistent threads in the pool
         :param max_threads: maximum number of total threads in the pool
@@ -40,15 +40,12 @@ class ThreadPool(object):
             for new tasks
         """
         self.core_threads = core_threads
-        self.max_threads = max_threads
+        self.max_threads = max(max_threads, core_threads, 1)
         self.keepalive = keepalive
         self._queue = Queue()
         self._threads_lock = Lock()
         self._threads = set()
         self._shutdown = False
-
-        if max_threads is not None:
-            self.max_threads = max(max_threads, core_threads, 1)
 
         _threadpools.add(ref(self))
         logger.info('Started thread pool with %d core threads and %s maximum '
@@ -57,13 +54,8 @@ class ThreadPool(object):
     def _adjust_threadcount(self):
         self._threads_lock.acquire()
         try:
-            qsize = self._queue.qsize()
-            if self.num_threads < self.core_threads:
-                self._add_thread(True)
-            elif qsize > 1 and self.num_threads < self.max_threads:
-                self._add_thread(False)
-            elif self.num_threads == 0:
-                self._add_thread(False)
+            if self.num_threads < self.max_threads:
+                self._add_thread(self.num_threads < self.core_threads)
         finally:
             self._threads_lock.release()
 

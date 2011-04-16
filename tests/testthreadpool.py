@@ -20,10 +20,11 @@ def test_threadpool():
     assert event1.isSet()
     assert event2.isSet()
     assert event3.isSet()
-    eq_(repr(pool), '<ThreadPool at %x; threads=2>' % id(pool))
+    sleep(0.3)
+    eq_(repr(pool), '<ThreadPool at %x; threads=2/20>' % id(pool))
 
     pool.shutdown()
-    eq_(repr(pool), '<ThreadPool at %x; threads=0>' % id(pool))
+    eq_(repr(pool), '<ThreadPool at %x; threads=0/20>' % id(pool))
 
     # Make sure double shutdown is ok
     pool.shutdown()
@@ -50,4 +51,4 @@ def test_threadpool_nocore():
     event.wait(1)
     assert event.isSet()
     sleep(1)
-    eq_(repr(pool), '<ThreadPool at %x; threads=0>' % id(pool))
+    eq_(repr(pool), '<ThreadPool at %x; threads=0/20>' % id(pool))

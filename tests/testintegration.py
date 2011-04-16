@@ -25,9 +25,9 @@ except ImportError:
     MongoDBJobStore = None
 
 
-def increment(vals):
+def increment(vals, sleeptime):
     vals[0] += 1
-    sleep(2)
+    sleep(sleeptime)
 
 
 class IntegrationTestBase(object):
@@ -43,7 +43,7 @@ class IntegrationTestBase(object):
 
         vals = [0]
         self.scheduler.add_interval_job(increment, jobstore='persistent',
-                                        seconds=1, args=[vals])
+                                        seconds=1, args=[vals, 2])
         sleep(2.5)
         eq_(vals, [1])
 
@@ -53,12 +53,14 @@ class IntegrationTestBase(object):
         self.scheduler.add_listener(events.append,
                                     EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
         self.scheduler.add_interval_job(increment, jobstore='persistent',
-            seconds=0.3, max_instances=2, max_runs=4, args=[vals])
-        sleep(1.5)
+            seconds=0.3, max_instances=2, max_runs=4, args=[vals, 1])
+        sleep(2.4)
         eq_(vals, [2])
-        eq_(events[0].code, EVENT_JOB_EXECUTED)
-        eq_(events[1].code, EVENT_JOB_EXECUTED)
-        eq_(events[2].code, EVENT_JOB_MISSED)
+        eq_(len(events), 4)
+        eq_(events[0].code, EVENT_JOB_MISSED)
+        eq_(events[1].code, EVENT_JOB_MISSED)
+        eq_(events[2].code, EVENT_JOB_EXECUTED)
+        eq_(events[3].code, EVENT_JOB_EXECUTED)
 
 
 class TestShelveIntegration(IntegrationTestBase):
@@ -76,6 +78,10 @@ class TestShelveIntegration(IntegrationTestBase):
     def test_overlapping_runs(self):
         """Shelve/test_overlapping_runs"""
         IntegrationTestBase.test_overlapping_runs(self)
+
+    def test_max_instances(self):
+        """Shelve/test_max_instances"""
+        IntegrationTestBase.test_max_instances(self)
 
     def teardown(self):
         self.scheduler.shutdown()
@@ -96,6 +102,10 @@ class TestSQLAlchemyIntegration(IntegrationTestBase):
         """SQLAlchemy/test_overlapping_runs"""
         IntegrationTestBase.test_overlapping_runs(self)
 
+    def test_max_instances(self):
+        """SQLAlchemy/test_max_instances"""
+        IntegrationTestBase.test_max_instances(self)
+
     def teardown(self):
         self.scheduler.shutdown()
         self.jobstore.close()
@@ -114,6 +124,10 @@ class TestMongoDBIntegration(IntegrationTestBase):
     def test_overlapping_runs(self):
         """MongoDB/test_overlapping_runs"""
         IntegrationTestBase.test_overlapping_runs(self)
+
+    def test_max_instances(self):
+        """SQLAlchemy/test_max_instances"""
+        IntegrationTestBase.test_max_instances(self)
 
     def teardown(self):
         self.scheduler.shutdown()

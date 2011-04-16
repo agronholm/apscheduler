@@ -146,37 +146,39 @@ tasks to finish without shutting down the thread pool.
 Scheduler configuration options
 -------------------------------
 
-======================= ======== ==============================================
-Directive               Default  Definition
-======================= ======== ==============================================
-misfire_grace_time      1        Maximum time in seconds for the job execution
-                                 to be allowed to delay before it is considered
-                                 a misfire
-coalesce                False    Roll several pending executions of jobs into one
-daemonic                True     Controls whether the scheduler thread is
-                                 daemonic or not.
-                                 
-                                 If set to ``False``, then the
-                                 scheduler must be shut down explicitly
-                                 when the program is about to finish, or it will
-                                 prevent the program from terminating.
+======================= ========== ==============================================
+Directive               Default    Definition
+======================= ========== ==============================================
+misfire_grace_time      1          Maximum time in seconds for the job execution
+                                   to be allowed to delay before it is considered
+                                   a misfire
+coalesce                False      Roll several pending executions of jobs into one
+daemonic                True       Controls whether the scheduler thread is
+                                   daemonic or not.
 
-                                 If set to ``True``, the scheduler will
-                                 automatically terminate with the application,
-                                 but may cause an exception to be raised on
-                                 exit.
-                                 
-                                 Jobs are always executed in non-daemonic
-                                 threads.
-threadpool                       
-threadpool.core_threads 0        Maximum number of persistent threads in the pool
-threadpool.max_threads  None     Maximum number of total threads in the pool
-threadpool.keepalive    1        Seconds to keep non-core worker threads waiting
-                                 for new tasks
-jobstores.X.class                Class of the jobstore named X (specified as
-                                 module.name:classname)
-jobstores.X.Y                    Constructor option Y of jobstore X
-======================= ======== ==============================================
+                                   If set to ``False``, then the
+                                   scheduler must be shut down explicitly
+                                   when the program is about to finish, or it will
+                                   prevent the program from terminating.
+
+                                   If set to ``True``, the scheduler will
+                                   automatically terminate with the application,
+                                   but may cause an exception to be raised on
+                                   exit.
+
+                                   Jobs are always executed in non-daemonic
+                                   threads.
+threadpool              (built-in) Instance of a :pep:`3148` compliant thread
+                                   pool or a dot-notation (``x.y.z:varname``)
+                                   reference to one
+threadpool.core_threads 0          Maximum number of persistent threads in the pool
+threadpool.max_threads  20         Maximum number of total threads in the pool
+threadpool.keepalive    1          Seconds to keep non-core worker threads waiting
+                                   for new tasks
+jobstores.X.class                  Class of the jobstore named X (specified as
+                                   module.name:classname)
+jobstores.X.Y                      Constructor option Y of jobstore X
+======================= ========== ==============================================
 
 
 Job stores
