@@ -187,14 +187,14 @@ Job stores
 APScheduler keeps all the scheduled jobs in *job stores*. Job stores are
 configurable adapters to some back-end that may or may not support persisting
 job configurations on disk, database or something else. Job stores are added
-to the scheduler and identified by their aliases. The alias "default" is special
-in that if the user does not explicitly specify a job store alias when scheduling
-a job, it goes to the "default" job store. If there is no job store in the
-scheduler by that name when the scheduler is started, a new job store of type
-:class:`~apscheduler.jobstores.ram_store.RAMJobStore` is created to serve as
-the default.
+to the scheduler and identified by their aliases. The alias ``default`` is
+special in that if the user does not explicitly specify a job store alias when
+scheduling a job, it goes to the ``default`` job store. If there is no job
+store in the scheduler by that name when the scheduler is started, a new job
+store of type :class:`~apscheduler.jobstores.ram_store.RAMJobStore` is created
+to serve as the default.
 
-The built-in job stores are:
+The other built-in job stores are:
 
 * :class:`~apscheduler.jobstores.shelve_store.ShelveJobStore`
 * :class:`~apscheduler.jobstores.sqlalchemy_store.SQLAlchemyJobStore`
