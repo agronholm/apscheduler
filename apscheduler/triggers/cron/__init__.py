@@ -23,9 +23,18 @@ class CronTrigger(object):
 
         self.fields = []
         for field_name in self.FIELD_NAMES:
-            exprs = values.get(field_name, '*')
+            if field_name in values:
+                exprs = values.pop(field_name)
+                is_default = False
+            elif not values:
+                exprs = DEFAULT_VALUES[field_name]
+                is_default = True
+            else:
+                exprs = '*'
+                is_default = True
+
             field_class = self.FIELDS_MAP[field_name]
-            field = field_class(field_name, exprs)
+            field = field_class(field_name, exprs, is_default)
             self.fields.append(field)
 
     def _increment_field_value(self, dateval, fieldnum):
@@ -115,12 +124,12 @@ class CronTrigger(object):
 
     def __str__(self):
         options = ["%s='%s'" % (f.name, str(f)) for f in self.fields
-                   if str(f) != '*']
+                   if not f.is_default]
         return 'cron[%s]' % (', '.join(options))
 
     def __repr__(self):
         options = ["%s='%s'" % (f.name, str(f)) for f in self.fields
-                   if str(f) != '*']
+                   if not f.is_default]
         if self.start_date:
             options.append("start_date='%s'" % self.start_date.isoformat(' '))
         return '<%s (%s)>' % (self.__class__.__name__, ', '.join(options))

@@ -5,13 +5,24 @@ This is the most powerful scheduling method available in APScheduler.
 You can specify a variety of different expressions on each field, and
 when determining the next execution time, it finds the earliest possible
 time that satisfies the conditions in every field.
-This behavior closely resembles the "Cron" utility found in most UNIX-like
-operating systems.
+This behavior resembles the "Cron" utility found in most UNIX-like operating
+systems.
 
 You can also specify the starting date for the cron-style schedule through the
 ``start_date`` parameter, which can be given as a date/datetime object or text.
 See the :doc:`Date-based scheduling section <dateschedule>` for examples on
 that.
+
+Unlike with crontab expressions, you can omit fields that you don't need.
+Fields greater than the least significant explicitly defined field default to
+``*`` while lesser fields default to their minimum values except for ``week``
+and ``day_of_week`` which default to ``*``. For example, if you specify only
+``day=1, minute=20``, then the job will execute on the first day of every month
+on every year at 20 minutes of every hour. The code examples below should
+further illustrate this behavior.
+
+.. Note:: The behavior for omitted fields was changed in APScheduler 2.0.
+          Omitted fields previously always defaulted to ``*``.
 
 
 Available fields
@@ -56,8 +67,8 @@ Expression   Field     Description
 ============ ========= ======================================================
 
 
-Example
--------
+Example 1
+---------
 
 ::
 
@@ -71,10 +82,19 @@ Example
         print "Hello World"
 
     # Schedules job_function to be run on the third Friday
-    # of June, July, August, November and December, from midnight
-    # to 3 am
-    sched.add_cron_job(job_function, month='6-8,11-12', day='3rd fri',
-                       hour='0-3')
+    # of June, July, August, November and December at 00:00, 01:00, 02:00 and 03:00
+    sched.add_cron_job(job_function, month='6-8,11-12', day='3rd fri', hour='0-3')
+
+
+Example 2
+---------
+
+::
+
+    # Initialization similar as above, the backup function defined elsewhere
+    
+    # Schedule a backup to run once from Monday to Friday at 5:30 (am)
+    sched.add_cron_job(backup, day_of_week='mon-fri', hour=5, minute=30)
 
 
 Decorator syntax
@@ -90,7 +110,7 @@ parameter, obviously.
 
     @sched.cron_schedule(day='last sun')
     def some_decorated_task():
-        print "I am printed on the last sunday of every month!"
+        print "I am printed at 00:00:00 on the last Sunday of every month!"
 
 If you need to unschedule the decorated functions, you can do it this way::
 

@@ -34,6 +34,10 @@ Version history
   scheduler thread was woken up while still within the allowable range of their
   previous execution time (issues #5, #7)
 
+* Changed defaults for cron-style jobs to be more intuitive -- it will now
+  default to all minimum values for fields lower than the least significant
+  explicitly defined field
+
 Some API changes were necessary -- see the :doc:`migration section <migration>`
 of the documentation to find out what you need to change when migrating your
 application from APScheduler v1.x to v2.0.

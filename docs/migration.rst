@@ -8,6 +8,10 @@ explains the changes made to v2.0 that are incompatible with the v1.x API.
 API changes
 -----------
 
+* The behavior of cron scheduling with regards to default values for omitted
+  fields has been made more intuitive -- omitted fields lower than the least
+  significant explicitly defined field will default to their minimum values
+  except for the week number and weekday fields
 * SchedulerShutdownError has been removed -- jobs are now added tentatively
   and scheduled for real when/if the scheduler is restarted
 * Scheduler.is_job_active() has been removed -- use

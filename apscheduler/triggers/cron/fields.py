@@ -7,21 +7,25 @@ from calendar import monthrange
 
 from apscheduler.triggers.cron.expressions import *
 
-__all__ = ('BaseField', 'WeekField', 'DayOfMonthField', 'DayOfWeekField')
+__all__ = ('MIN_VALUES', 'MAX_VALUES', 'DEFAULT_VALUES', 'BaseField',
+           'WeekField', 'DayOfMonthField', 'DayOfWeekField')
 
 
 MIN_VALUES = {'year': 1970, 'month': 1, 'day': 1, 'week': 1,
               'day_of_week': 0, 'hour': 0, 'minute': 0, 'second': 0}
 MAX_VALUES = {'year': 2 ** 63, 'month': 12, 'day:': 31, 'week': 53,
               'day_of_week': 6, 'hour': 23, 'minute': 59, 'second': 59}
+DEFAULT_VALUES = {'year': '*', 'month': 1, 'day': 1, 'week': '*',
+                  'day_of_week': '*', 'hour': 0, 'minute': 0, 'second': 0}
 
 
 class BaseField(object):
     REAL = True
     COMPILERS = [AllExpression, RangeExpression]
 
-    def __init__(self, name, exprs):
+    def __init__(self, name, exprs, is_default=False):
         self.name = name
+        self.is_default = is_default
         self.compile_expressions(exprs)
 
     def get_min(self, dateval):
