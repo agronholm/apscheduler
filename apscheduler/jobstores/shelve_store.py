@@ -9,7 +9,7 @@ import logging
 
 from apscheduler.jobstores.base import JobStore
 from apscheduler.job import Job
-from apscheduler.util import dict_values
+from apscheduler.util import itervalues
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class ShelveJobStore(JobStore):
 
     def load_jobs(self):
         jobs = []
-        for job_dict in dict_values(self.store):
+        for job_dict in itervalues(self.store):
             try:
                 job = Job.__new__(Job)
                 job.__setstate__(job_dict)

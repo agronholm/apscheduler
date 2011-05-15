@@ -203,7 +203,13 @@ class Scheduler(object):
             self._listeners_lock.release()
 
     def _notify_listeners(self, event):
-        for cb, mask in tuple(self._listeners):
+        self._listeners_lock.acquire()
+        try:
+            listeners = tuple(self._listeners)
+        finally:
+            self._listeners_lock.release()
+
+        for cb, mask in listeners:
             if event.code & mask:
                 try:
                     cb(event)
@@ -215,11 +221,15 @@ class Scheduler(object):
         if not job.next_run_time:
             raise ValueError('Not adding job since it would never be run')
 
+        self._jobstores_lock.acquire()
         try:
-            store = self._jobstores[jobstore]
-        except KeyError:
-            raise KeyError('No such job store: %s' % jobstore)
-        store.add_job(job)
+            try:
+                store = self._jobstores[jobstore]
+            except KeyError:
+                raise KeyError('No such job store: %s' % jobstore)
+            store.add_job(job)
+        finally:
+            self._jobstores_lock.release()
 
         # Notify listeners that a new job has been added
         event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, jobstore, job)
@@ -366,19 +376,27 @@ class Scheduler(object):
 
         :return: list of :class:`~apscheduler.job.Job` objects
         """
-        jobs = []
-        for jobstore in dict_values(self._jobstores):
-            jobs.extend(jobstore.jobs)
-        return jobs
+        self._jobstores_lock.acquire()
+        try:
+            jobs = []
+            for jobstore in itervalues(self._jobstores):
+                jobs.extend(jobstore.jobs)
+            return jobs
+        finally:
+            self._jobstores_lock.release()
 
     def unschedule_job(self, job):
         """
         Removes a job, preventing it from being run any more.
         """
-        for alias, jobstore in dict_items(self._jobstores):
-            if job in list(jobstore.jobs):
-                self._remove_job(job, alias, jobstore)
-                return
+        self._jobstores_lock.acquire()
+        try:
+            for alias, jobstore in iteritems(self._jobstores):
+                if job in list(jobstore.jobs):
+                    self._remove_job(job, alias, jobstore)
+                    return
+        finally:
+            self._jobstores_lock.release()
 
         raise KeyError('Job "%s" is not scheduled in any job store' % job)
 
@@ -387,11 +405,15 @@ class Scheduler(object):
         Removes all jobs that would execute the given function.
         """
         found = False
-        for alias, jobstore in dict_items(self._jobstores):
-            for job in list(jobstore.jobs):
-                if job.func == func:
-                    self._remove_job(job, alias, jobstore)
-                    found = True
+        self._jobstores_lock.acquire()
+        try:
+            for alias, jobstore in iteritems(self._jobstores):
+                for job in list(jobstore.jobs):
+                    if job.func == func:
+                        self._remove_job(job, alias, jobstore)
+                        found = True
+        finally:
+            self._jobstores_lock.release()
 
         if not found:
             raise KeyError('The given function is not scheduled in this '
@@ -407,13 +429,17 @@ class Scheduler(object):
         """
         out = out or sys.stdout
         job_strs = []
-        for alias, jobstore in dict_items(self._jobstores):
-            job_strs.append('Jobstore %s:' % alias)
-            if jobstore.jobs:
-                for job in jobstore.jobs:
-                    job_strs.append('    %s' % job)
-            else:
-                job_strs.append('    No scheduled jobs')
+        self._jobstores_lock.acquire()
+        try:
+            for alias, jobstore in iteritems(self._jobstores):
+                job_strs.append('Jobstore %s:' % alias)
+                if jobstore.jobs:
+                    for job in jobstore.jobs:
+                        job_strs.append('    %s' % job)
+                else:
+                    job_strs.append('    No scheduled jobs')
+        finally:
+            self._jobstores_lock.release()
 
         out.write(os.linesep.join(job_strs))
 
@@ -476,30 +502,34 @@ class Scheduler(object):
         and figures out the next wakeup time.
         """
         next_wakeup_time = None
-        for alias, jobstore in dict_items(self._jobstores):
-            for job in tuple(jobstore.jobs):
-                run_times = job.get_run_times(now)
-                if run_times:
-                    self._threadpool.submit(self._run_job, job, run_times)
+        self._jobstores_lock.acquire()
+        try:
+            for alias, jobstore in iteritems(self._jobstores):
+                for job in tuple(jobstore.jobs):
+                    run_times = job.get_run_times(now)
+                    if run_times:
+                        self._threadpool.submit(self._run_job, job, run_times)
 
-                    # Increase the job's run count
-                    if job.coalesce:
-                        job.runs += 1
-                    else:
-                        job.runs += len(run_times)
+                        # Increase the job's run count
+                        if job.coalesce:
+                            job.runs += 1
+                        else:
+                            job.runs += len(run_times)
 
-                    # Update the job, but don't keep finished jobs around
-                    if job.compute_next_run_time(now + timedelta(microseconds=1)):
-                        jobstore.update_job(job)
-                    else:
-                        self._remove_job(job, alias, jobstore)
+                        # Update the job, but don't keep finished jobs around
+                        if job.compute_next_run_time(now + timedelta(microseconds=1)):
+                            jobstore.update_job(job)
+                        else:
+                            self._remove_job(job, alias, jobstore)
 
-                if not next_wakeup_time:
-                    next_wakeup_time = job.next_run_time
-                elif job.next_run_time:
-                    next_wakeup_time = min(next_wakeup_time,
-                                           job.next_run_time)
-        return next_wakeup_time
+                    if not next_wakeup_time:
+                        next_wakeup_time = job.next_run_time
+                    elif job.next_run_time:
+                        next_wakeup_time = min(next_wakeup_time,
+                                               job.next_run_time)
+            return next_wakeup_time
+        finally:
+            self._jobstores_lock.release()
 
     def _main_loop(self):
         """Executes jobs on schedule."""

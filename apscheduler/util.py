@@ -10,7 +10,7 @@ import sys
 __all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds',
            'time_difference', 'datetime_ceil', 'combine_opts',
            'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref',
-           'to_unicode', 'dict_keys', 'dict_values', 'dict_items', 'xrange')
+           'to_unicode', 'iteritems', 'itervalues', 'xrange')
 
 
 def asint(text):
@@ -195,12 +195,10 @@ def to_unicode(string, encoding='ascii'):
 
 
 if sys.version_info < (3, 0):  # pragma: nocover
-    dict_keys = lambda d: d.keys()
-    dict_values = lambda d: d.values()
-    dict_items = lambda d: d.items()
+    iteritems = lambda d: d.iteritems()
+    itervalues = lambda d: d.itervalues()
     xrange = xrange
 else:  # pragma: nocover
-    dict_keys = lambda d: list(d.keys())
-    dict_values = lambda d: list(d.values())
-    dict_items = lambda d: list(d.items())
+    iteritems = lambda d: d.items()
+    itervalues = lambda d: d.values()
     xrange = range
