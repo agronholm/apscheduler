@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from logging import StreamHandler, ERROR
 from copy import copy
 import os
@@ -7,10 +7,10 @@ from nose.tools import eq_, raises
 
 from apscheduler.jobstores.ram_store import RAMJobStore
 from apscheduler.scheduler import Scheduler, SchedulerAlreadyRunningError
-from apscheduler.job import *
-from apscheduler import scheduler
+from apscheduler.job import Job
 from apscheduler.events import EVENT_JOB_EXECUTED, SchedulerEvent, \
     EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOB_MISSED
+from apscheduler import scheduler
 
 try:
     from StringIO import StringIO
