@@ -355,9 +355,10 @@ Getting help
 
 If you have problems or other questions, you can either:
 
-* Join the ``#apscheduler`` channel on
-  `Freenode IRC <http://freenode.net/irc_servers.shtml>`_, or
-* Send email to <apscheduler at nextday dot fi>
+* Ask on the `APScheduler Google group
+  <https://groups.google.com/forum/#!forum/apscheduler>`_, or
+* Ask on the ``#apscheduler`` channel on
+  `Freenode IRC <http://freenode.net/irc_servers.shtml>`_
 
 
 Reporting bugs
