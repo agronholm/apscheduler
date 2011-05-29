@@ -43,4 +43,4 @@ examples.
 To use your job store, you must add it to the scheduler as normal::
 
   jobstore = MyJobStore()
-  scheduler.add_jobstore(jobstore)
+  scheduler.add_jobstore(jobstore, 'mystore')

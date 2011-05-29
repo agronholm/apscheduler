@@ -225,10 +225,6 @@ job stores -- one
 :class:`~apscheduler.jobstores.ram_store.RAMJobStore` and one
 :class:`~apscheduler.jobstores.shelve_store.ShelveJobStore`.
 
-In addition to the built-in job stores, it is possible to extend APScheduler to
-support other persistence mechanisms as well. See the
-:doc:`Extending APScheduler <extending>` section for details.
-
 
 Job persistency
 ---------------
@@ -333,6 +329,13 @@ as an argument to this method, it will output the results in that file.
 To get a machine processable list of the scheduled jobs, you can use the
 :meth:`~apscheduler.scheduler.Scheduler.get_jobs` scheduler method. It will
 return a list of :class:`~apscheduler.job.Job` instances.
+
+
+Extending APScheduler
+=====================
+
+It is possible to extend APScheduler to support alternative job stores and
+triggers. See the :doc:`Extending APScheduler <extending>` document for details.
 
 
 FAQ
