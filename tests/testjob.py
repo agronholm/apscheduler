@@ -60,16 +60,16 @@ class TestJob(object):
     def test_getstate(self):
         state = self.job.__getstate__()
         eq_(state, dict(trigger=self.trigger,
-                        func_ref='tests.testjob:dummyfunc',
-                        name='tests.testjob.dummyfunc', args=[],
+                        func_ref='testjob:dummyfunc',
+                        name='dummyfunc', args=[],
                         kwargs={}, misfire_grace_time=1,
                         coalesce=False, max_runs=None,
                         max_instances=1, runs=0))
 
     def test_setstate(self):
         trigger = SimpleTrigger('2010-12-14 13:05:00')
-        state = dict(trigger=trigger, name='apschedulertests.testjob.dummyfunc',
-                     func_ref='tests.testjob:dummyfunc',
+        state = dict(trigger=trigger, name='testjob.dummyfunc',
+                     func_ref='testjob:dummyfunc',
                      args=[], kwargs={}, misfire_grace_time=2, max_runs=2,
                      coalesce=True, max_instances=2, runs=1)
         self.job.__setstate__(state)
@@ -116,11 +116,10 @@ class TestJob(object):
     def test_repr(self):
         self.job.compute_next_run_time(self.RUNTIME)
         eq_(repr(self.job),
-            "<Job (name=tests.testjob.dummyfunc, "
+            "<Job (name=dummyfunc, "
             "trigger=<SimpleTrigger (run_date=datetime.datetime(2010, 12, 13, 0, 8))>)>")
         eq_(str(self.job),
-            "tests.testjob.dummyfunc "
-            "(trigger: date[2010-12-13 00:08:00], "
+            "dummyfunc (trigger: date[2010-12-13 00:08:00], "
             "next run at: 2010-12-13 00:08:00)")
 
 

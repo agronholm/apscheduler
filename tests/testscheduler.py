@@ -142,7 +142,7 @@ class TestJobExecution(object):
 
         job = self.scheduler.add_interval_job(my_job,
                                               start_date=datetime(2010, 5, 19))
-        eq_(repr(job), '<Job (name=tests.testscheduler.my_job, '
+        eq_(repr(job), '<Job (name=my_job, '
             'trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), '
             'start_date=datetime.datetime(2010, 5, 19, 0, 0))>)>')
 
@@ -336,7 +336,7 @@ class TestJobExecution(object):
         out = StringIO()
         self.scheduler.print_jobs(out)
         expected = 'Jobstore default:%s    '\
-            'copy.copy (trigger: date[2200-05-19 00:00:00], '\
+            'copy (trigger: date[2200-05-19 00:00:00], '\
             'next run at: 2200-05-19 00:00:00)' % os.linesep
         eq_(out.getvalue(), expected)
 

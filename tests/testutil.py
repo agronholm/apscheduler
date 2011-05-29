@@ -179,7 +179,7 @@ def test_callable_name():
 def test_obj_to_ref():
     assert_raises(ValueError, obj_to_ref, DummyClass.meth)
     assert_raises(ValueError, obj_to_ref, DummyClass.staticmeth)
-    eq_(obj_to_ref(DummyClass.classmeth), 'tests.testutil:DummyClass.classmeth')
+    eq_(obj_to_ref(DummyClass.classmeth), 'testutil:DummyClass.classmeth')
     eq_(obj_to_ref(shelve.open), 'shelve:open')
 
 
