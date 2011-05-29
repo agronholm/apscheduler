@@ -57,6 +57,6 @@ Getting help
 If you have problems or other questions, you can either:
 
 * Ask on the `APScheduler Google group
-  <https://groups.google.com/forum/#!forum/apscheduler>`_, or
+  <http://groups.google.com/group/apscheduler>`_, or
 * Ask on the ``#apscheduler`` channel on
   `Freenode IRC <http://freenode.net/irc_servers.shtml>`_
