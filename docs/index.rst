@@ -20,7 +20,7 @@ Features
 
 * No (hard) external dependencies
 * Thread-safe API
-* Excellent test coverage (tested on Python 2.4 - 2.7, 3.1 - 3.2, Jython 2.5.2 and PyPy 1.4.1)
+* Excellent test coverage (tested on CPython 2.4 - 2.7, 3.1 - 3.2, Jython 2.5.2, PyPy 1.4.1 and 1.5)
 * Configurable scheduling mechanisms (triggers):
 
   * Cron-like scheduling
@@ -50,7 +50,7 @@ or::
 
 	$ easy_install apscheduler
 
-If that doesn't work, you can manually `download the APScheduler package
+If that doesn't work, you can manually `download the APScheduler distribution
 <http://pypi.python.org/pypi/APScheduler/>`_ from PyPI, extract and then
 install it::
 
@@ -228,15 +228,23 @@ support other persistence mechanisms as well. See the
 Job persistency
 ---------------
 
-The built-in job stores (save the
+The built-in job stores (other than
 :class:`~apscheduler.jobstores.ram_store.RAMJobStore`) store jobs in a durable
 manner. This means that when you schedule jobs in them, shut down the scheduler,
 restart it and readd the job store in question, it will load the previously
-scheduled jobs automatically. It can automatically find the callback function
-using a textual reference saved when the job was added. Unfortunately this
-means that **you can only schedule top level functions with persistent job
-stores**. The job store will raise an exception if you attempt to schedule a
-noncompliant callable.
+scheduled jobs automatically.
+
+Persistent job stores store a reference to the target callable in text form
+and serialize the arguments using pickle. This unfortunately adds some
+restrictions:
+
+* You cannot schedule static methods, inner functions or lambdas.
+* You cannot update the objects given as arguments to the callable.
+
+Technically you *can* update the state of the argument objects, but those
+changes are never persisted back to the job store.
+
+.. note:: None of these restrictions apply to ``RAMJobStore``.
 
 
 Limiting the number of concurrently executing instances of a job
