@@ -160,6 +160,21 @@ class TestJobExecution(object):
         self.scheduler._process_jobs(job.next_run_time)
         eq_(a.val, 2)
 
+    def test_schedule_method(self):
+        # Tests that bound methods can be scheduled (at least with RAMJobStore)
+        class A:
+            def __init__(self):
+                self.val = 0
+            def method(self):
+                self.val += 1
+        
+        a = A()
+        job = self.scheduler.add_interval_job(a.method, seconds=1)
+        self.scheduler._process_jobs(job.next_run_time)
+        self.scheduler._process_jobs(job.next_run_time)
+        eq_(a.val, 2)
+        
+
     def test_unschedule_job(self):
         def increment():
             vals[0] += 1
