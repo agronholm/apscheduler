@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 from time import mktime
 import re
 import sys
+from types import MethodType
 
 __all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds',
            'time_difference', 'datetime_ceil', 'combine_opts',
@@ -108,7 +109,7 @@ def datetime_ceil(dateval):
     """
     if dateval.microsecond > 0:
         return dateval + timedelta(seconds=1,
-                                   microseconds=-dateval.microsecond)
+                                   microseconds= -dateval.microsecond)
     return dateval
 
 
@@ -137,41 +138,64 @@ def get_callable_name(func):
     """
     Returns the best available display name for the given function/callable.
     """
-    name = func.__module__
-    if hasattr(func, '__self__') and func.__self__:
-        name += '.' + func.__self__.__name__
-    elif hasattr(func, 'im_self') and func.im_self:     # py2.4, 2.5
-        name += '.' + func.im_self.__name__
-    if hasattr(func, '__name__'):
-        name += '.' + func.__name__
-    return name
+    f_self = getattr(func, '__self__', None) or getattr(func, 'im_self', None)
+
+    if f_self and hasattr(func, '__name__'):
+        if isinstance(f_self, type):
+            # class method
+            return '%s.%s' % (f_self.__name__, func.__name__)
+        # bound method
+        return '%s.%s' % (f_self.__class__.__name__, func.__name__)
+
+    if hasattr(func, '__call__'):
+        if hasattr(func, '__name__'):
+            # function, unbound method or a class with a __call__ method
+            return func.__name__
+        # instance of a class with a __call__ method
+        return func.__class__.__name__
+
+    raise TypeError('Unable to determine a name for %s -- '
+                    'maybe it is not a callable?' % repr(func))
 
 
 def obj_to_ref(obj):
     """
     Returns the path to the given object.
     """
-    ref = '%s:%s' % (obj.__module__, obj.__name__)
+    ref = '%s:%s' % (obj.__module__, get_callable_name(obj))
     try:
         obj2 = ref_to_obj(ref)
-    except AttributeError:
-        pass
-    else:
-        if obj2 == obj:
-            return ref
-
-    raise ValueError('Only module level objects are supported')
+        if obj != obj2:
+            raise ValueError
+    except Exception:
+        raise ValueError('Cannot determine the reference to %s' % repr(obj))
+    
+    return ref
 
 
 def ref_to_obj(ref):
     """
     Returns the object pointed to by ``ref``.
     """
+    if not isinstance(ref, basestring):
+        raise TypeError('References must be strings')
+    if not ':' in ref:
+        raise ValueError('Invalid reference')
+
     modulename, rest = ref.split(':', 1)
-    obj = __import__(modulename)
-    for name in modulename.split('.')[1:] + rest.split('.'):
-        obj = getattr(obj, name)
-    return obj
+    try:
+        obj = __import__(modulename)
+    except ImportError:
+        raise LookupError('Error resolving reference %s: '
+                          'could not import module' % ref)
+
+    try:
+        for name in modulename.split('.')[1:] + rest.split('.'):
+            obj = getattr(obj, name)
+        return obj
+    except Exception:
+        raise LookupError('Error resolving reference %s: '
+                          'error looking up object' % ref)
 
 
 def maybe_ref(ref):
@@ -191,14 +215,16 @@ def to_unicode(string, encoding='ascii'):
     """
     if hasattr(string, 'decode'):
         return string.decode(encoding, 'ignore')
-    return string
+    return string  # pragma: nocover
 
 
 if sys.version_info < (3, 0):  # pragma: nocover
     iteritems = lambda d: d.iteritems()
     itervalues = lambda d: d.itervalues()
     xrange = xrange
+    basestring = basestring
 else:  # pragma: nocover
     iteritems = lambda d: d.items()
     itervalues = lambda d: d.values()
     xrange = range
+    basestring = str

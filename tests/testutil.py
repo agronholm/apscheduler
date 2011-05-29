@@ -22,6 +22,13 @@ class DummyClass(object):
     def classmeth(cls):
         pass
 
+    def __call__(self):
+        pass
+
+
+def meth():
+    pass
+
 
 @raises(ValueError)
 def test_asint_invalid_1():
@@ -159,28 +166,28 @@ def test_combine_opts():
 
 
 def test_callable_name():
-    name = '%s.test_callable_name' % __name__
-    eq_(get_callable_name(test_callable_name), name)
-
-    name = '%s.staticmeth' % __name__
-    eq_(get_callable_name(DummyClass.staticmeth), name)
-
-    name = '%s.DummyClass.classmeth' % __name__
-    eq_(get_callable_name(DummyClass.classmeth), name)
-
-    name = '%s.meth' % __name__
-    eq_(get_callable_name(DummyClass.meth), name)
+    eq_(get_callable_name(test_callable_name), 'test_callable_name')
+    eq_(get_callable_name(DummyClass.staticmeth), 'staticmeth')
+    eq_(get_callable_name(DummyClass.classmeth), 'DummyClass.classmeth')
+    eq_(get_callable_name(DummyClass.meth), 'meth')
+    eq_(get_callable_name(DummyClass().meth), 'DummyClass.meth')
+    eq_(get_callable_name(DummyClass), 'DummyClass')
+    eq_(get_callable_name(DummyClass()), 'DummyClass')
+    assert_raises(TypeError, get_callable_name, object())
 
 
 def test_obj_to_ref():
     assert_raises(ValueError, obj_to_ref, DummyClass.meth)
     assert_raises(ValueError, obj_to_ref, DummyClass.staticmeth)
-    assert_raises(ValueError, obj_to_ref, DummyClass.classmeth)
+    eq_(obj_to_ref(DummyClass.classmeth), 'tests.testutil:DummyClass.classmeth')
     eq_(obj_to_ref(shelve.open), 'shelve:open')
 
 
 def test_ref_to_obj():
     eq_(ref_to_obj('shelve:open'), shelve.open)
+    assert_raises(TypeError, ref_to_obj, object())
+    assert_raises(ValueError, ref_to_obj, 'module')
+    assert_raises(LookupError, ref_to_obj, 'module:blah')
 
 
 def test_maybe_ref():
