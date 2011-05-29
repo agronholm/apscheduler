@@ -350,6 +350,13 @@ interpreter. A more thorough explanation
 `can be found here <http://joeshaw.org/2009/02/24/605>`_.
 
 
+Reporting bugs
+==============
+
+A `bug tracker <http://bitbucket.org/agronholm/apscheduler/issues/>`_
+is provided by bitbucket.org.
+
+
 Getting help
 ============
 
@@ -361,20 +368,5 @@ If you have problems or other questions, you can either:
   `Freenode IRC <http://freenode.net/irc_servers.shtml>`_
 
 
-Reporting bugs
-==============
-
-A `bug tracker <http://bitbucket.org/agronholm/apscheduler/issues/>`_
-is provided by bitbucket.org.
-
-
 .. include:: ../CHANGES.rst
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 

@@ -17,7 +17,7 @@ Features
 
 * No (hard) external dependencies
 * Thread-safe API
-* Excellent test coverage (tested on Python 2.4 - 2.7, 3.1 - 3.2, Jython 2.5.2 and PyPy 1.4.1)
+* Excellent test coverage (tested on CPython 2.4 - 2.7, 3.1 - 3.2, Jython 2.5.2, PyPy 1.4.1 and 1.5)
 * Configurable scheduling mechanisms (triggers):
 
   * Cron-like scheduling
@@ -42,3 +42,21 @@ Source
 
 The source can be browsed at `Bitbucket
 <http://bitbucket.org/agronholm/apscheduler/src/>`_.
+
+
+Reporting bugs
+==============
+
+A `bug tracker <http://bitbucket.org/agronholm/apscheduler/issues/>`_
+is provided by bitbucket.org.
+
+
+Getting help
+============
+
+If you have problems or other questions, you can either:
+
+* Ask on the `APScheduler Google group
+  <https://groups.google.com/forum/#!forum/apscheduler>`_, or
+* Ask on the ``#apscheduler`` channel on
+  `Freenode IRC <http://freenode.net/irc_servers.shtml>`_

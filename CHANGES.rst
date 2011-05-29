@@ -1,8 +1,11 @@
 Version history
 ===============
 
-2.0
----
+To find out how to migrate your application from a previous version of
+APScheduler, see the :doc:`migration section <migration>`.
+
+2.0.0
+-----
 
 * Added configurable job stores with several persistent back-ends
   (shelve, SQLAlchemy and MongoDB)
@@ -38,10 +41,6 @@ Version history
   default to all minimum values for fields lower than the least significant
   explicitly defined field
 
-Some API changes were necessary -- see the :doc:`migration section <migration>`
-of the documentation to find out what you need to change when migrating your
-application from APScheduler v1.x to v2.0.
-
 
 1.3.1
 -----
@@ -50,8 +49,8 @@ application from APScheduler v1.x to v2.0.
   daylight saving time
 
 
-1.3
----
+1.3.0
+-----
 
 * Added __repr__() implementations to expressions, fields, triggers, and jobs
   to help with debugging
@@ -79,8 +78,8 @@ application from APScheduler v1.x to v2.0.
   jobs to be scheduled again
 
 
-1.2
----
+1.2.0
+-----
 
 * Added the ``week`` option for cron schedules
 
