@@ -325,7 +325,7 @@ class Scheduler(object):
 
         :param func: callable to run
         :param year: year to run on
-        :param month: month to run on (0 = January)
+        :param month: month to run on
         :param day: day of month to run on
         :param week: week of the year to run on
         :param day_of_week: weekday to run on (0 = Monday)
