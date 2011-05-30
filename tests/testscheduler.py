@@ -319,7 +319,7 @@ class TestJobExecution(object):
         self.scheduler._process_jobs(start + timedelta(seconds=2))
         eq_(vals, [9, 3])
 
-    def test_cron_schedule(self):
+    def test_cron_schedule_1(self):
         @self.scheduler.cron_schedule()
         def increment():
             vals[0] += 1
@@ -328,6 +328,19 @@ class TestJobExecution(object):
         start = increment.job.next_run_time
         self.scheduler._process_jobs(start)
         self.scheduler._process_jobs(start + timedelta(seconds=1))
+        eq_(vals[0], 2)
+
+    def test_cron_schedule_2(self):
+        @self.scheduler.cron_schedule(minute='*')
+        def increment():
+            vals[0] += 1
+
+        vals = [0]
+        start = increment.job.next_run_time
+        next_run = start + timedelta(seconds=60)
+        eq_(increment.job.get_run_times(next_run), [start, next_run])
+        self.scheduler._process_jobs(start)
+        self.scheduler._process_jobs(next_run)
         eq_(vals[0], 2)
 
     def test_date(self):

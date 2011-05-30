@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
 from apscheduler.triggers.cron.fields import *
-from apscheduler.util import datetime_ceil, convert_to_datetime
+from apscheduler.util import datetime_ceil, convert_to_datetime, iteritems
 
 
 class CronTrigger(object):
@@ -21,12 +21,19 @@ class CronTrigger(object):
         if self.start_date:
             self.start_date = convert_to_datetime(self.start_date)
 
+        # Yank out all None valued fields
+        for key, value in list(iteritems(values)):
+            if value is None:
+                del values[key]
+
         self.fields = []
+        assign_defaults = False
         for field_name in self.FIELD_NAMES:
             if field_name in values:
                 exprs = values.pop(field_name)
                 is_default = False
-            elif not values:
+                assign_defaults = not values
+            elif assign_defaults:
                 exprs = DEFAULT_VALUES[field_name]
                 is_default = True
             else:

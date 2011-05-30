@@ -316,8 +316,8 @@ class Scheduler(object):
         trigger = IntervalTrigger(interval, start_date)
         return self.add_job(trigger, func, args, kwargs, **options)
 
-    def add_cron_job(self, func, year='*', month='*', day='*', week='*',
-                     day_of_week='*', hour='*', minute='*', second='*',
+    def add_cron_job(self, func, year=None, month=None, day=None, week=None,
+                     day_of_week=None, hour=None, minute=None, second=None,
                      start_date=None, args=None, kwargs=None, **options):
         """
         Schedules a job to be completed on times that match the given

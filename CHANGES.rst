@@ -4,6 +4,12 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+2.0.1
+-----
+
+* Fixed cron style jobs getting wrong default values
+
+
 2.0.0
 -----
 
