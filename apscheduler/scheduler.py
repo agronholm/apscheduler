@@ -441,7 +441,7 @@ class Scheduler(object):
         finally:
             self._jobstores_lock.release()
 
-        out.write(os.linesep.join(job_strs))
+        out.write(os.linesep.join(job_strs) + os.linesep)
 
     def _run_job(self, job, run_times):
         """
