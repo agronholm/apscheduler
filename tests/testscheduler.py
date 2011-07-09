@@ -357,7 +357,7 @@ class TestJobExecution(object):
         out = StringIO()
         self.scheduler.print_jobs(out)
         expected = 'Jobstore default:%s'\
-                   '    No scheduled jobs' % os.linesep
+                   '    No scheduled jobs%s' % (os.linesep, os.linesep)
         eq_(out.getvalue(), expected)
 
         self.scheduler.add_date_job(copy, datetime(2200, 5, 19))
@@ -365,7 +365,7 @@ class TestJobExecution(object):
         self.scheduler.print_jobs(out)
         expected = 'Jobstore default:%s    '\
             'copy (trigger: date[2200-05-19 00:00:00], '\
-            'next run at: 2200-05-19 00:00:00)' % os.linesep
+            'next run at: 2200-05-19 00:00:00)%s' % (os.linesep, os.linesep)
         eq_(out.getvalue(), expected)
 
     def test_jobstore(self):
