@@ -39,7 +39,7 @@ class SQLAlchemyJobStore(JobStore):
                    nullable=False),
             Column('kwargs', PickleType(pickle_protocol, mutable=False),
                    nullable=False),
-            Column('name', Unicode(1024), unique=True),
+            Column('name', Unicode(1024)),
             Column('misfire_grace_time', Integer, nullable=False),
             Column('coalesce', Boolean, nullable=False),
             Column('max_runs', Integer),
