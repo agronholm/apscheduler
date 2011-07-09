@@ -4,6 +4,16 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+2.0.2
+-----
+
+* Removed the unique constraint from the "name" column in the SQLAlchemy
+  job store
+
+* Fixed output from Scheduler.print_jobs() which did not previously output
+  a line ending at the end
+
+
 2.0.1
 -----
 
