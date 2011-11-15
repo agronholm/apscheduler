@@ -26,6 +26,11 @@ class CronTrigger(object):
             if value is None:
                 del values[key]
 
+        # Error on invalid field names
+        for key, value in list(iteritems(values)):
+            if key not in self.FIELD_NAMES:
+                raise Exception('Invalid field name: %s' % key)
+
         self.fields = []
         assign_defaults = False
         for field_name in self.FIELD_NAMES:
