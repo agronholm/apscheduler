@@ -132,6 +132,11 @@ def test_cron_increment_weekday():
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
 
+@raises(TypeError)
+def test_cron_bad_kwarg():
+    CronTrigger(second=0, third=1)
+
+
 def test_date_trigger_earlier():
     fire_date = datetime(2009, 7, 6)
     trigger = SimpleTrigger(fire_date)

@@ -21,15 +21,12 @@ class CronTrigger(object):
         if self.start_date:
             self.start_date = convert_to_datetime(self.start_date)
 
-        # Yank out all None valued fields
-        for key, value in list(iteritems(values)):
-            if value is None:
-                del values[key]
-
-        # Error on invalid field names
+        # Check field names and yank out all None valued fields
         for key, value in list(iteritems(values)):
             if key not in self.FIELD_NAMES:
-                raise Exception('Invalid field name: %s' % key)
+                raise TypeError('Invalid field name: %s' % key)
+            if value is None:
+                del values[key]
 
         self.fields = []
         assign_defaults = False
