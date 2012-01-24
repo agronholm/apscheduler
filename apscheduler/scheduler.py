@@ -246,7 +246,7 @@ class Scheduler(object):
         """
         Adds the given job to the job list and notifies the scheduler thread.
 
-        :param trigger: alias of the job store to store the job in
+        :param trigger: trigger that determines when ``func`` is called
         :param func: callable to run at the given time
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
