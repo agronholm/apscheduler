@@ -85,7 +85,8 @@ class WeekField(BaseField):
 
 
 class DayOfMonthField(BaseField):
-    COMPILERS = BaseField.COMPILERS + [WeekdayPositionExpression]
+    COMPILERS = BaseField.COMPILERS + [WeekdayPositionExpression,
+                                       LastDayOfMonthExpression]
 
     def get_max(self, dateval):
         return monthrange(dateval.year, dateval.month)[1]

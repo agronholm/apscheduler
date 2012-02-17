@@ -8,7 +8,7 @@ import re
 from apscheduler.util import asint
 
 __all__ = ('AllExpression', 'RangeExpression', 'WeekdayRangeExpression',
-           'WeekdayPositionExpression')
+           'WeekdayPositionExpression', 'LastDayOfMonthExpression')
 
 
 WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
@@ -176,3 +176,16 @@ class WeekdayPositionExpression(AllExpression):
         return "%s('%s', '%s')" % (self.__class__.__name__,
                                    self.options[self.option_num],
                                    WEEKDAYS[self.weekday])
+
+
+class LastDayOfMonthExpression(AllExpression):
+    value_re = re.compile(r'L', re.IGNORECASE)
+
+    def get_next_value(self, date, field):
+        return monthrange(date.year, date.month)[1]
+
+    def __str__(self):
+        return 'L'
+
+    def __repr__(self):
+        return "%s('L')" % self.__class__.__name__
