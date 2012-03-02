@@ -31,9 +31,9 @@ def test_cron_trigger_3():
 
 def test_cron_trigger_4():
     trigger = CronTrigger(year='2012', month='2', day='last')
-    eq_(repr(trigger), "<CronTrigger (year='2009', month='2', day='last')>")
+    eq_(repr(trigger), "<CronTrigger (year='2012', month='2', day='last')>")
     start_date = datetime(2012, 2, 1)
-    correct_next_date = datetime(2009, 2, 29)
+    correct_next_date = datetime(2012, 2, 29)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
 

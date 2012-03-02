@@ -180,6 +180,9 @@ class WeekdayPositionExpression(AllExpression):
 
 class LastDayOfMonthExpression(AllExpression):
     value_re = re.compile(r'last', re.IGNORECASE)
+    
+    def __init__(self):
+        pass
 
     def get_next_value(self, date, field):
         return monthrange(date.year, date.month)[1]
@@ -188,4 +191,4 @@ class LastDayOfMonthExpression(AllExpression):
         return 'last'
 
     def __repr__(self):
-        return "%s('last')" % self.__class__.__name__
+        return "%s()" % self.__class__.__name__
