@@ -164,3 +164,12 @@ def test_weekday_range_expression_repr():
 def test_weekday_range_expression_single_repr():
     expr = WeekdayRangeExpression('thu')
     eq_(repr(expr), "WeekdayRangeExpression('thu')")
+
+def test_last_day_of_month_expression():
+    expr = LastDayOfMonthExpression('last')
+    date = datetime(2012, 2, 1)
+    eq_(expr.get_next_value(date, 'day'), 29)
+ 
+def test_last_day_of_month_expression_invalid():
+    expr = LastDayOfMonthExpression('last')
+    eq_(repr(expr), "LastDayOfMonthExpression('last')")

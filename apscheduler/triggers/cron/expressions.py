@@ -179,13 +179,13 @@ class WeekdayPositionExpression(AllExpression):
 
 
 class LastDayOfMonthExpression(AllExpression):
-    value_re = re.compile(r'L', re.IGNORECASE)
+    value_re = re.compile(r'last', re.IGNORECASE)
 
     def get_next_value(self, date, field):
         return monthrange(date.year, date.month)[1]
 
     def __str__(self):
-        return 'L'
+        return 'last'
 
     def __repr__(self):
-        return "%s('L')" % self.__class__.__name__
+        return "%s('last')" % self.__class__.__name__
