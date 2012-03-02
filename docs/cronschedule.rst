@@ -62,6 +62,7 @@ Expression   Field     Description
                        the month
 ``last x``   day       Fire on the last occurrence of weekday ``x`` within the
                        month
+``last``     day       Fire on the last day within the month
 ``x,y,z``    any       Fire on any matching expression; can combine any number
                        of any of the above expressions
 ============ ========= ======================================================
