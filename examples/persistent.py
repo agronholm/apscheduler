@@ -23,11 +23,16 @@ if __name__ == '__main__':
     alarm_time = datetime.now() + timedelta(minutes=1)
     scheduler.add_date_job(alarm, alarm_time, name='alarm',
                            jobstore='shelve', args=[datetime.now()])
+    scheduler.print_jobs()
     sys.stdout.write('To clear the alarms, delete the example.db file.\n')
     sys.stdout.write('Press Ctrl+C to exit\n')
     scheduler.start()
 
-    # This is here to prevent the main thread from exiting so that the
-    # scheduler has time to work -- this is rarely necessary in real world
-    # applications
-    time.sleep(9999)
+    try:
+        # This is here to prevent the main thread from exiting so that the
+        # scheduler has time to work -- this is rarely necessary in real world
+        # applications
+        time.sleep(9999)
+    finally:
+        # Shut down the scheduler so that the job store gets closed properly
+        scheduler.shutdown()
