@@ -23,7 +23,6 @@ if __name__ == '__main__':
     alarm_time = datetime.now() + timedelta(minutes=1)
     scheduler.add_date_job(alarm, alarm_time, name='alarm',
                            jobstore='shelve', args=[datetime.now()])
-    scheduler.print_jobs()
     sys.stdout.write('To clear the alarms, delete the example.db file.\n')
     sys.stdout.write('Press Ctrl+C to exit\n')
     scheduler.start()
