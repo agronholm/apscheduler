@@ -103,7 +103,7 @@ class Scheduler(object):
         self._thread.setDaemon(self.daemonic)
         self._thread.start()
 
-    def shutdown(self, wait=True, shutdown_threadpool=True):
+    def shutdown(self, wait=True, shutdown_threadpool=True, close_jobstores=True):
         """
         Shuts down the scheduler and terminates the thread.
         Does not interrupt any currently running jobs.
@@ -111,6 +111,7 @@ class Scheduler(object):
         :param wait: ``True`` to wait until all currently executing jobs have
                      finished (if ``shutdown_threadpool`` is also ``True``)
         :param shutdown_threadpool: ``True`` to shut down the thread pool
+        :param close_jobstores: ``True`` to close all job stores after shutdown
         """
         if not self.running:
             return
@@ -124,6 +125,11 @@ class Scheduler(object):
 
         # Wait until the scheduler thread terminates
         self._thread.join()
+
+        # Close all job stores
+        if close_jobstores:
+            for jobstore in itervalues(self._jobstores):
+                jobstore.close()
 
     @property
     def running(self):
@@ -156,20 +162,24 @@ class Scheduler(object):
         if not quiet:
             self._wakeup.set()
 
-    def remove_jobstore(self, alias):
+    def remove_jobstore(self, alias, close=True):
         """
         Removes the job store by the given alias from this scheduler.
 
+        :param close: ``True`` to close the job store after removing it
         :type alias: str
         """
         self._jobstores_lock.acquire()
         try:
-            try:
-                del self._jobstores[alias]
-            except KeyError:
+            jobstore = self._jobstores.pop(alias)
+            if not jobstore:
                 raise KeyError('No such job store: %s' % alias)
         finally:
             self._jobstores_lock.release()
+
+        # Close the job store if requested
+        if close:
+            jobstore.close()
 
         # Notify listeners that a job store has been removed
         self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_REMOVED, alias))
