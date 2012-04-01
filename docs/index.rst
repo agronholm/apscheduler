@@ -45,13 +45,16 @@ Usage
 Installing APScheduler
 ----------------------
 
-The preferred method of installation is with
-`pip <http://pypi.python.org/pypi/pip/>`_ or
-`easy_install <http://pypi.python.org/pypi/distribute/>`_::
+On Python 3.3 or later (or if you have
+`distutils2 <http://pypi.python.org/pypi/Distutils2>` installed) you can do::
+
+    $ pysetup install apscheduler
+
+Otherwise, you can use `pip <http://pypi.python.org/pypi/pip/>`_::
 
     $ pip install apscheduler
 
-or::
+or `easy_install <http://pypi.python.org/pypi/distribute/>`_::
 
 	$ easy_install apscheduler
 
