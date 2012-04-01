@@ -8,6 +8,7 @@ import shelve
 from nose.tools import eq_, raises, assert_raises  # @UnresolvedImport
 
 from apscheduler.util import *
+from nose.plugins.skip import SkipTest
 
 
 class DummyClass(object):
@@ -24,6 +25,11 @@ class DummyClass(object):
 
     def __call__(self):
         pass
+
+    class InnerDummyClass(object):
+        @classmethod
+        def innerclassmeth(cls):
+            pass
 
 
 def meth():
@@ -181,6 +187,13 @@ def test_obj_to_ref():
     assert_raises(ValueError, obj_to_ref, DummyClass.staticmeth)
     eq_(obj_to_ref(DummyClass.classmeth), 'testutil:DummyClass.classmeth')
     eq_(obj_to_ref(shelve.open), 'shelve:open')
+
+
+def test_inner_obj_to_ref():
+    if sys.version_info < (3, 3):
+        raise SkipTest
+    eq_(obj_to_ref(DummyClass.InnerDummyClass.innerclassmeth),
+            'testutil:DummyClass.InnerDummyClass.innerclassmeth')
 
 
 def test_ref_to_obj():

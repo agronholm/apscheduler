@@ -142,7 +142,8 @@ def get_callable_name(func):
     if f_self and hasattr(func, '__name__'):
         if isinstance(f_self, type):
             # class method
-            return '%s.%s' % (f_self.__name__, func.__name__)
+            clsname = getattr(f_self, '__qualname__', None) or f_self.__name__
+            return '%s.%s' % (clsname, func.__name__)
         # bound method
         return '%s.%s' % (f_self.__class__.__name__, func.__name__)
 
