@@ -5,7 +5,7 @@ import os
 import sys
 import shelve
 
-from nose.tools import eq_, raises, assert_raises
+from nose.tools import eq_, raises, assert_raises  # @UnresolvedImport
 
 from apscheduler.util import *
 
@@ -13,11 +13,11 @@ from apscheduler.util import *
 class DummyClass(object):
     def meth(self):
         pass
-    
+
     @staticmethod
     def staticmeth():
         pass
-    
+
     @classmethod
     def classmeth(cls):
         pass

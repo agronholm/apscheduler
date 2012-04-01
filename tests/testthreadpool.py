@@ -1,7 +1,7 @@
 from threading import Event
 from time import sleep
 
-from nose.tools import eq_, assert_raises
+from nose.tools import eq_, assert_raises  # @UnresolvedImport
 
 from apscheduler.threadpool import ThreadPool
 

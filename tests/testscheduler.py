@@ -104,6 +104,7 @@ class DummyException(Exception):
 
 original_now = datetime(2011, 4, 3, 18, 40)
 
+
 class FakeDateTime(datetime):
     _now = original_now
 
@@ -151,6 +152,7 @@ class TestJobExecution(object):
         class A:
             def __init__(self):
                 self.val = 0
+
             def __call__(self):
                 self.val += 1
 
@@ -165,15 +167,15 @@ class TestJobExecution(object):
         class A:
             def __init__(self):
                 self.val = 0
+
             def method(self):
                 self.val += 1
-        
+
         a = A()
         job = self.scheduler.add_interval_job(a.method, seconds=1)
         self.scheduler._process_jobs(job.next_run_time)
         self.scheduler._process_jobs(job.next_run_time)
         eq_(a.val, 2)
-        
 
     def test_unschedule_job(self):
         def increment():
@@ -248,7 +250,7 @@ class TestJobExecution(object):
         job = self.scheduler.add_interval_job(increment, seconds=1,
             start_date=FakeDateTime.now(), coalesce=True, misfire_grace_time=2)
 
-        # Turn the clock 14 seconds forward 
+        # Turn the clock 14 seconds forward
         FakeDateTime._now += timedelta(seconds=2)
 
         self.scheduler._process_jobs(FakeDateTime.now())
@@ -271,7 +273,7 @@ class TestJobExecution(object):
         job = self.scheduler.add_interval_job(increment, seconds=1,
             start_date=FakeDateTime.now(), coalesce=False, misfire_grace_time=2)
 
-        # Turn the clock 2 seconds forward 
+        # Turn the clock 2 seconds forward
         FakeDateTime._now += timedelta(seconds=2)
 
         self.scheduler._process_jobs(FakeDateTime.now())

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from threading import Lock
 
-from nose.tools import eq_, raises, assert_raises
+from nose.tools import eq_, raises, assert_raises  # @UnresolvedImport
 
 from apscheduler.job import Job, MaxInstancesReachedError
 from apscheduler.triggers.simple import SimpleTrigger
@@ -9,6 +9,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 
 lock_type = type(Lock())
+
 
 def dummyfunc():
     pass
@@ -51,7 +52,7 @@ class TestJob(object):
         self.job.max_runs = 1
         self.job.runs += 1
         self.job.compute_next_run_time(self.RUNTIME)
-        eq_(self.job.next_run_time, None)         
+        eq_(self.job.next_run_time, None)
 
     def test_eq_num(self):
         # Just increasing coverage here
@@ -90,13 +91,13 @@ class TestJob(object):
 
         job2.id = self.job.id = 123
         eq_(self.job, job2)
-        
+
         assert self.job != 'bleh'
 
     def test_instances(self):
         self.job.max_instances = 2
         eq_(self.job.instances, 0)
- 
+
         self.job.add_instance()
         eq_(self.job.instances, 1)
 

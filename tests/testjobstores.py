@@ -3,7 +3,7 @@ from warnings import filterwarnings, resetwarnings
 from tempfile import NamedTemporaryFile
 import os
 
-from nose.tools import eq_, assert_raises, raises
+from nose.tools import eq_, assert_raises, raises  # @UnresolvedImport
 from nose.plugins.skip import SkipTest
 
 from apscheduler.jobstores.ram_store import RAMJobStore
@@ -191,7 +191,9 @@ def test_sqlalchemy_alternate_tablename():
 
 
 def test_unimplemented_job_store():
-    class DummyJobStore(JobStore): pass
+    class DummyJobStore(JobStore):
+        pass
+
     jobstore = DummyJobStore()
     assert_raises(NotImplementedError, jobstore.add_job, None)
     assert_raises(NotImplementedError, jobstore.update_job, None)

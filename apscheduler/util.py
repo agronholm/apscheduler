@@ -6,7 +6,6 @@ from datetime import date, datetime, timedelta
 from time import mktime
 import re
 import sys
-from types import MethodType
 
 __all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds',
            'time_difference', 'datetime_ceil', 'combine_opts',
@@ -109,7 +108,7 @@ def datetime_ceil(dateval):
     """
     if dateval.microsecond > 0:
         return dateval + timedelta(seconds=1,
-                                   microseconds= -dateval.microsecond)
+                                   microseconds=-dateval.microsecond)
     return dateval
 
 
@@ -169,7 +168,7 @@ def obj_to_ref(obj):
             raise ValueError
     except Exception:
         raise ValueError('Cannot determine the reference to %s' % repr(obj))
-    
+
     return ref
 
 
