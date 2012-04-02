@@ -4,6 +4,26 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+2.0.3
+-----
+
+* The scheduler now closes the job store that is being removed, and all job stores on shutdown() by default
+
+* Added the ``last`` expression in the day field of CronTrigger (thanks rcaselli)
+
+* Raise a TypeError when fields with invalid names are passed to CronTrigger (thanks Christy O'Reilly)
+
+* Fixed the persistent.py example by shutting down the scheduler on Ctrl+C
+
+* Added PyPy 1.8 and CPython 3.3 to the test suite
+
+* Dropped PyPy 1.4 - 1.5 and CPython 3.1 from the test suite
+
+* Updated setup.cfg for compatibility with distutils2/packaging
+
+* Examples, documentation sources and unit tests are now packaged in the source distribution
+
+
 2.0.2
 -----
 

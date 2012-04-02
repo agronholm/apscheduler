@@ -1,1 +1,4 @@
 include README.rst
+recursive-include tests *.py
+recursive-include examples *.py
+recursive-include docs *.rst *.py
