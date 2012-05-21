@@ -63,7 +63,7 @@ def convert_to_datetime(input):
         return input
     elif isinstance(input, date):
         return datetime.fromordinal(input.toordinal())
-    elif isinstance(input, str):
+    elif isinstance(input, basestring):
         m = _DATE_REGEX.match(input)
         if not m:
             raise ValueError('Invalid date string')
