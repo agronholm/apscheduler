@@ -26,6 +26,11 @@ try:
 except ImportError:
     MongoDBJobStore = None
 
+try:
+    from apscheduler.jobstores.redis_store import RedisJobStore
+except ImportError:
+    RedisJobStore = None
+
 
 def dummy_job():
     pass
@@ -172,6 +177,23 @@ class TestMongoDBJobStore(PersistentJobstoreTestBase):
     def test_repr(self):
         eq_(repr(self.jobstore),
             "<MongoDBJobStore (connection=Connection('localhost', 27017))>")
+
+
+class TestRedisJobStore(PersistentJobstoreTestBase):
+    @classmethod
+    def setup_class(cls):
+        if not RedisJobStore:
+            raise SkipTest
+
+        cls.jobstore = RedisJobStore(db='apscheduler_unittest')
+
+    @classmethod
+    def teardown_class(cls):
+        cls.jobstore.redis.flushdb()
+        cls.jobstore.close()
+
+    def test_repr(self):
+        eq_(repr(self.jobstore), "<RedisJobStore>")
 
 
 @raises(ValueError)

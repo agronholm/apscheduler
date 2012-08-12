@@ -29,6 +29,7 @@ Features
   * File-based simple database (shelve)
   * `SQLAlchemy <http://www.sqlalchemy.org/>`_ (any supported RDBMS works)
   * `MongoDB <http://www.mongodb.org/>`_
+  * `Redis <http://redis.io/>`_
 
 
 Documentation

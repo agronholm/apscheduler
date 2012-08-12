@@ -24,6 +24,11 @@ try:
 except ImportError:
     MongoDBJobStore = None
 
+try:
+    from apscheduler.jobstores.redis_store import RedisJobStore
+except ImportError:
+    RedisJobStore = None
+
 
 def increment(vals, sleeptime):
     vals[0] += 1
@@ -126,11 +131,33 @@ class TestMongoDBIntegration(IntegrationTestBase):
         IntegrationTestBase.test_overlapping_runs(self)
 
     def test_max_instances(self):
-        """SQLAlchemy/test_max_instances"""
+        """MongoDB/test_max_instances"""
         IntegrationTestBase.test_max_instances(self)
 
     def teardown(self):
         self.scheduler.shutdown()
         connection = self.jobstore.collection.database.connection
         connection.drop_database(self.jobstore.collection.database.name)
+        self.jobstore.close()
+
+
+class TestRedisIntegration(IntegrationTestBase):
+    @staticmethod
+    def make_jobstore():
+        if not RedisJobStore:
+            raise SkipTest
+
+        return RedisJobStore(db='apscheduler_unittest')
+
+    def test_overlapping_runs(self):
+        """Redis/test_overlapping_runs"""
+        IntegrationTestBase.test_overlapping_runs(self)
+
+    def test_max_instances(self):
+        """Redis/test_max_instances"""
+        IntegrationTestBase.test_max_instances(self)
+
+    def teardown(self):
+        self.scheduler.shutdown()
+        self.jobstore.redis.flushdb()
         self.jobstore.close()

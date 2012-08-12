@@ -37,6 +37,7 @@ Features
   * File-based simple database (shelve)
   * `SQLAlchemy <http://www.sqlalchemy.org/>`_ (any supported RDBMS works)
   * `MongoDB <http://www.mongodb.org/>`_
+  * `Redis <http://redis.io/>`_
 
 
 Usage
@@ -207,6 +208,7 @@ The other built-in job stores are:
 * :class:`~apscheduler.jobstores.shelve_store.ShelveJobStore`
 * :class:`~apscheduler.jobstores.sqlalchemy_store.SQLAlchemyJobStore`
 * :class:`~apscheduler.jobstores.mongodb_store.MongoDBJobStore`
+* :class:`~apscheduler.jobstores.redis_store.RedisJobStore`
 
 Job stores can be added either through configuration options or the
 :meth:`~apscheduler.scheduler.Scheduler.add_jobstore` method. The following
