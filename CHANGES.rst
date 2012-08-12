@@ -9,6 +9,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added Redis job store
 
+* Switched to PyPy 1.9 for PyPy compatibility testing
+
 
 2.0.3
 -----

@@ -17,7 +17,7 @@ Features
 
 * No (hard) external dependencies
 * Thread-safe API
-* Excellent test coverage (tested on CPython 2.4 - 2.7, 3.2 - 3.3, Jython 2.5.2, PyPy 1.8)
+* Excellent test coverage (tested on CPython 2.4 - 2.7, 3.2 - 3.3, Jython 2.5.2, PyPy 1.9)
 * Configurable scheduling mechanisms (triggers):
 
   * Cron-like scheduling
