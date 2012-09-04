@@ -113,17 +113,17 @@ class CronTrigger(object):
 
             if next_value is None:
                 # No valid value was found
-                next_date, fieldnum = self._increment_field_value(next_date,
-                                                                  fieldnum - 1)
+                next_date, fieldnum = self._increment_field_value(
+                    next_date, fieldnum - 1)
             elif next_value > curr_value:
                 # A valid, but higher than the starting value, was found
                 if field.REAL:
-                    next_date = self._set_field_value(next_date, fieldnum,
-                                                      next_value)
+                    next_date = self._set_field_value(
+                        next_date, fieldnum, next_value)
                     fieldnum += 1
                 else:
-                    next_date, fieldnum = self._increment_field_value(next_date,
-                                                                      fieldnum)
+                    next_date, fieldnum = self._increment_field_value(
+                        next_date, fieldnum)
             else:
                 # A valid value was found, no changes necessary
                 fieldnum += 1

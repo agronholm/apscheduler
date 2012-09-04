@@ -1,0 +1,2 @@
+[pep8]
+exclude=.tox,docs

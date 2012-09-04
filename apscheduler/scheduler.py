@@ -113,7 +113,8 @@ class Scheduler(object):
             self._thread.setDaemon(self.daemonic)
             self._thread.start()
 
-    def shutdown(self, wait=True, shutdown_threadpool=True, close_jobstores=True):
+    def shutdown(self, wait=True, shutdown_threadpool=True,
+                 close_jobstores=True):
         """
         Shuts down the scheduler and terminates the thread.
         Does not interrupt any currently running jobs.
@@ -538,7 +539,8 @@ class Scheduler(object):
                             job.runs += len(run_times)
 
                         # Update the job, but don't keep finished jobs around
-                        if job.compute_next_run_time(now + timedelta(microseconds=1)):
+                        if job.compute_next_run_time(
+                                now + timedelta(microseconds=1)):
                             jobstore.update_job(job)
                         else:
                             self._remove_job(job, alias, jobstore)

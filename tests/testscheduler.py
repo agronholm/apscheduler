@@ -8,8 +8,9 @@ from nose.tools import eq_, raises
 from apscheduler.jobstores.ram_store import RAMJobStore
 from apscheduler.scheduler import Scheduler, SchedulerAlreadyRunningError
 from apscheduler.job import Job
-from apscheduler.events import EVENT_JOB_EXECUTED, SchedulerEvent, \
-    EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOB_MISSED
+from apscheduler.events import (EVENT_JOB_EXECUTED, SchedulerEvent,
+                                EVENT_SCHEDULER_START,
+                                EVENT_SCHEDULER_SHUTDOWN, EVENT_JOB_MISSED)
 from apscheduler import scheduler
 
 try:
@@ -38,7 +39,8 @@ class TestOfflineScheduler(object):
         eq_(self.scheduler.get_jobs(), [])
 
     def test_configure_jobstore(self):
-        conf = {'apscheduler.jobstore.ramstore.class': 'apscheduler.jobstores.ram_store:RAMJobStore'}
+        conf = {'apscheduler.jobstore.ramstore.class':
+                'apscheduler.jobstores.ram_store:RAMJobStore'}
         self.scheduler.configure(conf)
         self.scheduler.remove_jobstore('ramstore')
 
@@ -247,8 +249,9 @@ class TestJobExecution(object):
         scheduler.datetime = FakeDateTime
         self.scheduler.add_listener(events.append,
                                     EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        job = self.scheduler.add_interval_job(increment, seconds=1,
-            start_date=FakeDateTime.now(), coalesce=True, misfire_grace_time=2)
+        job = self.scheduler.add_interval_job(
+            increment, seconds=1, start_date=FakeDateTime.now(),
+            coalesce=True, misfire_grace_time=2)
 
         # Turn the clock 14 seconds forward
         FakeDateTime._now += timedelta(seconds=2)
@@ -270,8 +273,9 @@ class TestJobExecution(object):
         scheduler.datetime = FakeDateTime
         self.scheduler.add_listener(events.append,
                                     EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        job = self.scheduler.add_interval_job(increment, seconds=1,
-            start_date=FakeDateTime.now(), coalesce=False, misfire_grace_time=2)
+        job = self.scheduler.add_interval_job(
+            increment, seconds=1, start_date=FakeDateTime.now(),
+            coalesce=False, misfire_grace_time=2)
 
         # Turn the clock 2 seconds forward
         FakeDateTime._now += timedelta(seconds=2)
@@ -389,8 +393,9 @@ class TestJobExecution(object):
 
         vars = [0]
         scheduler.datetime = FakeDateTime
-        job = self.scheduler.add_interval_job(increment, seconds=1,
-            misfire_grace_time=3, start_date=FakeDateTime.now())
+        job = self.scheduler.add_interval_job(
+            increment, seconds=1, misfire_grace_time=3,
+            start_date=FakeDateTime.now())
         start = job.next_run_time
 
         self.scheduler._process_jobs(start)

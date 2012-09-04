@@ -57,7 +57,8 @@ class IntegrationTestBase(object):
         events = []
         self.scheduler.add_listener(events.append,
                                     EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        self.scheduler.add_interval_job(increment, jobstore='persistent',
+        self.scheduler.add_interval_job(
+            increment, jobstore='persistent',
             seconds=0.3, max_instances=2, max_runs=4, args=[vals, 1])
         sleep(2.4)
         eq_(vals, [2])

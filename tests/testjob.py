@@ -23,13 +23,15 @@ class TestJob(object):
         self.job = Job(self.trigger, dummyfunc, [], {}, 1, False)
 
     def test_compute_next_run_time(self):
-        self.job.compute_next_run_time(self.RUNTIME - timedelta(microseconds=1))
+        self.job.compute_next_run_time(
+            self.RUNTIME - timedelta(microseconds=1))
         eq_(self.job.next_run_time, self.RUNTIME)
 
         self.job.compute_next_run_time(self.RUNTIME)
         eq_(self.job.next_run_time, self.RUNTIME)
 
-        self.job.compute_next_run_time(self.RUNTIME + timedelta(microseconds=1))
+        self.job.compute_next_run_time(
+            self.RUNTIME + timedelta(microseconds=1))
         eq_(self.job.next_run_time, None)
 
     def test_compute_run_times(self):
@@ -118,7 +120,8 @@ class TestJob(object):
         self.job.compute_next_run_time(self.RUNTIME)
         eq_(repr(self.job),
             "<Job (name=dummyfunc, "
-            "trigger=<SimpleTrigger (run_date=datetime.datetime(2010, 12, 13, 0, 8))>)>")
+            "trigger=<SimpleTrigger "
+            "(run_date=datetime.datetime(2010, 12, 13, 0, 8))>)>")
         eq_(str(self.job),
             "dummyfunc (trigger: date[2010-12-13 00:08:00], "
             "next run at: 2010-12-13 00:08:00)")

@@ -180,7 +180,7 @@ class WeekdayPositionExpression(AllExpression):
 
 class LastDayOfMonthExpression(AllExpression):
     value_re = re.compile(r'last', re.IGNORECASE)
-    
+
     def __init__(self):
         pass
 

@@ -130,5 +130,5 @@ class Job(object):
         return '<Job (name=%s, trigger=%s)>' % (self.name, repr(self.trigger))
 
     def __str__(self):
-        return '%s (trigger: %s, next run at: %s)' % (self.name,
-            str(self.trigger), str(self.next_run_time))
+        return '%s (trigger: %s, next run at: %s)' % (
+            self.name, str(self.trigger), str(self.next_run_time))

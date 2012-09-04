@@ -6,9 +6,9 @@ import sys
 import shelve
 
 from nose.tools import eq_, raises, assert_raises  # @UnresolvedImport
+from nose.plugins.skip import SkipTest
 
 from apscheduler.util import *
-from nose.plugins.skip import SkipTest
 
 
 class DummyClass(object):
@@ -193,7 +193,7 @@ def test_inner_obj_to_ref():
     if sys.version_info < (3, 3):
         raise SkipTest
     eq_(obj_to_ref(DummyClass.InnerDummyClass.innerclassmeth),
-            'testutil:DummyClass.InnerDummyClass.innerclassmeth')
+        'testutil:DummyClass.InnerDummyClass.innerclassmeth')
 
 
 def test_ref_to_obj():

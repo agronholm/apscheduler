@@ -28,7 +28,8 @@ class SQLAlchemyJobStore(JobStore):
         else:
             raise ValueError('Need either "engine" or "url" defined')
 
-        self.jobs_t = Table(tablename, metadata or MetaData(),
+        self.jobs_t = Table(
+            tablename, metadata or MetaData(),
             Column('id', Integer,
                    Sequence(tablename + '_id_seq', optional=True),
                    primary_key=True),
