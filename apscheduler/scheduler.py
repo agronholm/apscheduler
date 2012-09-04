@@ -60,6 +60,7 @@ class Scheduler(object):
         self.misfire_grace_time = int(config.pop('misfire_grace_time', 1))
         self.coalesce = asbool(config.pop('coalesce', True))
         self.daemonic = asbool(config.pop('daemonic', True))
+        self.standalone = asbool(config.pop('standalone', False))
 
         # Configure the thread pool
         if 'threadpool' in config:
@@ -85,6 +86,12 @@ class Scheduler(object):
     def start(self):
         """
         Starts the scheduler in a new thread.
+
+        In threaded mode (the default), this method will return immediately
+        after starting the scheduler thread.
+
+        In standalone mode, this method will block until there are no more
+        scheduled jobs.
         """
         if self.running:
             raise SchedulerAlreadyRunningError
@@ -99,9 +106,12 @@ class Scheduler(object):
         del self._pending_jobs[:]
 
         self._stopped = False
-        self._thread = Thread(target=self._main_loop, name='APScheduler')
-        self._thread.setDaemon(self.daemonic)
-        self._thread.start()
+        if self.standalone:
+            self._main_loop()
+        else:
+            self._thread = Thread(target=self._main_loop, name='APScheduler')
+            self._thread.setDaemon(self.daemonic)
+            self._thread.start()
 
     def shutdown(self, wait=True, shutdown_threadpool=True, close_jobstores=True):
         """
@@ -124,7 +134,8 @@ class Scheduler(object):
             self._threadpool.shutdown(wait)
 
         # Wait until the scheduler thread terminates
-        self._thread.join()
+        if self._thread:
+            self._thread.join()
 
         # Close all job stores
         if close_jobstores:
@@ -560,10 +571,15 @@ class Scheduler(object):
                 logger.debug('Next wakeup is due at %s (in %f seconds)',
                              next_wakeup_time, wait_seconds)
                 self._wakeup.wait(wait_seconds)
+                self._wakeup.clear()
+            elif self.standalone:
+                logger.debug('No jobs left; shutting down scheduler')
+                self.shutdown()
+                break
             else:
                 logger.debug('No jobs; waiting until a job is added')
                 self._wakeup.wait()
-            self._wakeup.clear()
+                self._wakeup.clear()
 
         logger.info('Scheduler has been shut down')
         self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN))

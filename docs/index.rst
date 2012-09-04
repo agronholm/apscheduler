@@ -162,8 +162,23 @@ misfire_grace_time      1          Maximum time in seconds for the job execution
                                    to be allowed to delay before it is considered
                                    a misfire
 coalesce                False      Roll several pending executions of jobs into one
+standalone              False      If set to ``True``,
+                                   :meth:`~apscheduler.scheduler.Scheduler.start`
+                                   will run the main loop in the calling
+                                   thread until no more jobs are scheduled (which
+                                   may never happen). This will naturally cause the
+                                   call to start() to block. The default setting
+                                   of ``False`` will instead spawn a new thread
+                                   to run the main loop when
+                                   :meth:`~apscheduler.scheduler.Scheduler.start`
+                                   is called.
+                                   
+                                   Set to ``False`` when the scheduler is run in
+                                   a dedicated process (as a standalone
+                                   scheduler).
 daemonic                True       Controls whether the scheduler thread is
-                                   daemonic or not.
+                                   daemonic or not. This option has no effect when
+                                   ``standalone`` is ``True``.
 
                                    If set to ``False``, then the
                                    scheduler must be shut down explicitly

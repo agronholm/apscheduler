@@ -9,6 +9,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added Redis job store
 
+* Added a "standalone" mode that runs the scheduler in the calling thread
+
 * Switched to PyPy 1.9 for PyPy compatibility testing
 
 
