@@ -13,6 +13,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Switched to PyPy 1.9 for PyPy compatibility testing
 
+* Dropped Python 2.4 support
+
 
 2.0.3
 -----
