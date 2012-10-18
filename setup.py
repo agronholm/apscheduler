@@ -1,4 +1,6 @@
 # coding: utf-8
+import os.path
+
 try:
     from setuptools import setup
 
@@ -12,11 +14,15 @@ except ImportError:
 import apscheduler
 
 
+here = os.path.dirname(__file__)
+readme_path = os.path.join(here, 'README.rst')
+readme = open(readme_path).read()
+
 setup(
     name='APScheduler',
     version=apscheduler.release,
     description='In-process task scheduler with Cron-like capabilities',
-    long_description=open('README.rst').read(),
+    long_description=readme,
     author='Alex Gronholm',
     author_email='apscheduler@nextday.fi',
     url='http://pypi.python.org/pypi/APScheduler/',
