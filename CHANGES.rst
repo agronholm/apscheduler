@@ -11,6 +11,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added a "standalone" mode that runs the scheduler in the calling thread
 
+* Fixed disk synchronization in ShelveJobStore
+
 * Switched to PyPy 1.9 for PyPy compatibility testing
 
 * Dropped Python 2.4 support

@@ -32,17 +32,20 @@ class ShelveJobStore(JobStore):
 
     def add_job(self, job):
         job.id = self._generate_id()
-        self.jobs.append(job)
         self.store[job.id] = job.__getstate__()
+        self.store.sync()
+        self.jobs.append(job)
 
     def update_job(self, job):
         job_dict = self.store[job.id]
         job_dict['next_run_time'] = job.next_run_time
         job_dict['runs'] = job.runs
         self.store[job.id] = job_dict
+        self.store.sync()
 
     def remove_job(self, job):
         del self.store[job.id]
+        self.store.sync()
         self.jobs.remove(job)
 
     def load_jobs(self):
