@@ -17,6 +17,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Dropped Python 2.4 support
 
+* Fixed SQLAlchemy 0.8 compatibility in SQLAlchemyJobStore
+
 
 2.0.3
 -----

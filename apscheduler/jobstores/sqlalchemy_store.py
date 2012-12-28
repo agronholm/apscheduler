@@ -4,6 +4,8 @@ Stores jobs in a database table using SQLAlchemy.
 import pickle
 import logging
 
+import sqlalchemy
+
 from apscheduler.jobstores.base import JobStore
 from apscheduler.job import Job
 
@@ -28,18 +30,19 @@ class SQLAlchemyJobStore(JobStore):
         else:
             raise ValueError('Need either "engine" or "url" defined')
 
+        if sqlalchemy.__version__ < '0.7':
+            pickle_coltype = PickleType(pickle_protocol, mutable=False)
+        else:
+            pickle_coltype = PickleType(pickle_protocol)
         self.jobs_t = Table(
             tablename, metadata or MetaData(),
             Column('id', Integer,
                    Sequence(tablename + '_id_seq', optional=True),
                    primary_key=True),
-            Column('trigger', PickleType(pickle_protocol, mutable=False),
-                   nullable=False),
+            Column('trigger', pickle_coltype, nullable=False),
             Column('func_ref', String(1024), nullable=False),
-            Column('args', PickleType(pickle_protocol, mutable=False),
-                   nullable=False),
-            Column('kwargs', PickleType(pickle_protocol, mutable=False),
-                   nullable=False),
+            Column('args', pickle_coltype, nullable=False),
+            Column('kwargs', pickle_coltype, nullable=False),
             Column('name', Unicode(1024)),
             Column('misfire_grace_time', Integer, nullable=False),
             Column('coalesce', Boolean, nullable=False),
