@@ -25,7 +25,7 @@ Features
 
 * No (hard) external dependencies
 * Thread-safe API
-* Excellent test coverage (tested on CPython 2.5 - 2.7, 3.3, Jython 2.5.3, PyPy 1.9)
+* Excellent test coverage (tested on CPython 2.5 - 2.7, 3.2 - 3.3, Jython 2.5.3, PyPy 1.9)
 * Configurable scheduling mechanisms (triggers):
 
   * Cron-like scheduling
@@ -34,7 +34,7 @@ Features
 * Multiple, simultaneously active job stores:
 
   * RAM 
-  * File-based simple database (shelve)
+  * File-based simple database (:py:mod:`shelve`)
   * `SQLAlchemy <http://www.sqlalchemy.org/>`_ (any supported RDBMS works)
   * `MongoDB <http://www.mongodb.org/>`_
   * `Redis <http://redis.io/>`_
@@ -46,12 +46,7 @@ Usage
 Installing APScheduler
 ----------------------
 
-On Python 3.3 or later (or if you have
-`distutils2 <http://pypi.python.org/pypi/Distutils2>` installed) you can do::
-
-    $ pysetup install apscheduler
-
-Otherwise, you can use `pip <http://pypi.python.org/pypi/pip/>`_::
+The preferred installation method is by using `pip <http://pypi.python.org/pypi/pip/>`_::
 
     $ pip install apscheduler
 
@@ -128,6 +123,37 @@ running when the job is added, the job will be scheduled `tentatively` and its
 first run time will only be computed when the scheduler starts. Jobs will not
 run retroactively in such cases.
 
+.. warning:: Scheduling new jobs from existing jobs is not currently reliable.
+             This will likely be fixed in the next major release. 
+
+
+.. _job_options:
+
+Job options
+-----------
+
+The following options can be given as keyword arguments to
+:meth:`~apscheduler.scheduler.Scheduler.add_job` or one of the shortcut
+methods, including the decorators.
+
+===================== =========================================================
+Option                Definition
+===================== =========================================================
+name                  Name of the job (informative, does not have to be unique)
+misfire_grace_time    Time in seconds that the job is allowed to miss the the
+                      designated run time before being considered to have
+                      misfired (see :ref:`coalescing`)
+                      (overrides the global scheduler setting)
+coalesce              Run once instead of many times if the scheduler
+                      determines that the job should be run more than once in
+                      succession (see :ref:`coalescing`)
+                      (overrides the global scheduler setting)
+max_runs              Maximum number of times this job is allowed to be
+                      triggered before being removed
+max_instances         Maximum number of concurrently running instances allowed
+                      for this job (see :ref:`_max_instances`)
+===================== =========================================================
+
 
 Shutting down the scheduler
 ---------------------------
@@ -151,6 +177,15 @@ altogether::
 This implies ``wait=False``, since there is no way to wait for the scheduler's
 tasks to finish without shutting down the thread pool.
 
+A neat trick to automatically shut down the scheduler is to use an :py:mod:`atexit`
+hook for that::
+
+    import atexit
+    
+    sched = Scheduler(daemon=True)
+    atexit.register(lambda: sched.shutdown(wait=False))
+    # Proceed with starting the actual application
+
 
 Scheduler configuration options
 -------------------------------
@@ -160,22 +195,14 @@ Directive               Default    Definition
 ======================= ========== ==============================================
 misfire_grace_time      1          Maximum time in seconds for the job execution
                                    to be allowed to delay before it is considered
-                                   a misfire
+                                   a misfire (see :ref:`coalescing`)
 coalesce                False      Roll several pending executions of jobs into one
+                                   (see :ref:`coalescing`)
 standalone              False      If set to ``True``,
                                    :meth:`~apscheduler.scheduler.Scheduler.start`
                                    will run the main loop in the calling
-                                   thread until no more jobs are scheduled (which
-                                   may never happen). This will naturally cause the
-                                   call to start() to block. The default setting
-                                   of ``False`` will instead spawn a new thread
-                                   to run the main loop when
-                                   :meth:`~apscheduler.scheduler.Scheduler.start`
-                                   is called.
-                                   
-                                   Set to ``False`` when the scheduler is run in
-                                   a dedicated process (as a standalone
-                                   scheduler).
+                                   thread until no more jobs are scheduled.
+                                   See :ref:`modes` for more information.
 daemonic                True       Controls whether the scheduler thread is
                                    daemonic or not. This option has no effect when
                                    ``standalone`` is ``True``.
@@ -203,6 +230,27 @@ jobstores.X.class                  Class of the jobstore named X (specified as
                                    module.name:classname)
 jobstores.X.Y                      Constructor option Y of jobstore X
 ======================= ========== ==============================================
+
+
+.. _modes:
+
+Operating modes: embedded vs standalone
+---------------------------------------
+
+The scheduler has two operating modes: standalone and embedded. In embedded mode,
+it will spawn its own thread when :meth:`~apscheduler.scheduler.Scheduler.start`
+is called. In standalone mode, it will run directly in the calling thread and
+will block until there are no more pending jobs.
+
+The embedded mode is suitable for running alongside some application that requires
+scheduling capabilities. The standalone mode, on the other hand, can be used as a
+handy cross-platform cron replacement for executing Python code. A typical usage
+of the standalone mode is to have a script that only adds the jobs to the scheduler
+and then calls :meth:`~apscheduler.scheduler.Scheduler.start` on the scheduler.
+
+All of the examples in the examples directory demonstrate usage of the standalone
+mode, with the exception of ``threaded.py`` which demonstrates the embedded mode
+(where the "application" just prints a line every 2 seconds).
 
 
 Job stores
@@ -268,6 +316,8 @@ changes are never persisted back to the job store.
 .. note:: None of these restrictions apply to ``RAMJobStore``.
 
 
+.. _max_instances:
+
 Limiting the number of concurrently executing instances of a job
 ----------------------------------------------------------------
 
@@ -279,19 +329,26 @@ run concurrently, by using the ``max_instances`` keyword argument when adding
 the job.
 
 
-Coalescing job executions
--------------------------
+.. _coalescing:
+
+Missed job executions and coalescing
+------------------------------------
 
 Sometimes the scheduler may be unable to execute a scheduled job at the time
 it was scheduled to run. The most common case is when a job is scheduled in a
 persistent job store and the scheduler is shut down and restarted after the job
-was supposed to execute. Normally the scheduler would execute the job as many
-times as its misfire_grace_time option permits. This can be undesireable in
-many cases, such as backing up data or sending notifications. By setting the
-``coalesce`` option to ``True`` when adding the job (or globally on the
-scheduler) you can avoid unintended successive executions of the job. The
-bypassed runs of the job are not considered misfires nor do they count towards
-any maximum run count of the job.
+was supposed to execute. When this happens, the job is considered to have
+"misfired". The scheduler will then check each missed execution time against
+the job's ``misfire_grace_time`` option (which can be set on per-job basis or
+globally in the scheduler) to see if the execution should still be triggered.
+This can lead into the job being executed several times in succession.
+
+If this behavior is undesirable for your particular use case, it is possible
+to use `coalescing` to roll all these missed executions into one. In other
+words, if coalescing is enabled for the job and the scheduler sees one or more
+queued executions for the job, it will only trigger it once. The "bypassed"
+runs of the job are not considered misfires nor do they count towards any
+maximum run count of the job.
 
 
 Scheduler events

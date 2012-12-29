@@ -267,6 +267,8 @@ class Scheduler(object):
                 **options):
         """
         Adds the given job to the job list and notifies the scheduler thread.
+        Any extra keyword arguments are passed along to the constructor of the
+        :class:`~apscheduler.job.Job` class (see :ref:`job_options`).
 
         :param trigger: trigger that determines when ``func`` is called
         :param func: callable to run at the given time
@@ -298,6 +300,8 @@ class Scheduler(object):
     def add_date_job(self, func, date, args=None, kwargs=None, **options):
         """
         Schedules a job to be completed on a specific date and time.
+        Any extra keyword arguments are passed along to the constructor of the
+        :class:`~apscheduler.job.Job` class (see :ref:`job_options`).
 
         :param func: callable to run at the given time
         :param date: the date/time to run the job at
@@ -316,6 +320,8 @@ class Scheduler(object):
                          **options):
         """
         Schedules a job to be completed on specified intervals.
+        Any extra keyword arguments are passed along to the constructor of the
+        :class:`~apscheduler.job.Job` class (see :ref:`job_options`).
 
         :param func: callable to run
         :param weeks: number of weeks to wait
@@ -344,6 +350,8 @@ class Scheduler(object):
         """
         Schedules a job to be completed on times that match the given
         expressions.
+        Any extra keyword arguments are passed along to the constructor of the
+        :class:`~apscheduler.job.Job` class (see :ref:`job_options`).
 
         :param func: callable to run
         :param year: year to run on
@@ -374,6 +382,8 @@ class Scheduler(object):
         This decorator does not wrap its host function.
         Unscheduling decorated functions is possible by passing the ``job``
         attribute of the scheduled function to :meth:`unschedule_job`.
+        Any extra keyword arguments are passed along to the constructor of the
+        :class:`~apscheduler.job.Job` class (see :ref:`job_options`).
         """
         def inner(func):
             func.job = self.add_cron_job(func, **options)
@@ -386,6 +396,8 @@ class Scheduler(object):
         This decorator does not wrap its host function.
         Unscheduling decorated functions is possible by passing the ``job``
         attribute of the scheduled function to :meth:`unschedule_job`.
+        Any extra keyword arguments are passed along to the constructor of the
+        :class:`~apscheduler.job.Job` class (see :ref:`job_options`).
         """
         def inner(func):
             func.job = self.add_interval_job(func, **options)

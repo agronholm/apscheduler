@@ -19,6 +19,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Fixed SQLAlchemy 0.8 compatibility in SQLAlchemyJobStore
 
+* Various documentation improvements
+
 
 2.0.3
 -----

@@ -16,22 +16,25 @@ class MaxInstancesReachedError(Exception):
 class Job(object):
     """
     Encapsulates the actual Job along with its metadata. Job instances
-    are created by the scheduler when adding jobs, and it should not be
-    directly instantiated.
+    are created by the scheduler when adding jobs, and should not be
+    directly instantiated. These options can be set when adding jobs
+    to the scheduler (see :ref:`job_options`).
 
-    :param trigger: trigger that determines the execution times
-    :param func: callable to call when the trigger is triggered
-    :param args: list of positional arguments to call func with
-    :param kwargs: dict of keyword arguments to call func with
-    :param name: name of the job (optional)
-    :param misfire_grace_time: seconds after the designated run time that
+    :var trigger: trigger that determines the execution times
+    :var func: callable to call when the trigger is triggered
+    :var args: list of positional arguments to call func with
+    :var kwargs: dict of keyword arguments to call func with
+    :var name: name of the job
+    :var misfire_grace_time: seconds after the designated run time that
         the job is still allowed to be run
-    :param coalesce: run once instead of many times if the scheduler determines
+    :var coalesce: run once instead of many times if the scheduler determines
         that the job should be run more than once in succession
-    :param max_runs: maximum number of times this job is allowed to be
+    :var max_runs: maximum number of times this job is allowed to be
         triggered
-    :param max_instances: maximum number of concurrently running
+    :var max_instances: maximum number of concurrently running
         instances allowed for this job
+    :var runs: number of times this job has been triggered
+    :var instances: number of concurrently running instances of this job
     """
     id = None
     next_run_time = None
