@@ -175,8 +175,7 @@ class TestMongoDBJobStore(PersistentJobstoreTestBase):
         cls.jobstore.close()
 
     def test_repr(self):
-        eq_(repr(self.jobstore),
-            "<MongoDBJobStore (connection=Connection('localhost', 27017))>")
+        eq_(repr(self.jobstore), "<MongoDBJobStore (connection=Connection('localhost', 27017))>")
 
 
 class TestRedisJobStore(PersistentJobstoreTestBase):

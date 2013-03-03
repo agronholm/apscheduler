@@ -4,9 +4,7 @@ import os.path
 try:
     from setuptools import setup
 
-    extras = dict(zip_safe=False,
-                  test_suite='nose.collector',
-                  tests_require=['nose'])
+    extras = dict(zip_safe=False, test_suite='nose.collector', tests_require=['nose'])
 except ImportError:
     from distutils.core import setup
     extras = {}
@@ -39,6 +37,5 @@ setup(
     ],
     keywords='scheduling cron',
     license='MIT',
-    packages=('apscheduler', 'apscheduler.jobstores', 'apscheduler.triggers',
-              'apscheduler.triggers.cron'),
+    packages=('apscheduler', 'apscheduler.jobstores', 'apscheduler.triggers', 'apscheduler.triggers.cron'),
 )

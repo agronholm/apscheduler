@@ -1,6 +1,5 @@
 """
-Basic example showing how the scheduler integrates with the application it's
-running alongside with.
+Basic example showing how the scheduler integrates with the application it's running alongside with.
 """
 
 from datetime import datetime

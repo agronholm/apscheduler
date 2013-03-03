@@ -5,16 +5,17 @@ from apscheduler.util import datetime_ceil, convert_to_datetime, iteritems
 
 
 class CronTrigger(object):
-    FIELD_NAMES = ('year', 'month', 'day', 'week', 'day_of_week', 'hour',
-                   'minute', 'second')
-    FIELDS_MAP = {'year': BaseField,
-                  'month': BaseField,
-                  'week': WeekField,
-                  'day': DayOfMonthField,
-                  'day_of_week': DayOfWeekField,
-                  'hour': BaseField,
-                  'minute': BaseField,
-                  'second': BaseField}
+    FIELD_NAMES = ('year', 'month', 'day', 'week', 'day_of_week', 'hour', 'minute', 'second')
+    FIELDS_MAP = {
+        'year': BaseField,
+        'month': BaseField,
+        'week': WeekField,
+        'day': DayOfMonthField,
+        'day_of_week': DayOfWeekField,
+        'hour': BaseField,
+        'minute': BaseField,
+        'second': BaseField
+    }
 
     def __init__(self, **values):
         self.start_date = values.pop('start_date', None)
@@ -48,15 +49,13 @@ class CronTrigger(object):
 
     def _increment_field_value(self, dateval, fieldnum):
         """
-        Increments the designated field and resets all less significant fields
-        to their minimum values.
+        Increments the designated field and resets all less significant fields to their minimum values.
 
         :type dateval: datetime
         :type fieldnum: int
         :type amount: int
         :rtype: tuple
-        :return: a tuple containing the new date, and the number of the field
-                 that was actually incremented
+        :return: a tuple containing the new date, and the number of the field that was actually incremented
         """
         i = 0
         values = {}
@@ -113,17 +112,14 @@ class CronTrigger(object):
 
             if next_value is None:
                 # No valid value was found
-                next_date, fieldnum = self._increment_field_value(
-                    next_date, fieldnum - 1)
+                next_date, fieldnum = self._increment_field_value(next_date, fieldnum - 1)
             elif next_value > curr_value:
                 # A valid, but higher than the starting value, was found
                 if field.REAL:
-                    next_date = self._set_field_value(
-                        next_date, fieldnum, next_value)
+                    next_date = self._set_field_value(next_date, fieldnum, next_value)
                     fieldnum += 1
                 else:
-                    next_date, fieldnum = self._increment_field_value(
-                        next_date, fieldnum)
+                    next_date, fieldnum = self._increment_field_value(next_date, fieldnum)
             else:
                 # A valid value was found, no changes necessary
                 fieldnum += 1
@@ -132,13 +128,11 @@ class CronTrigger(object):
             return next_date
 
     def __str__(self):
-        options = ["%s='%s'" % (f.name, str(f)) for f in self.fields
-                   if not f.is_default]
+        options = ["%s='%s'" % (f.name, str(f)) for f in self.fields if not f.is_default]
         return 'cron[%s]' % (', '.join(options))
 
     def __repr__(self):
-        options = ["%s='%s'" % (f.name, str(f)) for f in self.fields
-                   if not f.is_default]
+        options = ["%s='%s'" % (f.name, str(f)) for f in self.fields if not f.is_default]
         if self.start_date:
             options.append("start_date='%s'" % self.start_date.isoformat(' '))
         return '<%s (%s)>' % (self.__class__.__name__, ', '.join(options))

@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class SQLAlchemyJobStore(JobStore):
-    def __init__(self, url=None, engine=None, tablename='apscheduler_jobs',
-                 metadata=None, pickle_protocol=pickle.HIGHEST_PROTOCOL):
+    def __init__(self, url=None, engine=None, tablename='apscheduler_jobs', metadata=None,
+                 pickle_protocol=pickle.HIGHEST_PROTOCOL):
         self.jobs = []
         self.pickle_protocol = pickle_protocol
 
@@ -36,9 +36,7 @@ class SQLAlchemyJobStore(JobStore):
             pickle_coltype = PickleType(pickle_protocol)
         self.jobs_t = Table(
             tablename, metadata or MetaData(),
-            Column('id', Integer,
-                   Sequence(tablename + '_id_seq', optional=True),
-                   primary_key=True),
+            Column('id', Integer, Sequence(tablename + '_id_seq', optional=True), primary_key=True),
             Column('trigger', pickle_coltype, nullable=False),
             Column('func_ref', String(1024), nullable=False),
             Column('args', pickle_coltype, nullable=False),
@@ -80,8 +78,7 @@ class SQLAlchemyJobStore(JobStore):
     def update_job(self, job):
         job_dict = job.__getstate__()
         update = self.jobs_t.update().where(self.jobs_t.c.id == job.id).\
-            values(next_run_time=job_dict['next_run_time'],
-                   runs=job_dict['runs'])
+            values(next_run_time=job_dict['next_run_time'], runs=job_dict['runs'])
         self.engine.execute(update)
 
     def close(self):

@@ -7,16 +7,14 @@ from time import mktime
 import re
 import sys
 
-__all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds',
-           'time_difference', 'datetime_ceil', 'combine_opts',
-           'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref',
-           'to_unicode', 'iteritems', 'itervalues', 'xrange')
+__all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds', 'time_difference', 'datetime_ceil',
+           'combine_opts', 'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref', 'to_unicode', 'iteritems',
+           'itervalues', 'xrange')
 
 
 def asint(text):
     """
-    Safely converts a string to an integer, returning None if the string
-    is None.
+    Safely converts a string to an integer, returning None if the string is None.
 
     :type text: str
     :rtype: int
@@ -86,8 +84,8 @@ def timedelta_seconds(delta):
 
 def time_difference(date1, date2):
     """
-    Returns the time difference in seconds between the given two
-    datetime objects. The difference is calculated as: date1 - date2.
+    Returns the time difference in seconds between the given two datetime objects.
+    The difference is calculated as: date1 - date2.
 
     :param date1: the later datetime
     :type date1: datetime
@@ -114,9 +112,8 @@ def datetime_ceil(dateval):
 
 def combine_opts(global_config, prefix, local_config={}):
     """
-    Returns a subdictionary from keys and values of  ``global_config`` where
-    the key starts with the given prefix, combined with options from
-    local_config. The keys in the subdictionary have the prefix removed.
+    Returns a subdictionary from keys and values of  ``global_config`` where the key starts with the given prefix,
+    combined with options from local_config. The keys in the subdictionary have the prefix removed.
 
     :type global_config: dict
     :type prefix: str
@@ -154,8 +151,7 @@ def get_callable_name(func):
         # instance of a class with a __call__ method
         return func.__class__.__name__
 
-    raise TypeError('Unable to determine a name for %s -- '
-                    'maybe it is not a callable?' % repr(func))
+    raise TypeError('Unable to determine a name for %r -- maybe it is not a callable?' % func)
 
 
 def obj_to_ref(obj):
@@ -168,7 +164,7 @@ def obj_to_ref(obj):
         if obj != obj2:
             raise ValueError
     except Exception:
-        raise ValueError('Cannot determine the reference to %s' % repr(obj))
+        raise ValueError('Cannot determine the reference to %r' % obj)
 
     return ref
 
@@ -186,22 +182,20 @@ def ref_to_obj(ref):
     try:
         obj = __import__(modulename)
     except ImportError:
-        raise LookupError('Error resolving reference %s: '
-                          'could not import module' % ref)
+        raise LookupError('Error resolving reference %s: could not import module' % ref)
 
     try:
         for name in modulename.split('.')[1:] + rest.split('.'):
             obj = getattr(obj, name)
         return obj
     except Exception:
-        raise LookupError('Error resolving reference %s: '
-                          'error looking up object' % ref)
+        raise LookupError('Error resolving reference %s: error looking up object' % ref)
 
 
 def maybe_ref(ref):
     """
-    Returns the object that the given reference points to, if it is indeed
-    a reference. If it is not a reference, the object is returned as-is.
+    Returns the object that the given reference points to, if it is indeed a reference.
+    If it is not a reference, the object is returned as-is.
     """
     if not isinstance(ref, str):
         return ref
@@ -210,8 +204,7 @@ def maybe_ref(ref):
 
 def to_unicode(string, encoding='ascii'):
     """
-    Safely converts a string to a unicode representation on any
-    Python version.
+    Safely converts a string to a unicode representation on any Python version.
     """
     if hasattr(string, 'decode'):
         return string.decode(encoding, 'ignore')

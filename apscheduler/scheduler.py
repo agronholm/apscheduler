@@ -1,6 +1,5 @@
 """
-This module is the main part of the library. It houses the Scheduler class
-and related exceptions.
+This module is the main part of the library. It houses the Scheduler class and related exceptions.
 """
 
 from threading import Thread, Event, Lock
@@ -21,8 +20,7 @@ logger = getLogger(__name__)
 
 class SchedulerAlreadyRunningError(Exception):
     """
-    Raised when attempting to start or configure the scheduler when it's
-    already running.
+    Raised when attempting to start or configure the scheduler when it's already running.
     """
 
     def __str__(self):
@@ -31,8 +29,7 @@ class SchedulerAlreadyRunningError(Exception):
 
 class Scheduler(object):
     """
-    This class is responsible for scheduling jobs and triggering
-    their execution.
+    This class is responsible for scheduling jobs and triggering their execution.
     """
 
     _stopped = False
@@ -49,8 +46,7 @@ class Scheduler(object):
 
     def configure(self, gconfig={}, **options):
         """
-        Reconfigures the scheduler with the given options. Can only be done
-        when the scheduler isn't running.
+        Reconfigures the scheduler with the given options. Can only be done when the scheduler isn't running.
         """
         if self.running:
             raise SchedulerAlreadyRunningError
@@ -87,11 +83,9 @@ class Scheduler(object):
         """
         Starts the scheduler in a new thread.
 
-        In threaded mode (the default), this method will return immediately
-        after starting the scheduler thread.
+        In threaded mode (the default), this method will return immediately after starting the scheduler thread.
 
-        In standalone mode, this method will block until there are no more
-        scheduled jobs.
+        In standalone mode, this method will block until there are no more scheduled jobs.
         """
         if self.running:
             raise SchedulerAlreadyRunningError
@@ -116,11 +110,10 @@ class Scheduler(object):
     def shutdown(self, wait=True, shutdown_threadpool=True,
                  close_jobstores=True):
         """
-        Shuts down the scheduler and terminates the thread.
-        Does not interrupt any currently running jobs.
+        Shuts down the scheduler and terminates the thread. Does not interrupt any currently running jobs.
 
-        :param wait: ``True`` to wait until all currently executing jobs have
-                     finished (if ``shutdown_threadpool`` is also ``True``)
+        :param wait: ``True`` to wait until all currently executing jobs have finished (if ``shutdown_threadpool`` is
+                     also ``True``)
         :param shutdown_threadpool: ``True`` to shut down the thread pool
         :param close_jobstores: ``True`` to close all job stores after shutdown
         """
@@ -154,8 +147,7 @@ class Scheduler(object):
         :param jobstore: job store to be added
         :param alias: alias for the job store
         :param quiet: True to suppress scheduler thread wakeup
-        :type jobstore: instance of
-            :class:`~apscheduler.jobstores.base.JobStore`
+        :type jobstore: instance of :class:`~apscheduler.jobstores.base.JobStore`
         :type alias: str
         """
         with self._jobstores_lock:
@@ -192,10 +184,9 @@ class Scheduler(object):
 
     def add_listener(self, callback, mask=EVENT_ALL):
         """
-        Adds a listener for scheduler events. When a matching event occurs,
-        ``callback`` is executed with the event object as its sole argument.
-        If the ``mask`` parameter is not provided, the callback will receive
-        events of all types.
+        Adds a listener for scheduler events. When a matching event occurs, ``callback`` is executed with the event
+        object as its sole argument. If the ``mask`` parameter is not provided, the callback will receive events of all
+        types.
 
         :param callback: any callable that takes one argument
         :param mask: bitmask that indicates which events should be listened to
@@ -249,19 +240,16 @@ class Scheduler(object):
                 **options):
         """
         Adds the given job to the job list and notifies the scheduler thread.
-        
-        The ``func`` argument can be given either as a callable object or a
-        textual reference in the ``package.module:some.object`` format, where
-        the first half (separated by ``:``) is an importable module and the
-        second half is a reference to the callable object, relative to the
-        module.
-        
-        Any extra keyword arguments are passed along to the constructor of the
-        :class:`~apscheduler.job.Job` class (see :ref:`job_options`).
+
+        The ``func`` argument can be given either as a callable object or a textual reference in the
+        ``package.module:some.object`` format, where the first half (separated by ``:``) is an importable module and the
+        second half is a reference to the callable object, relative to the module.
+
+        Any extra keyword arguments are passed along to the constructor of the :class:`~apscheduler.job.Job` class
+        (see :ref:`job_options`).
 
         :param trigger: trigger that determines when ``func`` is called
-        :param func: callable (or a textual reference to one) to run at the
-                     given time
+        :param func: callable (or a textual reference to one) to run at the given time
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
         :param jobstore: alias of the job store to store the job in
@@ -272,8 +260,7 @@ class Scheduler(object):
                   options.pop('coalesce', self.coalesce), **options)
         if not self.running:
             self._pending_jobs.append((job, jobstore))
-            logger.info('Adding job tentatively -- it will be properly '
-                        'scheduled when the scheduler starts')
+            logger.info('Adding job tentatively -- it will be properly scheduled when the scheduler starts')
         else:
             self._real_add_job(job, jobstore, True)
         return job
@@ -290,15 +277,14 @@ class Scheduler(object):
     def add_date_job(self, func, date, args=None, kwargs=None, **options):
         """
         Schedules a job to be completed on a specific date and time.
-        Any extra keyword arguments are passed along to the constructor of the
-        :class:`~apscheduler.job.Job` class (see :ref:`job_options`).
+        Any extra keyword arguments are passed along to the constructor of the :class:`~apscheduler.job.Job` class
+        (see :ref:`job_options`).
 
         :param func: callable to run at the given time
         :param date: the date/time to run the job at
         :param name: name of the job
         :param jobstore: stored the job in the named (or given) job store
-        :param misfire_grace_time: seconds after the designated run time that
-            the job is still allowed to be run
+        :param misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
         :type date: :class:`datetime.date`
         :rtype: :class:`~apscheduler.job.Job`
         """
@@ -310,8 +296,8 @@ class Scheduler(object):
                          **options):
         """
         Schedules a job to be completed on specified intervals.
-        Any extra keyword arguments are passed along to the constructor of the
-        :class:`~apscheduler.job.Job` class (see :ref:`job_options`).
+        Any extra keyword arguments are passed along to the constructor of the :class:`~apscheduler.job.Job` class
+        (see :ref:`job_options`).
 
         :param func: callable to run
         :param weeks: number of weeks to wait
@@ -319,14 +305,12 @@ class Scheduler(object):
         :param hours: number of hours to wait
         :param minutes: number of minutes to wait
         :param seconds: number of seconds to wait
-        :param start_date: when to first execute the job and start the
-            counter (default is after the given interval)
+        :param start_date: when to first execute the job and start the counter (default is after the given interval)
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
         :param name: name of the job
         :param jobstore: alias of the job store to add the job to
-        :param misfire_grace_time: seconds after the designated run time that
-            the job is still allowed to be run
+        :param misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
         :rtype: :class:`~apscheduler.job.Job`
         """
         interval = timedelta(weeks=weeks, days=days, hours=hours,
@@ -338,10 +322,9 @@ class Scheduler(object):
                      day_of_week=None, hour=None, minute=None, second=None,
                      start_date=None, args=None, kwargs=None, **options):
         """
-        Schedules a job to be completed on times that match the given
-        expressions.
-        Any extra keyword arguments are passed along to the constructor of the
-        :class:`~apscheduler.job.Job` class (see :ref:`job_options`).
+        Schedules a job to be completed on times that match the given expressions.
+        Any extra keyword arguments are passed along to the constructor of the :class:`~apscheduler.job.Job` class
+        (see :ref:`job_options`).
 
         :param func: callable to run
         :param year: year to run on
@@ -355,8 +338,7 @@ class Scheduler(object):
         :param kwargs: dict of keyword arguments to call func with
         :param name: name of the job
         :param jobstore: alias of the job store to add the job to
-        :param misfire_grace_time: seconds after the designated run time that
-            the job is still allowed to be run
+        :param misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
         :return: the scheduled job
         :rtype: :class:`~apscheduler.job.Job`
         """
@@ -369,11 +351,14 @@ class Scheduler(object):
     def cron_schedule(self, **options):
         """
         Decorator version of :meth:`add_cron_job`.
+
         This decorator does not wrap its host function.
-        Unscheduling decorated functions is possible by passing the ``job``
-        attribute of the scheduled function to :meth:`unschedule_job`.
-        Any extra keyword arguments are passed along to the constructor of the
-        :class:`~apscheduler.job.Job` class (see :ref:`job_options`).
+
+        Unscheduling decorated functions is possible by passing the ``job`` attribute of the scheduled function to
+        :meth:`unschedule_job`.
+
+        Any extra keyword arguments are passed along to the constructor of the :class:`~apscheduler.job.Job` class
+        (see :ref:`job_options`).
         """
         def inner(func):
             func.job = self.add_cron_job(func, **options)
@@ -383,11 +368,14 @@ class Scheduler(object):
     def interval_schedule(self, **options):
         """
         Decorator version of :meth:`add_interval_job`.
+
         This decorator does not wrap its host function.
-        Unscheduling decorated functions is possible by passing the ``job``
-        attribute of the scheduled function to :meth:`unschedule_job`.
-        Any extra keyword arguments are passed along to the constructor of the
-        :class:`~apscheduler.job.Job` class (see :ref:`job_options`).
+
+        Unscheduling decorated functions is possible by passing the ``job`` attribute of the scheduled function to
+        :meth:`unschedule_job`.
+
+        Any extra keyword arguments are passed along to the constructor of the :class:`~apscheduler.job.Job` class
+        (see :ref:`job_options`).
         """
         def inner(func):
             func.job = self.add_interval_job(func, **options)
@@ -431,16 +419,14 @@ class Scheduler(object):
                         found = True
 
         if not found:
-            raise KeyError('The given function is not scheduled in this '
-                           'scheduler')
+            raise KeyError('The given function is not scheduled in this scheduler')
 
     def print_jobs(self, out=None):
         """
         Prints out a textual listing of all jobs currently scheduled on this
         scheduler.
 
-        :param out: a file-like object to print to (defaults to **sys.stdout**
-                    if nothing is given)
+        :param out: a file-like object to print to (defaults to **sys.stdout** if nothing is given)
         """
         out = out or sys.stdout
         job_strs = []
@@ -468,36 +454,31 @@ class Scheduler(object):
                 # Notify listeners about a missed run
                 event = JobEvent(EVENT_JOB_MISSED, job, run_time)
                 self._notify_listeners(event)
-                logger.warning('Run time of job "%s" was missed by %s',
-                               job, difference)
+                logger.warning('Run time of job "%s" was missed by %s', job, difference)
             else:
                 try:
                     job.add_instance()
                 except MaxInstancesReachedError:
                     event = JobEvent(EVENT_JOB_MISSED, job, run_time)
                     self._notify_listeners(event)
-                    logger.warning('Execution of job "%s" skipped: '
-                                   'maximum number of running instances '
-                                   'reached (%d)', job, job.max_instances)
+                    logger.warning('Execution of job "%s" skipped: maximum number of running instances reached (%d)',
+                                   job, job.max_instances)
                     break
 
-                logger.info('Running job "%s" (scheduled at %s)', job,
-                            run_time)
+                logger.info('Running job "%s" (scheduled at %s)', job, run_time)
 
                 try:
                     retval = job.func(*job.args, **job.kwargs)
                 except:
                     # Notify listeners about the exception
                     exc, tb = sys.exc_info()[1:]
-                    event = JobEvent(EVENT_JOB_ERROR, job, run_time,
-                                     exception=exc, traceback=tb)
+                    event = JobEvent(EVENT_JOB_ERROR, job, run_time, exception=exc, traceback=tb)
                     self._notify_listeners(event)
 
                     logger.exception('Job "%s" raised an exception', job)
                 else:
                     # Notify listeners about successful execution
-                    event = JobEvent(EVENT_JOB_EXECUTED, job, run_time,
-                                     retval=retval)
+                    event = JobEvent(EVENT_JOB_EXECUTED, job, run_time, retval=retval)
                     self._notify_listeners(event)
 
                     logger.info('Job "%s" executed successfully', job)
@@ -510,8 +491,7 @@ class Scheduler(object):
 
     def _process_jobs(self, now):
         """
-        Iterates through jobs in every jobstore, starts pending jobs
-        and figures out the next wakeup time.
+        Iterates through jobs in every jobstore, starts pending jobs and figures out the next wakeup time.
         """
         next_wakeup_time = None
         with self._jobstores_lock:
@@ -528,8 +508,7 @@ class Scheduler(object):
                             job.runs += len(run_times)
 
                         # Update the job, but don't keep finished jobs around
-                        if job.compute_next_run_time(
-                                now + timedelta(microseconds=1)):
+                        if job.compute_next_run_time(now + timedelta(microseconds=1)):
                             jobstore.update_job(job)
                         else:
                             self._remove_job(job, alias, jobstore)
@@ -537,8 +516,7 @@ class Scheduler(object):
                     if not next_wakeup_time:
                         next_wakeup_time = job.next_run_time
                     elif job.next_run_time:
-                        next_wakeup_time = min(next_wakeup_time,
-                                               job.next_run_time)
+                        next_wakeup_time = min(next_wakeup_time, job.next_run_time)
             return next_wakeup_time
 
     def _main_loop(self):
@@ -557,8 +535,7 @@ class Scheduler(object):
             # a new job is added or the scheduler is stopped
             if next_wakeup_time is not None:
                 wait_seconds = time_difference(next_wakeup_time, now)
-                logger.debug('Next wakeup is due at %s (in %f seconds)',
-                             next_wakeup_time, wait_seconds)
+                logger.debug('Next wakeup is due at %s (in %f seconds)', next_wakeup_time, wait_seconds)
                 self._wakeup.wait(wait_seconds)
                 self._wakeup.clear()
             elif self.standalone:

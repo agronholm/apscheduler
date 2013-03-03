@@ -8,9 +8,8 @@ from nose.tools import eq_, raises
 from apscheduler.jobstores.ram_store import RAMJobStore
 from apscheduler.scheduler import Scheduler, SchedulerAlreadyRunningError
 from apscheduler.job import Job
-from apscheduler.events import (EVENT_JOB_EXECUTED, SchedulerEvent,
-                                EVENT_SCHEDULER_START,
-                                EVENT_SCHEDULER_SHUTDOWN, EVENT_JOB_MISSED)
+from apscheduler.events import (EVENT_JOB_EXECUTED, SchedulerEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN,
+                                EVENT_JOB_MISSED)
 from apscheduler import scheduler
 
 try:
@@ -33,8 +32,7 @@ class TestOfflineScheduler(object):
         self.scheduler.add_jobstore(RAMJobStore(), 'dummy')
 
     def test_add_tentative_job(self):
-        job = self.scheduler.add_date_job(lambda: None, datetime(2200, 7, 24),
-                                          jobstore='dummy')
+        job = self.scheduler.add_date_job(lambda: None, datetime(2200, 7, 24), jobstore='dummy')
         assert isinstance(job, Job)
         eq_(self.scheduler.get_jobs(), [])
 
@@ -44,8 +42,7 @@ class TestOfflineScheduler(object):
         eq_(job.func_ref, 'copy:copy')
 
     def test_configure_jobstore(self):
-        conf = {'apscheduler.jobstore.ramstore.class':
-                'apscheduler.jobstores.ram_store:RAMJobStore'}
+        conf = {'apscheduler.jobstore.ramstore.class': 'apscheduler.jobstores.ram_store:RAMJobStore'}
         self.scheduler.configure(conf)
         self.scheduler.remove_jobstore('ramstore')
 
@@ -53,15 +50,13 @@ class TestOfflineScheduler(object):
         self.scheduler.shutdown()
 
     def test_configure_no_prefix(self):
-        global_options = {'misfire_grace_time': '2',
-                          'daemonic': 'false'}
+        global_options = {'misfire_grace_time': '2', 'daemonic': 'false'}
         self.scheduler.configure(global_options)
         eq_(self.scheduler.misfire_grace_time, 1)
         eq_(self.scheduler.daemonic, True)
 
     def test_configure_prefix(self):
-        global_options = {'apscheduler.misfire_grace_time': 2,
-                          'apscheduler.daemonic': False}
+        global_options = {'apscheduler.misfire_grace_time': 2, 'apscheduler.daemonic': False}
         self.scheduler.configure(global_options)
         eq_(self.scheduler.misfire_grace_time, 2)
         eq_(self.scheduler.daemonic, False)
@@ -143,10 +138,9 @@ class TestJobExecution(object):
         def my_job():
             pass
 
-        job = self.scheduler.add_interval_job(my_job,
-                                              start_date=datetime(2010, 5, 19))
-        eq_(repr(job), '<Job (name=my_job, '
-            'trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), '
+        job = self.scheduler.add_interval_job(my_job, start_date=datetime(2010, 5, 19))
+        eq_(repr(job),
+            '<Job (name=my_job, trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), '
             'start_date=datetime.datetime(2010, 5, 19, 0, 0))>)>')
 
     def test_schedule_object(self):
@@ -234,8 +228,7 @@ class TestJobExecution(object):
         job = self.scheduler.add_interval_job(lambda: None, seconds=1)
         eq_(job.misfire_grace_time, 3)
 
-        job = self.scheduler.add_interval_job(lambda: None, seconds=1,
-                                              misfire_grace_time=2)
+        job = self.scheduler.add_interval_job(lambda: None, seconds=1, misfire_grace_time=2)
         eq_(job.misfire_grace_time, 2)
 
     def test_coalesce_on(self):
@@ -247,11 +240,9 @@ class TestJobExecution(object):
         vals = [0]
         events = []
         scheduler.datetime = FakeDateTime
-        self.scheduler.add_listener(events.append,
-                                    EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        job = self.scheduler.add_interval_job(
-            increment, seconds=1, start_date=FakeDateTime.now(),
-            coalesce=True, misfire_grace_time=2)
+        self.scheduler.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
+        job = self.scheduler.add_interval_job(increment, seconds=1, start_date=FakeDateTime.now(), coalesce=True,
+                                              misfire_grace_time=2)
 
         # Turn the clock 14 seconds forward
         FakeDateTime._now += timedelta(seconds=2)
@@ -271,11 +262,9 @@ class TestJobExecution(object):
         vals = [0]
         events = []
         scheduler.datetime = FakeDateTime
-        self.scheduler.add_listener(events.append,
-                                    EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        job = self.scheduler.add_interval_job(
-            increment, seconds=1, start_date=FakeDateTime.now(),
-            coalesce=False, misfire_grace_time=2)
+        self.scheduler.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
+        job = self.scheduler.add_interval_job(increment, seconds=1, start_date=FakeDateTime.now(), coalesce=False,
+                                              misfire_grace_time=2)
 
         # Turn the clock 2 seconds forward
         FakeDateTime._now += timedelta(seconds=2)
@@ -376,8 +365,7 @@ class TestJobExecution(object):
 
     def test_jobstore(self):
         self.scheduler.add_jobstore(RAMJobStore(), 'dummy')
-        job = self.scheduler.add_date_job(lambda: None, datetime(2200, 7, 24),
-                                          jobstore='dummy')
+        job = self.scheduler.add_date_job(lambda: None, datetime(2200, 7, 24), jobstore='dummy')
         eq_(self.scheduler.get_jobs(), [job])
         self.scheduler.remove_jobstore('dummy')
         eq_(self.scheduler.get_jobs(), [])

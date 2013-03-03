@@ -192,8 +192,7 @@ def test_obj_to_ref():
 def test_inner_obj_to_ref():
     if sys.version_info < (3, 3):
         raise SkipTest
-    eq_(obj_to_ref(DummyClass.InnerDummyClass.innerclassmeth),
-        'testutil:DummyClass.InnerDummyClass.innerclassmeth')
+    eq_(obj_to_ref(DummyClass.InnerDummyClass.innerclassmeth), 'testutil:DummyClass.InnerDummyClass.innerclassmeth')
 
 
 def test_ref_to_obj():

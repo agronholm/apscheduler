@@ -1,7 +1,6 @@
 """
 Generic thread pool class. Modeled after Java's ThreadPoolExecutor.
-Please note that this ThreadPool does *not* fully implement the PEP 3148
-ThreadPool!
+Please note that this ThreadPool does *not* fully implement the PEP 3148 ThreadPool!
 """
 
 from threading import Thread, Lock, currentThread
@@ -18,9 +17,8 @@ logger = logging.getLogger(__name__)
 _threadpools = set()
 
 
-# Worker threads are daemonic in order to let the interpreter exit without
-# an explicit shutdown of the thread pool. The following trick is necessary
-# to allow worker threads to finish cleanly.
+# Worker threads are daemonic in order to let the interpreter exit without an explicit shutdown of the thread pool.
+# The following trick is necessary to allow worker threads to finish cleanly.
 def _shutdown_all():
     for pool_ref in tuple(_threadpools):
         pool = pool_ref()
@@ -36,8 +34,7 @@ class ThreadPool(object):
         :param core_threads: maximum number of persistent threads in the pool
         :param max_threads: maximum number of total threads in the pool
         :param thread_class: callable that creates a Thread object
-        :param keepalive: seconds to keep non-core worker threads waiting
-            for new tasks
+        :param keepalive: seconds to keep non-core worker threads waiting for new tasks
         """
         self.core_threads = core_threads
         self.max_threads = max(max_threads, core_threads, 1)
@@ -48,8 +45,8 @@ class ThreadPool(object):
         self._shutdown = False
 
         _threadpools.add(ref(self))
-        logger.info('Started thread pool with %d core threads and %s maximum '
-                    'threads', core_threads, max_threads or 'unlimited')
+        logger.info('Started thread pool with %d core threads and %s maximum threads', core_threads,
+                    max_threads or 'unlimited')
 
     def _adjust_threadcount(self):
         with self._threads_lock:

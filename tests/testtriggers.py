@@ -7,8 +7,7 @@ from apscheduler.triggers import CronTrigger, SimpleTrigger, IntervalTrigger
 
 def test_cron_trigger_1():
     trigger = CronTrigger(year='2009/2', month='1/3', day='5-13')
-    eq_(repr(trigger),
-        "<CronTrigger (year='2009/2', month='1/3', day='5-13')>")
+    eq_(repr(trigger), "<CronTrigger (year='2009/2', month='1/3', day='5-13')>")
     eq_(str(trigger), "cron[year='2009/2', month='1/3', day='5-13']")
     start_date = datetime(2008, 12, 1)
     correct_next_date = datetime(2009, 1, 5)
@@ -55,9 +54,7 @@ def test_cron_year_list():
 def test_cron_start_date():
     trigger = CronTrigger(year='2009', month='2', hour='8-10',
                           start_date='2009-02-03 11:00:00')
-    eq_(repr(trigger),
-        "<CronTrigger (year='2009', month='2', hour='8-10', "
-        "start_date='2009-02-03 11:00:00')>")
+    eq_(repr(trigger), "<CronTrigger (year='2009', month='2', hour='8-10', start_date='2009-02-03 11:00:00')>")
     eq_(str(trigger), "cron[year='2009', month='2', hour='8-10']")
     start_date = datetime(2009, 1, 1)
     correct_next_date = datetime(2009, 2, 4, 8)
@@ -67,24 +64,17 @@ def test_cron_start_date():
 def test_cron_weekday_overlap():
     trigger = CronTrigger(year=2009, month=1, day='6-10',
                           day_of_week='2-4')
-    eq_(repr(trigger),
-        "<CronTrigger (year='2009', month='1', "
-        "day='6-10', day_of_week='2-4')>")
-    eq_(str(trigger),
-        "cron[year='2009', month='1', day='6-10', day_of_week='2-4']")
+    eq_(repr(trigger), "<CronTrigger (year='2009', month='1', day='6-10', day_of_week='2-4')>")
+    eq_(str(trigger), "cron[year='2009', month='1', day='6-10', day_of_week='2-4']")
     start_date = datetime(2009, 1, 1)
     correct_next_date = datetime(2009, 1, 7)
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
 
 
 def test_cron_weekday_nomatch():
-    trigger = CronTrigger(year=2009, month=1, day='6-10',
-                          day_of_week='0,6')
-    eq_(repr(trigger),
-        "<CronTrigger (year='2009', month='1', "
-        "day='6-10', day_of_week='0,6')>")
-    eq_(str(trigger),
-        "cron[year='2009', month='1', day='6-10', day_of_week='0,6']")
+    trigger = CronTrigger(year=2009, month=1, day='6-10', day_of_week='0,6')
+    eq_(repr(trigger), "<CronTrigger (year='2009', month='1', day='6-10', day_of_week='0,6')>")
+    eq_(str(trigger), "cron[year='2009', month='1', day='6-10', day_of_week='0,6']")
     start_date = datetime(2009, 1, 1)
     correct_next_date = None
     eq_(trigger.get_next_fire_time(start_date), correct_next_date)
@@ -110,8 +100,7 @@ def test_week_1():
 
 def test_week_2():
     trigger = CronTrigger(year=2009, week=15, day_of_week=2)
-    eq_(repr(trigger),
-        "<CronTrigger (year='2009', week='15', day_of_week='2')>")
+    eq_(repr(trigger), "<CronTrigger (year='2009', week='15', day_of_week='2')>")
     eq_(str(trigger), "cron[year='2009', week='15', day_of_week='2']")
     start_date = datetime(2009, 1, 1)
     correct_next_date = datetime(2009, 4, 8)
@@ -152,8 +141,7 @@ def test_cron_bad_kwarg():
 def test_date_trigger_earlier():
     fire_date = datetime(2009, 7, 6)
     trigger = SimpleTrigger(fire_date)
-    eq_(repr(trigger),
-        "<SimpleTrigger (run_date=datetime.datetime(2009, 7, 6, 0, 0))>")
+    eq_(repr(trigger), "<SimpleTrigger (run_date=datetime.datetime(2009, 7, 6, 0, 0))>")
     eq_(str(trigger), "date[2009-07-06 00:00:00]")
     start_date = datetime(2008, 12, 1)
     eq_(trigger.get_next_fire_time(start_date), fire_date)
@@ -192,8 +180,7 @@ class TestInterval(object):
 
     def test_interval_repr(self):
         eq_(repr(self.trigger),
-            "<IntervalTrigger (interval=datetime.timedelta(0, 1), "
-            "start_date=datetime.datetime(2009, 8, 4, 0, 0, 2))>")
+            "<IntervalTrigger (interval=datetime.timedelta(0, 1), start_date=datetime.datetime(2009, 8, 4, 0, 0, 2))>")
         eq_(str(self.trigger), "interval[0:00:01]")
 
     def test_interval_before(self):

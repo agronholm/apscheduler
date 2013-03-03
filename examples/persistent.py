@@ -1,8 +1,7 @@
 """
-This example demonstrates the use of persistent job stores. On each run, it
-adds a new alarm that fires after ten seconds. You can exit the program,
-restart it and observe that any previous alarms that have not fired yet are
-still active.
+This example demonstrates the use of persistent job stores.
+On each run, it adds a new alarm that fires after ten seconds.
+You can exit the program, restart it and observe that any previous alarms that have not fired yet are still active.
 """
 
 from datetime import datetime, timedelta

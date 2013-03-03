@@ -7,8 +7,8 @@ import re
 
 from apscheduler.util import asint
 
-__all__ = ('AllExpression', 'RangeExpression', 'WeekdayRangeExpression',
-           'WeekdayPositionExpression', 'LastDayOfMonthExpression')
+__all__ = ('AllExpression', 'RangeExpression', 'WeekdayRangeExpression', 'WeekdayPositionExpression',
+           'LastDayOfMonthExpression')
 
 
 WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
@@ -57,8 +57,7 @@ class RangeExpression(AllExpression):
         if last is None and step is None:
             last = first
         if last is not None and first > last:
-            raise ValueError('The minimum value in a range must not be '
-                             'higher than the maximum')
+            raise ValueError('The minimum value in a range must not be higher than the maximum')
         self.first = first
         self.last = last
 
@@ -102,8 +101,7 @@ class RangeExpression(AllExpression):
 
 
 class WeekdayRangeExpression(RangeExpression):
-    value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?',
-                          re.IGNORECASE)
+    value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?', re.IGNORECASE)
 
     def __init__(self, first, last=None):
         try:
@@ -135,8 +133,7 @@ class WeekdayRangeExpression(RangeExpression):
 
 class WeekdayPositionExpression(AllExpression):
     options = ['1st', '2nd', '3rd', '4th', '5th', 'last']
-    value_re = re.compile(r'(?P<option_name>%s) +(?P<weekday_name>(?:\d+|\w+))'
-                          % '|'.join(options), re.IGNORECASE)
+    value_re = re.compile(r'(?P<option_name>%s) +(?P<weekday_name>(?:\d+|\w+))' % '|'.join(options), re.IGNORECASE)
 
     def __init__(self, option_name, weekday_name):
         try:
@@ -169,13 +166,10 @@ class WeekdayPositionExpression(AllExpression):
             return target_day
 
     def __str__(self):
-        return '%s %s' % (self.options[self.option_num],
-                          WEEKDAYS[self.weekday])
+        return '%s %s' % (self.options[self.option_num], WEEKDAYS[self.weekday])
 
     def __repr__(self):
-        return "%s('%s', '%s')" % (self.__class__.__name__,
-                                   self.options[self.option_num],
-                                   WEEKDAYS[self.weekday])
+        return "%s('%s', '%s')" % (self.__class__.__name__, self.options[self.option_num], WEEKDAYS[self.weekday])
 
 
 class LastDayOfMonthExpression(AllExpression):

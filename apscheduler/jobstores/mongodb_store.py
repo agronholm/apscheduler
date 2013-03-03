@@ -21,9 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 class MongoDBJobStore(JobStore):
-    def __init__(self, database='apscheduler', collection='jobs',
-                 connection=None, pickle_protocol=pickle.HIGHEST_PROTOCOL,
-                 **connect_args):
+    def __init__(self, database='apscheduler', collection='jobs', connection=None,
+                 pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
         self.jobs = []
         self.pickle_protocol = pickle_protocol
 
@@ -41,12 +40,9 @@ class MongoDBJobStore(JobStore):
 
     def add_job(self, job):
         job_dict = job.__getstate__()
-        job_dict['trigger'] = Binary(pickle.dumps(job.trigger,
-                                                  self.pickle_protocol))
-        job_dict['args'] = Binary(pickle.dumps(job.args,
-                                               self.pickle_protocol))
-        job_dict['kwargs'] = Binary(pickle.dumps(job.kwargs,
-                                                 self.pickle_protocol))
+        job_dict['trigger'] = Binary(pickle.dumps(job.trigger, self.pickle_protocol))
+        job_dict['args'] = Binary(pickle.dumps(job.args, self.pickle_protocol))
+        job_dict['kwargs'] = Binary(pickle.dumps(job.kwargs, self.pickle_protocol))
         job.id = self.collection.insert(job_dict)
         self.jobs.append(job)
 
@@ -72,8 +68,7 @@ class MongoDBJobStore(JobStore):
 
     def update_job(self, job):
         spec = {'_id': job.id}
-        document = {'$set': {'next_run_time': job.next_run_time},
-                    '$inc': {'runs': 1}}
+        document = {'$set': {'next_run_time': job.next_run_time}, '$inc': {'runs': 1}}
         self.collection.update(spec, document)
 
     def close(self):

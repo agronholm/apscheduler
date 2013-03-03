@@ -1,6 +1,5 @@
 """
-Basic example showing how to start the scheduler and schedule a job that
-executes on 3 second intervals.
+Basic example showing how to start the scheduler and schedule a job that executes on 3 second intervals.
 """
 
 from datetime import datetime

@@ -15,32 +15,28 @@ class MaxInstancesReachedError(Exception):
 
 class Job(object):
     """
-    Encapsulates the actual Job along with its metadata. Job instances
-    are created by the scheduler when adding jobs, and should not be
-    directly instantiated. These options can be set when adding jobs
-    to the scheduler (see :ref:`job_options`).
+    Encapsulates the actual Job along with its metadata. Job instances are created by the scheduler when adding jobs,
+    and should not be directly instantiated. These options can be set when adding jobs to the scheduler
+    (see :ref:`job_options`).
 
     :var trigger: trigger that determines the execution times
     :var func: callable to call when the trigger is triggered
     :var args: list of positional arguments to call func with
     :var kwargs: dict of keyword arguments to call func with
     :var name: name of the job
-    :var misfire_grace_time: seconds after the designated run time that
-        the job is still allowed to be run
-    :var coalesce: run once instead of many times if the scheduler determines
-        that the job should be run more than once in succession
-    :var max_runs: maximum number of times this job is allowed to be
-        triggered
-    :var max_instances: maximum number of concurrently running
-        instances allowed for this job
+    :var misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
+    :var coalesce: run once instead of many times if the scheduler determines that the job should be run more than once
+                   in succession
+    :var max_runs: maximum number of times this job is allowed to be triggered
+    :var max_instances: maximum number of concurrently running instances allowed for this job
     :var runs: number of times this job has been triggered
     :var instances: number of concurrently running instances of this job
     """
     id = None
     next_run_time = None
 
-    def __init__(self, trigger, func, args, kwargs, misfire_grace_time,
-                 coalesce, name=None, max_runs=None, max_instances=1):
+    def __init__(self, trigger, func, args, kwargs, misfire_grace_time, coalesce, name=None, max_runs=None,
+                 max_instances=1):
         if not trigger:
             raise ValueError('The trigger must not be None')
         if not hasattr(args, '__getitem__'):
@@ -65,8 +61,7 @@ class Job(object):
                 # If this happens, this Job won't be serializable
                 self.func_ref = None
         else:
-            raise TypeError('func must be a callable or a textual '
-                            'reference to one')
+            raise TypeError('func must be a callable or a textual reference to one')
 
         self._lock = Lock()
 
@@ -96,8 +91,7 @@ class Job(object):
         run_times = []
         run_time = self.next_run_time
         increment = timedelta(microseconds=1)
-        while ((not self.max_runs or self.runs < self.max_runs) and
-               run_time and run_time <= now):
+        while (not self.max_runs or self.runs < self.max_runs) and run_time and run_time <= now:
             run_times.append(run_time)
             run_time = self.trigger.get_next_fire_time(run_time + increment)
 
@@ -134,8 +128,7 @@ class Job(object):
         return NotImplemented
 
     def __repr__(self):
-        return '<Job (name=%s, trigger=%s)>' % (self.name, repr(self.trigger))
+        return '<Job (name=%s, trigger=%r)>' % (self.name, self.trigger)
 
     def __str__(self):
-        return '%s (trigger: %s, next run at: %s)' % (
-            self.name, str(self.trigger), str(self.next_run_time))
+        return '%s (trigger: %s, next run at: %s)' % (self.name, self.trigger, self.next_run_time)

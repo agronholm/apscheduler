@@ -119,12 +119,9 @@ class TestJob(object):
     def test_repr(self):
         self.job.compute_next_run_time(self.RUNTIME)
         eq_(repr(self.job),
-            "<Job (name=dummyfunc, "
-            "trigger=<SimpleTrigger "
-            "(run_date=datetime.datetime(2010, 12, 13, 0, 8))>)>")
+            "<Job (name=dummyfunc, trigger=<SimpleTrigger (run_date=datetime.datetime(2010, 12, 13, 0, 8))>)>")
         eq_(str(self.job),
-            "dummyfunc (trigger: date[2010-12-13 00:08:00], "
-            "next run at: 2010-12-13 00:08:00)")
+            "dummyfunc (trigger: date[2010-12-13 00:08:00], next run at: 2010-12-13 00:08:00)")
 
 
 @raises(ValueError)
@@ -149,11 +146,9 @@ def test_create_job_invalid_misfire():
 
 @raises(ValueError)
 def test_create_job_invalid_maxruns():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 1, False,
-        max_runs=0)
+    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 1, False, max_runs=0)
 
 
 @raises(ValueError)
 def test_create_job_invalid_maxinstances():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 1, False,
-        max_instances=0)
+    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 1, False, max_instances=0)

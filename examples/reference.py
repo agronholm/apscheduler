@@ -1,6 +1,5 @@
 """
-Basic example showing how to schedule a callable using a textual
-reference.
+Basic example showing how to schedule a callable using a textual reference.
 """
 
 from apscheduler.scheduler import Scheduler

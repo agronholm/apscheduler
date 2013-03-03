@@ -27,8 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class RedisJobStore(JobStore):
-    def __init__(self, db='apscheduler', key_prefix='jobs.',
-                 pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
+    def __init__(self, db='apscheduler', key_prefix='jobs.', pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
         self.jobs = []
         self.pickle_protocol = pickle_protocol
         self.key_prefix = key_prefix
@@ -46,7 +45,8 @@ class RedisJobStore(JobStore):
         job_dict = {
             'job_state': pickle.dumps(job_state, self.pickle_protocol),
             'runs': '0',
-            'next_run_time': job_state.pop('next_run_time').isoformat()}
+            'next_run_time': job_state.pop('next_run_time').isoformat()
+        }
         self.redis.hmset(self.key_prefix + job.id, job_dict)
         self.jobs.append(job)
 
@@ -69,8 +69,7 @@ class RedisJobStore(JobStore):
                 job_state = pickle.loads(job_dict['job_state'.encode()])
                 job_state['runs'] = long(job_dict['runs'.encode()])
                 dateval = job_dict['next_run_time'.encode()].decode()
-                job_state['next_run_time'] = datetime.strptime(
-                    dateval, '%Y-%m-%dT%H:%M:%S')
+                job_state['next_run_time'] = datetime.strptime(dateval, '%Y-%m-%dT%H:%M:%S')
                 job.__setstate__(job_state)
                 jobs.append(job)
             except Exception:
@@ -81,7 +80,8 @@ class RedisJobStore(JobStore):
     def update_job(self, job):
         attrs = {
             'next_run_time': job.next_run_time.isoformat(),
-            'runs': job.runs}
+            'runs': job.runs
+        }
         self.redis.hmset(self.key_prefix + job.id, attrs)
 
     def close(self):

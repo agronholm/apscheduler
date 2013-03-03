@@ -7,16 +7,14 @@ from calendar import monthrange
 
 from apscheduler.triggers.cron.expressions import *
 
-__all__ = ('MIN_VALUES', 'MAX_VALUES', 'DEFAULT_VALUES', 'BaseField',
-           'WeekField', 'DayOfMonthField', 'DayOfWeekField')
+__all__ = ('MIN_VALUES', 'MAX_VALUES', 'DEFAULT_VALUES', 'BaseField', 'WeekField', 'DayOfMonthField', 'DayOfWeekField')
 
 
-MIN_VALUES = {'year': 1970, 'month': 1, 'day': 1, 'week': 1,
-              'day_of_week': 0, 'hour': 0, 'minute': 0, 'second': 0}
-MAX_VALUES = {'year': 2 ** 63, 'month': 12, 'day:': 31, 'week': 53,
-              'day_of_week': 6, 'hour': 23, 'minute': 59, 'second': 59}
-DEFAULT_VALUES = {'year': '*', 'month': 1, 'day': 1, 'week': '*',
-                  'day_of_week': '*', 'hour': 0, 'minute': 0, 'second': 0}
+MIN_VALUES = {'year': 1970, 'month': 1, 'day': 1, 'week': 1, 'day_of_week': 0, 'hour': 0, 'minute': 0, 'second': 0}
+MAX_VALUES = {'year': 2 ** 63, 'month': 12, 'day:': 31, 'week': 53, 'day_of_week': 6, 'hour': 23, 'minute': 59,
+              'second': 59}
+DEFAULT_VALUES = {'year': '*', 'month': 1, 'day': 1, 'week': '*', 'day_of_week': '*', 'hour': 0, 'minute': 0,
+                  'second': 0}
 
 
 class BaseField(object):
@@ -65,16 +63,14 @@ class BaseField(object):
                 self.expressions.append(compiled_expr)
                 return
 
-        raise ValueError('Unrecognized expression "%s" for field "%s"' %
-                         (expr, self.name))
+        raise ValueError('Unrecognized expression "%s" for field "%s"' % (expr, self.name))
 
     def __str__(self):
         expr_strings = (str(e) for e in self.expressions)
         return ','.join(expr_strings)
 
     def __repr__(self):
-        return "%s('%s', '%s')" % (self.__class__.__name__, self.name,
-                                   str(self))
+        return "%s('%s', '%s')" % (self.__class__.__name__, self.name, self)
 
 
 class WeekField(BaseField):
@@ -85,8 +81,7 @@ class WeekField(BaseField):
 
 
 class DayOfMonthField(BaseField):
-    COMPILERS = BaseField.COMPILERS + [WeekdayPositionExpression,
-                                       LastDayOfMonthExpression]
+    COMPILERS = BaseField.COMPILERS + [WeekdayPositionExpression, LastDayOfMonthExpression]
 
     def get_max(self, dateval):
         return monthrange(dateval.year, dateval.month)[1]
