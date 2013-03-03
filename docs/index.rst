@@ -277,8 +277,8 @@ Job stores can be added either through configuration options or the
 :meth:`~apscheduler.scheduler.Scheduler.add_jobstore` method. The following
 are therefore equal::
 
-    config = {'apscheduler.jobstores.file.class': 'apscheduler.jobstores.shelve_store:ShelveJobStore',
-              'apscheduler.jobstores.file.path': '/tmp/dbfile'}
+    config = {'apscheduler.jobstore.file.class': 'apscheduler.jobstores.shelve_store:ShelveJobStore',
+              'apscheduler.jobstore.file.path': '/tmp/dbfile'}
     sched = Scheduler(config)
 
 and::
