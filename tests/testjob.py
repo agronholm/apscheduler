@@ -133,11 +133,6 @@ def test_create_job_no_trigger():
 
 
 @raises(TypeError)
-def test_create_job_invalid_func():
-    Job(SimpleTrigger(datetime.now()), 'bleh', [], {}, 1, False)
-
-
-@raises(TypeError)
 def test_create_job_invalid_args():
     Job(SimpleTrigger(datetime.now()), lambda: None, None, {}, 1, False)
 

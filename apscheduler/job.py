@@ -5,8 +5,8 @@ Jobs represent scheduled tasks.
 from threading import Lock
 from datetime import timedelta
 
-from apscheduler.util import to_unicode, ref_to_obj, get_callable_name,\
-    obj_to_ref
+from apscheduler.util import (to_unicode, ref_to_obj, obj_to_ref,
+                              get_callable_name)
 
 
 class MaxInstancesReachedError(Exception):
@@ -43,8 +43,6 @@ class Job(object):
                  coalesce, name=None, max_runs=None, max_instances=1):
         if not trigger:
             raise ValueError('The trigger must not be None')
-        if not hasattr(func, '__call__'):
-            raise TypeError('func must be callable')
         if not hasattr(args, '__getitem__'):
             raise TypeError('args must be a list-like object')
         if not hasattr(kwargs, '__getitem__'):
@@ -56,13 +54,26 @@ class Job(object):
         if max_instances <= 0:
             raise ValueError('max_instances must be a positive value')
 
+        if isinstance(func, str):
+            self.func = ref_to_obj(func)
+            self.func_ref = func
+        elif callable(func):
+            self.func = func
+            try:
+                self.func_ref = obj_to_ref(func)
+            except ValueError:
+                # If this happens, this Job won't be serializable
+                self.func_ref = None
+        else:
+            raise TypeError('func must be a callable or a textual '
+                            'reference to one')
+
         self._lock = Lock()
 
         self.trigger = trigger
-        self.func = func
         self.args = args
         self.kwargs = kwargs
-        self.name = to_unicode(name or get_callable_name(func))
+        self.name = to_unicode(name or get_callable_name(self.func))
         self.misfire_grace_time = misfire_grace_time
         self.coalesce = coalesce
         self.max_runs = max_runs
@@ -115,7 +126,6 @@ class Job(object):
         state.pop('instances', None)
         state.pop('func', None)
         state.pop('_lock', None)
-        state['func_ref'] = obj_to_ref(self.func)
         return state
 
     def __setstate__(self, state):

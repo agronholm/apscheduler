@@ -267,11 +267,19 @@ class Scheduler(object):
                 **options):
         """
         Adds the given job to the job list and notifies the scheduler thread.
+        
+        The ``func`` argument can be given either as a callable object or a
+        textual reference in the ``package.module:some.object`` format, where
+        the first half (separated by ``:``) is an importable module and the
+        second half is a reference to the callable object, relative to the
+        module.
+        
         Any extra keyword arguments are passed along to the constructor of the
         :class:`~apscheduler.job.Job` class (see :ref:`job_options`).
 
         :param trigger: trigger that determines when ``func`` is called
-        :param func: callable to run at the given time
+        :param func: callable (or a textual reference to one) to run at the
+                     given time
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
         :param jobstore: alias of the job store to store the job in

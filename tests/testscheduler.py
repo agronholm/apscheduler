@@ -38,6 +38,11 @@ class TestOfflineScheduler(object):
         assert isinstance(job, Job)
         eq_(self.scheduler.get_jobs(), [])
 
+    def test_add_job_by_reference(self):
+        job = self.scheduler.add_date_job('copy:copy', datetime(2200, 7, 24))
+        eq_(job.func, copy)
+        eq_(job.func_ref, 'copy:copy')
+
     def test_configure_jobstore(self):
         conf = {'apscheduler.jobstore.ramstore.class':
                 'apscheduler.jobstores.ram_store:RAMJobStore'}
@@ -133,11 +138,6 @@ class TestJobExecution(object):
         if scheduler.datetime == FakeDateTime:
             scheduler.datetime = datetime
         FakeDateTime._now = original_now
-
-    @raises(TypeError)
-    def test_noncallable(self):
-        date = datetime.now() + timedelta(days=1)
-        self.scheduler.add_date_job('wontwork', date)
 
     def test_job_name(self):
         def my_job():
