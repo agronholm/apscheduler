@@ -52,12 +52,9 @@ class ThreadPool(object):
                     'threads', core_threads, max_threads or 'unlimited')
 
     def _adjust_threadcount(self):
-        self._threads_lock.acquire()
-        try:
+        with self._threads_lock:
             if self.num_threads < self.max_threads:
                 self._add_thread(self.num_threads < self.core_threads)
-        finally:
-            self._threads_lock.release()
 
     def _add_thread(self, core):
         t = Thread(target=self._run_jobs, args=(core,))
@@ -87,9 +84,8 @@ class ThreadPool(object):
             except:
                 logger.exception('Error in worker thread')
 
-        self._threads_lock.acquire()
-        self._threads.remove(currentThread())
-        self._threads_lock.release()
+        with self._threads_lock:
+            self._threads.remove(currentThread())
 
         logger.debug('Exiting worker thread')
 
@@ -112,15 +108,13 @@ class ThreadPool(object):
         self._shutdown = True
         _threadpools.remove(ref(self))
 
-        self._threads_lock.acquire()
-        for _ in range(self.num_threads):
-            self._queue.put((None, None, None))
-        self._threads_lock.release()
+        with self._threads_lock:
+            for _ in range(self.num_threads):
+                self._queue.put((None, None, None))
 
         if wait:
-            self._threads_lock.acquire()
-            threads = tuple(self._threads)
-            self._threads_lock.release()
+            with self._threads_lock:
+                threads = tuple(self._threads)
             for thread in threads:
                 thread.join()
 

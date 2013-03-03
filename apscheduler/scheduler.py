@@ -158,14 +158,11 @@ class Scheduler(object):
             :class:`~apscheduler.jobstores.base.JobStore`
         :type alias: str
         """
-        self._jobstores_lock.acquire()
-        try:
+        with self._jobstores_lock:
             if alias in self._jobstores:
                 raise KeyError('Alias "%s" is already in use' % alias)
             self._jobstores[alias] = jobstore
             jobstore.load_jobs()
-        finally:
-            self._jobstores_lock.release()
 
         # Notify listeners that a new job store has been added
         self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_ADDED, alias))
@@ -181,13 +178,10 @@ class Scheduler(object):
         :param close: ``True`` to close the job store after removing it
         :type alias: str
         """
-        self._jobstores_lock.acquire()
-        try:
+        with self._jobstores_lock:
             jobstore = self._jobstores.pop(alias)
             if not jobstore:
                 raise KeyError('No such job store: %s' % alias)
-        finally:
-            self._jobstores_lock.release()
 
         # Close the job store if requested
         if close:
@@ -206,30 +200,21 @@ class Scheduler(object):
         :param callback: any callable that takes one argument
         :param mask: bitmask that indicates which events should be listened to
         """
-        self._listeners_lock.acquire()
-        try:
+        with self._listeners_lock:
             self._listeners.append((callback, mask))
-        finally:
-            self._listeners_lock.release()
 
     def remove_listener(self, callback):
         """
         Removes a previously added event listener.
         """
-        self._listeners_lock.acquire()
-        try:
+        with self._listeners_lock:
             for i, (cb, _) in enumerate(self._listeners):
                 if callback == cb:
                     del self._listeners[i]
-        finally:
-            self._listeners_lock.release()
 
     def _notify_listeners(self, event):
-        self._listeners_lock.acquire()
-        try:
+        with self._listeners_lock:
             listeners = tuple(self._listeners)
-        finally:
-            self._listeners_lock.release()
 
         for cb, mask in listeners:
             if event.code & mask:
@@ -243,15 +228,12 @@ class Scheduler(object):
         if not job.next_run_time:
             raise ValueError('Not adding job since it would never be run')
 
-        self._jobstores_lock.acquire()
-        try:
+        with self._jobstores_lock:
             try:
                 store = self._jobstores[jobstore]
             except KeyError:
                 raise KeyError('No such job store: %s' % jobstore)
             store.add_job(job)
-        finally:
-            self._jobstores_lock.release()
 
         # Notify listeners that a new job has been added
         event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, jobstore, job)
@@ -418,27 +400,21 @@ class Scheduler(object):
 
         :return: list of :class:`~apscheduler.job.Job` objects
         """
-        self._jobstores_lock.acquire()
-        try:
+        with self._jobstores_lock:
             jobs = []
             for jobstore in itervalues(self._jobstores):
                 jobs.extend(jobstore.jobs)
             return jobs
-        finally:
-            self._jobstores_lock.release()
 
     def unschedule_job(self, job):
         """
         Removes a job, preventing it from being run any more.
         """
-        self._jobstores_lock.acquire()
-        try:
+        with self._jobstores_lock:
             for alias, jobstore in iteritems(self._jobstores):
                 if job in list(jobstore.jobs):
                     self._remove_job(job, alias, jobstore)
                     return
-        finally:
-            self._jobstores_lock.release()
 
         raise KeyError('Job "%s" is not scheduled in any job store' % job)
 
@@ -447,15 +423,12 @@ class Scheduler(object):
         Removes all jobs that would execute the given function.
         """
         found = False
-        self._jobstores_lock.acquire()
-        try:
+        with self._jobstores_lock:
             for alias, jobstore in iteritems(self._jobstores):
                 for job in list(jobstore.jobs):
                     if job.func == func:
                         self._remove_job(job, alias, jobstore)
                         found = True
-        finally:
-            self._jobstores_lock.release()
 
         if not found:
             raise KeyError('The given function is not scheduled in this '
@@ -471,8 +444,7 @@ class Scheduler(object):
         """
         out = out or sys.stdout
         job_strs = []
-        self._jobstores_lock.acquire()
-        try:
+        with self._jobstores_lock:
             for alias, jobstore in iteritems(self._jobstores):
                 job_strs.append('Jobstore %s:' % alias)
                 if jobstore.jobs:
@@ -480,8 +452,6 @@ class Scheduler(object):
                         job_strs.append('    %s' % job)
                 else:
                     job_strs.append('    No scheduled jobs')
-        finally:
-            self._jobstores_lock.release()
 
         out.write(os.linesep.join(job_strs) + os.linesep)
 
@@ -544,8 +514,7 @@ class Scheduler(object):
         and figures out the next wakeup time.
         """
         next_wakeup_time = None
-        self._jobstores_lock.acquire()
-        try:
+        with self._jobstores_lock:
             for alias, jobstore in iteritems(self._jobstores):
                 for job in tuple(jobstore.jobs):
                     run_times = job.get_run_times(now)
@@ -571,8 +540,6 @@ class Scheduler(object):
                         next_wakeup_time = min(next_wakeup_time,
                                                job.next_run_time)
             return next_wakeup_time
-        finally:
-            self._jobstores_lock.release()
 
     def _main_loop(self):
         """Executes jobs on schedule."""

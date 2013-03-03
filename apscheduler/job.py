@@ -104,21 +104,15 @@ class Job(object):
         return run_times
 
     def add_instance(self):
-        self._lock.acquire()
-        try:
+        with self._lock:
             if self.instances == self.max_instances:
                 raise MaxInstancesReachedError
             self.instances += 1
-        finally:
-            self._lock.release()
 
     def remove_instance(self):
-        self._lock.acquire()
-        try:
+        with self._lock:
             assert self.instances > 0, 'Already at 0 instances'
             self.instances -= 1
-        finally:
-            self._lock.release()
 
     def __getstate__(self):
         # Prevents the unwanted pickling of transient or unpicklable variables
