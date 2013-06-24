@@ -27,13 +27,13 @@ logger = logging.getLogger(__name__)
 
 
 class RedisJobStore(JobStore):
-    def __init__(self, db='apscheduler', key_prefix='jobs.',
+    def __init__(self, db=0, key_prefix='jobs.',
                  pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
         self.jobs = []
         self.pickle_protocol = pickle_protocol
         self.key_prefix = key_prefix
 
-        if not db:
+        if db is None:
             raise ValueError('The "db" parameter must not be empty')
         if not key_prefix:
             raise ValueError('The "key_prefix" parameter must not be empty')

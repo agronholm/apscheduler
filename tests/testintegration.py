@@ -148,7 +148,7 @@ class TestRedisIntegration(IntegrationTestBase):
         if not RedisJobStore:
             raise SkipTest
 
-        return RedisJobStore(db='apscheduler_unittest')
+        return RedisJobStore()
 
     def test_overlapping_runs(self):
         """Redis/test_overlapping_runs"""
