@@ -184,7 +184,7 @@ class TestRedisJobStore(PersistentJobstoreTestBase):
         if not RedisJobStore:
             raise SkipTest
 
-        cls.jobstore = RedisJobStore(db='apscheduler_unittest')
+        cls.jobstore = RedisJobStore()
 
     @classmethod
     def teardown_class(cls):
