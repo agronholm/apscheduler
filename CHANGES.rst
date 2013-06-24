@@ -4,6 +4,16 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+2.1.1
+-----
+
+* Fixed shutdown() in standalone mode
+
+* Fixed the default value of the "db" parameter in the redis job store
+
+* Switched to PyPy 2.0 for PyPy compatibility testing
+
+
 2.1.0
 -----
 
