@@ -35,7 +35,7 @@ class Scheduler(object):
     their execution.
     """
 
-    _stopped = False
+    _stopped = True
     _thread = None
 
     def __init__(self, gconfig={}, **options):
@@ -145,7 +145,9 @@ class Scheduler(object):
 
     @property
     def running(self):
-        return not self._stopped and self._thread and self._thread.isAlive()
+        thread_alive = self._thread and self._thread.isAlive()
+        standalone = getattr(self, 'standalone', False)
+        return not self._stopped and (standalone or thread_alive)
 
     def add_jobstore(self, jobstore, alias, quiet=False):
         """

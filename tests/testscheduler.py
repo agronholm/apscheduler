@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from logging import StreamHandler, ERROR
+from threading import Thread
 from copy import copy
+import time
 import os
 
 from nose.tools import eq_, raises
@@ -93,11 +95,17 @@ class TestOfflineScheduler(object):
 class FakeThread(object):
     def isAlive(self):
         return True
+    
+    def join(self):
+        pass
 
 
 class FakeThreadPool(object):
     def submit(self, func, *args, **kwargs):
         func(*args, **kwargs)
+        
+    def shutdown(self, wait):
+        pass
 
 
 class DummyException(Exception):
@@ -119,6 +127,7 @@ class TestJobExecution(object):
     def setup(self):
         self.scheduler = Scheduler(threadpool=FakeThreadPool())
         self.scheduler.add_jobstore(RAMJobStore(), 'default')
+        self.scheduler._stopped = False
 
         # Make the scheduler think it's running
         self.scheduler._thread = FakeThread()
@@ -431,3 +440,19 @@ class TestRunningScheduler(object):
     def test_scheduler_double_shutdown(self):
         self.scheduler.shutdown()
         self.scheduler.shutdown(False)
+
+
+class TestStandaloneScheduler(object):
+    def setup(self):
+        self.scheduler = Scheduler(standalone=True)
+        self.scheduler.add_date_job(lambda: None, datetime.now() + timedelta(1))
+        self.thread = Thread(target=self.scheduler.start)
+        self.thread.start()
+
+    def teardown(self):
+        self.scheduler.shutdown(True)
+        self.thread.join(3)
+
+    def test_scheduler_running(self):
+        time.sleep(.1)
+        eq_(self.scheduler.running, True)
