@@ -1,6 +1,7 @@
 """
 Stores jobs in a MongoDB database.
 """
+from __future__ import absolute_import
 import logging
 
 from apscheduler.jobstores.base import JobStore

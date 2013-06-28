@@ -12,7 +12,7 @@ import sys
 from pkg_resources import iter_entry_points
 
 from apscheduler.util import *
-from apscheduler.jobstores.ram_store import RAMJobStore
+from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job, MaxInstancesReachedError
 from apscheduler.events import *
 from apscheduler.threadpool import ThreadPool
@@ -96,7 +96,7 @@ class Scheduler(object):
 
         # Create a RAMJobStore as the default if there is no default job store
         if not 'default' in self._jobstores:
-            self.add_jobstore(RAMJobStore(), 'default', True)
+            self.add_jobstore(MemoryJobStore(), 'default', True)
 
         # Schedule all pending jobs
         for job, jobstore in self._pending_jobs:

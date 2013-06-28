@@ -1,6 +1,7 @@
 """
 Stores jobs in a database table using SQLAlchemy.
 """
+from __future__ import absolute_import
 import pickle
 import logging
 

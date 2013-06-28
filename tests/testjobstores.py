@@ -6,30 +6,14 @@ import os
 from nose.tools import eq_, assert_raises, raises  # @UnresolvedImport
 from nose.plugins.skip import SkipTest
 
-from apscheduler.jobstores.ram_store import RAMJobStore
+from apscheduler.jobstores.memory import MemoryJobStore
+from apscheduler.jobstores.shelve import ShelveJobStore
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from apscheduler.jobstores.mongodb import MongoDBJobStore
+from apscheduler.jobstores.redis import RedisJobStore
 from apscheduler.jobstores.base import JobStore
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.job import Job
-
-try:
-    from apscheduler.jobstores.shelve_store import ShelveJobStore
-except ImportError:
-    ShelveJobStore = None
-
-try:
-    from apscheduler.jobstores.sqlalchemy_store import SQLAlchemyJobStore
-except ImportError:
-    SQLAlchemyJobStore = None
-
-try:
-    from apscheduler.jobstores.mongodb_store import MongoDBJobStore
-except ImportError:
-    MongoDBJobStore = None
-
-try:
-    from apscheduler.jobstores.redis_store import RedisJobStore
-except ImportError:
-    RedisJobStore = None
 
 
 def dummy_job():
@@ -96,10 +80,10 @@ class PersistentJobstoreTestBase(JobStoreTestBase):
 class TestRAMJobStore(JobStoreTestBase):
     @classmethod
     def setup_class(cls):
-        cls.jobstore = RAMJobStore()
+        cls.jobstore = MemoryJobStore()
 
     def test_repr(self):
-        eq_(repr(self.jobstore), '<RAMJobStore>')
+        eq_(repr(self.jobstore), '<MemoryJobStore>')
 
 
 class TestShelveJobStore(PersistentJobstoreTestBase):

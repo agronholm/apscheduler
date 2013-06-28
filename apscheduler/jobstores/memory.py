@@ -1,11 +1,12 @@
 """
 Stores jobs in an array in RAM. Provides no persistence support.
 """
+from __future__ import absolute_import
 
 from apscheduler.jobstores.base import JobStore
 
 
-class RAMJobStore(JobStore):
+class MemoryJobStore(JobStore):
     def __init__(self):
         self.jobs = []
 

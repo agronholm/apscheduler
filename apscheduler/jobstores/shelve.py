@@ -1,7 +1,7 @@
 """
 Stores jobs in a file governed by the :mod:`shelve` module.
 """
-
+from __future__ import absolute_import
 import shelve
 import pickle
 import random

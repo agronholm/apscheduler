@@ -5,7 +5,7 @@ import os
 
 from nose.tools import eq_, raises
 
-from apscheduler.jobstores.ram_store import RAMJobStore
+from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.scheduler import Scheduler, SchedulerAlreadyRunningError
 from apscheduler.job import Job
 from apscheduler.events import (EVENT_JOB_EXECUTED, SchedulerEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN,
@@ -28,8 +28,8 @@ class TestOfflineScheduler(object):
 
     @raises(KeyError)
     def test_jobstore_twice(self):
-        self.scheduler.add_jobstore(RAMJobStore(), 'dummy')
-        self.scheduler.add_jobstore(RAMJobStore(), 'dummy')
+        self.scheduler.add_jobstore(MemoryJobStore(), 'dummy')
+        self.scheduler.add_jobstore(MemoryJobStore(), 'dummy')
 
     def test_add_tentative_job(self):
         job = self.scheduler.add_job(lambda: None, 'date', [datetime(2200, 7, 24)], jobstore='dummy')
@@ -118,7 +118,7 @@ class FakeDateTime(datetime):
 class TestJobExecution(object):
     def setup(self):
         self.scheduler = Scheduler(threadpool=FakeThreadPool())
-        self.scheduler.add_jobstore(RAMJobStore(), 'default')
+        self.scheduler.add_jobstore(MemoryJobStore(), 'default')
 
         # Make the scheduler think it's running
         self.scheduler._thread = FakeThread()
@@ -364,7 +364,7 @@ class TestJobExecution(object):
         eq_(out.getvalue(), expected)
 
     def test_jobstore(self):
-        self.scheduler.add_jobstore(RAMJobStore(), 'dummy')
+        self.scheduler.add_jobstore(MemoryJobStore(), 'dummy')
         job = self.scheduler.add_job(lambda: None, 'date', [datetime(2200, 7, 24)], jobstore='dummy')
         eq_(self.scheduler.get_jobs(), [job])
         self.scheduler.remove_jobstore('dummy')
