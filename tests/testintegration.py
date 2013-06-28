@@ -47,7 +47,7 @@ class IntegrationTestBase(object):
         # running when the next appointed time hits.
 
         vals = [0]
-        self.scheduler.add_interval_job(increment, jobstore='persistent', seconds=1, args=[vals, 2])
+        self.scheduler.add_job(increment, 'interval', {'seconds': 1}, args=[vals, 2], jobstore='persistent')
         sleep(2.5)
         eq_(vals, [1])
 
@@ -55,8 +55,8 @@ class IntegrationTestBase(object):
         vals = [0]
         events = []
         self.scheduler.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        self.scheduler.add_interval_job(increment, jobstore='persistent', seconds=0.3, max_instances=2, max_runs=4,
-                                        args=[vals, 1])
+        self.scheduler.add_job(increment, 'interval', {'seconds': 0.3}, max_instances=2, max_runs=4, args=[vals, 1],
+                               jobstore='persistent')
         sleep(2.4)
         eq_(vals, [2])
         eq_(len(events), 4)

@@ -32,12 +32,12 @@ class TestOfflineScheduler(object):
         self.scheduler.add_jobstore(RAMJobStore(), 'dummy')
 
     def test_add_tentative_job(self):
-        job = self.scheduler.add_date_job(lambda: None, datetime(2200, 7, 24), jobstore='dummy')
+        job = self.scheduler.add_job(lambda: None, 'date', [datetime(2200, 7, 24)], jobstore='dummy')
         assert isinstance(job, Job)
         eq_(self.scheduler.get_jobs(), [])
 
     def test_add_job_by_reference(self):
-        job = self.scheduler.add_date_job('copy:copy', datetime(2200, 7, 24))
+        job = self.scheduler.add_job('copy:copy', 'date', [datetime(2200, 7, 24)])
         eq_(job.func, copy)
         eq_(job.func_ref, 'copy:copy')
 
@@ -82,7 +82,7 @@ class TestOfflineScheduler(object):
     def test_pending_jobs(self):
         # Tests that pending jobs are properly added to the jobs list when
         # the scheduler is started (and not before!)
-        self.scheduler.add_date_job(lambda: None, datetime(9999, 9, 9))
+        self.scheduler.add_job(lambda: None, 'date', [datetime(9999, 9, 9)])
         eq_(self.scheduler.get_jobs(), [])
 
         self.scheduler.start()
@@ -138,7 +138,7 @@ class TestJobExecution(object):
         def my_job():
             pass
 
-        job = self.scheduler.add_interval_job(my_job, start_date=datetime(2010, 5, 19))
+        job = self.scheduler.add_job(my_job, 'interval', {'start_date': datetime(2010, 5, 19)})
         eq_(repr(job),
             '<Job (name=my_job, trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), '
             'start_date=datetime.datetime(2010, 5, 19, 0, 0))>)>')
@@ -153,7 +153,7 @@ class TestJobExecution(object):
                 self.val += 1
 
         a = A()
-        job = self.scheduler.add_interval_job(a, seconds=1)
+        job = self.scheduler.add_job(a, 'interval', {'seconds': 1})
         self.scheduler._process_jobs(job.next_run_time)
         self.scheduler._process_jobs(job.next_run_time)
         eq_(a.val, 2)
@@ -168,7 +168,7 @@ class TestJobExecution(object):
                 self.val += 1
 
         a = A()
-        job = self.scheduler.add_interval_job(a.method, seconds=1)
+        job = self.scheduler.add_job(a.method, 'interval', {'seconds': 1})
         self.scheduler._process_jobs(job.next_run_time)
         self.scheduler._process_jobs(job.next_run_time)
         eq_(a.val, 2)
@@ -178,7 +178,7 @@ class TestJobExecution(object):
             vals[0] += 1
 
         vals = [0]
-        job = self.scheduler.add_cron_job(increment)
+        job = self.scheduler.add_job(increment, 'cron')
         self.scheduler._process_jobs(job.next_run_time)
         eq_(vals[0], 1)
         self.scheduler.unschedule_job(job)
@@ -193,9 +193,9 @@ class TestJobExecution(object):
             vals[0] += 1
 
         vals = [0]
-        job1 = self.scheduler.add_cron_job(increment)
-        job2 = self.scheduler.add_cron_job(increment2)
-        job3 = self.scheduler.add_cron_job(increment)
+        job1 = self.scheduler.add_job(increment, 'cron')
+        job2 = self.scheduler.add_job(increment2, 'cron')
+        job3 = self.scheduler.add_job(increment, 'cron')
         eq_(self.scheduler.get_jobs(), [job1, job2, job3])
 
         self.scheduler.unschedule_func(increment)
@@ -210,7 +210,7 @@ class TestJobExecution(object):
             vals[0] += 1
 
         vals = [0]
-        job = self.scheduler.add_interval_job(increment, max_runs=1)
+        job = self.scheduler.add_job(increment, 'interval', max_runs=1)
         self.scheduler._process_jobs(job.next_run_time)
         eq_(vals, [1])
         assert job not in self.scheduler.get_jobs()
@@ -219,16 +219,16 @@ class TestJobExecution(object):
         def failure():
             raise DummyException
 
-        job = self.scheduler.add_date_job(failure, datetime(9999, 9, 9))
+        job = self.scheduler.add_job(failure, 'date', [datetime(9999, 9, 9)])
         self.scheduler._process_jobs(job.next_run_time)
         assert 'DummyException' in self.logstream.getvalue()
 
     def test_misfire_grace_time(self):
         self.scheduler.misfire_grace_time = 3
-        job = self.scheduler.add_interval_job(lambda: None, seconds=1)
+        job = self.scheduler.add_job(lambda: None, 'interval', {'seconds': 1})
         eq_(job.misfire_grace_time, 3)
 
-        job = self.scheduler.add_interval_job(lambda: None, seconds=1, misfire_grace_time=2)
+        job = self.scheduler.add_job(lambda: None, 'interval', {'seconds': 1}, misfire_grace_time=2)
         eq_(job.misfire_grace_time, 2)
 
     def test_coalesce_on(self):
@@ -241,8 +241,8 @@ class TestJobExecution(object):
         events = []
         scheduler.datetime = FakeDateTime
         self.scheduler.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        job = self.scheduler.add_interval_job(increment, seconds=1, start_date=FakeDateTime.now(), coalesce=True,
-                                              misfire_grace_time=2)
+        job = self.scheduler.add_job(increment, 'interval', {'seconds': 1, 'start_date': FakeDateTime.now()},
+                                     coalesce=True, misfire_grace_time=2)
 
         # Turn the clock 14 seconds forward
         FakeDateTime._now += timedelta(seconds=2)
@@ -263,8 +263,8 @@ class TestJobExecution(object):
         events = []
         scheduler.datetime = FakeDateTime
         self.scheduler.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        job = self.scheduler.add_interval_job(increment, seconds=1, start_date=FakeDateTime.now(), coalesce=False,
-                                              misfire_grace_time=2)
+        job = self.scheduler.add_job(increment, 'interval', {'seconds': 1, 'start_date': FakeDateTime.now()},
+                                     coalesce=False, misfire_grace_time=2)
 
         # Turn the clock 2 seconds forward
         FakeDateTime._now += timedelta(seconds=2)
@@ -283,13 +283,13 @@ class TestJobExecution(object):
             vals[1] += 1
 
         vals = [0, 0]
-        job = self.scheduler.add_interval_job(increment, seconds=1, args=[2])
+        job = self.scheduler.add_job(increment, 'interval', {'seconds': 1}, args=[2])
         self.scheduler._process_jobs(job.next_run_time)
         self.scheduler._process_jobs(job.next_run_time)
         eq_(vals, [4, 2])
 
     def test_interval_schedule(self):
-        @self.scheduler.interval_schedule(seconds=1)
+        @self.scheduler.scheduled_job('interval', {'seconds': 1})
         def increment():
             vals[0] += 1
 
@@ -305,7 +305,7 @@ class TestJobExecution(object):
             vals[1] += 1
 
         vals = [0, 0]
-        job = self.scheduler.add_cron_job(increment, args=[3])
+        job = self.scheduler.add_job(increment, 'cron', args=[3])
         start = job.next_run_time
         self.scheduler._process_jobs(start)
         eq_(vals, [3, 1])
@@ -315,7 +315,7 @@ class TestJobExecution(object):
         eq_(vals, [9, 3])
 
     def test_cron_schedule_1(self):
-        @self.scheduler.cron_schedule()
+        @self.scheduler.scheduled_job('cron')
         def increment():
             vals[0] += 1
 
@@ -326,7 +326,7 @@ class TestJobExecution(object):
         eq_(vals[0], 2)
 
     def test_cron_schedule_2(self):
-        @self.scheduler.cron_schedule(minute='*')
+        @self.scheduler.scheduled_job('cron', {'minute': '*'})
         def increment():
             vals[0] += 1
 
@@ -344,7 +344,7 @@ class TestJobExecution(object):
 
         vals = []
         date = datetime.now() + timedelta(seconds=1)
-        self.scheduler.add_date_job(append_val, date, kwargs={'value': 'test'})
+        self.scheduler.add_job(append_val, 'date', [date], kwargs={'value': 'test'})
         self.scheduler._process_jobs(date)
         eq_(vals, ['test'])
 
@@ -355,7 +355,7 @@ class TestJobExecution(object):
                    '    No scheduled jobs%s' % (os.linesep, os.linesep)
         eq_(out.getvalue(), expected)
 
-        self.scheduler.add_date_job(copy, datetime(2200, 5, 19))
+        self.scheduler.add_job(copy, 'date', [datetime(2200, 5, 19)])
         out = StringIO()
         self.scheduler.print_jobs(out)
         expected = 'Jobstore default:%s    '\
@@ -365,7 +365,7 @@ class TestJobExecution(object):
 
     def test_jobstore(self):
         self.scheduler.add_jobstore(RAMJobStore(), 'dummy')
-        job = self.scheduler.add_date_job(lambda: None, datetime(2200, 7, 24), jobstore='dummy')
+        job = self.scheduler.add_job(lambda: None, 'date', [datetime(2200, 7, 24)], jobstore='dummy')
         eq_(self.scheduler.get_jobs(), [job])
         self.scheduler.remove_jobstore('dummy')
         eq_(self.scheduler.get_jobs(), [])
@@ -381,9 +381,8 @@ class TestJobExecution(object):
 
         vars = [0]
         scheduler.datetime = FakeDateTime
-        job = self.scheduler.add_interval_job(
-            increment, seconds=1, misfire_grace_time=3,
-            start_date=FakeDateTime.now())
+        job = self.scheduler.add_job(increment, 'interval', {'seconds': 1, 'start_date': FakeDateTime.now()},
+                                     misfire_grace_time=3)
         start = job.next_run_time
 
         self.scheduler._process_jobs(start)

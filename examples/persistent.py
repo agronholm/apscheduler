@@ -18,8 +18,7 @@ if __name__ == '__main__':
     scheduler = Scheduler(standalone=True)
     scheduler.add_jobstore(ShelveJobStore('example.db'), 'shelve')
     alarm_time = datetime.now() + timedelta(seconds=10)
-    scheduler.add_date_job(alarm, alarm_time, name='alarm',
-                           jobstore='shelve', args=[datetime.now()])
+    scheduler.add_job(alarm, 'simple', [alarm_time], jobstore='shelve', args=[datetime.now()])
     print('To clear the alarms, delete the example.db file.')
     print('Press Ctrl+C to exit')
     try:

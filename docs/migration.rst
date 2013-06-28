@@ -1,3 +1,25 @@
+Migrating from APScheduler v2.x to 3.0
+======================================
+
+The 3.0 series is API incompatible with previous releases due to a design
+overhaul.
+
+API changes
+-----------
+
+* The trigger-specific scheduling methods have been removed entirely from the
+  Scheduler class. Instead, you have to use the
+  :meth:`~apscheduler.scheduler.Scheduler.add_job` method or the
+  :meth:`~apscheduler.scheduler.Scheduler.scheduled_job` decorator, giving the
+  entry point name of the trigger, or an already constructed instance.
+  It should also be noted that the signature of
+  :meth:`~apscheduler.scheduler.Scheduler.add_job` has changed due to this.
+* Adding a job before the scheduler has been started can now fail if no next
+  execution time can be calculated for it. Previously it would only fail when
+  the scheduler was started.
+* The "simple" trigger has been renamed to "date"
+
+
 Migrating from APScheduler v1.x to 2.0
 ======================================
 

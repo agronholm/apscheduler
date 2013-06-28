@@ -5,11 +5,13 @@ This module is the main part of the library. It houses the Scheduler class and r
 from threading import Thread, Event, Lock
 from datetime import datetime, timedelta
 from logging import getLogger
+from collections import Mapping, Iterable
 import os
 import sys
 
+from pkg_resources import iter_entry_points
+
 from apscheduler.util import *
-from apscheduler.triggers import SimpleTrigger, IntervalTrigger, CronTrigger
 from apscheduler.jobstores.ram_store import RAMJobStore
 from apscheduler.job import Job, MaxInstancesReachedError
 from apscheduler.events import *
@@ -34,6 +36,7 @@ class Scheduler(object):
 
     _stopped = False
     _thread = None
+    _plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
 
     def __init__(self, gconfig={}, **options):
         self._wakeup = Event()
@@ -42,6 +45,7 @@ class Scheduler(object):
         self._listeners = []
         self._listeners_lock = Lock()
         self._pending_jobs = []
+        self._triggers = {}
         self.configure(gconfig, **options)
 
     def configure(self, gconfig={}, **options):
@@ -215,16 +219,14 @@ class Scheduler(object):
                     logger.exception('Error notifying listener')
 
     def _real_add_job(self, job, jobstore, wakeup):
+        # Recalculate the next run time
         job.compute_next_run_time(datetime.now())
-        if not job.next_run_time:
-            raise ValueError('Not adding job since it would never be run')
 
-        with self._jobstores_lock:
-            try:
-                store = self._jobstores[jobstore]
-            except KeyError:
-                raise KeyError('No such job store: %s' % jobstore)
-            store.add_job(job)
+        # Add the job to the given job store
+        store = self._jobstores.get(jobstore)
+        if not store:
+            raise KeyError('No such job store: %s' % jobstore)
+        store.add_job(job)
 
         # Notify listeners that a new job has been added
         event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, jobstore, job)
@@ -236,8 +238,8 @@ class Scheduler(object):
         if wakeup:
             self._wakeup.set()
 
-    def add_job(self, trigger, func, args, kwargs, jobstore='default',
-                **options):
+    def add_job(self, func, trigger, trigger_args=(), args=None, kwargs=None, misfire_grace_time=None, coalesce=None,
+                name=None, max_runs=None, max_instances=1, jobstore='default'):
         """
         Adds the given job to the job list and notifies the scheduler thread.
 
@@ -245,25 +247,89 @@ class Scheduler(object):
         ``package.module:some.object`` format, where the first half (separated by ``:``) is an importable module and the
         second half is a reference to the callable object, relative to the module.
 
-        Any extra keyword arguments are passed along to the constructor of the :class:`~apscheduler.job.Job` class
-        (see :ref:`job_options`).
+        The ``trigger`` argument can either be:
+
+        # the plugin name of the trigger (e.g. "cron"), in which case you should provide ``trigger_args`` as well
+        # an instance of the trigger
 
         :param trigger: trigger that determines when ``func`` is called
+        :param trigger_args: arguments given to the constructor of the trigger class
         :param func: callable (or a textual reference to one) to run at the given time
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
         :param jobstore: alias of the job store to store the job in
+        :param name: name of the job
+        :param misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
+        :param coalesce: run once instead of many times if the scheduler determines that the job should be run more than once
+                         in succession
+        :param max_runs: maximum number of times this job is allowed to be triggered
+        :param max_instances: maximum number of concurrently running instances allowed for this job
         :rtype: :class:`~apscheduler.job.Job`
         """
-        job = Job(trigger, func, args or [], kwargs or {},
-                  options.pop('misfire_grace_time', self.misfire_grace_time),
-                  options.pop('coalesce', self.coalesce), **options)
+        # Argument sanity checking
+        if args is not None and (not isinstance(args, Iterable) and not isinstance(args, str)):
+            raise TypeError('args must be an iterable')
+        if kwargs is not None and not isinstance(kwargs, Mapping):
+            raise TypeError('kwargs must be a dict-like object')
+        if misfire_grace_time is not None and misfire_grace_time <= 0:
+            raise ValueError('misfire_grace_time must be a positive value')
+        if max_runs is not None and max_runs <= 0:
+            raise ValueError('max_runs must be a positive value')
+        if max_instances <= 0:
+            raise ValueError('max_instances must be a positive value')
+
+        # If trigger is a string, resolve it to a class, possibly by loading an entry point if necessary
+        if isinstance(trigger, str):
+            try:
+                trigger_cls = self._triggers[trigger]
+            except KeyError:
+                if trigger in self._plugins:
+                    trigger_cls = self._triggers[trigger] = self._plugins[trigger].load()
+                    if not callable(getattr(trigger_cls, 'get_next_fire_time')):
+                        raise TypeError('The trigger entry point does not point to a trigger class')
+                else:
+                    raise KeyError('No trigger by the name "%s" was found' % trigger)
+
+            if isinstance(trigger_args, Mapping):
+                trigger = trigger_cls(**trigger_args)
+            elif isinstance(trigger_args, Iterable):
+                trigger = trigger_cls(*trigger_args)
+            else:
+                raise ValueError('trigger_args must either be a dict-like object or an iterable')
+        elif not callable(getattr(trigger, 'get_next_fire_time')):
+            raise TypeError('Expected a trigger instance, got %s instead' % trigger.__class__.__name__)
+
+        # Replace with scheduler level defaults if values are missing
+        if misfire_grace_time is None:
+            misfire_grace_time = self.misfire_grace_time
+        if coalesce is None:
+            coalesce = self.coalesce
+
+        args = tuple(args) if args is not None else ()
+        kwargs = dict(kwargs) if kwargs is not None else {}
+        job = Job(trigger, func, args, kwargs, misfire_grace_time, coalesce, name, max_runs, max_instances)
+
+        # Ensure that dead-on-arrival jobs are never added
+        if job.compute_next_run_time(datetime.now()) is None:
+            raise ValueError('Not adding job since it would never be run')
+
+        # Don't really add jobs to job stores before the scheduler is up and running
         if not self.running:
             self._pending_jobs.append((job, jobstore))
             logger.info('Adding job tentatively -- it will be properly scheduled when the scheduler starts')
         else:
             self._real_add_job(job, jobstore, True)
+
         return job
+
+    def scheduled_job(self, trigger, trigger_args=(), args=None, kwargs=None, jobstore='default',
+                      misfire_grace_time=None, coalesce=None, name=None, max_runs=None, max_instances=1):
+        """A decorator version of :meth:`add_job`."""
+        def inner(func):
+            func.job = self.add_job(func, trigger, trigger_args, args, kwargs, misfire_grace_time, coalesce,
+                                    name, max_runs, max_instances, jobstore)
+            return func
+        return inner
 
     def _remove_job(self, job, alias, jobstore):
         jobstore.remove_job(job)
@@ -273,114 +339,6 @@ class Scheduler(object):
         self._notify_listeners(event)
 
         logger.info('Removed job "%s"', job)
-
-    def add_date_job(self, func, date, args=None, kwargs=None, **options):
-        """
-        Schedules a job to be completed on a specific date and time.
-        Any extra keyword arguments are passed along to the constructor of the :class:`~apscheduler.job.Job` class
-        (see :ref:`job_options`).
-
-        :param func: callable to run at the given time
-        :param date: the date/time to run the job at
-        :param name: name of the job
-        :param jobstore: stored the job in the named (or given) job store
-        :param misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
-        :type date: :class:`datetime.date`
-        :rtype: :class:`~apscheduler.job.Job`
-        """
-        trigger = SimpleTrigger(date)
-        return self.add_job(trigger, func, args, kwargs, **options)
-
-    def add_interval_job(self, func, weeks=0, days=0, hours=0, minutes=0,
-                         seconds=0, start_date=None, args=None, kwargs=None,
-                         **options):
-        """
-        Schedules a job to be completed on specified intervals.
-        Any extra keyword arguments are passed along to the constructor of the :class:`~apscheduler.job.Job` class
-        (see :ref:`job_options`).
-
-        :param func: callable to run
-        :param weeks: number of weeks to wait
-        :param days: number of days to wait
-        :param hours: number of hours to wait
-        :param minutes: number of minutes to wait
-        :param seconds: number of seconds to wait
-        :param start_date: when to first execute the job and start the counter (default is after the given interval)
-        :param args: list of positional arguments to call func with
-        :param kwargs: dict of keyword arguments to call func with
-        :param name: name of the job
-        :param jobstore: alias of the job store to add the job to
-        :param misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
-        :rtype: :class:`~apscheduler.job.Job`
-        """
-        interval = timedelta(weeks=weeks, days=days, hours=hours,
-                             minutes=minutes, seconds=seconds)
-        trigger = IntervalTrigger(interval, start_date)
-        return self.add_job(trigger, func, args, kwargs, **options)
-
-    def add_cron_job(self, func, year=None, month=None, day=None, week=None,
-                     day_of_week=None, hour=None, minute=None, second=None,
-                     start_date=None, args=None, kwargs=None, **options):
-        """
-        Schedules a job to be completed on times that match the given expressions.
-        Any extra keyword arguments are passed along to the constructor of the :class:`~apscheduler.job.Job` class
-        (see :ref:`job_options`).
-
-        :param func: callable to run
-        :param year: year to run on
-        :param month: month to run on
-        :param day: day of month to run on
-        :param week: week of the year to run on
-        :param day_of_week: weekday to run on (0 = Monday)
-        :param hour: hour to run on
-        :param second: second to run on
-        :param args: list of positional arguments to call func with
-        :param kwargs: dict of keyword arguments to call func with
-        :param name: name of the job
-        :param jobstore: alias of the job store to add the job to
-        :param misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
-        :return: the scheduled job
-        :rtype: :class:`~apscheduler.job.Job`
-        """
-        trigger = CronTrigger(year=year, month=month, day=day, week=week,
-                              day_of_week=day_of_week, hour=hour,
-                              minute=minute, second=second,
-                              start_date=start_date)
-        return self.add_job(trigger, func, args, kwargs, **options)
-
-    def cron_schedule(self, **options):
-        """
-        Decorator version of :meth:`add_cron_job`.
-
-        This decorator does not wrap its host function.
-
-        Unscheduling decorated functions is possible by passing the ``job`` attribute of the scheduled function to
-        :meth:`unschedule_job`.
-
-        Any extra keyword arguments are passed along to the constructor of the :class:`~apscheduler.job.Job` class
-        (see :ref:`job_options`).
-        """
-        def inner(func):
-            func.job = self.add_cron_job(func, **options)
-            return func
-        return inner
-
-    def interval_schedule(self, **options):
-        """
-        Decorator version of :meth:`add_interval_job`.
-
-        This decorator does not wrap its host function.
-
-        Unscheduling decorated functions is possible by passing the ``job`` attribute of the scheduled function to
-        :meth:`unschedule_job`.
-
-        Any extra keyword arguments are passed along to the constructor of the :class:`~apscheduler.job.Job` class
-        (see :ref:`job_options`).
-        """
-        def inner(func):
-            func.job = self.add_interval_job(func, **options)
-            return func
-        return inner
 
     def get_jobs(self):
         """

@@ -5,8 +5,7 @@ Jobs represent scheduled tasks.
 from threading import Lock
 from datetime import timedelta
 
-from apscheduler.util import (to_unicode, ref_to_obj, obj_to_ref,
-                              get_callable_name)
+from apscheduler.util import to_unicode, ref_to_obj, obj_to_ref, get_callable_name
 
 
 class MaxInstancesReachedError(Exception):
@@ -16,40 +15,12 @@ class MaxInstancesReachedError(Exception):
 class Job(object):
     """
     Encapsulates the actual Job along with its metadata. Job instances are created by the scheduler when adding jobs,
-    and should not be directly instantiated. These options can be set when adding jobs to the scheduler
-    (see :ref:`job_options`).
-
-    :var trigger: trigger that determines the execution times
-    :var func: callable to call when the trigger is triggered
-    :var args: list of positional arguments to call func with
-    :var kwargs: dict of keyword arguments to call func with
-    :var name: name of the job
-    :var misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
-    :var coalesce: run once instead of many times if the scheduler determines that the job should be run more than once
-                   in succession
-    :var max_runs: maximum number of times this job is allowed to be triggered
-    :var max_instances: maximum number of concurrently running instances allowed for this job
-    :var runs: number of times this job has been triggered
-    :var instances: number of concurrently running instances of this job
+    and should not be directly instantiated.
     """
     id = None
     next_run_time = None
 
-    def __init__(self, trigger, func, args, kwargs, misfire_grace_time, coalesce, name=None, max_runs=None,
-                 max_instances=1):
-        if not trigger:
-            raise ValueError('The trigger must not be None')
-        if not hasattr(args, '__getitem__'):
-            raise TypeError('args must be a list-like object')
-        if not hasattr(kwargs, '__getitem__'):
-            raise TypeError('kwargs must be a dict-like object')
-        if misfire_grace_time <= 0:
-            raise ValueError('misfire_grace_time must be a positive value')
-        if max_runs is not None and max_runs <= 0:
-            raise ValueError('max_runs must be a positive value')
-        if max_instances <= 0:
-            raise ValueError('max_instances must be a positive value')
-
+    def __init__(self, trigger, func, args, kwargs, misfire_grace_time, coalesce, name, max_runs, max_instances):
         if isinstance(func, str):
             self.func = ref_to_obj(func)
             self.func_ref = func

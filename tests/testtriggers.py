@@ -1,8 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from nose.tools import eq_, raises
 
-from apscheduler.triggers import CronTrigger, SimpleTrigger, IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 
 def test_cron_trigger_1():
@@ -140,8 +142,8 @@ def test_cron_bad_kwarg():
 
 def test_date_trigger_earlier():
     fire_date = datetime(2009, 7, 6)
-    trigger = SimpleTrigger(fire_date)
-    eq_(repr(trigger), "<SimpleTrigger (run_date=datetime.datetime(2009, 7, 6, 0, 0))>")
+    trigger = DateTrigger(fire_date)
+    eq_(repr(trigger), "<DateTrigger (run_date=datetime.datetime(2009, 7, 6, 0, 0))>")
     eq_(str(trigger), "date[2009-07-06 00:00:00]")
     start_date = datetime(2008, 12, 1)
     eq_(trigger.get_next_fire_time(start_date), fire_date)
@@ -149,20 +151,20 @@ def test_date_trigger_earlier():
 
 def test_date_trigger_exact():
     fire_date = datetime(2009, 7, 6)
-    trigger = SimpleTrigger(fire_date)
+    trigger = DateTrigger(fire_date)
     start_date = datetime(2009, 7, 6)
     eq_(trigger.get_next_fire_time(start_date), fire_date)
 
 
 def test_date_trigger_later():
     fire_date = datetime(2009, 7, 6)
-    trigger = SimpleTrigger(fire_date)
+    trigger = DateTrigger(fire_date)
     start_date = datetime(2009, 7, 7)
     eq_(trigger.get_next_fire_time(start_date), None)
 
 
 def test_date_trigger_text():
-    trigger = SimpleTrigger('2009-7-6')
+    trigger = DateTrigger('2009-7-6')
     start_date = datetime(2009, 7, 6)
     eq_(trigger.get_next_fire_time(start_date), datetime(2009, 7, 6))
 
@@ -174,9 +176,7 @@ def test_interval_invalid_interval():
 
 class TestInterval(object):
     def setUp(self):
-        interval = timedelta(seconds=1)
-        trigger_start_date = datetime(2009, 8, 4, second=2)
-        self.trigger = IntervalTrigger(interval, trigger_start_date)
+        self.trigger = IntervalTrigger(seconds=1, start_date=datetime(2009, 8, 4, second=2))
 
     def test_interval_repr(self):
         eq_(repr(self.trigger),

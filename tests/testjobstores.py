@@ -8,7 +8,7 @@ from nose.plugins.skip import SkipTest
 
 from apscheduler.jobstores.ram_store import RAMJobStore
 from apscheduler.jobstores.base import JobStore
-from apscheduler.triggers import SimpleTrigger
+from apscheduler.triggers.date import DateTrigger
 from apscheduler.job import Job
 
 try:
@@ -48,8 +48,8 @@ class JobStoreTestBase(object):
     def setup(self):
         self.trigger_date = datetime(2999, 1, 1)
         self.earlier_date = datetime(2998, 12, 31)
-        self.trigger = SimpleTrigger(self.trigger_date)
-        self.job = Job(self.trigger, dummy_job, [], {}, 1, False)
+        self.trigger = DateTrigger(self.trigger_date)
+        self.job = Job(self.trigger, dummy_job, [], {}, 1, False, None, None, 1)
         self.job.next_run_time = self.trigger_date
 
     def test_jobstore_add_update_remove(self):
@@ -76,9 +76,9 @@ class JobStoreTestBase(object):
 class PersistentJobstoreTestBase(JobStoreTestBase):
     def test_one_job_fails_to_load(self):
         global dummy_job2, dummy_job_temp
-        job1 = Job(self.trigger, dummy_job, [], {}, 1, False)
-        job2 = Job(self.trigger, dummy_job2, [], {}, 1, False)
-        job3 = Job(self.trigger, dummy_job3, [], {}, 1, False)
+        job1 = Job(self.trigger, dummy_job, [], {}, 1, False, None, None, 1)
+        job2 = Job(self.trigger, dummy_job2, [], {}, 1, False, None, None, 1)
+        job3 = Job(self.trigger, dummy_job3, [], {}, 1, False, None, None, 1)
         for job in job1, job2, job3:
             job.next_run_time = self.trigger_date
             self.jobstore.add_job(job)

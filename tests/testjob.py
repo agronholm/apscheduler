@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
 from threading import Lock
 
-from nose.tools import eq_, raises, assert_raises  # @UnresolvedImport
+from nose.tools import eq_, assert_raises  # @UnresolvedImport
 
 from apscheduler.job import Job, MaxInstancesReachedError
-from apscheduler.triggers.simple import SimpleTrigger
+from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 
@@ -19,25 +19,23 @@ class TestJob(object):
     RUNTIME = datetime(2010, 12, 13, 0, 8, 0)
 
     def setup(self):
-        self.trigger = SimpleTrigger(self.RUNTIME)
-        self.job = Job(self.trigger, dummyfunc, [], {}, 1, False)
+        self.trigger = DateTrigger(self.RUNTIME)
+        self.job = Job(self.trigger, dummyfunc, [], {}, 1, False, None, None, 1)
 
     def test_compute_next_run_time(self):
-        self.job.compute_next_run_time(
-            self.RUNTIME - timedelta(microseconds=1))
+        self.job.compute_next_run_time(self.RUNTIME - timedelta(microseconds=1))
         eq_(self.job.next_run_time, self.RUNTIME)
 
         self.job.compute_next_run_time(self.RUNTIME)
         eq_(self.job.next_run_time, self.RUNTIME)
 
-        self.job.compute_next_run_time(
-            self.RUNTIME + timedelta(microseconds=1))
+        self.job.compute_next_run_time(self.RUNTIME + timedelta(microseconds=1))
         eq_(self.job.next_run_time, None)
 
     def test_compute_run_times(self):
         expected_times = [self.RUNTIME + timedelta(seconds=1),
                           self.RUNTIME + timedelta(seconds=2)]
-        self.job.trigger = IntervalTrigger(timedelta(seconds=1), self.RUNTIME)
+        self.job.trigger = IntervalTrigger(seconds=1, start_date=self.RUNTIME)
         self.job.compute_next_run_time(expected_times[0])
         eq_(self.job.next_run_time, expected_times[0])
 
@@ -70,7 +68,7 @@ class TestJob(object):
                         max_instances=1, runs=0))
 
     def test_setstate(self):
-        trigger = SimpleTrigger('2010-12-14 13:05:00')
+        trigger = DateTrigger('2010-12-14 13:05:00')
         state = dict(trigger=trigger, name='testjob.dummyfunc',
                      func_ref='testjob:dummyfunc',
                      args=[], kwargs={}, misfire_grace_time=2, max_runs=2,
@@ -88,7 +86,7 @@ class TestJob(object):
     def test_jobs_equal(self):
         assert self.job == self.job
 
-        job2 = Job(SimpleTrigger(self.RUNTIME), lambda: None, [], {}, 1, False)
+        job2 = Job(DateTrigger(self.RUNTIME), lambda: None, [], {}, 1, False, None, None, 1)
         assert self.job != job2
 
         job2.id = self.job.id = 123
@@ -119,36 +117,6 @@ class TestJob(object):
     def test_repr(self):
         self.job.compute_next_run_time(self.RUNTIME)
         eq_(repr(self.job),
-            "<Job (name=dummyfunc, trigger=<SimpleTrigger (run_date=datetime.datetime(2010, 12, 13, 0, 8))>)>")
+            "<Job (name=dummyfunc, trigger=<DateTrigger (run_date=datetime.datetime(2010, 12, 13, 0, 8))>)>")
         eq_(str(self.job),
             "dummyfunc (trigger: date[2010-12-13 00:08:00], next run at: 2010-12-13 00:08:00)")
-
-
-@raises(ValueError)
-def test_create_job_no_trigger():
-    Job(None, lambda: None, [], {}, 1, False)
-
-
-@raises(TypeError)
-def test_create_job_invalid_args():
-    Job(SimpleTrigger(datetime.now()), lambda: None, None, {}, 1, False)
-
-
-@raises(TypeError)
-def test_create_job_invalid_kwargs():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], None, 1, False)
-
-
-@raises(ValueError)
-def test_create_job_invalid_misfire():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 0, False)
-
-
-@raises(ValueError)
-def test_create_job_invalid_maxruns():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 1, False, max_runs=0)
-
-
-@raises(ValueError)
-def test_create_job_invalid_maxinstances():
-    Job(SimpleTrigger(datetime.now()), lambda: None, [], {}, 1, False, max_instances=0)

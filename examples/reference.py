@@ -7,7 +7,7 @@ from apscheduler.scheduler import Scheduler
 
 if __name__ == '__main__':
     scheduler = Scheduler(standalone=True)
-    scheduler.add_interval_job('sys:stdout.write', args=['tick\n'], seconds=3)
+    scheduler.add_job('sys:stdout.write', 'interval', {'seconds': 3}, args=['tick\n'])
     print('Press Ctrl+C to exit')
     try:
         scheduler.start()

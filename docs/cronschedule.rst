@@ -84,7 +84,7 @@ Example 1
 
     # Schedules job_function to be run on the third Friday
     # of June, July, August, November and December at 00:00, 01:00, 02:00 and 03:00
-    sched.add_cron_job(job_function, month='6-8,11-12', day='3rd fri', hour='0-3')
+    sched.add_job(job_function, 'cron', {'month': '6-8,11-12', 'day': '3rd fri', 'hour': '0-3'})
 
 
 Example 2
@@ -95,21 +95,15 @@ Example 2
     # Initialization similar as above, the backup function defined elsewhere
     
     # Schedule a backup to run once from Monday to Friday at 5:30 (am)
-    sched.add_cron_job(backup, day_of_week='mon-fri', hour=5, minute=30)
+    sched.add_job(backup, 'cron', {'day_of_week': 'mon-fri', 'hour': 5, 'minute': 30})
 
 
 Decorator syntax
 ----------------
 
-As a convenience, there is an alternative syntax for using cron-style
-schedules. The :meth:`~apscheduler.scheduler.Scheduler.cron_schedule`
-decorator can be attached to any function, and has the same syntax as
-:meth:`~apscheduler.scheduler.Scheduler.add_cron_job`, except for the ``func``
-parameter, obviously.
-
 ::
 
-    @sched.cron_schedule(day='last sun')
+    @sched.scheduled_job('cron', {'day': 'last sun'})
     def some_decorated_task():
         print "I am printed at 00:00:00 on the last Sunday of every month!"
 

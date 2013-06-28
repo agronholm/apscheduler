@@ -1,13 +1,7 @@
 # coding: utf-8
 import os.path
 
-try:
-    from setuptools import setup
-
-    extras = dict(zip_safe=False, test_suite='nose.collector', tests_require=['nose'])
-except ImportError:
-    from distutils.core import setup
-    extras = {}
+from setuptools import setup, find_packages
 
 import apscheduler
 
@@ -37,5 +31,15 @@ setup(
     ],
     keywords='scheduling cron',
     license='MIT',
-    packages=('apscheduler', 'apscheduler.jobstores', 'apscheduler.triggers', 'apscheduler.triggers.cron'),
+    packages=find_packages(),
+    test_suite='nose.collector',
+    tests_require=['nose'],
+    zip_safe=False,
+    entry_points={
+        'apscheduler.triggers': [
+            'date = apscheduler.triggers.date:DateTrigger',
+            'interval = apscheduler.triggers.interval:IntervalTrigger',
+            'cron = apscheduler.triggers.cron:CronTrigger'
+        ]
+    }
 )

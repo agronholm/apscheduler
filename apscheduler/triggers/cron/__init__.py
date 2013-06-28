@@ -17,18 +17,24 @@ class CronTrigger(object):
         'second': BaseField
     }
 
-    def __init__(self, **values):
-        self.start_date = values.pop('start_date', None)
-        if self.start_date:
-            self.start_date = convert_to_datetime(self.start_date)
+    def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None, minute=None,
+                 second=None, start_date=None):
+        """
+        Triggers when current time matches all specified time constraints, emulating the UNIX cron scheduler.
+        
+        :param year: year to run on
+        :param month: month to run on
+        :param day: day of month to run on
+        :param week: week of the year to run on
+        :param day_of_week: weekday to run on (0 = Monday)
+        :param hour: hour to run on
+        :param second: second to run on
+        :param start_date: earliest possible date/time to trigger on
+        """
+        self.start_date = convert_to_datetime(start_date) if start_date else None
 
-        # Check field names and yank out all None valued fields
-        for key, value in list(iteritems(values)):
-            if key not in self.FIELD_NAMES:
-                raise TypeError('Invalid field name: %s' % key)
-            if value is None:
-                del values[key]
-
+        values = dict((key, value) for (key, value) in iteritems(locals())
+                      if key in self.FIELD_NAMES and value is not None)
         self.fields = []
         assign_defaults = False
         for field_name in self.FIELD_NAMES:

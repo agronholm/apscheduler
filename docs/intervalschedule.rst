@@ -22,20 +22,14 @@ that.
         print "Hello World"
 
     # Schedule job_function to be called every two hours
-    sched.add_interval_job(job_function, hours=2)
+    sched.add_job(job_function, 'interval', {'hours': 2})
 
     # The same as before, but start after a certain time point
-    sched.add_interval_job(job_function, hours=2, start_date='2010-10-10 09:30')
+    sched.add_job(job_function, 'interval', {'hours': 2, 'start_date': '2010-10-10 09:30'})
 
 
 Decorator syntax
 ----------------
-
-As a convenience, there is an alternative syntax for using interval-based
-schedules. The :meth:`~apscheduler.scheduler.Scheduler.interval_schedule`
-decorator can be attached to any function, and has the same syntax as
-:meth:`~apscheduler.scheduler.Scheduler.add_interval_job`, except for the
-``func`` parameter, obviously.
 
 ::
 
@@ -46,7 +40,7 @@ decorator can be attached to any function, and has the same syntax as
     sched.start()
     
     # Schedule job_function to be called every two hours
-    @sched.interval_schedule(hours=2)
+    @sched.scheduled_job('interval', {'hours': 2})
     def job_function():
         print "Hello World"
 

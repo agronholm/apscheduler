@@ -13,7 +13,7 @@ def tick():
 
 if __name__ == '__main__':
     scheduler = Scheduler(standalone=True)
-    scheduler.add_interval_job(tick, seconds=3)
+    scheduler.add_job(tick, 'interval', {'seconds': 3})
     print('Press Ctrl+C to exit')
     try:
         scheduler.start()

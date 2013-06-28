@@ -1,8 +1,13 @@
 from apscheduler.util import convert_to_datetime
 
 
-class SimpleTrigger(object):
+class DateTrigger(object):
     def __init__(self, run_date):
+        """
+        Triggers once on the given datetime.
+        
+        :param run_date: the date/time to run the job at
+        """
         self.run_date = convert_to_datetime(run_date)
 
     def get_next_fire_time(self, start_date):

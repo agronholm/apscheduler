@@ -23,9 +23,9 @@ provides features not present in Quartz (such as multiple job stores).
 Features
 --------
 
-* No (hard) external dependencies
+* No (hard) external dependencies, except for setuptools/distribute
 * Thread-safe API
-* Excellent test coverage (tested on CPython 2.5 - 2.7, 3.2 - 3.3, Jython 2.5.3, PyPy 1.9)
+* Excellent test coverage (tested on CPython 2.6 - 2.7, 3.2 - 3.3, Jython 2.5.3, PyPy 1.9)
 * Configurable scheduling mechanisms (triggers):
 
   * Cron-like scheduling
@@ -85,7 +85,7 @@ Scheduler instance available from the very beginning::
     
     sched = Scheduler()
     
-    @sched.interval_schedule(hours=3)
+    @sched.scheduled_job('interval', {'hours': 3})
     def some_job():
         print "Decorated job"
     
