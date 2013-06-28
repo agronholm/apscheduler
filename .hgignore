@@ -15,3 +15,7 @@ syntax: regexp
 ^build$
 syntax: regexp
 ^\.tox$
+syntax: regexp
+^\.project$
+syntax: regexp
+^\.pydevproject$
