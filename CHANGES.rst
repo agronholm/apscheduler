@@ -4,6 +4,14 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.0.0
+-----
+
+* Added support for timezones
+
+* Removed the shortcuts to built-in triggers in the scheduler API so they no longer get preferential treatment
+
+
 2.1.0
 -----
 
