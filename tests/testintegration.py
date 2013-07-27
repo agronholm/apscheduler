@@ -9,25 +9,10 @@ from nose.plugins.skip import SkipTest
 from apscheduler.scheduler import Scheduler
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_MISSED
 
-try:
-    from apscheduler.jobstores.shelve_store import ShelveJobStore
-except ImportError:
-    ShelveJobStore = None
-
-try:
-    from apscheduler.jobstores.sqlalchemy_store import SQLAlchemyJobStore
-except ImportError:
-    SQLAlchemyJobStore = None
-
-try:
-    from apscheduler.jobstores.mongodb_store import MongoDBJobStore
-except ImportError:
-    MongoDBJobStore = None
-
-try:
-    from apscheduler.jobstores.redis_store import RedisJobStore
-except ImportError:
-    RedisJobStore = None
+from apscheduler.jobstores.shelve import ShelveJobStore
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from apscheduler.jobstores.mongodb import MongoDBJobStore
+from apscheduler.jobstores.redis import RedisJobStore
 
 
 def increment(vals, sleeptime):

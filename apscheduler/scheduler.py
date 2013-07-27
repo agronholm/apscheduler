@@ -10,6 +10,8 @@ import os
 import sys
 
 from pkg_resources import iter_entry_points
+from dateutil.tz import gettz, tzlocal
+from six import string_types, u
 
 from apscheduler.util import *
 from apscheduler.jobstores.memory import MemoryJobStore
@@ -61,6 +63,11 @@ class Scheduler(object):
         self.coalesce = asbool(config.pop('coalesce', True))
         self.daemonic = asbool(config.pop('daemonic', True))
         self.standalone = asbool(config.pop('standalone', False))
+        timezone = config.pop('timezone', None)
+        self.timezone = gettz(timezone) if isinstance(timezone, string_types) else timezone or tzlocal()
+
+        # Set trigger defaults
+        self.trigger_defaults = {'timezone': self.timezone}
 
         # Configure the thread pool
         if 'threadpool' in config:
@@ -220,7 +227,7 @@ class Scheduler(object):
 
     def _real_add_job(self, job, jobstore, wakeup):
         # Recalculate the next run time
-        job.compute_next_run_time(datetime.now())
+        job.compute_next_run_time(datetime.now(self.timezone))
 
         # Add the job to the given job store
         store = self._jobstores.get(jobstore)
@@ -291,9 +298,9 @@ class Scheduler(object):
                     raise KeyError('No trigger by the name "%s" was found' % trigger)
 
             if isinstance(trigger_args, Mapping):
-                trigger = trigger_cls(**trigger_args)
+                trigger = trigger_cls(self.trigger_defaults, **trigger_args)
             elif isinstance(trigger_args, Iterable):
-                trigger = trigger_cls(*trigger_args)
+                trigger = trigger_cls(self.trigger_defaults, *trigger_args)
             else:
                 raise ValueError('trigger_args must either be a dict-like object or an iterable')
         elif not callable(getattr(trigger, 'get_next_fire_time')):
@@ -310,7 +317,7 @@ class Scheduler(object):
         job = Job(trigger, func, args, kwargs, misfire_grace_time, coalesce, name, max_runs, max_instances)
 
         # Ensure that dead-on-arrival jobs are never added
-        if job.compute_next_run_time(datetime.now()) is None:
+        if job.compute_next_run_time(datetime.now(self.timezone)) is None:
             raise ValueError('Not adding job since it would never be run')
 
         # Don't really add jobs to job stores before the scheduler is up and running
@@ -390,7 +397,7 @@ class Scheduler(object):
         job_strs = []
         with self._jobstores_lock:
             for alias, jobstore in iteritems(self._jobstores):
-                job_strs.append('Jobstore %s:' % alias)
+                job_strs.append(u('Jobstore %s:') % alias)
                 if jobstore.jobs:
                     for job in jobstore.jobs:
                         job_strs.append('    %s' % job)
@@ -406,7 +413,7 @@ class Scheduler(object):
         for run_time in run_times:
             # See if the job missed its run time window, and handle possible
             # misfires accordingly
-            difference = datetime.now() - run_time
+            difference = datetime.now(self.timezone) - run_time
             grace_time = timedelta(seconds=job.misfire_grace_time)
             if difference > grace_time:
                 # Notify listeners about a missed run
@@ -486,7 +493,7 @@ class Scheduler(object):
         self._wakeup.clear()
         while not self._stopped:
             logger.debug('Looking for jobs to run')
-            now = datetime.now()
+            now = datetime.now(self.timezone)
             next_wakeup_time = self._process_jobs(now)
 
             # Sleep until the next job is scheduled to be run,

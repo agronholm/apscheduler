@@ -7,6 +7,9 @@ from time import mktime
 import re
 import sys
 
+from dateutil.tz import gettz
+from six import string_types
+
 __all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds', 'time_difference', 'datetime_ceil',
            'combine_opts', 'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref', 'to_unicode', 'iteritems',
            'itervalues', 'xrange')
@@ -45,11 +48,12 @@ _DATE_REGEX = re.compile(
     r'(?:\.(?P<microsecond>\d{1,6}))?)?')
 
 
-def convert_to_datetime(input):
+def convert_to_datetime(input, timezone, arg_name):
     """
-    Converts the given object to a datetime object, if possible.
-    If an actual datetime object is passed, it is returned unmodified.
-    If the input is a string, it is parsed as a datetime.
+    Converts the given object to a timezone aware datetime object.
+    If a timezone aware datetime object is passed, it is returned unmodified.
+    If a native datetime object is passed, it is given the specified timezone.
+    If the input is a string, it is parsed as a datetime with the given timezone.
 
     Date strings are accepted in three different forms: date only (Y-m-d),
     date with time (Y-m-d H:M:S) or with date+time with microseconds
@@ -58,17 +62,27 @@ def convert_to_datetime(input):
     :rtype: datetime
     """
     if isinstance(input, datetime):
-        return input
+        datetime_ = input
     elif isinstance(input, date):
-        return datetime.fromordinal(input.toordinal())
+        datetime_ = datetime.fromordinal(input.toordinal())
     elif isinstance(input, basestring):
         m = _DATE_REGEX.match(input)
         if not m:
             raise ValueError('Invalid date string')
         values = [(k, int(v or 0)) for k, v in m.groupdict().items()]
         values = dict(values)
-        return datetime(**values)
-    raise TypeError('Unsupported input type: %s' % type(input))
+        datetime_ = datetime(**values)
+    else:
+        raise TypeError('Unsupported input type: %s' % type(input))
+
+    if datetime_.tzinfo is not None:
+        return datetime_
+    if timezone is None:
+        raise ValueError('The "timezone" argument must be specified if %s has no timezone information' % arg_name)
+    if isinstance(timezone, string_types):
+        timezone = gettz(timezone)
+
+    return datetime_.replace(tzinfo=timezone)
 
 
 def timedelta_seconds(delta):
@@ -108,6 +122,10 @@ def datetime_ceil(dateval):
         return dateval + timedelta(seconds=1,
                                    microseconds=-dateval.microsecond)
     return dateval
+
+
+def datetime_repr(dateval):
+    return dateval.strftime('%Y-%m-%d %H:%M:%S %Z') if dateval else 'None'
 
 
 def combine_opts(global_config, prefix, local_config={}):

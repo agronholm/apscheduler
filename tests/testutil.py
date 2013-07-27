@@ -7,8 +7,12 @@ import shelve
 
 from nose.tools import eq_, raises, assert_raises  # @UnresolvedImport
 from nose.plugins.skip import SkipTest
+from dateutil.tz import tzoffset
 
 from apscheduler.util import *
+
+
+local_tz = tzoffset('DUMMYTZ', 3600)
 
 
 class DummyClass(object):
@@ -73,41 +77,47 @@ def test_asbool_fail():
 
 def test_convert_datetime_date():
     dateval = date(2009, 8, 1)
-    datetimeval = convert_to_datetime(dateval)
+    datetimeval = convert_to_datetime(dateval, local_tz, None)
     correct_datetime = datetime(2009, 8, 1)
     assert isinstance(datetimeval, datetime)
-    eq_(datetimeval, correct_datetime)
+    eq_(datetimeval, correct_datetime.replace(tzinfo=local_tz))
 
 
 def test_convert_datetime_passthrough():
     datetimeval = datetime(2009, 8, 1, 5, 6, 12)
-    convertedval = convert_to_datetime(datetimeval)
-    eq_(convertedval, datetimeval)
+    convertedval = convert_to_datetime(datetimeval, local_tz, None)
+    eq_(convertedval, datetimeval.replace(tzinfo=local_tz))
 
 
 def test_convert_datetime_text1():
-    convertedval = convert_to_datetime('2009-8-1')
-    eq_(convertedval, datetime(2009, 8, 1))
+    convertedval = convert_to_datetime('2009-8-1', local_tz, None)
+    eq_(convertedval, datetime(2009, 8, 1, tzinfo=local_tz))
 
 
 def test_convert_datetime_text2():
-    convertedval = convert_to_datetime('2009-8-1 5:16:12')
-    eq_(convertedval, datetime(2009, 8, 1, 5, 16, 12))
+    convertedval = convert_to_datetime('2009-8-1 5:16:12', local_tz, None)
+    eq_(convertedval, datetime(2009, 8, 1, 5, 16, 12, tzinfo=local_tz))
 
 
 def test_datestring_parse_datetime_micro():
-    convertedval = convert_to_datetime('2009-8-1 5:16:12.843821')
-    eq_(convertedval, datetime(2009, 8, 1, 5, 16, 12, 843821))
+    convertedval = convert_to_datetime('2009-8-1 5:16:12.843821', local_tz, None)
+    eq_(convertedval, datetime(2009, 8, 1, 5, 16, 12, 843821, tzinfo=local_tz))
+
+
+def test_existing_tzinfo():
+    alter_tz = tzoffset('ALTERNATE', -3600)
+    dateval = datetime(2009, 8, 1, tzinfo=alter_tz)
+    eq_(convert_to_datetime(dateval, local_tz, None), dateval)
 
 
 @raises(TypeError)
 def test_convert_datetime_invalid():
-    convert_to_datetime(995302092123)
+    convert_to_datetime(995302092123, local_tz, None)
 
 
 @raises(ValueError)
 def test_convert_datetime_invalid_str():
-    convert_to_datetime('19700-12-1')
+    convert_to_datetime('19700-12-1', local_tz, None)
 
 
 def test_timedelta_seconds():

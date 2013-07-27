@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
 from apscheduler.triggers.cron.fields import *
-from apscheduler.util import datetime_ceil, convert_to_datetime, iteritems
+from apscheduler.util import datetime_ceil, convert_to_datetime, iteritems, datetime_repr
 
 
 class CronTrigger(object):
@@ -17,11 +17,11 @@ class CronTrigger(object):
         'second': BaseField
     }
 
-    def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None, minute=None,
-                 second=None, start_date=None):
+    def __init__(self, defaults, year=None, month=None, day=None, week=None, day_of_week=None, hour=None, minute=None,
+                 second=None, start_date=None, timezone=None):
         """
         Triggers when current time matches all specified time constraints, emulating the UNIX cron scheduler.
-        
+
         :param year: year to run on
         :param month: month to run on
         :param day: day of month to run on
@@ -30,8 +30,11 @@ class CronTrigger(object):
         :param hour: hour to run on
         :param second: second to run on
         :param start_date: earliest possible date/time to trigger on
+        :param timezone: time zone for ``start_date``
+        :type timezone: str or an instance of a :cls:`~datetime.tzinfo` subclass
         """
-        self.start_date = convert_to_datetime(start_date) if start_date else None
+        self.timezone = timezone or defaults['timezone']
+        self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date') if start_date else None
 
         values = dict((key, value) for (key, value) in iteritems(locals())
                       if key in self.FIELD_NAMES and value is not None)
@@ -91,7 +94,7 @@ class CronTrigger(object):
                     values[field.name] = value + 1
                     i += 1
 
-        return datetime(**values), fieldnum
+        return datetime(tzinfo=self.timezone, **values), fieldnum
 
     def _set_field_value(self, dateval, fieldnum, new_value):
         values = {}
@@ -104,7 +107,7 @@ class CronTrigger(object):
                 else:
                     values[field.name] = new_value
 
-        return datetime(**values)
+        return datetime(tzinfo=self.timezone, **values)
 
     def get_next_fire_time(self, start_date):
         if self.start_date:
@@ -140,5 +143,5 @@ class CronTrigger(object):
     def __repr__(self):
         options = ["%s='%s'" % (f.name, str(f)) for f in self.fields if not f.is_default]
         if self.start_date:
-            options.append("start_date='%s'" % self.start_date.isoformat(' '))
+            options.append("start_date='%s'" % datetime_repr(self.start_date))
         return '<%s (%s)>' % (self.__class__.__name__, ', '.join(options))

@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta
 from logging import StreamHandler, ERROR
+from io import StringIO
 from copy import copy
 import os
 
 from nose.tools import eq_, raises
+from dateutil.tz import tzoffset
 
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.scheduler import Scheduler, SchedulerAlreadyRunningError
@@ -12,10 +14,31 @@ from apscheduler.events import (EVENT_JOB_EXECUTED, SchedulerEvent, EVENT_SCHEDU
                                 EVENT_JOB_MISSED)
 from apscheduler import scheduler
 
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+
+local_tz = tzoffset('DUMMYTZ', 3600)
+original_now = datetime(2011, 4, 3, 18, 40, tzinfo=local_tz)
+
+
+class FakeThread(object):
+    def isAlive(self):
+        return True
+
+
+class FakeThreadPool(object):
+    def submit(self, func, *args, **kwargs):
+        func(*args, **kwargs)
+
+
+class DummyException(Exception):
+    pass
+
+
+class FakeDateTime(datetime):
+    _now = original_now
+
+    @classmethod
+    def now(cls, timezone=None):
+        return cls._now
 
 
 class TestOfflineScheduler(object):
@@ -90,34 +113,9 @@ class TestOfflineScheduler(object):
         eq_(len(jobs), 1)
 
 
-class FakeThread(object):
-    def isAlive(self):
-        return True
-
-
-class FakeThreadPool(object):
-    def submit(self, func, *args, **kwargs):
-        func(*args, **kwargs)
-
-
-class DummyException(Exception):
-    pass
-
-
-original_now = datetime(2011, 4, 3, 18, 40)
-
-
-class FakeDateTime(datetime):
-    _now = original_now
-
-    @classmethod
-    def now(cls):
-        return cls._now
-
-
 class TestJobExecution(object):
     def setup(self):
-        self.scheduler = Scheduler(threadpool=FakeThreadPool())
+        self.scheduler = Scheduler(threadpool=FakeThreadPool(), timezone=local_tz)
         self.scheduler.add_jobstore(MemoryJobStore(), 'default')
 
         # Make the scheduler think it's running
@@ -140,8 +138,8 @@ class TestJobExecution(object):
 
         job = self.scheduler.add_job(my_job, 'interval', {'start_date': datetime(2010, 5, 19)})
         eq_(repr(job),
-            '<Job (name=my_job, trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), '
-            'start_date=datetime.datetime(2010, 5, 19, 0, 0))>)>')
+            "<Job (name=my_job, trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), "
+            "start_date='2010-05-19 00:00:00 DUMMYTZ')>)>")
 
     def test_schedule_object(self):
         # Tests that any callable object is accepted (and not just functions)
@@ -343,7 +341,7 @@ class TestJobExecution(object):
             vals.append(value)
 
         vals = []
-        date = datetime.now() + timedelta(seconds=1)
+        date = datetime.now(local_tz) + timedelta(seconds=1)
         self.scheduler.add_job(append_val, 'date', [date], kwargs={'value': 'test'})
         self.scheduler._process_jobs(date)
         eq_(vals, ['test'])
@@ -359,8 +357,8 @@ class TestJobExecution(object):
         out = StringIO()
         self.scheduler.print_jobs(out)
         expected = 'Jobstore default:%s    '\
-            'copy (trigger: date[2200-05-19 00:00:00], '\
-            'next run at: 2200-05-19 00:00:00)%s' % (os.linesep, os.linesep)
+            'copy (trigger: date[2200-05-19 00:00:00 DUMMYTZ], '\
+            'next run at: 2200-05-19 00:00:00 DUMMYTZ)%s' % (os.linesep, os.linesep)
         eq_(out.getvalue(), expected)
 
     def test_jobstore(self):

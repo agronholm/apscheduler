@@ -32,6 +32,7 @@ setup(
     keywords='scheduling cron',
     license='MIT',
     packages=find_packages(),
+    install_requires=['six', 'python-dateutil'],
     test_suite='nose.collector',
     tests_require=['nose'],
     zip_safe=False,

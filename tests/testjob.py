@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from threading import Lock
 
 from nose.tools import eq_, assert_raises  # @UnresolvedImport
+from dateutil.tz import tzoffset
 
 from apscheduler.job import Job, MaxInstancesReachedError
 from apscheduler.triggers.date import DateTrigger
@@ -9,6 +10,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 
 lock_type = type(Lock())
+local_tz = tzoffset('DUMMYTZ', 3600)
+defaults = {'timezone': local_tz}
 
 
 def dummyfunc():
@@ -16,10 +19,10 @@ def dummyfunc():
 
 
 class TestJob(object):
-    RUNTIME = datetime(2010, 12, 13, 0, 8, 0)
+    RUNTIME = datetime(2010, 12, 13, 0, 8, 0, tzinfo=local_tz)
 
     def setup(self):
-        self.trigger = DateTrigger(self.RUNTIME)
+        self.trigger = DateTrigger(defaults, self.RUNTIME)
         self.job = Job(self.trigger, dummyfunc, [], {}, 1, False, None, None, 1)
 
     def test_compute_next_run_time(self):
@@ -35,7 +38,7 @@ class TestJob(object):
     def test_compute_run_times(self):
         expected_times = [self.RUNTIME + timedelta(seconds=1),
                           self.RUNTIME + timedelta(seconds=2)]
-        self.job.trigger = IntervalTrigger(seconds=1, start_date=self.RUNTIME)
+        self.job.trigger = IntervalTrigger(defaults, seconds=1, start_date=self.RUNTIME)
         self.job.compute_next_run_time(expected_times[0])
         eq_(self.job.next_run_time, expected_times[0])
 
@@ -68,7 +71,7 @@ class TestJob(object):
                         max_instances=1, runs=0))
 
     def test_setstate(self):
-        trigger = DateTrigger('2010-12-14 13:05:00')
+        trigger = DateTrigger(defaults, '2010-12-14 13:05:00')
         state = dict(trigger=trigger, name='testjob.dummyfunc',
                      func_ref='testjob:dummyfunc',
                      args=[], kwargs={}, misfire_grace_time=2, max_runs=2,
@@ -86,7 +89,7 @@ class TestJob(object):
     def test_jobs_equal(self):
         assert self.job == self.job
 
-        job2 = Job(DateTrigger(self.RUNTIME), lambda: None, [], {}, 1, False, None, None, 1)
+        job2 = Job(DateTrigger(defaults, self.RUNTIME), lambda: None, [], {}, 1, False, None, None, 1)
         assert self.job != job2
 
         job2.id = self.job.id = 123
@@ -117,6 +120,6 @@ class TestJob(object):
     def test_repr(self):
         self.job.compute_next_run_time(self.RUNTIME)
         eq_(repr(self.job),
-            "<Job (name=dummyfunc, trigger=<DateTrigger (run_date=datetime.datetime(2010, 12, 13, 0, 8))>)>")
+            "<Job (name=dummyfunc, trigger=<DateTrigger (run_date='2010-12-13 00:08:00 DUMMYTZ')>)>")
         eq_(str(self.job),
-            "dummyfunc (trigger: date[2010-12-13 00:08:00], next run at: 2010-12-13 00:08:00)")
+            "dummyfunc (trigger: date[2010-12-13 00:08:00 DUMMYTZ], next run at: 2010-12-13 00:08:00 DUMMYTZ)")

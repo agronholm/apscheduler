@@ -5,6 +5,7 @@ import os
 
 from nose.tools import eq_, assert_raises, raises  # @UnresolvedImport
 from nose.plugins.skip import SkipTest
+from dateutil.tz import tzoffset
 
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.jobstores.shelve import ShelveJobStore
@@ -14,6 +15,9 @@ from apscheduler.jobstores.redis import RedisJobStore
 from apscheduler.jobstores.base import JobStore
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.job import Job
+
+
+local_tz = tzoffset('DUMMYTZ', 3600)
 
 
 def dummy_job():
@@ -32,7 +36,7 @@ class JobStoreTestBase(object):
     def setup(self):
         self.trigger_date = datetime(2999, 1, 1)
         self.earlier_date = datetime(2998, 12, 31)
-        self.trigger = DateTrigger(self.trigger_date)
+        self.trigger = DateTrigger({}, self.trigger_date, local_tz)
         self.job = Job(self.trigger, dummy_job, [], {}, 1, False, None, None, 1)
         self.job.next_run_time = self.trigger_date
 
