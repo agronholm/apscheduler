@@ -19,3 +19,9 @@ syntax: regexp
 ^\.project$
 syntax: regexp
 ^\.pydevproject$
+syntax: regexp
+^examples/example\.db$
+syntax: regexp
+^\.noseids$
+syntax: regexp
+^MANIFEST$
