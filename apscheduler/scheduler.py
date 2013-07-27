@@ -11,7 +11,7 @@ import sys
 
 from pkg_resources import iter_entry_points
 from dateutil.tz import gettz, tzlocal
-from six import string_types, u
+from six import string_types, u, itervalues, iteritems
 
 from apscheduler.util import *
 from apscheduler.jobstores.memory import MemoryJobStore

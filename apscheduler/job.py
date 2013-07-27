@@ -5,7 +5,9 @@ Jobs represent scheduled tasks.
 from threading import Lock
 from datetime import timedelta
 
-from apscheduler.util import to_unicode, ref_to_obj, obj_to_ref, get_callable_name, datetime_repr
+from six import u
+
+from apscheduler.util import ref_to_obj, obj_to_ref, get_callable_name, datetime_repr
 
 
 class MaxInstancesReachedError(Exception):
@@ -39,7 +41,7 @@ class Job(object):
         self.trigger = trigger
         self.args = args
         self.kwargs = kwargs
-        self.name = to_unicode(name or get_callable_name(self.func))
+        self.name = u(name or get_callable_name(self.func))
         self.misfire_grace_time = misfire_grace_time
         self.coalesce = coalesce
         self.max_runs = max_runs

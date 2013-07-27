@@ -5,14 +5,12 @@ This module contains several handy functions primarily meant for internal use.
 from datetime import date, datetime, timedelta
 from time import mktime
 import re
-import sys
 
 from dateutil.tz import gettz
 from six import string_types
 
 __all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds', 'time_difference', 'datetime_ceil',
-           'combine_opts', 'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref', 'to_unicode', 'iteritems',
-           'itervalues', 'xrange')
+           'combine_opts', 'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref')
 
 
 def asint(text):
@@ -65,7 +63,7 @@ def convert_to_datetime(input, timezone, arg_name):
         datetime_ = input
     elif isinstance(input, date):
         datetime_ = datetime.fromordinal(input.toordinal())
-    elif isinstance(input, basestring):
+    elif isinstance(input, string_types):
         m = _DATE_REGEX.match(input)
         if not m:
             raise ValueError('Invalid date string')
@@ -191,7 +189,7 @@ def ref_to_obj(ref):
     """
     Returns the object pointed to by ``ref``.
     """
-    if not isinstance(ref, basestring):
+    if not isinstance(ref, string_types):
         raise TypeError('References must be strings')
     if not ':' in ref:
         raise ValueError('Invalid reference')
@@ -218,24 +216,3 @@ def maybe_ref(ref):
     if not isinstance(ref, str):
         return ref
     return ref_to_obj(ref)
-
-
-def to_unicode(string, encoding='ascii'):
-    """
-    Safely converts a string to a unicode representation on any Python version.
-    """
-    if hasattr(string, 'decode'):
-        return string.decode(encoding, 'ignore')
-    return string  # pragma: nocover
-
-
-if sys.version_info < (3, 0):  # pragma: nocover
-    iteritems = lambda d: d.iteritems()
-    itervalues = lambda d: d.itervalues()
-    xrange = xrange
-    basestring = basestring
-else:  # pragma: nocover
-    iteritems = lambda d: d.items()
-    itervalues = lambda d: d.values()
-    xrange = range
-    basestring = str

@@ -1,7 +1,9 @@
 from datetime import date, datetime
 
+from six import iteritems
+
 from apscheduler.triggers.cron.fields import *
-from apscheduler.util import datetime_ceil, convert_to_datetime, iteritems, datetime_repr
+from apscheduler.util import datetime_ceil, convert_to_datetime, datetime_repr
 
 
 class CronTrigger(object):

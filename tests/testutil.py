@@ -215,12 +215,3 @@ def test_ref_to_obj():
 def test_maybe_ref():
     eq_(maybe_ref('shelve:open'), shelve.open)
     eq_(maybe_ref(shelve.open), shelve.open)
-
-
-def test_to_unicode():
-    if sys.version_info[0] < 3:
-        eq_(to_unicode('aaööbb'), unicode('aabb'))
-        eq_(to_unicode(unicode('gfkj')), unicode('gfkj'))
-    else:
-        eq_(to_unicode('aaööbb'.encode('utf-8')), 'aabb')
-        eq_(to_unicode('gfkj'), 'gfkj')
