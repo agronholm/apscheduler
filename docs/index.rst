@@ -226,9 +226,9 @@ threadpool.core_threads 0          Maximum number of persistent threads in the p
 threadpool.max_threads  20         Maximum number of total threads in the pool
 threadpool.keepalive    1          Seconds to keep non-core worker threads waiting
                                    for new tasks
-jobstores.X.class                  Class of the jobstore named X (specified as
+jobstore.X.class                   Class of the jobstore named X (specified as
                                    module.name:classname)
-jobstores.X.Y                      Constructor option Y of jobstore X
+jobstore.X.Y                       Constructor option Y of jobstore X
 ======================= ========== ==============================================
 
 
