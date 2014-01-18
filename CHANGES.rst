@@ -4,6 +4,12 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+2.1.2
+-----
+
+* Fixed shelve store losing data after on an unclean shutdown
+
+
 2.1.1
 -----
 

@@ -21,7 +21,10 @@ class ShelveJobStore(JobStore):
         self.jobs = []
         self.path = path
         self.pickle_protocol = pickle_protocol
-        self.store = shelve.open(path, 'c', self.pickle_protocol)
+        self._open_store()
+
+    def _open_store(self):
+        self.store = shelve.open(self.path, 'c', self.pickle_protocol)
 
     def _generate_id(self):
         id = None
@@ -33,7 +36,8 @@ class ShelveJobStore(JobStore):
     def add_job(self, job):
         job.id = self._generate_id()
         self.store[job.id] = job.__getstate__()
-        self.store.sync()
+        self.store.close()
+        self._open_store()
         self.jobs.append(job)
 
     def update_job(self, job):
@@ -41,11 +45,13 @@ class ShelveJobStore(JobStore):
         job_dict['next_run_time'] = job.next_run_time
         job_dict['runs'] = job.runs
         self.store[job.id] = job_dict
-        self.store.sync()
+        self.store.close()
+        self._open_store()
 
     def remove_job(self, job):
         del self.store[job.id]
-        self.store.sync()
+        self.store.close()
+        self._open_store()
         self.jobs.remove(job)
 
     def load_jobs(self):
