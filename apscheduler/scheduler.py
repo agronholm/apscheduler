@@ -586,7 +586,10 @@ class Scheduler(object):
                 wait_seconds = time_difference(next_wakeup_time, now)
                 logger.debug('Next wakeup is due at %s (in %f seconds)',
                              next_wakeup_time, wait_seconds)
-                self._wakeup.wait(wait_seconds)
+                try:
+                    self._wakeup.wait(wait_seconds)
+                except IOError:  # Catch errno 514 on some Linux kernels
+                    pass
                 self._wakeup.clear()
             elif self.standalone:
                 logger.debug('No jobs left; shutting down scheduler')
@@ -594,7 +597,10 @@ class Scheduler(object):
                 break
             else:
                 logger.debug('No jobs; waiting until a job is added')
-                self._wakeup.wait()
+                try:
+                    self._wakeup.wait()
+                except IOError:  # Catch errno 514 on some Linux kernels
+                    pass
                 self._wakeup.clear()
 
         logger.info('Scheduler has been shut down')

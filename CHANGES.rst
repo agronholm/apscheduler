@@ -9,6 +9,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Fixed shelve store losing data after on an unclean shutdown
 
+* Worked around an obscure Linux kernel bug that causes IOErrors in the
+  main loop
+
 
 2.1.1
 -----
