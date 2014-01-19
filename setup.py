@@ -1,10 +1,23 @@
 # coding: utf-8
 import os.path
+import sys
 
 from setuptools import setup, find_packages
+from setuptools.command.test import test as TestCommand
 
 import apscheduler
 
+
+class PyTest(TestCommand):
+    def finalize_options(self):
+        TestCommand.finalize_options(self)
+        self.test_args = []
+        self.test_suite = True
+
+    def run_tests(self):
+        import pytest
+        errno = pytest.main(self.test_args)
+        sys.exit(errno)
 
 here = os.path.dirname(__file__)
 readme_path = os.path.join(here, 'README.rst')
@@ -31,10 +44,9 @@ setup(
     ],
     keywords='scheduling cron',
     license='MIT',
-    packages=find_packages(),
+    packages=find_packages(exclude=['tests']),
     install_requires=['six', 'python-dateutil'],
-    test_suite='nose.collector',
-    tests_require=['nose'],
+    tests_require=['pytest >= 2.5.1'],
     zip_safe=False,
     entry_points={
         'apscheduler.triggers': [

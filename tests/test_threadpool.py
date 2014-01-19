@@ -1,7 +1,7 @@
 from threading import Event
 from time import sleep
 
-from nose.tools import eq_, assert_raises  # @UnresolvedImport
+import pytest
 
 from apscheduler.threadpool import ThreadPool
 
@@ -21,27 +21,27 @@ def test_threadpool():
     assert event2.isSet()
     assert event3.isSet()
     sleep(0.3)
-    eq_(repr(pool), '<ThreadPool at %x; threads=2/20>' % id(pool))
+    assert repr(pool) == '<ThreadPool at %x; threads=2/20>' % id(pool)
 
     pool.shutdown()
-    eq_(repr(pool), '<ThreadPool at %x; threads=0/20>' % id(pool))
+    assert repr(pool) == '<ThreadPool at %x; threads=0/20>' % id(pool)
 
     # Make sure double shutdown is ok
     pool.shutdown()
 
     # Make sure one can't submit tasks to a thread pool that has been shut down
-    assert_raises(RuntimeError, pool.submit, event1.set)
+    pytest.raises(RuntimeError, pool.submit, event1.set)
 
 
 def test_threadpool_maxthreads():
     pool = ThreadPool(core_threads=2, max_threads=1)
-    eq_(pool.max_threads, 2)
+    assert pool.max_threads == 2
 
     pool = ThreadPool(core_threads=2, max_threads=3)
-    eq_(pool.max_threads, 3)
+    assert pool.max_threads == 3
 
     pool = ThreadPool(core_threads=0, max_threads=0)
-    eq_(pool.max_threads, 1)
+    assert pool.max_threads == 1
 
 
 def test_threadpool_nocore():
@@ -51,4 +51,4 @@ def test_threadpool_nocore():
     event.wait(1)
     assert event.isSet()
     sleep(1)
-    eq_(repr(pool), '<ThreadPool at %x; threads=0/20>' % id(pool))
+    assert repr(pool) == '<ThreadPool at %x; threads=0/20>' % id(pool)

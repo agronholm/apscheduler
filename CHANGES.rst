@@ -11,6 +11,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Removed the shortcuts to built-in triggers in the scheduler API so they no longer get preferential treatment
 
+* Switched from nose to py.test for running unit tests
+
 
 2.1.0
 -----
