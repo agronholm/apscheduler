@@ -52,18 +52,18 @@ def test_asint_number():
 
 
 def test_asint_none():
-    assert asint(None) == None
+    assert asint(None) is None
 
 
 def test_asbool_true():
     for val in (' True', 'true ', 'Yes', ' yes ', '1  '):
-        assert asbool(val) == True
+        assert asbool(val) is True
     assert asbool(True) is True
 
 
 def test_asbool_false():
     for val in (' False', 'false ', 'No', ' no ', '0  '):
-        assert asbool(val) == False
+        assert asbool(val) is False
     assert asbool(False) is False
 
 

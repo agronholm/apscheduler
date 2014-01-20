@@ -37,7 +37,7 @@ class TestJob(object):
         assert job.next_run_time == self.RUNTIME
 
         job.compute_next_run_time(self.RUNTIME + timedelta(microseconds=1))
-        assert job.next_run_time == None
+        assert job.next_run_time is None
 
     def test_compute_run_times(self, job):
         expected_times = [self.RUNTIME + timedelta(seconds=1),
@@ -59,7 +59,7 @@ class TestJob(object):
         job.max_runs = 1
         job.runs += 1
         job.compute_next_run_time(self.RUNTIME)
-        assert job.next_run_time == None
+        assert job.next_run_time is None
 
     def test_eq_num(self, job):
         # Just increasing coverage here
@@ -68,11 +68,11 @@ class TestJob(object):
     def test_getstate(self, job, trigger):
         state = job.__getstate__()
         assert state == dict(trigger=trigger,
-                        func_ref='tests.test_job:dummyfunc',
-                        name='dummyfunc', args=[],
-                        kwargs={}, misfire_grace_time=1,
-                        coalesce=False, max_runs=None,
-                        max_instances=1, runs=0)
+                             func_ref='tests.test_job:dummyfunc',
+                             name='dummyfunc', args=[],
+                             kwargs={}, misfire_grace_time=1,
+                             coalesce=False, max_runs=None,
+                             max_instances=1, runs=0)
 
     def test_setstate(self, job):
         trigger = DateTrigger(defaults, '2010-12-14 13:05:00')
@@ -84,7 +84,7 @@ class TestJob(object):
         assert job.trigger == trigger
         assert job.func == dummyfunc
         assert job.max_runs == 2
-        assert job.coalesce == True
+        assert job.coalesce is True
         assert job.max_instances == 2
         assert job.runs == 1
         assert not hasattr(job, 'func_ref')

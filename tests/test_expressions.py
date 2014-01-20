@@ -48,7 +48,7 @@ def test_range_expression():
     date = datetime(2009, 7, 1)
     assert field.get_next_value(date) == 2
     date = datetime(2009, 7, 10)
-    assert field.get_next_value(date) == None
+    assert field.get_next_value(date) is None
     date = datetime(2009, 7, 5)
     assert field.get_next_value(date) == 5
 
@@ -61,7 +61,7 @@ def test_range_expression_step():
     date = datetime(2009, 7, 3)
     assert field.get_next_value(date) == 5
     date = datetime(2009, 7, 9)
-    assert field.get_next_value(date) == None
+    assert field.get_next_value(date) is None
 
 
 def test_range_expression_single():
@@ -72,7 +72,7 @@ def test_range_expression_single():
     date = datetime(2009, 7, 9)
     assert field.get_next_value(date) == 9
     date = datetime(2009, 7, 10)
-    assert field.get_next_value(date) == None
+    assert field.get_next_value(date) is None
 
 
 def test_range_expression_invalid():

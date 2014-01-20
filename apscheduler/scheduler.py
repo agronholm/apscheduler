@@ -118,8 +118,7 @@ class Scheduler(object):
             self._thread.setDaemon(self.daemonic)
             self._thread.start()
 
-    def shutdown(self, wait=True, shutdown_threadpool=True,
-                 close_jobstores=True):
+    def shutdown(self, wait=True, shutdown_threadpool=True, close_jobstores=True):
         """
         Shuts down the scheduler and terminates the thread. Does not interrupt any currently running jobs.
 
@@ -267,8 +266,8 @@ class Scheduler(object):
         :param jobstore: alias of the job store to store the job in
         :param name: name of the job
         :param misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
-        :param coalesce: run once instead of many times if the scheduler determines that the job should be run more than once
-                         in succession
+        :param coalesce: run once instead of many times if the scheduler determines that the job should be run more than
+                         once in succession
         :param max_runs: maximum number of times this job is allowed to be triggered
         :param max_instances: maximum number of concurrently running instances allowed for this job
         :rtype: :class:`~apscheduler.job.Job`

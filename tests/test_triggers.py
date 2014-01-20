@@ -157,7 +157,7 @@ class TestDateTrigger(object):
         fire_date = datetime(2009, 7, 6, tzinfo=local_tz)
         trigger = DateTrigger(defaults, fire_date)
         start_date = datetime(2009, 7, 7, tzinfo=local_tz)
-        assert trigger.get_next_fire_time(start_date) == None
+        assert trigger.get_next_fire_time(start_date) is None
 
     def test_date_trigger_text(self):
         trigger = DateTrigger(defaults, '2009-7-6')

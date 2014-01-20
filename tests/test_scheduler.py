@@ -84,7 +84,7 @@ class TestOfflineScheduler(object):
         global_options = {'apscheduler.misfire_grace_time': 2, 'apscheduler.daemonic': False}
         sched.configure(global_options)
         assert sched.misfire_grace_time == 2
-        assert sched.daemonic == False
+        assert sched.daemonic is False
 
     def test_add_listener(self, sched):
         val = []
@@ -145,8 +145,8 @@ class TestJobExecution(object):
 
         job = sched.add_job(my_job, 'interval', {'start_date': datetime(2010, 5, 19)})
         assert (repr(job) ==
-            "<Job (name=my_job, trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), "
-            "start_date='2010-05-19 00:00:00 DUMMYTZ')>)>")
+                "<Job (name=my_job, trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), "
+                "start_date='2010-05-19 00:00:00 DUMMYTZ')>)>")
 
     def test_schedule_object(self, sched):
         # Tests that any callable object is accepted (and not just functions)
@@ -245,7 +245,7 @@ class TestJobExecution(object):
         events = []
         sched.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
         job = sched.add_job(increment, 'interval', {'seconds': 1, 'start_date': FakeDateTime.now()},
-                                     coalesce=True, misfire_grace_time=2)
+                            coalesce=True, misfire_grace_time=2)
 
         # Turn the clock 14 seconds forward
         FakeDateTime._now += timedelta(seconds=2)
@@ -266,7 +266,7 @@ class TestJobExecution(object):
         events = []
         sched.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
         job = sched.add_job(increment, 'interval', {'seconds': 1, 'start_date': FakeDateTime.now()},
-                                     coalesce=False, misfire_grace_time=2)
+                            coalesce=False, misfire_grace_time=2)
 
         # Turn the clock 2 seconds forward
         FakeDateTime._now += timedelta(seconds=2)
@@ -383,7 +383,7 @@ class TestJobExecution(object):
         vars = [0]
         scheduler.datetime = FakeDateTime
         job = sched.add_job(increment, 'interval', {'seconds': 1, 'start_date': FakeDateTime.now()},
-                                     misfire_grace_time=3)
+                            misfire_grace_time=3)
         start = job.next_run_time
 
         sched._process_jobs(start)
