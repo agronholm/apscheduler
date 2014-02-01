@@ -64,7 +64,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Create a RAMJobStore as the default if there is no default job store
         if not 'default' in self._jobstores:
-            self.add_jobstore(MemoryJobStore(), 'default', True)
+            self.add_jobstore(MemoryJobStore(self), 'default', True)
 
         # Schedule all pending jobs
         for job, jobstore in self._pending_jobs:
@@ -117,7 +117,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             if alias in self._jobstores:
                 raise KeyError('Alias "%s" is already in use' % alias)
             self._jobstores[alias] = jobstore
-            jobstore.load_jobs()
 
         # Notify listeners that a new job store has been added
         self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_ADDED, alias))
@@ -166,8 +165,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 if callback == cb:
                     del self._listeners[i]
 
-    def add_job(self, func, trigger, trigger_args=(), args=None, kwargs=None, misfire_grace_time=None, coalesce=None,
-                name=None, max_runs=None, max_instances=1, jobstore='default'):
+    def add_job(self, func, trigger, trigger_args=(), args=None, kwargs=None, id=None, name=None,
+                misfire_grace_time=None, coalesce=None, max_runs=None, max_instances=1, jobstore='default'):
         """
         Adds the given job to the job list and notifies the scheduler thread.
 
@@ -185,13 +184,22 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param func: callable (or a textual reference to one) to run at the given time
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
+        :param id: explicit identifier for the job (for modifying it later)
+        :param name: textual description of the job
         :param jobstore: alias of the job store to store the job in
-        :param name: name of the job
         :param misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
         :param coalesce: run once instead of many times if the scheduler determines that the job should be run more than
                          once in succession
         :param max_runs: maximum number of times this job is allowed to be triggered
         :param max_instances: maximum number of concurrently running instances allowed for this job
+        :type id: str/unicode
+        :type args: list/tuple
+        :type jobstore: str/unicode
+        :type misfire_grace_time: int
+        :type kwargs: dict
+        :type coalesce: bool
+        :type max_runs: int
+        :type max_instances: int
         :rtype: :class:`~apscheduler.job.Job`
         """
         # Argument sanity checking
@@ -235,7 +243,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         args = tuple(args) if args is not None else ()
         kwargs = dict(kwargs) if kwargs is not None else {}
-        job = Job(trigger, func, args, kwargs, misfire_grace_time, coalesce, name, max_runs, max_instances)
+        job = Job(trigger, func, args, kwargs, id, misfire_grace_time, coalesce, name, max_runs, max_instances)
 
         # Make sure the callable can handle the given arguments
         self._check_callable_args(job.func, args, kwargs)
@@ -253,53 +261,55 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         return job
 
-    def scheduled_job(self, trigger, trigger_args=(), args=None, kwargs=None, jobstore='default',
-                      misfire_grace_time=None, coalesce=None, name=None, max_runs=None, max_instances=1):
+    def scheduled_job(self, trigger, trigger_args=(), args=None, kwargs=None, id=None, name=None,
+                      misfire_grace_time=None, coalesce=None, max_runs=None, max_instances=1, jobstore='default'):
         """A decorator version of :meth:`add_job`."""
+
         def inner(func):
-            func.job = self.add_job(func, trigger, trigger_args, args, kwargs, misfire_grace_time, coalesce,
+            func.job = self.add_job(func, trigger, trigger_args, args, kwargs, id, misfire_grace_time, coalesce,
                                     name, max_runs, max_instances, jobstore)
             return func
         return inner
 
-    def get_jobs(self):
+    def get_jobs(self, jobstore=None):
         """
-        Returns a list of all scheduled jobs.
+        Returns a list of scheduled jobs, either from a specific job store or from all of them.
 
+        :param jobstore: alias of the job store
         :return: list of :class:`~apscheduler.job.Job` objects
         """
+
         with self._jobstores_lock:
             jobs = []
-            for jobstore in itervalues(self._jobstores):
-                jobs.extend(jobstore.jobs)
+            jobstores = [jobstore] if jobstore else self._jobstores
+            for alias in jobstores:
+                jobs.extend(self._jobstores[alias].get_all_jobs())
+
             return jobs
 
-    def unschedule_job(self, job):
+    def remove_job(self, job_or_id, jobstore='default'):
         """
         Removes a job, preventing it from being run any more.
+
+        :param job_or_id: a :class:`~apscheduler.job.Job` instance or the job id
+        :param jobstore: alias of the job store
         """
+
+        job_id = job_or_id.id if isinstance(job_or_id, Job) else job_or_id
         with self._jobstores_lock:
-            for alias, jobstore in iteritems(self._jobstores):
-                if job in list(jobstore.jobs):
-                    self._remove_job(job, alias, jobstore)
-                    return
+            self._jobstores[jobstore].remove_job(job_id)
 
-        raise KeyError('Job "%s" is not scheduled in any job store' % job)
+    def remove_all_jobs(self, jobstore=None):
+        """
+        Removes all jobs from the specified job store, or all job stores if none is given.
 
-    def unschedule_func(self, func):
+        :param jobstore: alias of the job store
         """
-        Removes all jobs that would execute the given function.
-        """
-        found = False
+
         with self._jobstores_lock:
-            for alias, jobstore in iteritems(self._jobstores):
-                for job in list(jobstore.jobs):
-                    if job.func == func:
-                        self._remove_job(job, alias, jobstore)
-                        found = True
-
-        if not found:
-            raise KeyError('The given function is not scheduled in this scheduler')
+            jobstores = [jobstore] if jobstore else self._jobstores
+            for alias in jobstores:
+                self._jobstores[alias].remove_all_jobs()
 
     def print_jobs(self, out=None):
         """
@@ -313,8 +323,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         with self._jobstores_lock:
             for alias, jobstore in iteritems(self._jobstores):
                 job_strs.append(u('Jobstore %s:') % alias)
-                if jobstore.jobs:
-                    for job in jobstore.jobs:
+                jobs = jobstore.get_all_jobs()
+                if jobs:
+                    for job in jobs:
                         job_strs.append('    %s' % job)
                 else:
                     job_strs.append('    No scheduled jobs')
@@ -353,7 +364,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         for alias, opts in jobstores.items():
             classname = opts.pop('class')
             cls = maybe_ref(classname)
-            jobstore = cls(**opts)
+            jobstore = cls(self, **opts)
             self.add_jobstore(jobstore, alias, True)
 
     def _notify_listeners(self, event):
@@ -388,7 +399,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             self._wakeup()
 
     def _remove_job(self, job, alias, jobstore):
-        jobstore.remove_job(job)
+        jobstore.remove_job(job.id)
 
         # Notify listeners that a job has been removed
         event = JobStoreEvent(EVENT_JOBSTORE_JOB_REMOVED, alias, job)
@@ -510,7 +521,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         with self._jobstores_lock:
             for alias, jobstore in iteritems(self._jobstores):
-                for job in tuple(jobstore.jobs):
+                jobs, jobstore_next_wakeup_time = jobstore.get_pending_jobs(now)
+                if not next_wakeup_time:
+                    next_wakeup_time = jobstore_next_wakeup_time
+                elif jobstore_next_wakeup_time:
+                    next_wakeup_time = min(next_wakeup_time or jobstore_next_wakeup_time)
+
+                for job in jobs:
                     run_times = job.get_run_times(now)
                     if run_times:
                         self._threadpool.submit(self._run_job, job, run_times)
@@ -520,7 +537,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
                         # Update the job, but don't keep finished jobs around
                         if job.compute_next_run_time(now + timedelta(microseconds=1)):
-                            jobstore.update_job(job)
+                            jobstore.update_job(job.id, {'next_run_time': job.next_run_time})
                         else:
                             self._remove_job(job, alias, jobstore)
 

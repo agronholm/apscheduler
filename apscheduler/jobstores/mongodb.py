@@ -4,7 +4,10 @@ Stores jobs in a MongoDB database.
 from __future__ import absolute_import
 import logging
 
-from apscheduler.jobstores.base import JobStore
+import six
+
+from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
+from apscheduler.util import maybe_ref, utc_to_tzaware, tzaware_to_utc
 from apscheduler.job import Job
 
 try:
@@ -14,17 +17,19 @@ except ImportError:  # pragma: nocover
 
 try:
     from bson.binary import Binary
-    from pymongo.connection import Connection
+    from pymongo.errors import DuplicateKeyError
+    from pymongo import Connection, ASCENDING
 except ImportError:  # pragma: nocover
     raise ImportError('MongoDBJobStore requires PyMongo installed')
 
 logger = logging.getLogger(__name__)
 
 
-class MongoDBJobStore(JobStore):
-    def __init__(self, database='apscheduler', collection='jobs', connection=None,
+class MongoDBJobStore(BaseJobStore):
+    def __init__(self, scheduler, database='apscheduler', collection='jobs', connection=None,
                  pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
-        self.jobs = []
+        self.scheduler = scheduler
+        super(MongoDBJobStore, self).__init__()
         self.pickle_protocol = pickle_protocol
 
         if not database:
@@ -33,48 +38,100 @@ class MongoDBJobStore(JobStore):
             raise ValueError('The "collection" parameter must not be empty')
 
         if connection:
-            self.connection = connection
+            self.connection = maybe_ref(connection)
         else:
+            connect_args.setdefault('w', 1)
             self.connection = Connection(**connect_args)
 
         self.collection = self.connection[database][collection]
+        self.collection.ensure_index('next_run_time', sparse=True)
+
+    def lookup_job(self, id):
+        job_dict = self.collection.find_one(id)
+        if job_dict is None:
+            raise JobLookupError(id)
+        return self._reconstitute_job(job_dict)
+
+    def get_pending_jobs(self, now):
+        jobs = self._get_jobs({'next_run_time': {'$lte': now}})
+        next_job_dict = self.collection.find_one({'next_run_time': {'$gt': now}}, fields=['next_run_time'],
+                                                 sort=[('next_run_time', ASCENDING)])
+        next_run_time = next_job_dict['next_run_time'] if next_job_dict else None
+        return jobs, utc_to_tzaware(next_run_time, self.scheduler.timezone)
+
+    def get_all_jobs(self):
+        return self._get_jobs({})
 
     def add_job(self, job):
         job_dict = job.__getstate__()
-        job_dict['trigger'] = Binary(pickle.dumps(job.trigger, self.pickle_protocol))
-        job_dict['args'] = Binary(pickle.dumps(job.args, self.pickle_protocol))
-        job_dict['kwargs'] = Binary(pickle.dumps(job.kwargs, self.pickle_protocol))
-        job.id = self.collection.insert(job_dict)
-        self.jobs.append(job)
+        document = {
+            '_id': job_dict.pop('id'),
+            'next_run_time': tzaware_to_utc(job_dict['next_run_time']),
+            'job_data': Binary(pickle.dumps(job_dict, self.pickle_protocol))
+        }
+        try:
+            self.collection.insert(document)
+        except DuplicateKeyError:
+            raise ConflictingIdError(job.id)
 
-    def remove_job(self, job):
-        self.collection.remove(job.id)
-        self.jobs.remove(job)
+    def update_job(self, id, changes):
+        document = self.collection.find_one(id)
+        if document is None:
+            raise JobLookupError(id)
 
-    def load_jobs(self):
-        jobs = []
-        for job_dict in self.collection.find():
+        if 'id' in changes:
+            # The id_ field cannot be updated, so the document must be reinserted instead
+            _id = changes.pop('id')
+            job_data = pickle.loads(document['job_data'])
+            job_data.update(changes)
+            document = {
+                '_id': _id,
+                'next_run_time': tzaware_to_utc(job_data['next_run_time']),
+                'job_data': Binary(pickle.dumps(job_data, self.pickle_protocol))
+            }
             try:
-                job = Job.__new__(Job)
-                job_dict['id'] = job_dict.pop('_id')
-                job_dict['trigger'] = pickle.loads(job_dict['trigger'])
-                job_dict['args'] = pickle.loads(job_dict['args'])
-                job_dict['kwargs'] = pickle.loads(job_dict['kwargs'])
-                job.__setstate__(job_dict)
-                jobs.append(job)
-            except Exception:
-                job_name = job_dict.get('name', '(unknown)')
-                logger.exception('Unable to restore job "%s"', job_name)
-        self.jobs = jobs
+                self.collection.insert(document)
+            except DuplicateKeyError:
+                raise ConflictingIdError(_id)
+            self.collection.remove(id)
+        elif changes:
+            job_data = pickle.loads(document['job_data'])
+            job_data.update(changes)
+            document_changes = {'job_data': Binary(pickle.dumps(job_data, self.pickle_protocol))}
+            if 'next_run_time' in changes:
+                document_changes['next_run_time'] = tzaware_to_utc(changes['next_run_time'])
+            self.collection.update({'_id': id}, {'$set': document_changes})
 
-    def update_job(self, job):
-        spec = {'_id': job.id}
-        document = {'$set': {'next_run_time': job.next_run_time}, '$inc': {'runs': 1}}
-        self.collection.update(spec, document)
+    def remove_job(self, id):
+        result = self.collection.remove(id)
+        if result and result['n'] != 1:
+            raise JobLookupError(id)
+
+    def remove_all_jobs(self):
+        self.collection.remove()
 
     def close(self):
         self.connection.disconnect()
 
+    def _reconstitute_job(self, document):
+        job = Job.__new__(Job)
+        job_data = pickle.loads(document.pop('job_data'))
+        document.update(job_data)
+        document['id'] = document['_id']
+        document['next_run_time'] = utc_to_tzaware(document['next_run_time'], self.scheduler.timezone)
+        job.__setstate__(document)
+        return job
+
+    def _get_jobs(self, conditions):
+        jobs = []
+        for job_dict in self.collection.find(conditions, sort=[('next_run_time', ASCENDING)]):
+            try:
+                job = self._reconstitute_job(job_dict)
+                jobs.append(job)
+            except Exception as e:
+                logger.exception(six.u('Unable to restore job (id=%s)'), job_dict['_id'])
+
+        return jobs
+
     def __repr__(self):
-        connection = self.collection.database.connection
-        return '<%s (connection=%s)>' % (self.__class__.__name__, connection)
+        return '<%s (connection=%s)>' % (self.__class__.__name__, self.connection)

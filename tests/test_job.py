@@ -27,7 +27,7 @@ class TestJob(object):
 
     @pytest.fixture
     def job(self, trigger):
-        return Job(trigger, dummyfunc, [], {}, 1, False, None, None, 1)
+        return Job(trigger, dummyfunc, [], {}, 'testid', 1, False, None, None, 1)
 
     def test_compute_next_run_time(self, job):
         job.compute_next_run_time(self.RUNTIME - timedelta(microseconds=1))
@@ -67,33 +67,29 @@ class TestJob(object):
 
     def test_getstate(self, job, trigger):
         state = job.__getstate__()
-        assert state == dict(trigger=trigger,
-                             func_ref='tests.test_job:dummyfunc',
-                             name='dummyfunc', args=[],
-                             kwargs={}, misfire_grace_time=1,
-                             coalesce=False, max_runs=None,
-                             max_instances=1, runs=0)
+        assert state == dict(version=1, trigger=trigger, func_ref='tests.test_job:dummyfunc', name='dummyfunc', args=[],
+                             kwargs={}, id='testid', misfire_grace_time=1, coalesce=False, max_runs=None,
+                             max_instances=1, runs=0, next_run_time=None)
 
     def test_setstate(self, job):
         trigger = DateTrigger(defaults, '2010-12-14 13:05:00')
-        state = dict(trigger=trigger, name='testjob.dummyfunc',
-                     func_ref='tests.test_job:dummyfunc',
-                     args=[], kwargs={}, misfire_grace_time=2, max_runs=2,
-                     coalesce=True, max_instances=2, runs=1)
+        state = dict(version=1, trigger=trigger, name='testjob.dummyfunc', func_ref='tests.test_job:dummyfunc',
+                     args=[], kwargs={}, id='other_id', misfire_grace_time=2, max_runs=2, coalesce=True,
+                     max_instances=2, runs=1, next_run_time=None)
         job.__setstate__(state)
+        assert job.id == 'other_id'
         assert job.trigger == trigger
         assert job.func == dummyfunc
         assert job.max_runs == 2
         assert job.coalesce is True
         assert job.max_instances == 2
         assert job.runs == 1
-        assert not hasattr(job, 'func_ref')
-        assert isinstance(job._lock, lock_type)
+        assert job.next_run_time is None
 
     def test_jobs_equal(self, job):
         assert job == job
 
-        job2 = Job(DateTrigger(defaults, self.RUNTIME), lambda: None, [], {}, 1, False, None, None, 1)
+        job2 = Job(DateTrigger(defaults, self.RUNTIME), lambda: None, [], {}, None, 1, False, None, None, 1)
         assert job != job2
 
         job2.id = job.id = 123

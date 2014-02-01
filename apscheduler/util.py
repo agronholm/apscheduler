@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta, tzinfo
 from time import mktime
 import re
 
-from dateutil.tz import gettz
+from dateutil.tz import gettz, tzutc
 from six import string_types
 
 __all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'timedelta_seconds', 'time_difference',
@@ -96,6 +96,20 @@ def convert_to_datetime(input, timezone, arg_name):
         timezone = gettz(timezone)
 
     return datetime_.replace(tzinfo=timezone)
+
+
+def utc_to_tzaware(timeval, timezone):
+    """Converts a naive datetime (assumed to be in UTC) into a timezone-aware datetime."""
+
+    if timeval is not None:
+        return timeval.replace(tzinfo=tzutc()).astimezone(timezone)
+
+
+def tzaware_to_utc(timeval):
+    """Converts a timezone aware datetime into a naive UTC datetime."""
+
+    if timeval is not None:
+        return timeval.astimezone(tzutc()).replace(tzinfo=None)
 
 
 def timedelta_seconds(delta):

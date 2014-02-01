@@ -82,8 +82,8 @@ def logstream(request, scheduler):
 class TestOfflineScheduler(object):
     def test_jobstore_twice(self, scheduler):
         with pytest.raises(KeyError):
-            scheduler.add_jobstore(MemoryJobStore(), 'dummy')
-            scheduler.add_jobstore(MemoryJobStore(), 'dummy')
+            scheduler.add_jobstore(MemoryJobStore(scheduler), 'dummy')
+            scheduler.add_jobstore(MemoryJobStore(scheduler), 'dummy')
 
     def test_add_tentative_job(self, scheduler):
         job = scheduler.add_job(lambda: None, 'date', [datetime(2200, 7, 24)], jobstore='dummy')
@@ -190,7 +190,7 @@ class TestOfflineScheduler(object):
 
 
 @pytest.mark.start_scheduler
-class TestJobExecution(object):
+class TestRunningScheduler(object):
     def test_job_name(self, scheduler):
         def my_job():
             pass
@@ -200,7 +200,7 @@ class TestJobExecution(object):
                 "<Job (name=my_job, trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), "
                 "start_date='2010-05-19 00:00:00 DUMMYTZ')>)>")
 
-    def test_schedule_object(self, scheduler):
+    def test_add_job_object(self, scheduler):
         """Tests that any callable object is accepted (and not just functions)."""
 
         class A(object):
@@ -216,10 +216,10 @@ class TestJobExecution(object):
         scheduler._process_jobs()
         assert a.val == 1
 
-    def test_schedule_method(self, scheduler):
+    def test_add_job_method(self, scheduler):
         """Tests that bound methods can be scheduled (at least with MemoryJobStore)."""
 
-        class A:
+        class A(object):
             def __init__(self):
                 self.val = 0
 
@@ -232,29 +232,47 @@ class TestJobExecution(object):
         scheduler._process_jobs()
         assert a.val == 1
 
-    def test_unschedule_job(self, scheduler):
+    def test_add_job_decorator(self, scheduler):
+        """Tests that the scheduled_job decorator works."""
+
+        @scheduler.scheduled_job('interval', {'seconds': 1})
+        def dummyjob():
+            pass
+
+        jobs = scheduler.get_jobs()
+        assert len(jobs) == 1
+        assert jobs[0].func is dummyjob
+
+    def test_remove_job(self, scheduler):
         vals = [0]
         job = scheduler.add_job(increment, 'cron', args=(vals,))
         scheduler.now = job.next_run_time
         scheduler._process_jobs()
         assert vals[0] == 1
 
-        scheduler.unschedule_job(job)
+        scheduler.remove_job(job.id)
         scheduler._process_jobs()
         assert vals[0] == 1
 
-    def test_unschedule_func(self, scheduler):
+    def test_remove_all_jobs(self, scheduler):
+        """Tests that removing all jobs clears all job stores."""
+
         vals = [0]
-        job1 = scheduler.add_job(increment, 'cron', args=(vals,))
-        job2 = scheduler.add_job(lambda: None, 'cron')
-        job3 = scheduler.add_job(increment, 'cron', args=(vals,))
-        assert scheduler.get_jobs() == [job1, job2, job3]
+        scheduler.add_jobstore(MemoryJobStore(scheduler), 'alter')
+        scheduler.add_job(increment, 'interval', {'seconds': 1}, args=(vals,))
+        scheduler.add_job(increment, 'interval', {'seconds': 1}, args=(vals,), jobstore='alter')
+        scheduler.remove_all_jobs()
+        assert scheduler.get_jobs() == []
 
-        scheduler.unschedule_func(increment)
+    def test_remove_all_jobs_specific_jobstore(self, scheduler):
+        """Tests that removing all jobs from a specific job store does not affect the rest."""
+
+        vals = [0]
+        scheduler.add_jobstore(MemoryJobStore(scheduler), 'alter')
+        scheduler.add_job(increment, 'interval', {'seconds': 1}, args=(vals,))
+        job2 = scheduler.add_job(increment, 'interval', {'seconds': 1}, args=(vals,), jobstore='alter')
+        scheduler.remove_all_jobs('default')
         assert scheduler.get_jobs() == [job2]
-
-    def test_unschedule_func_notfound(self, scheduler):
-        pytest.raises(KeyError, scheduler.unschedule_func, copy)
 
     def test_job_finished(self, scheduler):
         vals = [0]
@@ -337,7 +355,7 @@ class TestJobExecution(object):
         assert out.getvalue() == expected
 
     def test_jobstore(self, scheduler):
-        scheduler.add_jobstore(MemoryJobStore(), 'dummy')
+        scheduler.add_jobstore(MemoryJobStore(scheduler), 'dummy')
         job = scheduler.add_job(lambda: None, 'date', [datetime(2200, 7, 24)], jobstore='dummy')
         assert scheduler.get_jobs() == [job]
         scheduler.remove_jobstore('dummy')
@@ -397,12 +415,6 @@ class TestJobExecution(object):
         assert events[1].code == EVENT_JOB_MISSED
         assert events[2].code == EVENT_JOB_EXECUTED
         assert events[3].code == EVENT_JOB_EXECUTED
-
-
-@pytest.mark.start_scheduler
-class TestRunningScheduler(object):
-    def test_shutdown_timeout(self, scheduler):
-        scheduler.shutdown()
 
     def test_scheduler_double_start(self, scheduler):
         pytest.raises(SchedulerAlreadyRunningError, scheduler.start)

@@ -4,8 +4,9 @@ Jobs represent scheduled tasks.
 
 from threading import Lock
 from datetime import timedelta
+from uuid import uuid4
 
-from six import u
+import six
 
 from apscheduler.util import ref_to_obj, obj_to_ref, get_callable_name, datetime_repr
 
@@ -19,11 +20,12 @@ class Job(object):
     Encapsulates the actual Job along with its metadata. Job instances are created by the scheduler when adding jobs,
     and should not be directly instantiated.
     """
-    id = None
-    next_run_time = None
 
-    def __init__(self, trigger, func, args, kwargs, misfire_grace_time, coalesce, name, max_runs, max_instances):
-        if isinstance(func, str):
+    __slots__ = ('_lock', 'id', 'func', 'func_ref', 'trigger', 'args', 'kwargs', 'name', 'misfire_grace_time',
+                 'coalesce', 'max_runs', 'max_instances', 'runs', 'instances', 'next_run_time')
+
+    def __init__(self, trigger, func, args, kwargs, id, misfire_grace_time, coalesce, name, max_runs, max_instances):
+        if isinstance(func, six.string_types):
             self.func = ref_to_obj(func)
             self.func_ref = func
         elif callable(func):
@@ -37,17 +39,18 @@ class Job(object):
             raise TypeError('func must be a callable or a textual reference to one')
 
         self._lock = Lock()
-
+        self.id = id or uuid4().hex
         self.trigger = trigger
         self.args = args
         self.kwargs = kwargs
-        self.name = u(name or get_callable_name(self.func))
+        self.name = six.u(name or get_callable_name(self.func))
         self.misfire_grace_time = misfire_grace_time
         self.coalesce = coalesce
         self.max_runs = max_runs
         self.max_instances = max_instances
         self.runs = 0
         self.instances = 0
+        self.next_run_time = None
 
     def compute_next_run_time(self, now):
         if self.runs == self.max_runs:
@@ -82,22 +85,46 @@ class Job(object):
             self.instances -= 1
 
     def __getstate__(self):
-        # Prevents the unwanted pickling of transient or unpicklable variables
-        state = self.__dict__.copy()
-        state.pop('instances', None)
-        state.pop('func', None)
-        state.pop('_lock', None)
-        return state
+        return {
+            'version': 1,
+            'id': self.id,
+            'func_ref': self.func_ref,
+            'trigger': self.trigger,
+            'args': self.args,
+            'kwargs': self.kwargs,
+            'name': self.name,
+            'misfire_grace_time': self.misfire_grace_time,
+            'coalesce': self.coalesce,
+            'max_runs': self.max_runs,
+            'max_instances': self.max_instances,
+            'runs': self.runs,
+            'next_run_time': self.next_run_time,
+        }
 
     def __setstate__(self, state):
-        state['instances'] = 0
-        state['func'] = ref_to_obj(state.pop('func_ref'))
-        state['_lock'] = Lock()
-        self.__dict__ = state
+        if state.get('version', 1) > 1:
+            raise ValueError('Job has version %s, but only version 1 and lower can be handled' % state['version'])
+
+        self.id = state['id']
+        self.func_ref = state['func_ref']
+        self.trigger = state['trigger']
+        self.args = state['args']
+        self.kwargs = state['kwargs']
+        self.name = state['name']
+        self.misfire_grace_time = state['misfire_grace_time']
+        self.coalesce = state['coalesce']
+        self.max_runs = state['max_runs']
+        self.max_instances = state['max_instances']
+        self.runs = state['runs']
+        self.next_run_time = state['next_run_time']
+
+        self._lock = Lock()
+        self.func = ref_to_obj(self.func_ref)
+        self.instances = 0
 
     def __eq__(self, other):
         if isinstance(other, Job):
-            return self.id is not None and other.id == self.id or self is other
+            return self.id == other.id
         return NotImplemented
 
     def __repr__(self):

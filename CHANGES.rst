@@ -10,6 +10,10 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Split the old Scheduler class into BlockingScheduler and BackgroundScheduler and added integration for
   asyncio (PEP 3156), Gevent, Tornado, Twisted and Qt event loops
 
+* Overhauled the job store system for much better scalability
+
+* Dropped the Redis and Shelve job stores because they could not work with the new job store system
+
 * Added a hook for customizing reading of current time
 
 * Added support for timezones
