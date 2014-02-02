@@ -1,5 +1,6 @@
 from warnings import filterwarnings, resetwarnings
 from tempfile import NamedTemporaryFile
+import sys
 import os
 
 import pytest
@@ -78,6 +79,16 @@ def redisjobstore(request):
 @pytest.fixture
 def jobstore(request):
     return request.param(request)
+
+
+def minpython(*version):
+    version_str = '.'.join([str(num) for num in version])
+
+    def outer(func):
+        dec = pytest.mark.skipif(sys.version_info < version,
+                                 reason='This test requires at least Python %s' % version_str)
+        return dec(func)
+    return outer
 
 
 all_jobstores = [memjobstore, shelvejobstore, sqlalchemyjobstore, mongodbjobstore, redisjobstore]

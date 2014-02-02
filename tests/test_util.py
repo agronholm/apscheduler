@@ -2,13 +2,13 @@
 from datetime import date, datetime, timedelta
 import time
 import os
-import sys
 import shelve
 
 from dateutil.tz import tzoffset
 import pytest
 
 from apscheduler.util import *
+from tests.conftest import minpython
 
 
 local_tz = tzoffset('DUMMYTZ', 3600)
@@ -194,11 +194,10 @@ def test_obj_to_ref():
     assert obj_to_ref(shelve.open) == 'shelve:open'
 
 
+@minpython(3, 3)
 def test_inner_obj_to_ref():
-    if sys.version_info < (3, 3):
-        pytest.skip('This test requires at least Python 3.3')
     assert obj_to_ref(DummyClass.InnerDummyClass.innerclassmeth) == \
-        'test_util:DummyClass.InnerDummyClass.innerclassmeth'
+        'tests.test_util:DummyClass.InnerDummyClass.innerclassmeth'
 
 
 def test_ref_to_obj():
