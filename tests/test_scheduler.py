@@ -13,6 +13,8 @@ from apscheduler.job import Job
 from apscheduler.events import (EVENT_JOB_EXECUTED, SchedulerEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN,
                                 EVENT_JOB_MISSED)
 from apscheduler import scheduler
+from tests.conftest import minpython
+
 
 local_tz = tzoffset('DUMMYTZ', 3600)
 
@@ -62,7 +64,7 @@ class TestOfflineScheduler(object):
         assert sched.get_jobs() == []
 
     def test_add_job_by_reference(self, sched):
-        job = sched.add_job('copy:copy', 'date', [datetime(2200, 7, 24)])
+        job = sched.add_job('copy:copy', 'date', [datetime(2200, 7, 24)], args=[()])
         assert job.func == copy
         assert job.func_ref == 'copy:copy'
 
@@ -113,6 +115,51 @@ class TestOfflineScheduler(object):
         sched.start()
         jobs = sched.get_jobs()
         assert len(jobs) == 1
+
+    def test_invalid_callable_args(self, sched):
+        """Tests that attempting to schedule a job with an invalid number of arguments raises an exception."""
+
+        with pytest.raises(ValueError) as error:
+            sched.add_job(lambda x: None, 'date', [datetime(9999, 9, 9)], args=[1, 2])
+
+        assert str(error.value) == ('The list of positional arguments is longer than the target callable can handle '
+                                    '(allowed: 1, given in args: 2)')
+
+    def test_invalid_callable_kwargs(self, sched):
+        """Tests that attempting to schedule a job with unmatched keyword arguments raises an exception."""
+
+        with pytest.raises(ValueError) as error:
+            sched.add_job(lambda x: None, 'date', [datetime(9999, 9, 9)], kwargs={'x': 0, 'y': 1})
+
+        assert str(error.value) == 'The target callable does not accept the following keyword arguments: y'
+
+    def test_missing_callable_args(self, sched):
+        """Tests that attempting to schedule a job with missing arguments raises an exception."""
+
+        with pytest.raises(ValueError) as error:
+            sched.add_job(lambda x, y, z: None, 'date', [datetime(9999, 9, 9)], args=[1], kwargs={'y': 0})
+
+        assert str(error.value) == 'The following arguments are not supplied: z'
+
+    def test_conflicting_callable_args(self, sched):
+        """Tests that attempting to schedule a job where the combination of args and kwargs are in conflict raises an
+        exception."""
+
+        with pytest.raises(ValueError) as error:
+            sched.add_job(lambda x, y: None, 'date', [datetime(9999, 9, 9)], args=[1, 2], kwargs={'y': 1})
+
+        assert str(error.value) == 'The following arguments are supplied in both args and kwargs: y'
+
+    @minpython(3)
+    def test_unfulfilled_kwargs(self, sched):
+        """Tests that attempting to schedule a job where not all keyword-only arguments are fulfilled raises an
+        exception."""
+
+        func = eval("lambda x, *, y, z=1: None")
+        with pytest.raises(ValueError) as error:
+            sched.add_job(func, 'date', [datetime(9999, 9, 9)], args=[1])
+
+        assert str(error.value) == 'The following keyword-only arguments have not been supplied in kwargs: y'
 
 
 class TestJobExecution(object):
@@ -357,7 +404,7 @@ class TestJobExecution(object):
                    '    No scheduled jobs%s' % (os.linesep, os.linesep)
         assert out.getvalue() == expected
 
-        sched.add_job(copy, 'date', [datetime(2200, 5, 19)])
+        sched.add_job(copy, 'date', [datetime(2200, 5, 19)], args=[()])
         out = StringIO()
         sched.print_jobs(out)
         expected = 'Jobstore default:%s    '\

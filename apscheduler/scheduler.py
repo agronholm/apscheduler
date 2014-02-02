@@ -1,11 +1,11 @@
 """
 This module is the main part of the library. It houses the Scheduler class and related exceptions.
 """
-
 from threading import Thread, Event, Lock
 from datetime import datetime, timedelta
 from logging import getLogger
 from collections import Mapping, Iterable
+from inspect import ismethod, isfunction
 import os
 import sys
 
@@ -18,6 +18,11 @@ from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job, MaxInstancesReachedError
 from apscheduler.events import *
 from apscheduler.threadpool import ThreadPool
+
+try:
+    from inspect import getfullargspec as getargspec
+except ImportError:
+    from inspect import getargspec
 
 logger = getLogger(__name__)
 
@@ -244,6 +249,49 @@ class Scheduler(object):
         if wakeup:
             self._wakeup.set()
 
+    @staticmethod
+    def _check_callable_args(func, args, kwargs):
+        if not isfunction(func) and not ismethod(func) and hasattr(func, '__call__'):
+            func = func.__call__
+        argspec = getargspec(func)
+        argspec_args = argspec.args[1:] if ismethod(func) else argspec.args
+        varkw = getattr(argspec, 'varkw', None) or getattr(argspec, 'keywords', None)
+        kwargs_set = frozenset(kwargs)
+        mandatory_args = frozenset(argspec_args[:-len(argspec.defaults)] if argspec.defaults else argspec_args)
+        mandatory_args_matches = frozenset(argspec_args[:len(args)])
+        mandatory_kwargs_matches = set(kwargs).intersection(mandatory_args)
+        kwonly_args = frozenset(getattr(argspec, 'kwonlyargs', []))
+        kwonly_defaults = frozenset(getattr(argspec, 'kwonlydefaults', None) or ())
+
+        # Make sure there are no conflicts between args and kwargs
+        pos_kwargs_conflicts = mandatory_args_matches.intersection(mandatory_kwargs_matches)
+        if pos_kwargs_conflicts:
+            raise ValueError('The following arguments are supplied in both args and kwargs: %s' %
+                             ', '.join(pos_kwargs_conflicts))
+
+        # Check that the number of positional arguments minus the number of matched kwargs matches the argspec
+        missing_args = mandatory_args - mandatory_args_matches.union(mandatory_kwargs_matches)
+        if missing_args:
+            raise ValueError('The following arguments are not supplied: %s' % ', '.join(missing_args))
+
+        # Check that the callable can accept the given number of positional arguments
+        if not argspec.varargs and len(args) > len(argspec_args):
+            raise ValueError('The list of positional arguments is longer than the target callable can handle '
+                             '(allowed: %d, given in args: %d)' % (len(argspec_args), len(args)))
+
+        # Check that the callable can accept the given keyword arguments
+        if not varkw:
+            unmatched_kwargs = kwargs_set - frozenset(argspec_args).union(kwonly_args)
+            if unmatched_kwargs:
+                raise ValueError('The target callable does not accept the following keyword arguments: %s' %
+                                 ', '.join(unmatched_kwargs))
+
+        # Check that all keyword-only arguments have been supplied
+        unmatched_kwargs = kwonly_args - kwargs_set - kwonly_defaults
+        if unmatched_kwargs:
+            raise ValueError('The following keyword-only arguments have not been supplied in kwargs: %s' %
+                             ', '.join(unmatched_kwargs))
+
     def add_job(self, func, trigger, trigger_args=(), args=None, kwargs=None, misfire_grace_time=None, coalesce=None,
                 name=None, max_runs=None, max_instances=1, jobstore='default'):
         """
@@ -314,6 +362,9 @@ class Scheduler(object):
         args = tuple(args) if args is not None else ()
         kwargs = dict(kwargs) if kwargs is not None else {}
         job = Job(trigger, func, args, kwargs, misfire_grace_time, coalesce, name, max_runs, max_instances)
+
+        # Make sure the callable can handle the given arguments
+        self._check_callable_args(job.func, args, kwargs)
 
         # Ensure that dead-on-arrival jobs are never added
         if job.compute_next_run_time(datetime.now(self.timezone)) is None:
