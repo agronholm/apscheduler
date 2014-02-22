@@ -7,6 +7,11 @@ APScheduler, see the :doc:`migration section <migration>`.
 3.0.0
 -----
 
+* Split the old Scheduler class into BlockingScheduler and BackgroundScheduler and added integration for
+  asyncio (PEP 3156), Gevent, Tornado, Twisted and Qt event loops
+
+* Added a hook for customizing reading of current time
+
 * Added support for timezones
 
 * Removed the shortcuts to built-in triggers in the scheduler API so they no longer get preferential treatment

@@ -2,15 +2,15 @@
 This module contains several handy functions primarily meant for internal use.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, tzinfo
 from time import mktime
 import re
 
 from dateutil.tz import gettz
 from six import string_types
 
-__all__ = ('asint', 'asbool', 'convert_to_datetime', 'timedelta_seconds', 'time_difference', 'datetime_ceil',
-           'combine_opts', 'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref')
+__all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'timedelta_seconds', 'time_difference',
+           'datetime_ceil', 'combine_opts', 'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref')
 
 
 def asint(text):
@@ -38,6 +38,21 @@ def asbool(obj):
             return False
         raise ValueError('Unable to interpret value "%s" as boolean' % obj)
     return bool(obj)
+
+
+def astimezone(obj):
+    """
+    Interprets an object as a timezone.
+
+    :rtype: :class:`~datetime.tzinfo`
+    """
+
+    if isinstance(obj, string_types):
+        return gettz(obj)
+    if isinstance(obj, tzinfo):
+        return obj
+    if obj is not None:
+        raise TypeError('Expected tzinfo, got %s instead' % obj.__class__.__name__)
 
 
 _DATE_REGEX = re.compile(

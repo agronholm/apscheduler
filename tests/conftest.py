@@ -10,6 +10,8 @@ from apscheduler.jobstores.shelve import ShelveJobStore
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.jobstores.mongodb import MongoDBJobStore
 from apscheduler.jobstores.redis import RedisJobStore
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.blocking import BlockingScheduler
 
 
 @pytest.fixture

@@ -1,15 +1,14 @@
 # coding: utf-8
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, tzinfo
 import time
 import os
 import shelve
 
-from dateutil.tz import tzoffset
+from dateutil.tz import tzoffset, gettz
 import pytest
 
 from apscheduler.util import *
 from tests.conftest import minpython
-
 
 local_tz = tzoffset('DUMMYTZ', 3600)
 
@@ -33,10 +32,6 @@ class DummyClass(object):
         @classmethod
         def innerclassmeth(cls):
             pass
-
-
-def meth():
-    pass
 
 
 def test_asint_invalid_1():
@@ -69,6 +64,25 @@ def test_asbool_false():
 
 def test_asbool_fail():
     pytest.raises(ValueError, asbool, 'yep')
+
+
+def test_astimezone_str():
+    value = astimezone('Europe/Helsinki')
+    assert isinstance(value, tzinfo)
+
+
+def test_astimezone_tz():
+    tz = gettz('Europe/Helsinki')
+    value = astimezone(tz)
+    assert tz is value
+
+
+def test_astimezone_none():
+    assert astimezone(None) is None
+
+
+def test_astimezone_fail():
+    pytest.raises(TypeError, astimezone, 4)
 
 
 def test_convert_datetime_date():

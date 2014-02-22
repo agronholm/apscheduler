@@ -6,8 +6,8 @@ You can exit the program, restart it and observe that any previous alarms that h
 
 from datetime import datetime, timedelta
 
-from apscheduler.scheduler import Scheduler
-from apscheduler.jobstores.shelve_store import ShelveJobStore
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.jobstores.shelve import ShelveJobStore
 
 
 def alarm(time):
@@ -15,12 +15,13 @@ def alarm(time):
 
 
 if __name__ == '__main__':
-    scheduler = Scheduler(standalone=True)
+    scheduler = BlockingScheduler()
     scheduler.add_jobstore(ShelveJobStore('example.db'), 'shelve')
     alarm_time = datetime.now() + timedelta(seconds=10)
     scheduler.add_job(alarm, 'simple', [alarm_time], jobstore='shelve', args=[datetime.now()])
     print('To clear the alarms, delete the example.db file.')
     print('Press Ctrl+C to exit')
+
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):

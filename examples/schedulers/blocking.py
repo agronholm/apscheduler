@@ -1,10 +1,10 @@
 """
-Basic example showing how to start the scheduler and schedule a job that executes on 3 second intervals.
+Demonstrates how to use the blocking scheduler to schedule a job that executes on 3 second intervals.
 """
 
 from datetime import datetime
 
-from apscheduler.scheduler import Scheduler
+from apscheduler.schedulers.blocking import BlockingScheduler
 
 
 def tick():
@@ -12,9 +12,10 @@ def tick():
 
 
 if __name__ == '__main__':
-    scheduler = Scheduler(standalone=True)
+    scheduler = BlockingScheduler()
     scheduler.add_job(tick, 'interval', {'seconds': 3})
     print('Press Ctrl+C to exit')
+
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):

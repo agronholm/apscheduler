@@ -1,7 +1,8 @@
 """
 This module is the main part of the library. It houses the Scheduler class and related exceptions.
 """
-from threading import Thread, Event, Lock
+from abc import ABCMeta, abstractmethod
+from threading import Lock
 from datetime import datetime, timedelta
 from logging import getLogger
 from collections import Mapping, Iterable
@@ -10,9 +11,11 @@ import os
 import sys
 
 from pkg_resources import iter_entry_points
-from dateutil.tz import gettz, tzlocal
-from six import string_types, u, itervalues, iteritems
+from dateutil.tz import tzlocal
+from six import u, itervalues, iteritems
+import six
 
+from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
 from apscheduler.util import *
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job, MaxInstancesReachedError
@@ -24,33 +27,23 @@ try:
 except ImportError:
     from inspect import getargspec
 
-logger = getLogger(__name__)
 
+class BaseScheduler(six.with_metaclass(ABCMeta)):
+    """Base class for all schedulers."""
 
-class SchedulerAlreadyRunningError(Exception):
-    """
-    Raised when attempting to start or configure the scheduler when it's already running.
-    """
-
-    def __str__(self):
-        return 'Scheduler is already running'
-
-
-class Scheduler(object):
-    """
-    This class is responsible for scheduling jobs and triggering their execution.
-    """
-
-    _stopped = False
-    _thread = None
+    _stopped = True
     _plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
 
+    #
+    # Public API
+    #
+
     def __init__(self, gconfig={}, **options):
-        self._wakeup = Event()
+        super(BaseScheduler, self).__init__()
         self._jobstores = {}
-        self._jobstores_lock = Lock()
+        self._jobstores_lock = self._create_lock()
         self._listeners = []
-        self._listeners_lock = Lock()
+        self._listeners_lock = self._create_lock()
         self._pending_jobs = []
         self._triggers = {}
         self.configure(gconfig, **options)
@@ -62,47 +55,13 @@ class Scheduler(object):
         if self.running:
             raise SchedulerAlreadyRunningError
 
-        # Set general options
         config = combine_opts(gconfig, 'apscheduler.', options)
-        self.misfire_grace_time = int(config.pop('misfire_grace_time', 1))
-        self.coalesce = asbool(config.pop('coalesce', True))
-        self.daemonic = asbool(config.pop('daemonic', True))
-        self.standalone = asbool(config.pop('standalone', False))
-        timezone = config.pop('timezone', None)
-        self.timezone = gettz(timezone) if isinstance(timezone, string_types) else timezone or tzlocal()
+        self._configure(config)
 
-        # Set trigger defaults
-        self.trigger_defaults = {'timezone': self.timezone}
-
-        # Configure the thread pool
-        if 'threadpool' in config:
-            self._threadpool = maybe_ref(config['threadpool'])
-        else:
-            threadpool_opts = combine_opts(config, 'threadpool.')
-            self._threadpool = ThreadPool(**threadpool_opts)
-
-        # Configure job stores
-        jobstore_opts = combine_opts(config, 'jobstore.')
-        jobstores = {}
-        for key, value in jobstore_opts.items():
-            store_name, option = key.split('.', 1)
-            opts_dict = jobstores.setdefault(store_name, {})
-            opts_dict[option] = value
-
-        for alias, opts in jobstores.items():
-            classname = opts.pop('class')
-            cls = maybe_ref(classname)
-            jobstore = cls(**opts)
-            self.add_jobstore(jobstore, alias, True)
-
+    @abstractmethod
     def start(self):
-        """
-        Starts the scheduler in a new thread.
+        """Starts the scheduler. The details of this process depend on the implementation."""
 
-        In threaded mode (the default), this method will return immediately after starting the scheduler thread.
-
-        In standalone mode, this method will block until there are no more scheduled jobs.
-        """
         if self.running:
             raise SchedulerAlreadyRunningError
 
@@ -116,44 +75,36 @@ class Scheduler(object):
         del self._pending_jobs[:]
 
         self._stopped = False
-        if self.standalone:
-            self._main_loop()
-        else:
-            self._thread = Thread(target=self._main_loop, name='APScheduler')
-            self._thread.setDaemon(self.daemonic)
-            self._thread.start()
+        self.logger.info('Scheduler started')
 
-    def shutdown(self, wait=True, shutdown_threadpool=True, close_jobstores=True):
+        # Notify listeners that the scheduler has been started
+        self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_START))
+
+    @abstractmethod
+    def shutdown(self, wait=True):
         """
-        Shuts down the scheduler and terminates the thread. Does not interrupt any currently running jobs.
+        Shuts down the scheduler. Does not interrupt any currently running jobs.
 
-        :param wait: ``True`` to wait until all currently executing jobs have finished (if ``shutdown_threadpool`` is
-                     also ``True``)
-        :param shutdown_threadpool: ``True`` to shut down the thread pool
-        :param close_jobstores: ``True`` to close all job stores after shutdown
+        :param wait: ``True`` to wait until all currently executing jobs have finished
         """
         if not self.running:
-            return
+            raise SchedulerNotRunningError
 
         self._stopped = True
-        self._wakeup.set()
 
         # Shut down the thread pool
-        if shutdown_threadpool:
-            self._threadpool.shutdown(wait)
-
-        # Wait until the scheduler thread terminates
-        if self._thread:
-            self._thread.join()
+        self._threadpool.shutdown(wait)
 
         # Close all job stores
-        if close_jobstores:
-            for jobstore in itervalues(self._jobstores):
-                jobstore.close()
+        for jobstore in itervalues(self._jobstores):
+            jobstore.close()
+
+        self.logger.info('Scheduler has been shut down')
+        self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN))
 
     @property
     def running(self):
-        return not self._stopped and self._thread and self._thread.isAlive()
+        return not self._stopped
 
     def add_jobstore(self, jobstore, alias, quiet=False):
         """
@@ -175,8 +126,8 @@ class Scheduler(object):
         self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_ADDED, alias))
 
         # Notify the scheduler so it can scan the new job store for jobs
-        if not quiet:
-            self._wakeup.set()
+        if not quiet and self.running:
+            self._wakeup()
 
     def remove_jobstore(self, alias, close=True):
         """
@@ -217,80 +168,6 @@ class Scheduler(object):
             for i, (cb, _) in enumerate(self._listeners):
                 if callback == cb:
                     del self._listeners[i]
-
-    def _notify_listeners(self, event):
-        with self._listeners_lock:
-            listeners = tuple(self._listeners)
-
-        for cb, mask in listeners:
-            if event.code & mask:
-                try:
-                    cb(event)
-                except:
-                    logger.exception('Error notifying listener')
-
-    def _real_add_job(self, job, jobstore, wakeup):
-        # Recalculate the next run time
-        job.compute_next_run_time(datetime.now(self.timezone))
-
-        # Add the job to the given job store
-        store = self._jobstores.get(jobstore)
-        if not store:
-            raise KeyError('No such job store: %s' % jobstore)
-        store.add_job(job)
-
-        # Notify listeners that a new job has been added
-        event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, jobstore, job)
-        self._notify_listeners(event)
-
-        logger.info('Added job "%s" to job store "%s"', job, jobstore)
-
-        # Notify the scheduler about the new job
-        if wakeup:
-            self._wakeup.set()
-
-    @staticmethod
-    def _check_callable_args(func, args, kwargs):
-        if not isfunction(func) and not ismethod(func) and hasattr(func, '__call__'):
-            func = func.__call__
-        argspec = getargspec(func)
-        argspec_args = argspec.args[1:] if ismethod(func) else argspec.args
-        varkw = getattr(argspec, 'varkw', None) or getattr(argspec, 'keywords', None)
-        kwargs_set = frozenset(kwargs)
-        mandatory_args = frozenset(argspec_args[:-len(argspec.defaults)] if argspec.defaults else argspec_args)
-        mandatory_args_matches = frozenset(argspec_args[:len(args)])
-        mandatory_kwargs_matches = set(kwargs).intersection(mandatory_args)
-        kwonly_args = frozenset(getattr(argspec, 'kwonlyargs', []))
-        kwonly_defaults = frozenset(getattr(argspec, 'kwonlydefaults', None) or ())
-
-        # Make sure there are no conflicts between args and kwargs
-        pos_kwargs_conflicts = mandatory_args_matches.intersection(mandatory_kwargs_matches)
-        if pos_kwargs_conflicts:
-            raise ValueError('The following arguments are supplied in both args and kwargs: %s' %
-                             ', '.join(pos_kwargs_conflicts))
-
-        # Check that the number of positional arguments minus the number of matched kwargs matches the argspec
-        missing_args = mandatory_args - mandatory_args_matches.union(mandatory_kwargs_matches)
-        if missing_args:
-            raise ValueError('The following arguments are not supplied: %s' % ', '.join(missing_args))
-
-        # Check that the callable can accept the given number of positional arguments
-        if not argspec.varargs and len(args) > len(argspec_args):
-            raise ValueError('The list of positional arguments is longer than the target callable can handle '
-                             '(allowed: %d, given in args: %d)' % (len(argspec_args), len(args)))
-
-        # Check that the callable can accept the given keyword arguments
-        if not varkw:
-            unmatched_kwargs = kwargs_set - frozenset(argspec_args).union(kwonly_args)
-            if unmatched_kwargs:
-                raise ValueError('The target callable does not accept the following keyword arguments: %s' %
-                                 ', '.join(unmatched_kwargs))
-
-        # Check that all keyword-only arguments have been supplied
-        unmatched_kwargs = kwonly_args - kwargs_set - kwonly_defaults
-        if unmatched_kwargs:
-            raise ValueError('The following keyword-only arguments have not been supplied in kwargs: %s' %
-                             ', '.join(unmatched_kwargs))
 
     def add_job(self, func, trigger, trigger_args=(), args=None, kwargs=None, misfire_grace_time=None, coalesce=None,
                 name=None, max_runs=None, max_instances=1, jobstore='default'):
@@ -367,13 +244,13 @@ class Scheduler(object):
         self._check_callable_args(job.func, args, kwargs)
 
         # Ensure that dead-on-arrival jobs are never added
-        if job.compute_next_run_time(datetime.now(self.timezone)) is None:
+        if job.compute_next_run_time(self._current_time()) is None:
             raise ValueError('Not adding job since it would never be run')
 
         # Don't really add jobs to job stores before the scheduler is up and running
         if not self.running:
             self._pending_jobs.append((job, jobstore))
-            logger.info('Adding job tentatively -- it will be properly scheduled when the scheduler starts')
+            self.logger.info('Adding job tentatively -- it will be properly scheduled when the scheduler starts')
         else:
             self._real_add_job(job, jobstore, True)
 
@@ -387,15 +264,6 @@ class Scheduler(object):
                                     name, max_runs, max_instances, jobstore)
             return func
         return inner
-
-    def _remove_job(self, job, alias, jobstore):
-        jobstore.remove_job(job)
-
-        # Notify listeners that a job has been removed
-        event = JobStoreEvent(EVENT_JOBSTORE_JOB_REMOVED, alias, job)
-        self._notify_listeners(event)
-
-        logger.info('Removed job "%s"', job)
 
     def get_jobs(self):
         """
@@ -456,31 +324,161 @@ class Scheduler(object):
 
         out.write(os.linesep.join(job_strs) + os.linesep)
 
+    #
+    # Protected API
+    #
+
+    def _configure(self, config):
+        # Set general options
+        self.logger = maybe_ref(config.pop('logger', None)) or getLogger('apscheduler')
+        self.misfire_grace_time = int(config.pop('misfire_grace_time', 1))
+        self.coalesce = asbool(config.pop('coalesce', True))
+        self.timezone = astimezone(config.pop('timezone', None)) or tzlocal()
+
+        # Set trigger defaults
+        self.trigger_defaults = {'timezone': self.timezone}
+
+        # Configure the thread pool
+        if 'threadpool' in config:
+            self._threadpool = maybe_ref(config['threadpool'])
+        else:
+            threadpool_opts = combine_opts(config, 'threadpool.')
+            self._threadpool = ThreadPool(**threadpool_opts)
+
+        # Configure job stores
+        jobstore_opts = combine_opts(config, 'jobstore.')
+        jobstores = {}
+        for key, value in jobstore_opts.items():
+            store_name, option = key.split('.', 1)
+            opts_dict = jobstores.setdefault(store_name, {})
+            opts_dict[option] = value
+
+        for alias, opts in jobstores.items():
+            classname = opts.pop('class')
+            cls = maybe_ref(classname)
+            jobstore = cls(**opts)
+            self.add_jobstore(jobstore, alias, True)
+
+    def _notify_listeners(self, event):
+        with self._listeners_lock:
+            listeners = tuple(self._listeners)
+
+        for cb, mask in listeners:
+            if event.code & mask:
+                try:
+                    cb(event)
+                except:
+                    self.logger.exception('Error notifying listener')
+
+    def _real_add_job(self, job, jobstore, wakeup):
+        # Recalculate the next run time
+        job.compute_next_run_time(self._current_time())
+
+        # Add the job to the given job store
+        store = self._jobstores.get(jobstore)
+        if not store:
+            raise KeyError('No such job store: %s' % jobstore)
+        store.add_job(job)
+
+        # Notify listeners that a new job has been added
+        event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, jobstore, job)
+        self._notify_listeners(event)
+
+        self.logger.info('Added job "%s" to job store "%s"', job, jobstore)
+
+        # Notify the scheduler about the new job
+        if wakeup:
+            self._wakeup()
+
+    def _remove_job(self, job, alias, jobstore):
+        jobstore.remove_job(job)
+
+        # Notify listeners that a job has been removed
+        event = JobStoreEvent(EVENT_JOBSTORE_JOB_REMOVED, alias, job)
+        self._notify_listeners(event)
+
+        self.logger.info('Removed job "%s"', job)
+
+    @staticmethod
+    def _check_callable_args(func, args, kwargs):
+        """Ensures that the given callable can be called with the given arguments."""
+
+        if not isfunction(func) and not ismethod(func) and hasattr(func, '__call__'):
+            func = func.__call__
+        argspec = getargspec(func)
+        argspec_args = argspec.args[1:] if ismethod(func) else argspec.args
+        varkw = getattr(argspec, 'varkw', None) or getattr(argspec, 'keywords', None)
+        kwargs_set = frozenset(kwargs)
+        mandatory_args = frozenset(argspec_args[:-len(argspec.defaults)] if argspec.defaults else argspec_args)
+        mandatory_args_matches = frozenset(argspec_args[:len(args)])
+        mandatory_kwargs_matches = set(kwargs).intersection(mandatory_args)
+        kwonly_args = frozenset(getattr(argspec, 'kwonlyargs', []))
+        kwonly_defaults = frozenset(getattr(argspec, 'kwonlydefaults', None) or ())
+
+        # Make sure there are no conflicts between args and kwargs
+        pos_kwargs_conflicts = mandatory_args_matches.intersection(mandatory_kwargs_matches)
+        if pos_kwargs_conflicts:
+            raise ValueError('The following arguments are supplied in both args and kwargs: %s' %
+                             ', '.join(pos_kwargs_conflicts))
+
+        # Check that the number of positional arguments minus the number of matched kwargs matches the argspec
+        missing_args = mandatory_args - mandatory_args_matches.union(mandatory_kwargs_matches)
+        if missing_args:
+            raise ValueError('The following arguments are not supplied: %s' % ', '.join(missing_args))
+
+        # Check that the callable can accept the given number of positional arguments
+        if not argspec.varargs and len(args) > len(argspec_args):
+            raise ValueError('The list of positional arguments is longer than the target callable can handle '
+                             '(allowed: %d, given in args: %d)' % (len(argspec_args), len(args)))
+
+        # Check that the callable can accept the given keyword arguments
+        if not varkw:
+            unmatched_kwargs = kwargs_set - frozenset(argspec_args).union(kwonly_args)
+            if unmatched_kwargs:
+                raise ValueError('The target callable does not accept the following keyword arguments: %s' %
+                                 ', '.join(unmatched_kwargs))
+
+        # Check that all keyword-only arguments have been supplied
+        unmatched_kwargs = kwonly_args - kwargs_set - kwonly_defaults
+        if unmatched_kwargs:
+            raise ValueError('The following keyword-only arguments have not been supplied in kwargs: %s' %
+                             ', '.join(unmatched_kwargs))
+
+    @abstractmethod
+    def _wakeup(self):
+        """Triggers :meth:`_process_jobs` to be run in an implementation specific manner."""
+
+    def _create_lock(self):
+        return Lock()
+
+    def _current_time(self):
+        return datetime.now(self.timezone)
+
     def _run_job(self, job, run_times):
-        """
-        Acts as a harness that runs the actual job code in a thread.
-        """
+        """Acts as a harness that runs the actual job code in the thread pool."""
+
         for run_time in run_times:
             # See if the job missed its run time window, and handle possible
             # misfires accordingly
-            difference = datetime.now(self.timezone) - run_time
+            difference = self._current_time() - run_time
             grace_time = timedelta(seconds=job.misfire_grace_time)
             if difference > grace_time:
                 # Notify listeners about a missed run
                 event = JobEvent(EVENT_JOB_MISSED, job, run_time)
                 self._notify_listeners(event)
-                logger.warning('Run time of job "%s" was missed by %s', job, difference)
+                self.logger.warning('Run time of job "%s" was missed by %s', job, difference)
             else:
                 try:
                     job.add_instance()
                 except MaxInstancesReachedError:
                     event = JobEvent(EVENT_JOB_MISSED, job, run_time)
                     self._notify_listeners(event)
-                    logger.warning('Execution of job "%s" skipped: maximum number of running instances reached (%d)',
-                                   job, job.max_instances)
+                    self.logger.warning(
+                        'Execution of job "%s" skipped: maximum number of running instances reached (%d)', job,
+                        job.max_instances)
                     break
 
-                logger.info('Running job "%s" (scheduled at %s)', job, run_time)
+                self.logger.info('Running job "%s" (scheduled at %s)', job, run_time)
 
                 try:
                     retval = job.func(*job.args, **job.kwargs)
@@ -490,13 +488,13 @@ class Scheduler(object):
                     event = JobEvent(EVENT_JOB_ERROR, job, run_time, exception=exc, traceback=tb)
                     self._notify_listeners(event)
 
-                    logger.exception('Job "%s" raised an exception', job)
+                    self.logger.exception('Job "%s" raised an exception', job)
                 else:
                     # Notify listeners about successful execution
                     event = JobEvent(EVENT_JOB_EXECUTED, job, run_time, retval=retval)
                     self._notify_listeners(event)
 
-                    logger.info('Job "%s" executed successfully', job)
+                    self.logger.info('Job "%s" executed successfully', job)
 
                 job.remove_instance()
 
@@ -504,11 +502,15 @@ class Scheduler(object):
                 if job.coalesce:
                     break
 
-    def _process_jobs(self, now):
+    def _process_jobs(self):
+        """Iterates through jobs in every jobstore, starts jobs that are due and figures out how long to wait for
+        the next round.
         """
-        Iterates through jobs in every jobstore, starts pending jobs and figures out the next wakeup time.
-        """
+
+        self.logger.debug('Looking for jobs to run')
+        now = self._current_time()
         next_wakeup_time = None
+
         with self._jobstores_lock:
             for alias, jobstore in iteritems(self._jobstores):
                 for job in tuple(jobstore.jobs):
@@ -517,10 +519,7 @@ class Scheduler(object):
                         self._threadpool.submit(self._run_job, job, run_times)
 
                         # Increase the job's run count
-                        if job.coalesce:
-                            job.runs += 1
-                        else:
-                            job.runs += len(run_times)
+                        job.runs += 1 if job.coalesce else len(run_times)
 
                         # Update the job, but don't keep finished jobs around
                         if job.compute_next_run_time(now + timedelta(microseconds=1)):
@@ -532,35 +531,13 @@ class Scheduler(object):
                         next_wakeup_time = job.next_run_time
                     elif job.next_run_time:
                         next_wakeup_time = min(next_wakeup_time, job.next_run_time)
-            return next_wakeup_time
 
-    def _main_loop(self):
-        """Executes jobs on schedule."""
+        # Determine the delay until this method should be called again
+        if next_wakeup_time is not None:
+            wait_seconds = time_difference(next_wakeup_time, now)
+            self.logger.debug('Next wakeup is due at %s (in %f seconds)', next_wakeup_time, wait_seconds)
+        else:
+            wait_seconds = None
+            self.logger.debug('No jobs; waiting until a job is added')
 
-        logger.info('Scheduler started')
-        self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_START))
-
-        self._wakeup.clear()
-        while not self._stopped:
-            logger.debug('Looking for jobs to run')
-            now = datetime.now(self.timezone)
-            next_wakeup_time = self._process_jobs(now)
-
-            # Sleep until the next job is scheduled to be run,
-            # a new job is added or the scheduler is stopped
-            if next_wakeup_time is not None:
-                wait_seconds = time_difference(next_wakeup_time, now)
-                logger.debug('Next wakeup is due at %s (in %f seconds)', next_wakeup_time, wait_seconds)
-                self._wakeup.wait(wait_seconds)
-                self._wakeup.clear()
-            elif self.standalone:
-                logger.debug('No jobs left; shutting down scheduler')
-                self.shutdown()
-                break
-            else:
-                logger.debug('No jobs; waiting until a job is added')
-                self._wakeup.wait()
-                self._wakeup.clear()
-
-        logger.info('Scheduler has been shut down')
-        self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN))
+        return wait_seconds
