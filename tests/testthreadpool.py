@@ -52,3 +52,10 @@ def test_threadpool_nocore():
     assert event.isSet()
     sleep(1)
     eq_(repr(pool), '<ThreadPool at %x; threads=0/20>' % id(pool))
+
+
+def test_threadpool_string_config():
+    pool = ThreadPool(core_threads='4', max_threads='17', keepalive='2')
+    assert pool.core_threads == 4
+    assert pool.max_threads == 17
+    assert pool.keepalive == 2

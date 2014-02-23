@@ -35,13 +35,12 @@ class ThreadPool(object):
         """
         :param core_threads: maximum number of persistent threads in the pool
         :param max_threads: maximum number of total threads in the pool
-        :param thread_class: callable that creates a Thread object
         :param keepalive: seconds to keep non-core worker threads waiting
             for new tasks
         """
-        self.core_threads = core_threads
-        self.max_threads = max(max_threads, core_threads, 1)
-        self.keepalive = keepalive
+        self.core_threads = int(core_threads)
+        self.max_threads = max(int(max_threads), int(core_threads), 1)
+        self.keepalive = int(keepalive)
         self._queue = Queue()
         self._threads_lock = Lock()
         self._threads = set()
@@ -49,7 +48,7 @@ class ThreadPool(object):
 
         _threadpools.add(ref(self))
         logger.info('Started thread pool with %d core threads and %s maximum '
-                    'threads', core_threads, max_threads or 'unlimited')
+                    'threads', self.core_threads, self.max_threads or 'unlimited')
 
     def _adjust_threadcount(self):
         self._threads_lock.acquire()

@@ -5,6 +5,8 @@ import logging
 
 from apscheduler.jobstores.base import JobStore
 from apscheduler.job import Job
+from apscheduler.util import maybe_ref
+
 
 try:
     import cPickle as pickle
@@ -25,7 +27,7 @@ class MongoDBJobStore(JobStore):
                  connection=None, pickle_protocol=pickle.HIGHEST_PROTOCOL,
                  **connect_args):
         self.jobs = []
-        self.pickle_protocol = pickle_protocol
+        self.pickle_protocol = int(pickle_protocol)
 
         if not database:
             raise ValueError('The "database" parameter must not be empty')
@@ -33,7 +35,7 @@ class MongoDBJobStore(JobStore):
             raise ValueError('The "collection" parameter must not be empty')
 
         if connection:
-            self.connection = connection
+            self.connection = maybe_ref(connection)
         else:
             self.connection = Connection(**connect_args)
 

@@ -4,6 +4,13 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+2.1.3
+-----
+
+* Fixed the threadpool and jobstores not being able to convert
+  configuration values from strings to the required types
+
+
 2.1.2
 -----
 

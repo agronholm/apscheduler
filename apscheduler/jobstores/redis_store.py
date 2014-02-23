@@ -38,7 +38,7 @@ class RedisJobStore(JobStore):
         if not key_prefix:
             raise ValueError('The "key_prefix" parameter must not be empty')
 
-        self.redis = StrictRedis(db=db, **connect_args)
+        self.redis = StrictRedis(db=int(db), **connect_args)
 
     def add_job(self, job):
         job.id = str(uuid4())

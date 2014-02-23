@@ -8,6 +8,8 @@ import sqlalchemy
 
 from apscheduler.jobstores.base import JobStore
 from apscheduler.job import Job
+from apscheduler.util import maybe_ref
+
 
 try:
     from sqlalchemy import *
@@ -21,10 +23,10 @@ class SQLAlchemyJobStore(JobStore):
     def __init__(self, url=None, engine=None, tablename='apscheduler_jobs',
                  metadata=None, pickle_protocol=pickle.HIGHEST_PROTOCOL):
         self.jobs = []
-        self.pickle_protocol = pickle_protocol
+        self.pickle_protocol = int(pickle_protocol)
 
         if engine:
-            self.engine = engine
+            self.engine = maybe_ref(engine)
         elif url:
             self.engine = create_engine(url)
         else:
@@ -35,7 +37,7 @@ class SQLAlchemyJobStore(JobStore):
         else:
             pickle_coltype = PickleType(pickle_protocol)
         self.jobs_t = Table(
-            tablename, metadata or MetaData(),
+            tablename, maybe_ref(metadata) or MetaData(),
             Column('id', Integer,
                    Sequence(tablename + '_id_seq', optional=True),
                    primary_key=True),

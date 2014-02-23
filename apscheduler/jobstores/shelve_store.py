@@ -20,7 +20,7 @@ class ShelveJobStore(JobStore):
     def __init__(self, path, pickle_protocol=pickle.HIGHEST_PROTOCOL):
         self.jobs = []
         self.path = path
-        self.pickle_protocol = pickle_protocol
+        self.pickle_protocol = int(pickle_protocol)
         self._open_store()
 
     def _open_store(self):
