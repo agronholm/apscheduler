@@ -24,7 +24,11 @@ class SchedulerEvent(object):
     :var code: the type code of this event
     """
     def __init__(self, code):
+        super(SchedulerEvent, self).__init__()
         self.code = code
+
+    def __repr__(self):
+        return '<%s code=%d>' % (self.__class__.__name__, self.code)
 
 
 class JobStoreEvent(SchedulerEvent):
@@ -35,7 +39,7 @@ class JobStoreEvent(SchedulerEvent):
     :var job: the new job if a job was added
     """
     def __init__(self, code, alias, job=None):
-        SchedulerEvent.__init__(self, code)
+        super(JobStoreEvent, self).__init__(code)
         self.alias = alias
         if job:
             self.job = job
@@ -51,9 +55,8 @@ class JobEvent(SchedulerEvent):
     :var exception: the exception raised by the job
     :var traceback: the traceback object associated with the exception
     """
-    def __init__(self, code, job, scheduled_run_time, retval=None,
-                 exception=None, traceback=None):
-        SchedulerEvent.__init__(self, code)
+    def __init__(self, code, job, scheduled_run_time, retval=None, exception=None, traceback=None):
+        super(JobEvent, self).__init__(code)
         self.job = job
         self.scheduled_run_time = scheduled_run_time
         self.retval = retval
