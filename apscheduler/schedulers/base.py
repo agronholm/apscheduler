@@ -1,6 +1,3 @@
-"""
-This module is the main part of the library. It houses the Scheduler class and related exceptions.
-"""
 from abc import ABCMeta, abstractmethod
 from threading import Lock
 from datetime import datetime, timedelta
