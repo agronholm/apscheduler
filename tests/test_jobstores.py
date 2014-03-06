@@ -238,7 +238,7 @@ def test_sqlalchemy_engine_ref():
     sqlalchemy = pytest.importorskip('apscheduler.jobstores.sqlalchemy')
     sqla_engine = sqlalchemy.create_engine('sqlite:///')
     try:
-        sqlalchemy.SQLAlchemyJobStore( engine='%s:sqla_engine' % __name__)
+        sqlalchemy.SQLAlchemyJobStore(engine='%s:sqla_engine' % __name__)
     finally:
         sqla_engine.dispose()
         del sqla_engine
