@@ -244,6 +244,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         args = tuple(args) if args is not None else ()
         kwargs = dict(kwargs) if kwargs is not None else {}
         job = Job(trigger, func, args, kwargs, id, misfire_grace_time, coalesce, name, max_runs, max_instances)
+        job.attach_scheduler(self, jobstore)
 
         # Make sure the callable can handle the given arguments
         self._check_callable_args(job.func, args, kwargs)
@@ -266,8 +267,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """A decorator version of :meth:`add_job`."""
 
         def inner(func):
-            func.job = self.add_job(func, trigger, trigger_args, args, kwargs, id, misfire_grace_time, coalesce,
-                                    name, max_runs, max_instances, jobstore)
+            self.add_job(func, trigger, trigger_args, args, kwargs, id, misfire_grace_time, coalesce, name, max_runs,
+                         max_instances, jobstore)
             return func
         return inner
 
@@ -282,21 +283,27 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         with self._jobstores_lock:
             jobs = []
             jobstores = [jobstore] if jobstore else self._jobstores
-            for alias in jobstores:
-                jobs.extend(self._jobstores[alias].get_all_jobs())
+            for alias, store in six.iteritems(jobstores):
+                for job in store.get_all_jobs():
+                    job.attach_scheduler(self, alias)
+                    jobs.append(job)
 
             return jobs
 
-    def remove_job(self, job_or_id, jobstore='default'):
+    def remove_job(self, job_id, jobstore='default'):
         """
         Removes a job, preventing it from being run any more.
 
-        :param job_or_id: a :class:`~apscheduler.job.Job` instance or the job id
+        :param job_id: the identifier of the job
         :param jobstore: alias of the job store
         """
 
-        job_id = job_or_id.id if isinstance(job_or_id, Job) else job_or_id
         with self._jobstores_lock:
+            for i, (job, store) in enumerate(self._pending_jobs):
+                if job.id == job_id:
+                    del self._pending_jobs[i]
+                    return
+
             self._jobstores[jobstore].remove_job(job_id)
 
     def remove_all_jobs(self, jobstore=None):

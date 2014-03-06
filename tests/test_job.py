@@ -4,10 +4,14 @@ from threading import Lock
 from dateutil.tz import tzoffset
 import pytest
 
-from apscheduler.job import Job, MaxInstancesReachedError
+from apscheduler.job import Job, MaxInstancesReachedError, NoSchedulerAttachedError
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+try:
+    from unittest.mock import MagicMock
+except ImportError:
+    from mock import MagicMock
 
 lock_type = type(Lock())
 local_tz = tzoffset('DUMMYTZ', 3600)
@@ -28,6 +32,27 @@ class TestJob(object):
     @pytest.fixture
     def job(self, trigger):
         return Job(trigger, dummyfunc, [], {}, 'testid', 1, False, None, None, 1)
+
+    def test_job_func_ref(self, trigger):
+        job = Job(trigger, '%s:dummyfunc' % __name__, [], {}, 'testid', 1, False, None, None, 1)
+        assert job.func is dummyfunc
+
+    def test_job_bad_func(self, trigger):
+        exc = pytest.raises(TypeError, Job, trigger, 1, [], {}, 'testid', 1, False, None, None, 1)
+        assert 'textual reference' in str(exc.value)
+
+    def test_job_invalid_version(self, job):
+        exc = pytest.raises(ValueError, job.__setstate__, {'version': 9999})
+        assert 'version' in str(exc.value)
+
+    def test_job_remove(self, job):
+        scheduler = MagicMock()
+        job.attach_scheduler(scheduler, 'somejobstore')
+        job.remove()
+        assert scheduler.remove_job.called_once_with('testid', 'somejobstore')
+
+    def test_job_remove_no_scheduler(self, job):
+        pytest.raises(NoSchedulerAttachedError, job.remove)
 
     def test_compute_next_run_time(self, job):
         job.compute_next_run_time(self.RUNTIME - timedelta(microseconds=1))

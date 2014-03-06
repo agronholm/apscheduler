@@ -15,16 +15,22 @@ class MaxInstancesReachedError(Exception):
     pass
 
 
+class NoSchedulerAttachedError(Exception):
+    def __init__(self):
+        super(Exception, self).__init__('This job has no scheduler attached to it')
+
+
 class Job(object):
     """
     Encapsulates the actual Job along with its metadata. Job instances are created by the scheduler when adding jobs,
     and should not be directly instantiated.
     """
 
-    __slots__ = ('_lock', 'id', 'func', 'func_ref', 'trigger', 'args', 'kwargs', 'name', 'misfire_grace_time',
-                 'coalesce', 'max_runs', 'max_instances', 'runs', 'instances', 'next_run_time')
+    __slots__ = ('_lock', 'scheduler', 'jobstore', 'id', 'func', 'func_ref', 'trigger', 'args', 'kwargs', 'name',
+                 'misfire_grace_time', 'coalesce', 'max_runs', 'max_instances', 'runs', 'instances', 'next_run_time')
 
-    def __init__(self, trigger, func, args, kwargs, id, misfire_grace_time, coalesce, name, max_runs, max_instances):
+    def __init__(self, trigger, func, args, kwargs, id, misfire_grace_time, coalesce, name,
+                 max_runs, max_instances):
         if isinstance(func, six.string_types):
             self.func = ref_to_obj(func)
             self.func_ref = func
@@ -51,6 +57,19 @@ class Job(object):
         self.runs = 0
         self.instances = 0
         self.next_run_time = None
+
+    #
+    # Public API
+    #
+
+    def remove(self):
+        if not hasattr(self, 'scheduler'):
+            raise NoSchedulerAttachedError
+        self.scheduler.unschedule_job(self.id, self.jobstore)
+
+    #
+    # Protected API
+    #
 
     def compute_next_run_time(self, now):
         if self.runs == self.max_runs:
@@ -83,6 +102,10 @@ class Job(object):
         with self._lock:
             assert self.instances > 0, 'Already at 0 instances'
             self.instances -= 1
+
+    def attach_scheduler(self, scheduler, jobstore):
+        self.scheduler = scheduler
+        self.jobstore = jobstore
 
     def __getstate__(self):
         return {
