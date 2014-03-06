@@ -12,8 +12,8 @@ from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp
 from apscheduler.job import Job
 
 try:
-    from sqlalchemy import (create_engine, Table, PickleType, Column, MetaData, Unicode, BigInteger, LargeBinary, select,
-                            __version__ as sqlalchemy_version)
+    from sqlalchemy import (create_engine, Table, PickleType, Column, MetaData, Unicode, BigInteger, LargeBinary,
+                            select, __version__ as sqlalchemy_version)
     from sqlalchemy.exc import IntegrityError
 except ImportError:  # pragma: nocover
     raise ImportError('SQLAlchemyJobStore requires SQLAlchemy installed')
