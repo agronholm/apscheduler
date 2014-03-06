@@ -6,7 +6,7 @@ import logging
 
 import six
 
-from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
+from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError, TransientJobError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
@@ -64,6 +64,9 @@ class MongoDBJobStore(BaseJobStore):
         return self._get_jobs({})
 
     def add_job(self, job):
+        if not job.func_ref:
+            raise TransientJobError(job.id)
+
         job_dict = job.__getstate__()
         document = {
             '_id': job_dict.pop('id'),

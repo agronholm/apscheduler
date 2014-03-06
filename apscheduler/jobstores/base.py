@@ -21,6 +21,15 @@ class ConflictingIdError(KeyError):
         super(ConflictingIdError, self).__init__(six.u('Job identifier (%s) conflicts with an existing job') % id)
 
 
+class TransientJobError(ValueError):
+    """Raised when an attempt to add transient (with no func_ref) job to a persistent job store is detected."""
+
+    def __init__(self, id):
+        super(TransientJobError, self).__init__(
+            six.u('Job (%s) cannot be added to this job store because it a reference to the callable could not be '
+                  'determined.') % id)
+
+
 class BaseJobStore(six.with_metaclass(ABCMeta)):
     @abstractmethod
     def lookup_job(self, id):

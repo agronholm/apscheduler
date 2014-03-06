@@ -5,7 +5,7 @@ from dateutil.tz import tzoffset
 import pytest
 
 from apscheduler.jobstores.memory import MemoryJobStore
-from apscheduler.jobstores.base import JobLookupError, ConflictingIdError
+from apscheduler.jobstores.base import JobLookupError, ConflictingIdError, TransientJobError
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.job import Job
@@ -184,6 +184,11 @@ def test_one_job_fails_to_load(jobstore, monkeypatch):
 
     jobs = jobstore.get_all_jobs()
     assert jobs == [job3, job1]
+
+
+@pytest.mark.parametrize('jobstore', persistent_jobstores, indirect=True, ids=persistent_jobstores_ids)
+def test_transient_job_error(jobstore):
+    pytest.raises(TransientJobError, create_job, jobstore, lambda: None, datetime(2016, 5, 3))
 
 
 @pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
