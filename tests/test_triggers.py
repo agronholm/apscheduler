@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from dateutil.tz import tzoffset
+import pytz
 import pytest
 
 from apscheduler.triggers.cron import CronTrigger
@@ -132,6 +133,37 @@ class TestCronTrigger(object):
         correct_next_date = datetime(2009, 4, 8, tzinfo=timezone)
         assert trigger.get_next_fire_time(start_date) == correct_next_date
 
+    def test_dst_change(self):
+        """
+        Making sure that CronTrigger works during the ambiguous
+        "fall-back" DST period. Note that you should explicitly
+        compare datetimes as strings to avoid the internal datetime
+        comparison which would test for equality in the UTC timezone.
+        """
+        eastern = pytz.timezone('US/Eastern')
+        trigger = CronTrigger(hour='*/1', timezone=eastern)
+
+        datetime_edt = eastern.localize(datetime(2013, 11, 3, 1, 5), is_dst=True)
+        correct_next_date = eastern.normalize(datetime_edt + timedelta(minutes=55))
+        assert str(trigger.get_next_fire_time(datetime_edt)) == str(correct_next_date)
+
+        datetime_est = eastern.localize(datetime(2013, 11, 3, 1, 5), is_dst=False)
+        correct_next_date = eastern.normalize(datetime_est + timedelta(minutes=55))
+        assert str(trigger.get_next_fire_time(datetime_est)) == str(correct_next_date)
+
+    def test_timezone_change(self):
+        """
+        Ensuring that get_next_fire_time method returns datetimes in the
+        timezone of the trigger and not in the timezone of the passed in
+        start_date.
+        """
+        est = tzoffset('EST', -18000)
+        cst = tzoffset('CST', -21600)
+        trigger = CronTrigger(hour=11, minute='*/5', timezone=est)
+        start_date = datetime(2009, 9, 26, 10, 16, tzinfo=cst)
+        correct_next_date = datetime(2009, 9, 26, 11, 20, tzinfo=est)
+        assert str(trigger.get_next_fire_time(start_date)) == str(correct_next_date)
+
 
 class TestDateTrigger(object):
     def test_date_trigger_earlier(self, timezone):
@@ -166,6 +198,27 @@ class TestDateTrigger(object):
         start_date = datetime(2009, 7, 6, tzinfo=timezone)
         assert trigger.get_next_fire_time(start_date) == fire_date
 
+    def test_dst_change(self):
+        """
+        Making sure that DateTrigger works during the ambiguous
+        "fall-back" DST period. Note that you should explicitly
+        compare datetimes as strings to avoid the internal datetime
+        comparison which would test for equality in the UTC timezone.
+        """
+        eastern = pytz.timezone('US/Eastern')
+        datetime_edt = eastern.localize(datetime(2013, 11, 3, 1, 5), is_dst=True)
+        datetime_est = eastern.localize(datetime(2013, 11, 3, 1, 5), is_dst=False)
+
+        fire_date = datetime_edt + timedelta(minutes=55)
+        trigger = DateTrigger(run_date=fire_date, timezone=eastern)
+        correct_next_date = eastern.normalize(fire_date)
+        assert str(trigger.get_next_fire_time(datetime_edt)) == str(correct_next_date)
+
+        fire_date = datetime_est + timedelta(minutes=55)
+        trigger = DateTrigger(run_date=fire_date, timezone=eastern)
+        correct_next_date = eastern.normalize(fire_date)
+        assert str(trigger.get_next_fire_time(datetime_est)) == str(correct_next_date)
+
 
 class TestIntervalTrigger(object):
     @pytest.fixture()
@@ -195,3 +248,22 @@ class TestIntervalTrigger(object):
         start_date = datetime(2009, 8, 3, 22, second=2, microsecond=1000, tzinfo=alter_tz)
         correct_next_date = datetime(2009, 8, 4, second=3, tzinfo=timezone)
         assert trigger.get_next_fire_time(start_date) == correct_next_date
+
+    def test_dst_change(self):
+        """
+        Making sure that IntervalTrigger works during the ambiguous
+        "fall-back" DST period. Note that you should explicitly
+        compare datetimes as strings to avoid the internal datetime
+        comparison which would test for equality in the UTC timezone.
+        """
+        eastern = pytz.timezone('US/Eastern')
+        start_date = datetime(2013, 6, 1)  # Start within EDT
+        trigger = IntervalTrigger(hours=1, start_date=start_date, timezone=eastern)
+
+        datetime_edt = eastern.localize(datetime(2013, 11, 3, 1, 5), is_dst=True)
+        correct_next_date = eastern.normalize(datetime_edt + timedelta(minutes=55))
+        assert str(trigger.get_next_fire_time(datetime_edt)) == str(correct_next_date)
+
+        datetime_est = eastern.localize(datetime(2013, 11, 3, 1, 5), is_dst=False)
+        correct_next_date = eastern.normalize(datetime_est + timedelta(minutes=55))
+        assert str(trigger.get_next_fire_time(datetime_est)) == str(correct_next_date)

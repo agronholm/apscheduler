@@ -14,12 +14,15 @@ class DateTrigger(BaseTrigger):
         :type timezone: str or an instance of a :cls:`~datetime.tzinfo` subclass
         """
 
-        timezone = astimezone(timezone) or tzlocal()
-        self.run_date = convert_to_datetime(run_date, timezone, 'run_date')
+        self.timezone = astimezone(timezone) or tzlocal()
+        self.run_date = convert_to_datetime(run_date, self.timezone, 'run_date')
 
     def get_next_fire_time(self, start_date):
         if self.run_date >= start_date:
-            return self.run_date
+            # Make sure that the returned date is in the trigger
+            # timezone. Also, has the additional benefit of normalizing
+            # the returned datetime.
+            return self.run_date.astimezone(self.timezone)
 
     def __str__(self):
         return 'date[%s]' % datetime_repr(self.run_date)
