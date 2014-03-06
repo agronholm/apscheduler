@@ -64,7 +64,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Create a RAMJobStore as the default if there is no default job store
         if not 'default' in self._jobstores:
-            self.add_jobstore(MemoryJobStore(self), 'default', True)
+            self.add_jobstore(MemoryJobStore(), 'default', True)
 
         # Schedule all pending jobs
         for job, jobstore in self._pending_jobs:
@@ -364,7 +364,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         for alias, opts in jobstores.items():
             classname = opts.pop('class')
             cls = maybe_ref(classname)
-            jobstore = cls(self, **opts)
+            jobstore = cls(**opts)
             self.add_jobstore(jobstore, alias, True)
 
     def _notify_listeners(self, event):

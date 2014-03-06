@@ -22,9 +22,8 @@ logger = logging.getLogger(__name__)
 
 
 class SQLAlchemyJobStore(BaseJobStore):
-    def __init__(self, scheduler, url=None, engine=None, tablename='apscheduler_jobs', metadata=None,
+    def __init__(self, url=None, engine=None, tablename='apscheduler_jobs', metadata=None,
                  pickle_protocol=pickle.HIGHEST_PROTOCOL):
-        self.scheduler = scheduler
         self.pickle_protocol = pickle_protocol
         metadata = maybe_ref(metadata) or MetaData()
 

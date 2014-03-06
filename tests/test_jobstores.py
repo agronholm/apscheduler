@@ -26,43 +26,38 @@ def dummy_job3():
 
 
 @pytest.fixture
-def scheduler():
-    return BlockingScheduler()
+def memjobstore(request):
+    return MemoryJobStore()
 
 
 @pytest.fixture
-def memjobstore(request, scheduler):
-    return MemoryJobStore(scheduler)
-
-
-@pytest.fixture
-def sqlalchemyjobstore(request, scheduler):
+def sqlalchemyjobstore(request):
     def finish():
         store.close()
         os.remove('tempdb.sqlite')
 
     sqlalchemy = pytest.importorskip('apscheduler.jobstores.sqlalchemy')
-    store = sqlalchemy.SQLAlchemyJobStore(scheduler, url='sqlite:///tempdb.sqlite')
+    store = sqlalchemy.SQLAlchemyJobStore(url='sqlite:///tempdb.sqlite')
     request.addfinalizer(finish)
     return store
 
 
 @pytest.fixture
-def mongodbjobstore(request, scheduler):
+def mongodbjobstore(request):
     def finish():
         connection = store.collection.database.connection
         connection.drop_database(store.collection.database.name)
         store.close()
 
     mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
-    store = mongodb.MongoDBJobStore(scheduler, database='apscheduler_unittest')
+    store = mongodb.MongoDBJobStore(database='apscheduler_unittest')
     request.addfinalizer(finish)
     return store
 
 
 @pytest.fixture
-def jobstore(request, scheduler):
-    return request.param(request, scheduler)
+def jobstore(request):
+    return request.param(request)
 
 
 def create_job(jobstore, func=dummy_job, trigger_date=datetime(2999, 1, 1), id=None):
@@ -238,41 +233,41 @@ def test_memstore_close(memjobstore):
     assert not memjobstore.get_all_jobs()
 
 
-def test_sqlalchemy_engine_ref(scheduler):
+def test_sqlalchemy_engine_ref():
     global sqla_engine
     sqlalchemy = pytest.importorskip('apscheduler.jobstores.sqlalchemy')
     sqla_engine = sqlalchemy.create_engine('sqlite:///')
     try:
-        sqlalchemy.SQLAlchemyJobStore(scheduler, engine='%s:sqla_engine' % __name__)
+        sqlalchemy.SQLAlchemyJobStore( engine='%s:sqla_engine' % __name__)
     finally:
         sqla_engine.dispose()
         del sqla_engine
 
 
-def test_sqlalchemy_missing_engine(scheduler):
+def test_sqlalchemy_missing_engine():
     sqlalchemy = pytest.importorskip('apscheduler.jobstores.sqlalchemy')
-    exc = pytest.raises(ValueError, sqlalchemy.SQLAlchemyJobStore, scheduler)
+    exc = pytest.raises(ValueError, sqlalchemy.SQLAlchemyJobStore)
     assert 'Need either' in str(exc.value)
 
 
-def test_mongodb_connection_ref(scheduler):
+def test_mongodb_connection_ref():
     global mongodb_connection
     mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
     mongodb_connection = mongodb.Connection()
     try:
-        mongodb.MongoDBJobStore(scheduler, connection='%s:mongodb_connection' % __name__)
+        mongodb.MongoDBJobStore(connection='%s:mongodb_connection' % __name__)
     finally:
         mongodb_connection.disconnect()
         del mongodb_connection
 
 
-def test_mongodb_null_database(scheduler):
+def test_mongodb_null_database():
     mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
-    exc = pytest.raises(ValueError, mongodb.MongoDBJobStore, scheduler, database='')
+    exc = pytest.raises(ValueError, mongodb.MongoDBJobStore, database='')
     assert '"database"' in str(exc.value)
 
 
-def test_mongodb_null_collection(scheduler):
+def test_mongodb_null_collection():
     mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
-    exc = pytest.raises(ValueError, mongodb.MongoDBJobStore, scheduler, collection='')
+    exc = pytest.raises(ValueError, mongodb.MongoDBJobStore, collection='')
     assert '"collection"' in str(exc.value)

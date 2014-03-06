@@ -26,9 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 class MongoDBJobStore(BaseJobStore):
-    def __init__(self, scheduler, database='apscheduler', collection='jobs', connection=None,
+    def __init__(self, database='apscheduler', collection='jobs', connection=None,
                  pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
-        self.scheduler = scheduler
         super(MongoDBJobStore, self).__init__()
         self.pickle_protocol = pickle_protocol
 

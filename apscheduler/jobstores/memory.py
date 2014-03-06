@@ -9,7 +9,7 @@ from apscheduler.jobstores.base import BaseJobStore, JobLookupError, Conflicting
 
 
 class MemoryJobStore(BaseJobStore):
-    def __init__(self, scheduler):
+    def __init__(self):
         super(MemoryJobStore, self).__init__()
         self._jobs = []  # sorted by next_run_time
         self._jobs_index = {}  # id -> job lookup table

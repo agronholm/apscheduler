@@ -82,8 +82,8 @@ def logstream(request, scheduler):
 class TestOfflineScheduler(object):
     def test_jobstore_twice(self, scheduler):
         with pytest.raises(KeyError):
-            scheduler.add_jobstore(MemoryJobStore(scheduler), 'dummy')
-            scheduler.add_jobstore(MemoryJobStore(scheduler), 'dummy')
+            scheduler.add_jobstore(MemoryJobStore(), 'dummy')
+            scheduler.add_jobstore(MemoryJobStore(), 'dummy')
 
     def test_add_tentative_job(self, scheduler):
         job = scheduler.add_job(lambda: None, 'date', [datetime(2200, 7, 24)], jobstore='dummy')
@@ -258,7 +258,7 @@ class TestRunningScheduler(object):
         """Tests that removing all jobs clears all job stores."""
 
         vals = [0]
-        scheduler.add_jobstore(MemoryJobStore(scheduler), 'alter')
+        scheduler.add_jobstore(MemoryJobStore(), 'alter')
         scheduler.add_job(increment, 'interval', {'seconds': 1}, args=(vals,))
         scheduler.add_job(increment, 'interval', {'seconds': 1}, args=(vals,), jobstore='alter')
         scheduler.remove_all_jobs()
@@ -268,7 +268,7 @@ class TestRunningScheduler(object):
         """Tests that removing all jobs from a specific job store does not affect the rest."""
 
         vals = [0]
-        scheduler.add_jobstore(MemoryJobStore(scheduler), 'alter')
+        scheduler.add_jobstore(MemoryJobStore(), 'alter')
         scheduler.add_job(increment, 'interval', {'seconds': 1}, args=(vals,))
         job2 = scheduler.add_job(increment, 'interval', {'seconds': 1}, args=(vals,), jobstore='alter')
         scheduler.remove_all_jobs('default')
@@ -355,7 +355,7 @@ class TestRunningScheduler(object):
         assert out.getvalue() == expected
 
     def test_jobstore(self, scheduler):
-        scheduler.add_jobstore(MemoryJobStore(scheduler), 'dummy')
+        scheduler.add_jobstore(MemoryJobStore(), 'dummy')
         job = scheduler.add_job(lambda: None, 'date', [datetime(2200, 7, 24)], jobstore='dummy')
         assert scheduler.get_jobs() == [job]
         scheduler.remove_jobstore('dummy')
