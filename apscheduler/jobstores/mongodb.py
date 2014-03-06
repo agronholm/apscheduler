@@ -72,7 +72,6 @@ class MongoDBJobStore(BaseJobStore):
             'next_run_time': datetime_to_utc_timestamp(job_dict['next_run_time']),
             'job_data': Binary(pickle.dumps(job_dict, self.pickle_protocol))
         }
-        print('adding job with next run time: %s (timestamp: %s)' % (job_dict['next_run_time'], utc_timestamp_to_datetime(document['next_run_time'])))
         try:
             self.collection.insert(document)
         except DuplicateKeyError:
