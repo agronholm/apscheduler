@@ -8,11 +8,11 @@ import logging
 import six
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
-from apscheduler.util import maybe_ref, utc_to_tzaware, tzaware_to_utc
+from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
 try:
-    from sqlalchemy import (create_engine, Table, PickleType, Column, MetaData, Unicode, DateTime, LargeBinary, select,
+    from sqlalchemy import (create_engine, Table, PickleType, Column, MetaData, Unicode, BigInteger, LargeBinary, select,
                             __version__ as sqlalchemy_version)
     from sqlalchemy.exc import IntegrityError
 except ImportError:  # pragma: nocover
@@ -42,7 +42,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         self.jobs_t = Table(
             tablename, metadata,
             Column('id', Unicode(1024), primary_key=True),
-            Column('next_run_time', DateTime, index=True),
+            Column('next_run_time', BigInteger, index=True),
             Column('job_data', pickle_coltype, nullable=False)
         )
 
@@ -56,15 +56,15 @@ class SQLAlchemyJobStore(BaseJobStore):
         return self._reconstitute_job(row)
 
     def get_pending_jobs(self, now):
-        selectable = select([self.jobs_t]).where(self.jobs_t.c.next_run_time <= now).\
+        timestamp = datetime_to_utc_timestamp(now)
+        selectable = select([self.jobs_t]).where(self.jobs_t.c.next_run_time <= timestamp).\
             order_by(self.jobs_t.c.next_run_time)
         jobs = self._get_jobs(selectable)
 
-        selectable = select([self.jobs_t.c.next_run_time]).where(self.jobs_t.c.next_run_time > now).\
+        selectable = select([self.jobs_t.c.next_run_time]).where(self.jobs_t.c.next_run_time > timestamp).\
             order_by(self.jobs_t.c.next_run_time).limit(1)
         next_run_time = self.engine.execute(selectable).scalar()
-
-        return jobs, utc_to_tzaware(next_run_time, self.scheduler.timezone)
+        return jobs, utc_timestamp_to_datetime(next_run_time)
 
     def get_all_jobs(self):
         selectable = select([self.jobs_t]).order_by(self.jobs_t.c.next_run_time)
@@ -74,7 +74,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         job_dict = job.__getstate__()
         row_dict = {
             'id': job_dict.pop('id'),
-            'next_run_time': tzaware_to_utc(job_dict.pop('next_run_time')),
+            'next_run_time': datetime_to_utc_timestamp(job_dict['next_run_time']),
             'job_data': job_dict
         }
 
@@ -95,7 +95,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         if 'id' in changes:
             row_changes['id'] = changes.pop('id')
         if 'next_run_time' in changes:
-            row_changes['next_run_time'] = tzaware_to_utc(changes['next_run_time'])
+            row_changes['next_run_time'] = datetime_to_utc_timestamp(changes['next_run_time'])
         if changes:
             job_dict.update(changes)
             row_changes['job_data'] = job_dict
@@ -121,9 +121,7 @@ class SQLAlchemyJobStore(BaseJobStore):
 
     def _reconstitute_job(self, row):
         job = Job.__new__(Job)
-        job_dict = dict(row.items())
-        job_dict.update(job_dict.pop('job_data'))
-        job_dict['next_run_time'] = utc_to_tzaware(job_dict['next_run_time'], self.scheduler.timezone)
+        job_dict = dict(id=row.id, **row.job_data)
         job.__setstate__(job_dict)
         return job
 

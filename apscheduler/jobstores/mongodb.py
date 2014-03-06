@@ -7,7 +7,7 @@ import logging
 import six
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
-from apscheduler.util import maybe_ref, utc_to_tzaware, tzaware_to_utc
+from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
 try:
@@ -53,11 +53,12 @@ class MongoDBJobStore(BaseJobStore):
         return self._reconstitute_job(job_dict)
 
     def get_pending_jobs(self, now):
-        jobs = self._get_jobs({'next_run_time': {'$lte': now}})
-        next_job_dict = self.collection.find_one({'next_run_time': {'$gt': now}}, fields=['next_run_time'],
+        timestamp = datetime_to_utc_timestamp(now)
+        jobs = self._get_jobs({'next_run_time': {'$lte': timestamp}})
+        next_job_dict = self.collection.find_one({'next_run_time': {'$gt': timestamp}}, fields=['next_run_time'],
                                                  sort=[('next_run_time', ASCENDING)])
         next_run_time = next_job_dict['next_run_time'] if next_job_dict else None
-        return jobs, utc_to_tzaware(next_run_time, self.scheduler.timezone)
+        return jobs, utc_timestamp_to_datetime(next_run_time)
 
     def get_all_jobs(self):
         return self._get_jobs({})
@@ -66,9 +67,10 @@ class MongoDBJobStore(BaseJobStore):
         job_dict = job.__getstate__()
         document = {
             '_id': job_dict.pop('id'),
-            'next_run_time': tzaware_to_utc(job_dict['next_run_time']),
+            'next_run_time': datetime_to_utc_timestamp(job_dict['next_run_time']),
             'job_data': Binary(pickle.dumps(job_dict, self.pickle_protocol))
         }
+        print('adding job with next run time: %s (timestamp: %s)' % (job_dict['next_run_time'], utc_timestamp_to_datetime(document['next_run_time'])))
         try:
             self.collection.insert(document)
         except DuplicateKeyError:
@@ -86,7 +88,7 @@ class MongoDBJobStore(BaseJobStore):
             job_data.update(changes)
             document = {
                 '_id': _id,
-                'next_run_time': tzaware_to_utc(job_data['next_run_time']),
+                'next_run_time': datetime_to_utc_timestamp(job_data['next_run_time']),
                 'job_data': Binary(pickle.dumps(job_data, self.pickle_protocol))
             }
             try:
@@ -99,7 +101,7 @@ class MongoDBJobStore(BaseJobStore):
             job_data.update(changes)
             document_changes = {'job_data': Binary(pickle.dumps(job_data, self.pickle_protocol))}
             if 'next_run_time' in changes:
-                document_changes['next_run_time'] = tzaware_to_utc(changes['next_run_time'])
+                document_changes['next_run_time'] = datetime_to_utc_timestamp(changes['next_run_time'])
             self.collection.update({'_id': id}, {'$set': document_changes})
 
     def remove_job(self, id):
@@ -118,7 +120,6 @@ class MongoDBJobStore(BaseJobStore):
         job_data = pickle.loads(document.pop('job_data'))
         document.update(job_data)
         document['id'] = document['_id']
-        document['next_run_time'] = utc_to_tzaware(document['next_run_time'], self.scheduler.timezone)
         job.__setstate__(document)
         return job
 

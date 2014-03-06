@@ -129,6 +129,13 @@ def test_convert_datetime_invalid_str():
     pytest.raises(ValueError, convert_to_datetime, '19700-12-1', local_tz, None)
 
 
+def test_datetime_to_utc_timestamp():
+    dt = datetime(2014, 3, 12, 5, tzinfo=local_tz)
+    timestamp = datetime_to_utc_timestamp(dt)
+    dt2 = utc_timestamp_to_datetime(timestamp)
+    assert dt2 == dt
+
+
 def test_timedelta_seconds():
     delta = timedelta(minutes=2, seconds=30)
     seconds = timedelta_seconds(delta)

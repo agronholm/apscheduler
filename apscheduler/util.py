@@ -3,14 +3,16 @@ This module contains several handy functions primarily meant for internal use.
 """
 
 from datetime import date, datetime, timedelta, tzinfo
+from calendar import timegm
 from time import mktime
 import re
 
 from dateutil.tz import gettz, tzutc
 from six import string_types
 
-__all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'timedelta_seconds', 'time_difference',
-           'datetime_ceil', 'combine_opts', 'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref')
+__all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
+           'utc_timestamp_to_datetime', 'timedelta_seconds', 'time_difference', 'datetime_ceil', 'combine_opts',
+           'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref')
 
 
 def asint(text):
@@ -98,18 +100,14 @@ def convert_to_datetime(input, timezone, arg_name):
     return datetime_.replace(tzinfo=timezone)
 
 
-def utc_to_tzaware(timeval, timezone):
-    """Converts a naive datetime (assumed to be in UTC) into a timezone-aware datetime."""
-
+def datetime_to_utc_timestamp(timeval):
     if timeval is not None:
-        return timeval.replace(tzinfo=tzutc()).astimezone(timezone)
+        return timegm(timeval.utctimetuple())
 
 
-def tzaware_to_utc(timeval):
-    """Converts a timezone aware datetime into a naive UTC datetime."""
-
-    if timeval is not None:
-        return timeval.astimezone(tzutc()).replace(tzinfo=None)
+def utc_timestamp_to_datetime(timestamp):
+    if timestamp is not None:
+        return datetime.fromtimestamp(timestamp, tzutc())
 
 
 def timedelta_seconds(delta):
