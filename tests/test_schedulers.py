@@ -146,6 +146,19 @@ class TestOfflineScheduler(object):
         jobs = scheduler.get_jobs(pending=False)
         assert len(jobs) == 1
 
+    def test_print_pending_jobs(self, scheduler):
+        out = StringIO()
+        scheduler.print_jobs(out=out)
+        assert out.getvalue() == ''
+
+        scheduler.add_job(copy, 'date', [datetime(2200, 5, 19)], args=[()])
+        out = StringIO()
+        scheduler.print_jobs(out=out)
+        expected = 'Pending jobs:%s    '\
+            'copy (trigger: date[2200-05-19 00:00:00 DUMMYTZ], '\
+            'next run at: 2200-05-19 00:00:00 DUMMYTZ)%s' % (os.linesep, os.linesep)
+        assert out.getvalue() == expected
+
     def test_invalid_callable_args(self, scheduler):
         """Tests that attempting to schedule a job with an invalid number of arguments raises an exception."""
 
@@ -343,14 +356,14 @@ class TestRunningScheduler(object):
 
     def test_print_jobs(self, scheduler):
         out = StringIO()
-        scheduler.print_jobs(out)
+        scheduler.print_jobs(out=out)
         expected = 'Jobstore default:%s'\
                    '    No scheduled jobs%s' % (os.linesep, os.linesep)
         assert out.getvalue() == expected
 
         scheduler.add_job(copy, 'date', [datetime(2200, 5, 19)], args=[()])
         out = StringIO()
-        scheduler.print_jobs(out)
+        scheduler.print_jobs(out=out)
         expected = 'Jobstore default:%s    '\
             'copy (trigger: date[2200-05-19 00:00:00 DUMMYTZ], '\
             'next run at: 2200-05-19 00:00:00 DUMMYTZ)%s' % (os.linesep, os.linesep)

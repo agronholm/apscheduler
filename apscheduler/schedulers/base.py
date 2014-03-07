@@ -1,3 +1,4 @@
+from __future__ import print_function
 from abc import ABCMeta, abstractmethod
 from threading import Lock
 from datetime import datetime, timedelta
@@ -356,26 +357,30 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             for alias in jobstores:
                 self._jobstores[alias].remove_all_jobs()
 
-    def print_jobs(self, out=None):
+    def print_jobs(self, jobstore=None, out=None):
         """
-        Prints out a textual listing of all jobs currently scheduled on this
-        scheduler.
+        Prints out a textual listing of all jobs currently scheduled on either all job stores or just a specific one.
 
+        :param jobstore: alias of the job store
         :param out: a file-like object to print to (defaults to **sys.stdout** if nothing is given)
         """
         out = out or sys.stdout
-        job_strs = []
         with self._jobstores_lock:
-            for alias, jobstore in iteritems(self._jobstores):
-                job_strs.append(u('Jobstore %s:') % alias)
-                jobs = jobstore.get_all_jobs()
-                if jobs:
-                    for job in jobs:
-                        job_strs.append('    %s' % job)
-                else:
-                    job_strs.append('    No scheduled jobs')
+            if self._pending_jobs:
+                print(six.u('Pending jobs:'), file=out)
+                for job, alias in self._pending_jobs:
+                    if jobstore is None or alias == jobstore:
+                        print(six.u('    %s') % job, file=out)
 
-        out.write(os.linesep.join(job_strs) + os.linesep)
+            for alias, store in iteritems(self._jobstores):
+                if jobstore is None or alias == jobstore:
+                    print(six.u('Jobstore %s:') % alias, file=out)
+                    jobs = store.get_all_jobs()
+                    if jobs:
+                        for job in jobs:
+                            print(six.u('    %s') % job, file=out)
+                    else:
+                        print(six.u('    No scheduled jobs'), file=out)
 
     #
     # Protected API
