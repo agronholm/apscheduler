@@ -4,7 +4,7 @@ from threading import Lock
 from dateutil.tz import tzoffset
 import pytest
 
-from apscheduler.job import Job, MaxInstancesReachedError, NoSchedulerAttachedError
+from apscheduler.job import Job, MaxInstancesReachedError
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -50,9 +50,6 @@ class TestJob(object):
         job.attach_scheduler(scheduler, 'somejobstore')
         job.remove()
         assert scheduler.remove_job.called_once_with('testid', 'somejobstore')
-
-    def test_job_remove_no_scheduler(self, job):
-        pytest.raises(NoSchedulerAttachedError, job.remove)
 
     def test_compute_next_run_time(self, job):
         job.compute_next_run_time(self.RUNTIME - timedelta(microseconds=1))

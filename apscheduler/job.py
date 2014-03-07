@@ -15,11 +15,6 @@ class MaxInstancesReachedError(Exception):
     pass
 
 
-class NoSchedulerAttachedError(Exception):
-    def __init__(self):
-        super(Exception, self).__init__('This job has no scheduler attached to it')
-
-
 class Job(object):
     """
     Encapsulates the actual Job along with its metadata. Job instances are created by the scheduler when adding jobs,
@@ -63,15 +58,9 @@ class Job(object):
     #
 
     def remove(self):
-        if not hasattr(self, '_scheduler'):
-            raise NoSchedulerAttachedError
-
         self._scheduler.unschedule_job(self.id, self._jobstore)
 
     def modify(self, **changes):
-        if not hasattr(self, '_scheduler'):
-            raise NoSchedulerAttachedError
-
         self._scheduler.modify_job(self.id, self._jobstore, **changes)
         for attr, value in six.iteritems(changes):
             setattr(self, attr, value)
