@@ -189,8 +189,8 @@ def obj_to_ref(obj):
     """
     Returns the path to the given object.
     """
-    ref = '%s:%s' % (obj.__module__, get_callable_name(obj))
     try:
+        ref = '%s:%s' % (obj.__module__, get_callable_name(obj))
         obj2 = ref_to_obj(ref)
         if obj != obj2:
             raise ValueError

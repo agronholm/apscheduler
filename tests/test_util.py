@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta, tzinfo
 import time
 import os
 import shelve
+from functools import partial
 
 from dateutil.tz import tzoffset, gettz
 import pytest
@@ -204,6 +205,7 @@ def test_callable_name():
 def test_obj_to_ref():
     pytest.raises(ValueError, obj_to_ref, DummyClass.meth)
     pytest.raises(ValueError, obj_to_ref, DummyClass.staticmeth)
+    pytest.raises(ValueError, obj_to_ref, partial(DummyClass.meth))
     assert obj_to_ref(DummyClass.classmeth) == 'tests.test_util:DummyClass.classmeth'
     assert obj_to_ref(shelve.open) == 'shelve:open'
 
