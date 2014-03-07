@@ -1,5 +1,6 @@
 # coding: utf-8
 from datetime import date, datetime, timedelta
+from functools import partial
 import time
 import os
 import sys
@@ -185,6 +186,7 @@ def test_callable_name():
 def test_obj_to_ref():
     assert_raises(ValueError, obj_to_ref, DummyClass.meth)
     assert_raises(ValueError, obj_to_ref, DummyClass.staticmeth)
+    assert_raises(ValueError, obj_to_ref, partial(DummyClass.meth))
     eq_(obj_to_ref(DummyClass.classmeth), 'testutil:DummyClass.classmeth')
     eq_(obj_to_ref(shelve.open), 'shelve:open')
 
