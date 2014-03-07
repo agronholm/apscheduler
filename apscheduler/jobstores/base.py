@@ -67,7 +67,7 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         """
 
     @abstractmethod
-    def update_job(self, id, changes):
+    def modify_job(self, id, changes):
         """Makes the specified changes to the given job.
 
         :param id: identifier of the job

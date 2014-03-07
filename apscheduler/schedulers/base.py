@@ -272,21 +272,58 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             return func
         return inner
 
-    def get_jobs(self, jobstore=None):
+    def modify_job(self, job_id, jobstore='default', **changes):
         """
-        Returns a list of scheduled jobs, either from a specific job store or from all of them.
+        Modifies the properties of a single job. Modifications are passed to this method as extra keyword arguments.
+
+        :param job_id: the identifier of the job
+        :param jobstore: alias of the job store
+        """
+
+        # Sanity check for the changes
+        for attr, value in six.iteritems(changes):
+            if attr.startswith('_'):
+                raise ValueError('Cannot modify protected attributes')
+            if not attr in Job.__slots__:
+                raise ValueError('Job has no attribute named "%s"' % attr)
+
+        with self._jobstores_lock:
+            # Check if the job is among the pending jobs
+            for job, store in self._pending_jobs:
+                if job.id == job_id:
+                    for attr, value in six.iteritems(changes):
+                        setattr(job, attr, value)
+                    return
+
+            store = self._jobstores[jobstore]
+            store.modify_job(job_id, changes)
+
+    def get_jobs(self, jobstore=None, pending=None):
+        """
+        Returns a list of pending jobs (if the scheduler hasn't been started yet) and scheduled jobs,
+        either from a specific job store or from all of them.
 
         :param jobstore: alias of the job store
+        :param pending: ``False`` to leave out pendin jobs (jobs that are waiting for the scheduler start to be added to
+                        their respective job stores), ``True`` to only include pending jobs, anything else to return
+                        both
         :return: list of :class:`~apscheduler.job.Job` objects
         """
 
         with self._jobstores_lock:
             jobs = []
-            jobstores = [jobstore] if jobstore else self._jobstores
-            for alias, store in six.iteritems(jobstores):
-                for job in store.get_all_jobs():
-                    job.attach_scheduler(self, alias)
-                    jobs.append(job)
+
+            if pending is not False:
+                for job, alias in self._pending_jobs:
+                    if jobstore is None or alias == jobstore:
+                        jobs.append(job)
+
+            if pending is not True:
+                jobstores = [jobstore] if jobstore else self._jobstores
+                for alias, store in six.iteritems(jobstores):
+                    for job in store.get_all_jobs():
+                        job.attach_scheduler(self, alias)
+                        jobs.append(job)
 
             return jobs
 
@@ -299,6 +336,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
 
         with self._jobstores_lock:
+            # Check if the job is among the pending jobs
             for i, (job, store) in enumerate(self._pending_jobs):
                 if job.id == job_id:
                     del self._pending_jobs[i]
@@ -544,7 +582,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
                         # Update the job, but don't keep finished jobs around
                         if job.compute_next_run_time(now + timedelta(microseconds=1)):
-                            jobstore.update_job(job.id, {'next_run_time': job.next_run_time})
+                            jobstore.modify_job(job.id, {'next_run_time': job.next_run_time})
                         else:
                             self._remove_job(job, alias, jobstore)
 

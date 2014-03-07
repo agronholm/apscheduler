@@ -26,7 +26,7 @@ class Job(object):
     and should not be directly instantiated.
     """
 
-    __slots__ = ('_lock', 'scheduler', 'jobstore', 'id', 'func', 'func_ref', 'trigger', 'args', 'kwargs', 'name',
+    __slots__ = ('_lock', '_scheduler', '_jobstore', 'id', 'func', 'func_ref', 'trigger', 'args', 'kwargs', 'name',
                  'misfire_grace_time', 'coalesce', 'max_runs', 'max_instances', 'runs', 'instances', 'next_run_time')
 
     def __init__(self, trigger, func, args, kwargs, id, misfire_grace_time, coalesce, name,
@@ -63,9 +63,18 @@ class Job(object):
     #
 
     def remove(self):
-        if not hasattr(self, 'scheduler'):
+        if not hasattr(self, '_scheduler'):
             raise NoSchedulerAttachedError
-        self.scheduler.unschedule_job(self.id, self.jobstore)
+
+        self._scheduler.unschedule_job(self.id, self._jobstore)
+
+    def modify(self, **changes):
+        if not hasattr(self, '_scheduler'):
+            raise NoSchedulerAttachedError
+
+        self._scheduler.modify_job(self.id, self._jobstore, **changes)
+        for attr, value in six.iteritems(changes):
+            setattr(self, attr, value)
 
     #
     # Protected API
@@ -104,8 +113,8 @@ class Job(object):
             self.instances -= 1
 
     def attach_scheduler(self, scheduler, jobstore):
-        self.scheduler = scheduler
-        self.jobstore = jobstore
+        self._scheduler = scheduler
+        self._jobstore = jobstore
 
     def __getstate__(self):
         return {

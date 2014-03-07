@@ -86,7 +86,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         except IntegrityError:
             raise ConflictingIdError(job.id)
 
-    def update_job(self, id, changes):
+    def modify_job(self, id, changes):
         selectable = select([self.jobs_t]).where(self.jobs_t.c.id == id)
         row = self.engine.execute(selectable).fetchone()
         if row is None:

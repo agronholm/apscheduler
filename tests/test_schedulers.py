@@ -85,15 +85,16 @@ class TestOfflineScheduler(object):
             scheduler.add_jobstore(MemoryJobStore(), 'dummy')
             scheduler.add_jobstore(MemoryJobStore(), 'dummy')
 
-    def test_add_tentative_job(self, scheduler):
-        job = scheduler.add_job(lambda: None, 'date', [datetime(2200, 7, 24)], jobstore='dummy')
-        assert isinstance(job, Job)
-        assert scheduler.get_jobs() == []
-
     def test_add_job_by_reference(self, scheduler):
         job = scheduler.add_job('copy:copy', 'date', [datetime(2200, 7, 24)], args=[()])
         assert job.func == copy
         assert job.func_ref == 'copy:copy'
+
+    def test_modify_job_offline(self, scheduler):
+        scheduler.add_job(lambda: None, 'interval', {'seconds': 1}, id='foo')
+        scheduler.modify_job('foo', max_runs=3456)
+        job = scheduler.get_jobs()[0]
+        assert job.max_runs == 3456
 
     def test_configure_jobstore(self, scheduler):
         conf = {'apscheduler.jobstore.memstore.class': 'apscheduler.jobstores.memory:MemoryJobStore'}
@@ -134,48 +135,45 @@ class TestOfflineScheduler(object):
         assert len(val) == 2
 
     def test_pending_jobs(self, scheduler):
-        """Tests that pending jobs are properly added to the jobs list, but only  when the scheduler is started."""
+        """Tests that pending jobs are properly added to the jobs list, but only when the scheduler is started."""
 
-        scheduler.add_job(lambda: None, 'date', [datetime(9999, 9, 9)])
-        assert scheduler.get_jobs() == []
+        job = scheduler.add_job(lambda: None, 'date', [datetime(9999, 9, 9)])
+        assert scheduler.get_jobs(pending=False) == []
+        assert scheduler.get_jobs(pending=True) == [job]
+        assert scheduler.get_jobs() == [job]
 
         scheduler.start()
-        jobs = scheduler.get_jobs()
+        jobs = scheduler.get_jobs(pending=False)
         assert len(jobs) == 1
 
     def test_invalid_callable_args(self, scheduler):
         """Tests that attempting to schedule a job with an invalid number of arguments raises an exception."""
 
-        with pytest.raises(ValueError) as error:
-            scheduler.add_job(lambda x: None, 'date', [datetime(9999, 9, 9)], args=[1, 2])
-
-        assert str(error.value) == ('The list of positional arguments is longer than the target callable can handle '
-                                    '(allowed: 1, given in args: 2)')
+        exc = pytest.raises(ValueError, scheduler.add_job, lambda x: None, 'date', [datetime(9999, 9, 9)], args=[1, 2])
+        assert str(exc.value) == ('The list of positional arguments is longer than the target callable can handle '
+                                  '(allowed: 1, given in args: 2)')
 
     def test_invalid_callable_kwargs(self, scheduler):
         """Tests that attempting to schedule a job with unmatched keyword arguments raises an exception."""
 
-        with pytest.raises(ValueError) as error:
-            scheduler.add_job(lambda x: None, 'date', [datetime(9999, 9, 9)], kwargs={'x': 0, 'y': 1})
-
-        assert str(error.value) == 'The target callable does not accept the following keyword arguments: y'
+        exc = pytest.raises(ValueError, scheduler.add_job, lambda x: None, 'date', [datetime(9999, 9, 9)],
+                            kwargs={'x': 0, 'y': 1})
+        assert str(exc.value) == 'The target callable does not accept the following keyword arguments: y'
 
     def test_missing_callable_args(self, scheduler):
         """Tests that attempting to schedule a job with missing arguments raises an exception."""
 
-        with pytest.raises(ValueError) as error:
-            scheduler.add_job(lambda x, y, z: None, 'date', [datetime(9999, 9, 9)], args=[1], kwargs={'y': 0})
-
-        assert str(error.value) == 'The following arguments are not supplied: z'
+        exc = pytest.raises(ValueError, scheduler.add_job, lambda x, y, z: None, 'date', [datetime(9999, 9, 9)],
+                            args=[1], kwargs={'y': 0})
+        assert str(exc.value) == 'The following arguments are not supplied: z'
 
     def test_conflicting_callable_args(self, scheduler):
         """Tests that attempting to schedule a job where the combination of args and kwargs are in conflict raises an
         exception."""
 
-        with pytest.raises(ValueError) as error:
-            scheduler.add_job(lambda x, y: None, 'date', [datetime(9999, 9, 9)], args=[1, 2], kwargs={'y': 1})
-
-        assert str(error.value) == 'The following arguments are supplied in both args and kwargs: y'
+        exc = pytest.raises(ValueError, scheduler.add_job, lambda x, y: None, 'date', [datetime(9999, 9, 9)],
+                            args=[1, 2], kwargs={'y': 1})
+        assert str(exc.value) == 'The following arguments are supplied in both args and kwargs: y'
 
     @minpython(3)
     def test_unfulfilled_kwargs(self, scheduler):
@@ -183,10 +181,8 @@ class TestOfflineScheduler(object):
         exception."""
 
         func = eval("lambda x, *, y, z=1: None")
-        with pytest.raises(ValueError) as error:
-            scheduler.add_job(func, 'date', [datetime(9999, 9, 9)], args=[1])
-
-        assert str(error.value) == 'The following keyword-only arguments have not been supplied in kwargs: y'
+        exc = pytest.raises(ValueError, scheduler.add_job, func, 'date', [datetime(9999, 9, 9)], args=[1])
+        assert str(exc.value) == 'The following keyword-only arguments have not been supplied in kwargs: y'
 
 
 @pytest.mark.start_scheduler
@@ -242,6 +238,12 @@ class TestRunningScheduler(object):
         jobs = scheduler.get_jobs()
         assert len(jobs) == 1
         assert jobs[0].func is dummyjob
+
+    def test_modify_job_online(self, scheduler):
+        scheduler.add_job(lambda: None, 'interval', {'seconds': 1}, id='foo')
+        scheduler.modify_job('foo', max_runs=3456)
+        job = scheduler.get_jobs()[0]
+        assert job.max_runs == 3456
 
     def test_remove_job(self, scheduler):
         vals = [0]

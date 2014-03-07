@@ -46,7 +46,7 @@ class MemoryJobStore(BaseJobStore):
         self._jobs.insert(index, job)
         self._jobs_index[job.id] = job
 
-    def update_job(self, id, changes):
+    def modify_job(self, id, changes):
         job = self.lookup_job(id)
 
         # If the job identifier changed, need to update the index

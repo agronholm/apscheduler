@@ -124,7 +124,7 @@ def test_add_job_conflicting_id(jobstore):
 def test_update_job_id_and_others(jobstore):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
-    jobstore.update_job(job1.id, {'id': 'foo', 'max_instances': 6})
+    jobstore.modify_job(job1.id, {'id': 'foo', 'max_instances': 6})
 
     jobs = jobstore.get_all_jobs()
     assert len(jobs) == 2
@@ -138,7 +138,7 @@ def test_update_job_next_runtime(jobstore):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     job3 = create_job(jobstore, dummy_job3, datetime(2013, 8, 14))
-    jobstore.update_job(job1.id, {'next_run_time': datetime(2014, 1, 3, tzinfo=local_tz)})
+    jobstore.modify_job(job1.id, {'next_run_time': datetime(2014, 1, 3, tzinfo=local_tz)})
 
     jobs = jobstore.get_all_jobs()
     assert len(jobs) == 3
@@ -149,7 +149,7 @@ def test_update_job_next_runtime(jobstore):
 def test_update_job_next_runtime_empty(jobstore):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
-    jobstore.update_job(job1.id, {'next_run_time': None})
+    jobstore.modify_job(job1.id, {'next_run_time': None})
 
     jobs = jobstore.get_all_jobs()
     assert len(jobs) == 2
@@ -160,12 +160,12 @@ def test_update_job_next_runtime_empty(jobstore):
 def test_update_job_conflicting_id(jobstore):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
-    pytest.raises(ConflictingIdError, jobstore.update_job, job2.id, {'id': job1.id})
+    pytest.raises(ConflictingIdError, jobstore.modify_job, job2.id, {'id': job1.id})
 
 
 @pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
 def test_update_job_nonexistent_job(jobstore):
-    pytest.raises(JobLookupError, jobstore.update_job, 'foo', {'next_run_time': None})
+    pytest.raises(JobLookupError, jobstore.modify_job, 'foo', {'next_run_time': None})
 
 
 @pytest.mark.parametrize('jobstore', persistent_jobstores, indirect=True, ids=persistent_jobstores_ids)

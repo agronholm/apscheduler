@@ -77,7 +77,7 @@ class MongoDBJobStore(BaseJobStore):
         except DuplicateKeyError:
             raise ConflictingIdError(job.id)
 
-    def update_job(self, id, changes):
+    def modify_job(self, id, changes):
         document = self.collection.find_one(id)
         if document is None:
             raise JobLookupError(id)
