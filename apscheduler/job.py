@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import six
 
-from apscheduler.util import ref_to_obj, obj_to_ref, get_callable_name, datetime_repr
+from apscheduler.util import ref_to_obj, obj_to_ref, get_callable_name, datetime_repr, repr_escape
 
 
 class MaxInstancesReachedError(Exception):
@@ -17,12 +17,12 @@ class MaxInstancesReachedError(Exception):
 
 class Job(object):
     """
-    Encapsulates the actual Job along with its metadata. Job instances are created by the scheduler when adding jobs,
-    and should not be directly instantiated.
+    Encapsulates the actual Job along with its metadata. This class is used internally by APScheduler, and should never
+    be instantiated by the user.
     """
 
-    __slots__ = ('_lock', '_scheduler', '_jobstore', 'id', 'func', 'func_ref', 'trigger', 'args', 'kwargs', 'name',
-                 'misfire_grace_time', 'coalesce', 'max_runs', 'max_instances', 'runs', 'instances', 'next_run_time')
+    __slots__ = ('_lock', 'id', 'func', 'func_ref', 'trigger', 'args', 'kwargs', 'name', 'misfire_grace_time',
+                 'coalesce', 'max_runs', 'max_instances', 'runs', 'instances', 'next_run_time')
 
     def __init__(self, trigger, func, args, kwargs, id, misfire_grace_time, coalesce, name,
                  max_runs, max_instances):
@@ -52,22 +52,6 @@ class Job(object):
         self.runs = 0
         self.instances = 0
         self.next_run_time = None
-
-    #
-    # Public API
-    #
-
-    def remove(self):
-        self._scheduler.unschedule_job(self.id, self._jobstore)
-
-    def modify(self, **changes):
-        self._scheduler.modify_job(self.id, self._jobstore, **changes)
-        for attr, value in six.iteritems(changes):
-            setattr(self, attr, value)
-
-    #
-    # Protected API
-    #
 
     def compute_next_run_time(self, now):
         if self.runs == self.max_runs:
@@ -101,11 +85,10 @@ class Job(object):
             assert self.instances > 0, 'Already at 0 instances'
             self.instances -= 1
 
-    def attach_scheduler(self, scheduler, jobstore):
-        self._scheduler = scheduler
-        self._jobstore = jobstore
-
     def __getstate__(self):
+        if not self.func_ref:
+            raise ValueError('This Job cannot be serialized because the function reference is missing')
+
         return {
             'version': 1,
             'id': self.id,
@@ -149,7 +132,81 @@ class Job(object):
         return NotImplemented
 
     def __repr__(self):
-        return '<Job (name=%s, trigger=%r)>' % (self.name, self.trigger)
+        return '<Job (id=%s)>' % repr_escape(self.id)
+
+
+class JobHandle(object):
+    __slots__ = ('_readonly', 'scheduler', 'jobstore', 'id', 'func_ref', 'trigger', 'args', 'kwargs', 'name',
+                 'misfire_grace_time', 'coalesce', 'max_runs', 'max_instances', 'runs', 'instances', 'next_run_time')
+
+    def __init__(self, scheduler, jobstore, job):
+        super(JobHandle, self).__init__()
+        self._readonly = False
+        self.scheduler = scheduler
+        self.jobstore = jobstore
+        self.id = job.id
+        self._update_attributes_from_job(job)
+        self._readonly = True
+
+    def remove(self):
+        self.scheduler.unschedule_job(self.id, self.jobstore)
+
+    def modify(self, **changes):
+        self.scheduler.modify_job(self.id, self.jobstore, **changes)
+        self._readonly = False
+        try:
+            self.id = changes.get('id', self.id)
+            self.refresh()
+        finally:
+            self._readonly = True
+
+    def refresh(self):
+        job = self.scheduler.get_job(self.id, self.jobstore)
+        self._readonly = False
+        try:
+            self._update_attributes_from_job(job)
+        finally:
+            self._readonly = True
+
+    @property
+    def pending(self):
+        for job in self.scheduler.get_jobs(self.jobstore, pending=True):
+            if job.id == self.id:
+                return True
+        return False
+
+    def _update_attributes_from_job(self, job):
+        self.func_ref = job.func_ref
+        self.trigger = job.trigger
+        self.args = job.args
+        self.kwargs = job.kwargs
+        self.name = job.name
+        self.misfire_grace_time = job.misfire_grace_time
+        self.coalesce = job.coalesce
+        self.max_runs = job.max_runs
+        self.max_instances = job.max_instances
+        self.runs = job.runs
+        self.next_run_time = job.next_run_time
+
+    def __setattr__(self, key, value):
+        if key == '_readonly' or not self._readonly:
+            super(JobHandle, self).__setattr__(key, value)
+        else:
+            raise AttributeError('Cannot set job attributes directly. If you want to modify the job, use the modify() '
+                                 'method instead.')
+
+    def __eq__(self, other):
+        if isinstance(other, JobHandle):
+            return self.id == other.id
+        return NotImplemented
+
+    def __repr__(self):
+        return '<JobHandle (id=%s name=%s)>' % (repr_escape(self.id), repr_escape(self.name))
 
     def __str__(self):
-        return '%s (trigger: %s, next run at: %s)' % (self.name, self.trigger, datetime_repr(self.next_run_time))
+        return '%s (trigger: %s, next run at: %s)' % (self.name, repr_escape(str(self.trigger)),
+                                                      datetime_repr(self.next_run_time))
+
+    def __unicode__(self):
+        return six.u('%s (trigger: %s, next run at: %s)') % (self.name, unicode(self.trigger),
+                                                             datetime_repr(self.next_run_time))

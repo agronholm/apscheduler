@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from logging import StreamHandler, ERROR
-from io import StringIO
+from io import StringIO, BytesIO
 from copy import copy
 from threading import Event, Thread
 from time import sleep
@@ -13,7 +13,6 @@ from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import BaseScheduler
-from apscheduler.job import Job
 from apscheduler.events import (SchedulerEvent, EVENT_JOB_EXECUTED, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN,
                                 EVENT_JOB_MISSED, EVENT_JOBSTORE_ADDED, EVENT_JOBSTORE_JOB_ADDED,
                                 EVENT_JOBSTORE_JOB_REMOVED)
@@ -71,7 +70,7 @@ def scheduler(request):
 
 @pytest.fixture
 def logstream(request, scheduler):
-    stream = StringIO()
+    stream = BytesIO()
     loghandler = StreamHandler(stream)
     loghandler.setLevel(ERROR)
     scheduler.logger.addHandler(loghandler)
@@ -87,7 +86,6 @@ class TestOfflineScheduler(object):
 
     def test_add_job_by_reference(self, scheduler):
         job = scheduler.add_job('copy:copy', 'date', [datetime(2200, 7, 24)], args=[()])
-        assert job.func == copy
         assert job.func_ref == 'copy:copy'
 
     def test_modify_job_offline(self, scheduler):
@@ -200,15 +198,6 @@ class TestOfflineScheduler(object):
 
 @pytest.mark.start_scheduler
 class TestRunningScheduler(object):
-    def test_job_name(self, scheduler):
-        def my_job():
-            pass
-
-        job = scheduler.add_job(my_job, 'interval', {'start_date': datetime(2010, 5, 19)})
-        assert (repr(job) ==
-                "<Job (name=my_job, trigger=<IntervalTrigger (interval=datetime.timedelta(0, 1), "
-                "start_date='2010-05-19 00:00:00 DUMMYTZ')>)>")
-
     def test_add_job_object(self, scheduler):
         """Tests that any callable object is accepted (and not just functions)."""
 
@@ -250,7 +239,7 @@ class TestRunningScheduler(object):
 
         jobs = scheduler.get_jobs()
         assert len(jobs) == 1
-        assert jobs[0].func is dummyjob
+        assert jobs[0].name == 'dummyjob'
 
     def test_modify_job_online(self, scheduler):
         scheduler.add_job(lambda: None, 'interval', {'seconds': 1}, id='foo')
@@ -327,6 +316,7 @@ class TestRunningScheduler(object):
         scheduler.now += timedelta(seconds=2)
 
         scheduler._process_jobs()
+        job.refresh()
         assert job.runs == 1
         assert len(events) == 1
         assert events[0].code == EVENT_JOB_EXECUTED
@@ -347,6 +337,7 @@ class TestRunningScheduler(object):
         scheduler.now += timedelta(seconds=2)
 
         scheduler._process_jobs()
+        job.refresh()
         assert job.runs == 3
         assert len(events) == 3
         assert events[0].code == EVENT_JOB_EXECUTED

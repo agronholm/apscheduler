@@ -8,7 +8,7 @@ from time import mktime
 import re
 
 from dateutil.tz import gettz, tzutc
-from six import string_types
+import six
 
 __all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
            'utc_timestamp_to_datetime', 'timedelta_seconds', 'time_difference', 'datetime_ceil', 'combine_opts',
@@ -49,7 +49,7 @@ def astimezone(obj):
     :rtype: :class:`~datetime.tzinfo`
     """
 
-    if isinstance(obj, string_types):
+    if isinstance(obj, six.string_types):
         return gettz(obj)
     if isinstance(obj, tzinfo):
         return obj
@@ -80,7 +80,7 @@ def convert_to_datetime(input, timezone, arg_name):
         datetime_ = input
     elif isinstance(input, date):
         datetime_ = datetime.fromordinal(input.toordinal())
-    elif isinstance(input, string_types):
+    elif isinstance(input, six.string_types):
         m = _DATE_REGEX.match(input)
         if not m:
             raise ValueError('Invalid date string')
@@ -94,7 +94,7 @@ def convert_to_datetime(input, timezone, arg_name):
         return datetime_
     if timezone is None:
         raise ValueError('The "timezone" argument must be specified if %s has no timezone information' % arg_name)
-    if isinstance(timezone, string_types):
+    if isinstance(timezone, six.string_types):
         timezone = gettz(timezone)
 
     return datetime_.replace(tzinfo=timezone)
@@ -216,7 +216,7 @@ def ref_to_obj(ref):
     """
     Returns the object pointed to by ``ref``.
     """
-    if not isinstance(ref, string_types):
+    if not isinstance(ref, six.string_types):
         raise TypeError('References must be strings')
     if not ':' in ref:
         raise ValueError('Invalid reference')
@@ -243,3 +243,12 @@ def maybe_ref(ref):
     if not isinstance(ref, str):
         return ref
     return ref_to_obj(ref)
+
+
+if six.PY2:
+    def repr_escape(string):
+        if isinstance(string, unicode):
+            return string.encode('ascii', errors='backslashreplace')
+        return string
+else:
+    repr_escape = lambda string: string

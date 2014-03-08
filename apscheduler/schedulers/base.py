@@ -1,22 +1,20 @@
 from __future__ import print_function
 from abc import ABCMeta, abstractmethod
-from threading import Lock
+from threading import RLock
 from datetime import datetime, timedelta
 from logging import getLogger
 from collections import Mapping, Iterable
 from inspect import ismethod, isfunction
-import os
 import sys
 
 from pkg_resources import iter_entry_points
 from dateutil.tz import tzlocal
-from six import u, itervalues, iteritems
 import six
 
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
 from apscheduler.util import *
 from apscheduler.jobstores.memory import MemoryJobStore
-from apscheduler.job import Job, MaxInstancesReachedError
+from apscheduler.job import Job, MaxInstancesReachedError, JobHandle
 from apscheduler.events import *
 from apscheduler.threadpool import ThreadPool
 
@@ -94,7 +92,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self._threadpool.shutdown(wait)
 
         # Close all job stores
-        for jobstore in itervalues(self._jobstores):
+        for jobstore in six.itervalues(self._jobstores):
             jobstore.close()
 
         self.logger.info('Scheduler has been shut down')
@@ -201,7 +199,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :type coalesce: bool
         :type max_runs: int
         :type max_instances: int
-        :rtype: :class:`~apscheduler.job.Job`
+        :rtype: :class:`~apscheduler.job.JobHandle`
         """
         # Argument sanity checking
         if args is not None and (not isinstance(args, Iterable) and not isinstance(args, str)):
@@ -245,7 +243,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         args = tuple(args) if args is not None else ()
         kwargs = dict(kwargs) if kwargs is not None else {}
         job = Job(trigger, func, args, kwargs, id, misfire_grace_time, coalesce, name, max_runs, max_instances)
-        job.attach_scheduler(self, jobstore)
 
         # Make sure the callable can handle the given arguments
         self._check_callable_args(job.func, args, kwargs)
@@ -261,7 +258,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         else:
             self._real_add_job(job, jobstore, True)
 
-        return job
+        return JobHandle(self, jobstore, job)
 
     def scheduled_job(self, trigger, trigger_args=(), args=None, kwargs=None, id=None, name=None,
                       misfire_grace_time=None, coalesce=None, max_runs=None, max_instances=1, jobstore='default'):
@@ -308,7 +305,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param pending: ``False`` to leave out pendin jobs (jobs that are waiting for the scheduler start to be added to
                         their respective job stores), ``True`` to only include pending jobs, anything else to return
                         both
-        :return: list of :class:`~apscheduler.job.Job` objects
+        :return: list of :class:`~apscheduler.job.JobHandle` objects
         """
 
         with self._jobstores_lock:
@@ -317,16 +314,19 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             if pending is not False:
                 for job, alias in self._pending_jobs:
                     if jobstore is None or alias == jobstore:
-                        jobs.append(job)
+                        jobs.append(JobHandle(self, alias, job))
 
             if pending is not True:
                 jobstores = [jobstore] if jobstore else self._jobstores
                 for alias, store in six.iteritems(jobstores):
                     for job in store.get_all_jobs():
-                        job.attach_scheduler(self, alias)
-                        jobs.append(job)
+                        jobs.append(JobHandle(self, alias, job))
 
             return jobs
+
+    def get_job(self, job_id, jobstore):
+        with self._jobstores_lock:
+            return self._jobstores[jobstore].lookup_job(job_id)
 
     def remove_job(self, job_id, jobstore='default'):
         """
@@ -366,16 +366,16 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         out = out or sys.stdout
         with self._jobstores_lock:
-            if self._pending_jobs:
+            jobs = self.get_jobs(jobstore, True)
+            if jobs:
                 print(six.u('Pending jobs:'), file=out)
-                for job, alias in self._pending_jobs:
-                    if jobstore is None or alias == jobstore:
-                        print(six.u('    %s') % job, file=out)
+                for job in jobs:
+                    print(six.u('    %s') % job, file=out)
 
-            for alias, store in iteritems(self._jobstores):
+            for alias, store in six.iteritems(self._jobstores):
                 if jobstore is None or alias == jobstore:
                     print(six.u('Jobstore %s:') % alias, file=out)
-                    jobs = store.get_all_jobs()
+                    jobs = self.get_jobs(jobstore, False)
                     if jobs:
                         for job in jobs:
                             print(six.u('    %s') % job, file=out)
@@ -507,7 +507,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """Triggers :meth:`_process_jobs` to be run in an implementation specific manner."""
 
     def _create_lock(self):
-        return Lock()
+        return RLock()
 
     def _current_time(self):
         return datetime.now(self.timezone)
@@ -570,7 +570,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         next_wakeup_time = None
 
         with self._jobstores_lock:
-            for alias, jobstore in iteritems(self._jobstores):
+            for alias, jobstore in six.iteritems(self._jobstores):
                 jobs, jobstore_next_wakeup_time = jobstore.get_pending_jobs(now)
                 if not next_wakeup_time:
                     next_wakeup_time = jobstore_next_wakeup_time
