@@ -28,7 +28,7 @@ class SchedulerEvent(object):
         self.code = code
 
     def __repr__(self):
-        return '<%s code=%d>' % (self.__class__.__name__, self.code)
+        return '<%s (code=%d)>' % (self.__class__.__name__, self.code)
 
 
 class JobStoreEvent(SchedulerEvent):
