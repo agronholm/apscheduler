@@ -86,9 +86,6 @@ class Job(object):
             self.instances -= 1
 
     def __getstate__(self):
-        if not self.func_ref:
-            raise ValueError('This Job cannot be serialized because the function reference is missing')
-
         return {
             'version': 1,
             'id': self.id,
@@ -102,7 +99,7 @@ class Job(object):
             'max_runs': self.max_runs,
             'max_instances': self.max_instances,
             'runs': self.runs,
-            'next_run_time': self.next_run_time,
+            'next_run_time': self.next_run_time
         }
 
     def __setstate__(self, state):
@@ -136,64 +133,53 @@ class Job(object):
 
 
 class JobHandle(object):
-    __slots__ = ('_readonly', 'scheduler', 'jobstore', 'id', 'func_ref', 'trigger', 'args', 'kwargs', 'name',
-                 'misfire_grace_time', 'coalesce', 'max_runs', 'max_instances', 'runs', 'instances', 'next_run_time')
+    __slots__ = ('scheduler', 'jobstore', '_job_state')
 
     def __init__(self, scheduler, jobstore, job):
         super(JobHandle, self).__init__()
-        self._readonly = False
         self.scheduler = scheduler
         self.jobstore = jobstore
-        self.id = job.id
-        self._update_attributes_from_job(job)
-        self._readonly = True
+        self._job_state = job.__getstate__()
 
     def remove(self):
-        self.scheduler.unschedule_job(self.id, self.jobstore)
+        """Deletes the referenced job."""
+
+        self.scheduler.remove_job(self.id, self.jobstore)
 
     def modify(self, **changes):
+        """Modifies the referenced job."""
+
         self.scheduler.modify_job(self.id, self.jobstore, **changes)
-        self._readonly = False
-        try:
-            self.id = changes.get('id', self.id)
-            self.refresh()
-        finally:
-            self._readonly = True
+        self._job_state['id'] = changes.get('id', self.id)
+        self.refresh()
 
     def refresh(self):
-        job = self.scheduler.get_job(self.id, self.jobstore)
-        self._readonly = False
-        try:
-            self._update_attributes_from_job(job)
-        finally:
-            self._readonly = True
+        """Reloads the current state of the referenced job from the scheduler."""
+
+        jobhandle = self.scheduler.get_job(self.id, self.jobstore)
+        self._job_state = jobhandle._job_state
 
     @property
     def pending(self):
-        for job in self.scheduler.get_jobs(self.jobstore, pending=True):
+        """Returns ``True`` if the referenced job is still waiting to be added to its designated job store."""
+
+        for job in self.scheduler.get_jobs(self.jobstore, True):
             if job.id == self.id:
                 return True
+
         return False
 
-    def _update_attributes_from_job(self, job):
-        self.func_ref = job.func_ref
-        self.trigger = job.trigger
-        self.args = job.args
-        self.kwargs = job.kwargs
-        self.name = job.name
-        self.misfire_grace_time = job.misfire_grace_time
-        self.coalesce = job.coalesce
-        self.max_runs = job.max_runs
-        self.max_instances = job.max_instances
-        self.runs = job.runs
-        self.next_run_time = job.next_run_time
+    def __getattr__(self, item):
+        try:
+            return self._job_state[item]
+        except KeyError:
+            raise AttributeError(item)
 
     def __setattr__(self, key, value):
-        if key == '_readonly' or not self._readonly:
+        if key in self.__slots__:
             super(JobHandle, self).__setattr__(key, value)
         else:
-            raise AttributeError('Cannot set job attributes directly. If you want to modify the job, use the modify() '
-                                 'method instead.')
+            self.modify(**{key: value})
 
     def __eq__(self, other):
         if isinstance(other, JobHandle):

@@ -280,17 +280,14 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Sanity check for the changes
         for attr, value in six.iteritems(changes):
-            if attr.startswith('_'):
-                raise ValueError('Cannot modify protected attributes')
-            if not attr in Job.__slots__:
-                raise ValueError('Job has no attribute named "%s"' % attr)
+            if attr.startswith('_') or attr not in Job.__slots__:
+                raise ValueError('Cannot modify Job attribute "%s"' % attr)
 
         with self._jobstores_lock:
             # Check if the job is among the pending jobs
             for job, store in self._pending_jobs:
                 if job.id == job_id:
-                    for attr, value in six.iteritems(changes):
-                        setattr(job, attr, value)
+                    job.modify(changes)
                     return
 
             store = self._jobstores[jobstore]
@@ -324,9 +321,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
             return jobs
 
-    def get_job(self, job_id, jobstore):
+    def get_job(self, job_id, jobstore='default'):
+        """Returns a JobHandle for the specified job."""
+
         with self._jobstores_lock:
-            return self._jobstores[jobstore].lookup_job(job_id)
+            job = self._jobstores[jobstore].lookup_job(job_id)
+            return JobHandle(self, jobstore, job)
 
     def remove_job(self, job_id, jobstore='default'):
         """
