@@ -15,7 +15,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.events import (SchedulerEvent, EVENT_JOB_EXECUTED, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN,
                                 EVENT_JOB_MISSED, EVENT_JOBSTORE_ADDED, EVENT_JOBSTORE_JOB_ADDED,
-                                EVENT_JOBSTORE_JOB_REMOVED)
+                                EVENT_JOBSTORE_JOB_REMOVED, EVENT_JOBSTORE_JOB_MODIFIED)
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.threadpool import ThreadPool
 from tests.conftest import minpython
@@ -242,19 +242,26 @@ class TestRunningScheduler(object):
         assert jobs[0].name == 'dummyjob'
 
     def test_modify_job_online(self, scheduler):
+        events = []
+        scheduler.add_listener(events.append, EVENT_JOBSTORE_JOB_MODIFIED)
         scheduler.add_job(lambda: None, 'interval', {'seconds': 1}, id='foo')
         scheduler.modify_job('foo', max_runs=3456)
+        assert len(events) == 1
+
         job = scheduler.get_jobs()[0]
         assert job.max_runs == 3456
 
     def test_remove_job(self, scheduler):
         vals = [0]
+        events = []
+        scheduler.add_listener(events.append, EVENT_JOBSTORE_JOB_REMOVED)
         job = scheduler.add_job(increment, 'cron', args=(vals,))
         scheduler.now = job.next_run_time
         scheduler._process_jobs()
         assert vals[0] == 1
 
         scheduler.remove_job(job.id)
+        assert len(events) == 1
         scheduler._process_jobs()
         assert vals[0] == 1
 

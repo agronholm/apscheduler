@@ -280,7 +280,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Sanity check for the changes
         for attr, value in six.iteritems(changes):
-            if attr.startswith('_') or attr not in Job.__slots__:
+            if attr not in Job.modifiable_attributes:
                 raise ValueError('Cannot modify Job attribute "%s"' % attr)
 
         with self._jobstores_lock:
@@ -289,10 +289,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 if job.id == job_id:
                     for attr, value in six.iteritems(changes):
                         setattr(job, attr, value)
-                    return
+                    break
+            else:
+                store = self._jobstores[jobstore]
+                store.modify_job(job_id, changes)
+                store.lookup_job(changes.get('id', job_id))
 
-            store = self._jobstores[jobstore]
-            store.modify_job(job_id, changes)
+        self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_JOB_MODIFIED, jobstore, job_id))
 
     def get_jobs(self, jobstore=None, pending=None):
         """
@@ -300,8 +303,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         either from a specific job store or from all of them.
 
         :param jobstore: alias of the job store
-        :param pending: ``False`` to leave out pendin jobs (jobs that are waiting for the scheduler start to be added to
-                        their respective job stores), ``True`` to only include pending jobs, anything else to return
+        :param pending: ``False`` to leave out pending jobs (jobs that are waiting for the scheduler start to be added
+                        to their respective job stores), ``True`` to only include pending jobs, anything else to return
                         both
         :return: list of :class:`~apscheduler.job.JobHandle` objects
         """
@@ -345,6 +348,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     return
 
             self._jobstores[jobstore].remove_job(job_id)
+
+        # Notify listeners that a job has been removed
+        event = JobStoreEvent(EVENT_JOBSTORE_JOB_REMOVED, jobstore, job_id)
+        self._notify_listeners(event)
+
+        self.logger.info('Removed job %s', job_id)
 
     def remove_all_jobs(self, jobstore=None):
         """
@@ -440,7 +449,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         store.add_job(job)
 
         # Notify listeners that a new job has been added
-        event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, jobstore, job)
+        event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, jobstore, job.id)
         self._notify_listeners(event)
 
         self.logger.info('Added job "%s" to job store "%s"', job, jobstore)
@@ -448,15 +457,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         # Notify the scheduler about the new job
         if wakeup:
             self._wakeup()
-
-    def _remove_job(self, job, alias, jobstore):
-        jobstore.remove_job(job.id)
-
-        # Notify listeners that a job has been removed
-        event = JobStoreEvent(EVENT_JOBSTORE_JOB_REMOVED, alias, job)
-        self._notify_listeners(event)
-
-        self.logger.info('Removed job "%s"', job)
 
     @staticmethod
     def _check_callable_args(func, args, kwargs):
@@ -583,14 +583,14 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     if run_times:
                         self._threadpool.submit(self._run_job, job, run_times)
 
-                        # Increase the job's run count
-                        job.runs += 1 if job.coalesce else len(run_times)
-
                         # Update the job, but don't keep finished jobs around
-                        if job.compute_next_run_time(now + timedelta(microseconds=1)):
-                            jobstore.modify_job(job.id, {'next_run_time': job.next_run_time})
+                        job_runs = job.runs + 1 if job.coalesce else len(run_times)
+                        job_next_run = job.trigger.get_next_fire_time(now + timedelta(microseconds=1))
+                        if job_next_run and (job.max_runs is None or job_runs < job.max_runs):
+                            changes = {'next_run_time': job_next_run, 'runs': job_runs}
+                            jobstore.modify_job(job.id, changes)
                         else:
-                            self._remove_job(job, alias, jobstore)
+                            self.remove_job(job.id, alias)
 
                     if not next_wakeup_time:
                         next_wakeup_time = job.next_run_time
