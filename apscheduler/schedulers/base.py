@@ -287,7 +287,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             # Check if the job is among the pending jobs
             for job, store in self._pending_jobs:
                 if job.id == job_id:
-                    job.modify(changes)
+                    for attr, value in six.iteritems(changes):
+                        setattr(job, attr, value)
                     return
 
             store = self._jobstores[jobstore]

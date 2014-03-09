@@ -1,7 +1,3 @@
-"""
-Jobs represent scheduled tasks.
-"""
-
 from threading import Lock
 from datetime import timedelta
 from uuid import uuid4
@@ -21,26 +17,16 @@ class Job(object):
     be instantiated by the user.
     """
 
-    __slots__ = ('_lock', 'id', 'func', 'func_ref', 'trigger', 'args', 'kwargs', 'name', 'misfire_grace_time',
+    __slots__ = ('_lock', 'id', '_func', '_func_ref', 'trigger', 'args', 'kwargs', 'name', 'misfire_grace_time',
                  'coalesce', 'max_runs', 'max_instances', 'runs', 'instances', 'next_run_time')
+    modifiable_attributes = ('id', 'func', 'trigger', 'args', 'kwargs', 'name', 'misfire_grace_time', 'coalesce',
+                             'max_runs', 'max_instances', 'runs', 'next_run_time')
 
     def __init__(self, trigger, func, args, kwargs, id, misfire_grace_time, coalesce, name,
                  max_runs, max_instances):
-        if isinstance(func, six.string_types):
-            self.func = ref_to_obj(func)
-            self.func_ref = func
-        elif callable(func):
-            self.func = func
-            try:
-                self.func_ref = obj_to_ref(func)
-            except ValueError:
-                # If this happens, this Job won't be serializable
-                self.func_ref = None
-        else:
-            raise TypeError('func must be a callable or a textual reference to one')
-
         self._lock = Lock()
         self.id = id or uuid4().hex
+        self.func = func
         self.trigger = trigger
         self.args = args
         self.kwargs = kwargs
@@ -89,7 +75,7 @@ class Job(object):
         return {
             'version': 1,
             'id': self.id,
-            'func_ref': self.func_ref,
+            'func': self._func_ref,
             'trigger': self.trigger,
             'args': self.args,
             'kwargs': self.kwargs,
@@ -106,8 +92,9 @@ class Job(object):
         if state.get('version', 1) > 1:
             raise ValueError('Job has version %s, but only version 1 and lower can be handled' % state['version'])
 
+        self._lock = Lock()
         self.id = state['id']
-        self.func_ref = state['func_ref']
+        self.func = state['func']
         self.trigger = state['trigger']
         self.args = state['args']
         self.kwargs = state['kwargs']
@@ -118,10 +105,26 @@ class Job(object):
         self.max_instances = state['max_instances']
         self.runs = state['runs']
         self.next_run_time = state['next_run_time']
-
-        self._lock = Lock()
-        self.func = ref_to_obj(self.func_ref)
         self.instances = 0
+
+    @property
+    def func(self):
+        return self._func
+
+    @func.setter
+    def func(self, value):
+        if isinstance(value, six.string_types):
+            self._func = ref_to_obj(value)
+            self._func_ref = value
+        elif callable(value):
+            self._func = value
+            try:
+                self._func_ref = obj_to_ref(value)
+            except ValueError:
+                # If this happens, this Job won't be serializable
+                self._func_ref = None
+        else:
+            raise TypeError('func must be a callable or a textual reference to one')
 
     def __eq__(self, other):
         if isinstance(other, Job):

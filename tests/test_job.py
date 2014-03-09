@@ -81,13 +81,13 @@ class TestJob(object):
 
     def test_getstate(self, job, trigger):
         state = job.__getstate__()
-        assert state == dict(version=1, trigger=trigger, func_ref='tests.test_job:dummyfunc', name='dummyfunc', args=[],
+        assert state == dict(version=1, trigger=trigger, func='tests.test_job:dummyfunc', name='dummyfunc', args=[],
                              kwargs={}, id='testid', misfire_grace_time=1, coalesce=False, max_runs=None,
                              max_instances=1, runs=0, next_run_time=None)
 
     def test_setstate(self, job):
         trigger = DateTrigger(defaults, '2010-12-14 13:05:00')
-        state = dict(version=1, trigger=trigger, name='testjob.dummyfunc', func_ref='tests.test_job:dummyfunc',
+        state = dict(version=1, trigger=trigger, func='tests.test_job:dummyfunc', name='testjob.dummyfunc',
                      args=[], kwargs={}, id='other_id', misfire_grace_time=2, max_runs=2, coalesce=True,
                      max_instances=2, runs=1, next_run_time=None)
         job.__setstate__(state)

@@ -70,10 +70,10 @@ class SQLAlchemyJobStore(BaseJobStore):
         return self._get_jobs(selectable)
 
     def add_job(self, job):
-        if not job.func_ref:
+        job_dict = job.__getstate__()
+        if not job_dict.get('func'):
             raise TransientJobError(job.id)
 
-        job_dict = job.__getstate__()
         row_dict = {
             'id': job_dict.pop('id'),
             'next_run_time': datetime_to_utc_timestamp(job_dict['next_run_time']),

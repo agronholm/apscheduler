@@ -86,7 +86,7 @@ class TestOfflineScheduler(object):
 
     def test_add_job_by_reference(self, scheduler):
         job = scheduler.add_job('copy:copy', 'date', [datetime(2200, 7, 24)], args=[()])
-        assert job.func_ref == 'copy:copy'
+        assert job.func == 'copy:copy'
 
     def test_modify_job_offline(self, scheduler):
         scheduler.add_job(lambda: None, 'interval', {'seconds': 1}, id='foo')
