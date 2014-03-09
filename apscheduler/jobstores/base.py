@@ -26,7 +26,7 @@ class TransientJobError(ValueError):
 
     def __init__(self, id):
         super(TransientJobError, self).__init__(
-            six.u('Job (%s) cannot be added to this job store because it a reference to the callable could not be '
+            six.u('Job (%s) cannot be added to this job store because a reference to the callable could not be '
                   'determined.') % id)
 
 
