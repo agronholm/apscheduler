@@ -47,23 +47,12 @@ class TestJob(object):
         exc = pytest.raises(ValueError, job.__setstate__, {'version': 9999})
         assert 'version' in str(exc.value)
 
-    def test_compute_next_run_time(self, job):
-        job.compute_next_run_time(run_time - timedelta(microseconds=1))
-        assert job.next_run_time == run_time
-
-        job.compute_next_run_time(run_time)
-        assert job.next_run_time == run_time
-
-        job.compute_next_run_time(run_time + timedelta(microseconds=1))
-        assert job.next_run_time is None
-
-    def test_compute_run_times(self, job):
+    def test_get_run_times(self, job):
         expected_times = [run_time + timedelta(seconds=1),
                           run_time + timedelta(seconds=2)]
         job.trigger = IntervalTrigger(defaults, seconds=1, start_date=run_time)
-        job.compute_next_run_time(expected_times[0])
-        assert job.next_run_time == expected_times[0]
 
+        job.next_run_time = expected_times[0]
         run_times = job.get_run_times(run_time)
         assert run_times == []
 
@@ -72,12 +61,6 @@ class TestJob(object):
 
         run_times = job.get_run_times(expected_times[1])
         assert run_times == expected_times
-
-    def test_max_runs(self, job):
-        job.max_runs = 1
-        job.runs += 1
-        job.compute_next_run_time(run_time)
-        assert job.next_run_time is None
 
     def test_getstate(self, job, trigger):
         state = job.__getstate__()
@@ -134,7 +117,6 @@ class TestJob(object):
             job.remove_instance()
 
     def test_job_repr(self, job):
-        job.compute_next_run_time(run_time)
         assert repr(job) == '<Job (id=testid)>'
 
 

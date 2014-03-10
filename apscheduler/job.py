@@ -39,14 +39,6 @@ class Job(object):
         self.instances = 0
         self.next_run_time = None
 
-    def compute_next_run_time(self, now):
-        if self.runs == self.max_runs:
-            self.next_run_time = None
-        else:
-            self.next_run_time = self.trigger.get_next_fire_time(now)
-
-        return self.next_run_time
-
     def get_run_times(self, now):
         """
         Computes the scheduled run times between ``next_run_time`` and ``now``.

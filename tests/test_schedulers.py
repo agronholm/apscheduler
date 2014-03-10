@@ -154,7 +154,7 @@ class TestOfflineScheduler(object):
         scheduler.print_jobs(out=out)
         expected = 'Pending jobs:%s    '\
             'copy (trigger: date[2200-05-19 00:00:00 DUMMYTZ], '\
-            'next run at: 2200-05-19 00:00:00 DUMMYTZ)%s' % (os.linesep, os.linesep)
+            'next run at: None)%s' % (os.linesep, os.linesep)
         assert out.getvalue() == expected
 
     def test_invalid_callable_args(self, scheduler):

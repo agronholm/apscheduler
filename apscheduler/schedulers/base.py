@@ -247,10 +247,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         # Make sure the callable can handle the given arguments
         self._check_callable_args(job.func, args, kwargs)
 
-        # Ensure that dead-on-arrival jobs are never added
-        if job.compute_next_run_time(self._current_time()) is None:
-            raise ValueError('Not adding job since it would never be run')
-
         # Don't really add jobs to job stores before the scheduler is up and running
         if not self.running:
             self._pending_jobs.append((job, jobstore))
@@ -440,7 +436,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     def _real_add_job(self, job, jobstore, wakeup):
         # Recalculate the next run time
-        job.compute_next_run_time(self._current_time())
+        job.next_run_time = job.trigger.get_next_fire_time(self._current_time())
 
         # Add the job to the given job store
         store = self._jobstores.get(jobstore)
