@@ -20,6 +20,11 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.threadpool import ThreadPool
 from tests.conftest import minpython
 
+try:
+    from unittest.mock import MagicMock
+except ImportError:
+    from mock import MagicMock
+
 dummy_tz = tzoffset('DUMMYTZ', 3600)
 dummy_datetime = datetime(2011, 4, 3, 18, 40, tzinfo=dummy_tz)
 
@@ -88,7 +93,7 @@ class TestOfflineScheduler(object):
         job = scheduler.add_job('copy:copy', 'date', [datetime(2200, 7, 24)], args=[()])
         assert job.func == 'copy:copy'
 
-    def test_modify_job_offline(self, scheduler):
+    def test_modify_job(self, scheduler):
         scheduler.add_job(lambda: None, 'interval', {'seconds': 1}, id='foo')
         scheduler.modify_job('foo', max_runs=3456)
         job = scheduler.get_jobs()[0]
@@ -241,7 +246,7 @@ class TestRunningScheduler(object):
         assert len(jobs) == 1
         assert jobs[0].name == 'dummyjob'
 
-    def test_modify_job_online(self, scheduler):
+    def test_modify_job(self, scheduler):
         events = []
         scheduler.add_listener(events.append, EVENT_JOBSTORE_JOB_MODIFIED)
         scheduler.add_job(lambda: None, 'interval', {'seconds': 1}, id='foo')
@@ -250,6 +255,14 @@ class TestRunningScheduler(object):
 
         job = scheduler.get_jobs()[0]
         assert job.max_runs == 3456
+
+    def test_modify_job_next_run_time(self, scheduler):
+        """Tests that modifying a job's next_run_time will cause the scheduler to be woken up."""
+
+        scheduler.add_job(lambda: None, 'interval', {'seconds': 1}, id='foo')
+        scheduler._wakeup = MagicMock()
+        scheduler.modify_job('foo', next_run_time=3456)
+        scheduler._wakeup.assert_called_once_with()
 
     def test_remove_job(self, scheduler):
         vals = [0]

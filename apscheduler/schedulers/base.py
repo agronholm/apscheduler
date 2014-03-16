@@ -293,6 +293,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_JOB_MODIFIED, jobstore, job_id))
 
+        # Wake up the scheduler if the job's next run time has been changed
+        if changes.get('next_run_time') is not None:
+            self._wakeup()
+
     def get_jobs(self, jobstore=None, pending=None):
         """
         Returns a list of pending jobs (if the scheduler hasn't been started yet) and scheduled jobs,

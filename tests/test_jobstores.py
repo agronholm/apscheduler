@@ -6,7 +6,6 @@ import pytest
 
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.jobstores.base import JobLookupError, ConflictingIdError, TransientJobError
-from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.job import Job
 
