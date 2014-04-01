@@ -3,7 +3,7 @@ from datetime import date, datetime
 from six import iteritems
 
 from apscheduler.triggers.cron.fields import *
-from apscheduler.util import datetime_ceil, convert_to_datetime, datetime_repr
+from apscheduler.util import datetime_ceil, convert_to_datetime, datetime_repr, astimezone
 
 
 class CronTrigger(object):
@@ -19,11 +19,12 @@ class CronTrigger(object):
         'second': BaseField
     }
 
-    def __init__(self, defaults, year=None, month=None, day=None, week=None, day_of_week=None, hour=None, minute=None,
-                 second=None, start_date=None, timezone=None):
+    def __init__(self, timezone, year=None, month=None, day=None, week=None, day_of_week=None, hour=None, minute=None,
+                 second=None, start_date=None):
         """
         Triggers when current time matches all specified time constraints, emulating the UNIX cron scheduler.
 
+        :param timezone: time zone for ``start_date``
         :param year: year to run on
         :param month: month to run on
         :param day: day of month to run on
@@ -32,10 +33,10 @@ class CronTrigger(object):
         :param hour: hour to run on
         :param second: second to run on
         :param start_date: earliest possible date/time to trigger on
-        :param timezone: time zone for ``start_date``
         :type timezone: str or an instance of a :cls:`~datetime.tzinfo` subclass
         """
-        self.timezone = timezone or defaults['timezone']
+
+        self.timezone = astimezone(timezone)
         self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date') if start_date else None
 
         values = dict((key, value) for (key, value) in iteritems(locals())

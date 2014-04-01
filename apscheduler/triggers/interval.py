@@ -1,24 +1,25 @@
 from datetime import datetime, timedelta
 from math import ceil
 
-from apscheduler.util import convert_to_datetime, timedelta_seconds, datetime_repr
+from apscheduler.util import convert_to_datetime, timedelta_seconds, datetime_repr, astimezone
 
 
 class IntervalTrigger(object):
-    def __init__(self, defaults, weeks=0, days=0, hours=0, minutes=0, seconds=0, start_date=None, timezone=None):
+    def __init__(self, timezone, weeks=0, days=0, hours=0, minutes=0, seconds=0, start_date=None):
         """
         Triggers on specified intervals.
 
+        :param timezone: time zone for ``start_date``
         :param weeks: number of weeks to wait
         :param days: number of days to wait
         :param hours: number of hours to wait
         :param minutes: number of minutes to wait
         :param seconds: number of seconds to wait
         :param start_date: when to first execute the job and start the counter (default is after the given interval)
-        :param timezone: time zone for ``start_date``
         :type timezone: str or an instance of a :cls:`~datetime.tzinfo` subclass
         """
-        timezone = timezone or defaults['timezone']
+
+        timezone = astimezone(timezone)
         self.interval = timedelta(weeks=weeks, days=days, hours=hours, minutes=minutes, seconds=seconds)
         self.interval_length = timedelta_seconds(self.interval)
         if self.interval_length == 0:

@@ -1,16 +1,17 @@
-from apscheduler.util import convert_to_datetime, datetime_repr
+from apscheduler.util import convert_to_datetime, datetime_repr, astimezone
 
 
 class DateTrigger(object):
-    def __init__(self, defaults, run_date, timezone=None):
+    def __init__(self, timezone, run_date):
         """
         Triggers once on the given datetime.
 
-        :param run_date: the date/time to run the job at
         :param timezone: time zone for ``run_date``
+        :param run_date: the date/time to run the job at
         :type timezone: str or an instance of a :cls:`~datetime.tzinfo` subclass
         """
-        timezone = timezone or defaults['timezone']
+
+        timezone = astimezone(timezone)
         self.run_date = convert_to_datetime(run_date, timezone, 'run_date')
 
     def get_next_fire_time(self, start_date):

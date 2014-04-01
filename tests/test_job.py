@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from threading import Lock
 
 from dateutil.tz import tzoffset
 import pytest
@@ -7,40 +6,50 @@ import six
 
 from apscheduler.job import Job, MaxInstancesReachedError, JobHandle
 from apscheduler.triggers.date import DateTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 
 try:
     from unittest.mock import MagicMock
 except ImportError:
     from mock import MagicMock
 
-lock_type = type(Lock())
 local_tz = tzoffset('DUMMYTZ', 3600)
-defaults = {'timezone': local_tz}
 run_time = datetime(2010, 12, 13, 0, 8, 0, tzinfo=local_tz)
+job_defaults = {'trigger': 'date', 'trigger_args': {'run_date': run_time, 'timezone': local_tz},
+                'func': '%s:dummyfunc' % __name__, 'args': (), 'kwargs': {}, 'id': 'testid', 'misfire_grace_time': 1,
+                'coalesce': False, 'name': None, 'max_runs': None, 'max_instances': 1}
 
 
 def dummyfunc():
     pass
 
 
+def create_job(**kwargs):
+    job_kwargs = job_defaults.copy()
+    job_kwargs.update(kwargs)
+    return Job(**job_kwargs)
+
+
 @pytest.fixture
 def trigger():
-    return DateTrigger(defaults, run_time)
+    return DateTrigger(local_tz, run_time)
 
 
 @pytest.fixture
-def job(trigger):
-    return Job(trigger, dummyfunc, [], {}, 'testid', 1, False, None, None, 1)
+def job():
+    return create_job()
 
 
 class TestJob(object):
-    def test_job_func_ref(self, trigger):
-        job = Job(trigger, '%s:dummyfunc' % __name__, [], {}, 'testid', 1, False, None, None, 1)
+    def test_job_func(self):
+        job = create_job(func=dummyfunc)
         assert job.func is dummyfunc
 
-    def test_job_bad_func(self, trigger):
-        exc = pytest.raises(TypeError, Job, trigger, 1, [], {}, 'testid', 1, False, None, None, 1)
+    def test_job_func_ref(self):
+        job = create_job(func='%s:dummyfunc' % __name__)
+        assert job.func is dummyfunc
+
+    def test_job_bad_func(self):
+        exc = pytest.raises(TypeError, create_job, func=object())
         assert 'textual reference' in str(exc.value)
 
     def test_job_invalid_version(self, job):
@@ -50,9 +59,8 @@ class TestJob(object):
     def test_get_run_times(self, job):
         expected_times = [run_time + timedelta(seconds=1),
                           run_time + timedelta(seconds=2)]
-        job.trigger = IntervalTrigger(defaults, seconds=1, start_date=run_time)
-
-        job.next_run_time = expected_times[0]
+        job = create_job(trigger='interval', trigger_args={'seconds': 1, 'timezone': local_tz, 'start_date': run_time},
+                         next_run_time=expected_times[0])
         run_times = job.get_run_times(run_time)
         assert run_times == []
 
@@ -62,14 +70,15 @@ class TestJob(object):
         run_times = job.get_run_times(expected_times[1])
         assert run_times == expected_times
 
-    def test_getstate(self, job, trigger):
+    def test_getstate(self, trigger):
+        job = create_job(trigger=trigger, trigger_args=None)
         state = job.__getstate__()
-        assert state == dict(version=1, trigger=trigger, func='tests.test_job:dummyfunc', name='dummyfunc', args=[],
+        assert state == dict(version=1, trigger=trigger, func='tests.test_job:dummyfunc', name='dummyfunc', args=(),
                              kwargs={}, id='testid', misfire_grace_time=1, coalesce=False, max_runs=None,
                              max_instances=1, runs=0, next_run_time=None)
 
     def test_setstate(self, job):
-        trigger = DateTrigger(defaults, '2010-12-14 13:05:00')
+        trigger = DateTrigger(local_tz, '2010-12-14 13:05:00')
         state = dict(version=1, trigger=trigger, func='tests.test_job:dummyfunc', name='testjob.dummyfunc',
                      args=[], kwargs={}, id='other_id', misfire_grace_time=2, max_runs=2, coalesce=True,
                      max_instances=2, runs=1, next_run_time=None)
@@ -86,7 +95,7 @@ class TestJob(object):
     def test_jobs_equal(self, job):
         assert job == job
 
-        job2 = Job(DateTrigger(defaults, run_time), lambda: None, [], {}, None, 1, False, None, None, 1)
+        job2 = create_job(trigger=DateTrigger(local_tz, run_time), func=lambda: None)
         assert job != job2
 
         job2.id = job.id = 123

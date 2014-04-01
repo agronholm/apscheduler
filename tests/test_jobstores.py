@@ -10,6 +10,9 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.job import Job
 
 local_tz = tzoffset('DUMMYTZ', 3600)
+run_time = datetime(2999, 1, 1)
+job_defaults = {'args': (), 'kwargs': {},  'misfire_grace_time': 1, 'coalesce': False, 'name': None, 'max_runs': None,
+                'max_instances': 1}
 
 
 def dummy_job():
@@ -59,11 +62,10 @@ def jobstore(request):
     return request.param(request)
 
 
-def create_job(jobstore, func=dummy_job, trigger_date=datetime(2999, 1, 1), id=None):
+def create_job(jobstore, func=dummy_job, trigger_date=run_time, id=None):
     trigger_date.replace(tzinfo=local_tz)
-    trigger = DateTrigger({}, trigger_date, local_tz)
-    job = Job(trigger, func, [], {}, id, 1, False, None, None, 1)
-    job.next_run_time = trigger.run_date
+    trigger = DateTrigger(local_tz, trigger_date)
+    job = Job(trigger=trigger, func=func, id=id, next_run_time=trigger.run_date, **job_defaults)
     jobstore.add_job(job)
     return job
 
