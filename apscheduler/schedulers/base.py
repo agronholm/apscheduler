@@ -3,7 +3,6 @@ from abc import ABCMeta, abstractmethod
 from threading import RLock
 from datetime import datetime, timedelta
 from logging import getLogger
-from uuid import uuid4
 import sys
 
 from dateutil.tz import tzlocal
@@ -15,11 +14,6 @@ from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job, MaxInstancesReachedError, JobHandle
 from apscheduler.events import *
 from apscheduler.threadpool import ThreadPool
-
-try:
-    from inspect import getfullargspec as getargspec
-except ImportError:
-    from inspect import getargspec
 
 
 class BaseScheduler(six.with_metaclass(ABCMeta)):

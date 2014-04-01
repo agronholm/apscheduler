@@ -6,6 +6,8 @@ import six
 
 from apscheduler.job import Job, MaxInstancesReachedError, JobHandle
 from apscheduler.triggers.date import DateTrigger
+from tests.conftest import maxpython
+
 
 try:
     from unittest.mock import MagicMock
@@ -95,10 +97,10 @@ class TestJob(object):
     def test_jobs_equal(self, job):
         assert job == job
 
-        job2 = create_job(trigger=DateTrigger(local_tz, run_time), func=lambda: None)
-        assert job != job2
+        job2 = create_job(trigger=DateTrigger(local_tz, run_time), id='otherid', func=lambda: None)
+        assert not job == job2
 
-        job2.id = job.id = 123
+        job2.id = job.id
         assert job == job2
 
         assert not job == 'bleh'
@@ -187,6 +189,7 @@ class TestJobHandle(object):
     def test_jobhandle_str(self, jobhandle):
         assert str(jobhandle) == 'dummyfunc (trigger: date[2010-12-13 00:08:00 DUMMYTZ], next run at: None)'
 
+    @maxpython(3, 0)
     def test_jobhandle_unicode(self, jobhandle):
         assert jobhandle.__unicode__() == six.u(
             'dummyfunc (trigger: date[2010-12-13 00:08:00 DUMMYTZ], next run at: None)')

@@ -1,5 +1,5 @@
 from collections import Iterable, Mapping
-from inspect import isfunction, ismethod, getargspec
+from inspect import isfunction, ismethod
 from threading import Lock
 from datetime import timedelta, datetime
 from uuid import uuid4
@@ -8,6 +8,11 @@ from pkg_resources import iter_entry_points
 import six
 
 from apscheduler.util import ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name
+
+try:
+    from inspect import getfullargspec as getargspec
+except ImportError:
+    from inspect import getargspec
 
 
 class MaxInstancesReachedError(Exception):
@@ -20,17 +25,18 @@ class Job(object):
     be instantiated by the user.
     """
 
-    # __slots__ = ('_lock', 'id', 'trigger', 'func', 'func_ref', 'args', 'kwargs', 'name', 'misfire_grace_time',
-    #              'coalesce', 'max_runs', 'max_instances', 'runs', 'instances', 'next_run_time')
+    __slots__ = ('_lock', 'id', 'trigger', 'func', 'func_ref', 'args', 'kwargs', 'name', 'misfire_grace_time',
+                 'coalesce', 'max_runs', 'max_instances', 'runs', 'instances', 'next_run_time')
 
     trigger_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
     trigger_classes = {}
-    instances = 0
-    runs = 0
-    next_run_time = None
 
     def __init__(self, **kwargs):
         super(Job, self).__init__()
+        self.instances = 0
+        self.runs = 0
+        self.next_run_time = None
+
         changes = self.validate_changes(kwargs)
         self.modify(changes)
         self._lock = Lock()
@@ -328,5 +334,4 @@ class JobHandle(object):
                                                       datetime_repr(self.next_run_time))
 
     def __unicode__(self):
-        return six.u('%s (trigger: %s, next run at: %s)') % (self.name, unicode(self.trigger),
-                                                             datetime_repr(self.next_run_time))
+        return six.u('%s (trigger: %s, next run at: %s)') % (self.name, self.trigger, datetime_repr(self.next_run_time))

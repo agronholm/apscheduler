@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 from logging import StreamHandler, ERROR
-from io import StringIO, BytesIO
-from copy import copy
 from threading import Event, Thread
+from copy import copy
 from time import sleep
 import os
 
@@ -19,6 +18,11 @@ from apscheduler.events import (SchedulerEvent, EVENT_JOB_EXECUTED, EVENT_SCHEDU
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.threadpool import ThreadPool
 from tests.conftest import minpython
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 try:
     from unittest.mock import MagicMock
@@ -75,7 +79,7 @@ def scheduler(request):
 
 @pytest.fixture
 def logstream(request, scheduler):
-    stream = BytesIO()
+    stream = StringIO()
     loghandler = StreamHandler(stream)
     loghandler.setLevel(ERROR)
     scheduler.logger.addHandler(loghandler)
