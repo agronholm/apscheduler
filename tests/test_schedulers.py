@@ -1,22 +1,21 @@
 from datetime import datetime, timedelta
 from logging import StreamHandler, ERROR
-from threading import Event, Thread
+from concurrent.futures import Future
+from threading import Thread
 from copy import copy
-from time import sleep
 import os
 
-from dateutil.tz import tzoffset
 import pytest
+from apscheduler.executors.pool import BasePoolExecutor
 
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
-from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import BaseScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.events import (SchedulerEvent, EVENT_JOB_EXECUTED, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN,
                                 EVENT_JOB_MISSED, EVENT_JOBSTORE_ADDED, EVENT_JOBSTORE_JOB_ADDED,
                                 EVENT_JOBSTORE_JOB_REMOVED, EVENT_JOBSTORE_JOB_MODIFIED)
-from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.threadpool import ThreadPool
 from tests.conftest import minpython
 
 try:
@@ -29,15 +28,20 @@ try:
 except ImportError:
     from mock import MagicMock
 
-dummy_tz = tzoffset('DUMMYTZ', 3600)
-dummy_datetime = datetime(2011, 4, 3, 18, 40, tzinfo=dummy_tz)
 
+class DummyPoolExecutor(object):
+    def submit(self, func, *arg, **kwargs):
+        f = Future()
+        try:
+            retval = func(*arg, **kwargs)
+        except Exception as e:
+            f.set_exception(e)
+        else:
+            f.set_result(retval)
 
-class DummyThreadPool(object):
-    def submit(self, func, *args, **kwargs):
-        func(*args, **kwargs)
+        return f
 
-    def shutdown(self, wait):
+    def shutdown(self, wait=True):
         pass
 
 
@@ -46,9 +50,9 @@ class DummyException(Exception):
 
 
 class DummyScheduler(BaseScheduler):
-    def __init__(self, gconfig={}, **options):
-        super(DummyScheduler, self).__init__(gconfig, timezone=dummy_tz, threadpool=DummyThreadPool(), **options)
-        self.now = dummy_datetime
+    def __init__(self, timezone, gconfig={}, **options):
+        super(DummyScheduler, self).__init__(gconfig, timezone=timezone, **options)
+        self.add_executor(BasePoolExecutor(self, DummyPoolExecutor()), 'default')
 
     def start(self):
         super(DummyScheduler, self).start()
@@ -56,11 +60,11 @@ class DummyScheduler(BaseScheduler):
     def shutdown(self, wait=True):
         super(DummyScheduler, self).shutdown()
 
+    def _create_default_executor(self):
+        return DummyPoolExecutor()
+
     def _wakeup(self):
         pass
-
-    def _current_time(self):
-        return self.now
 
 
 def increment(vals):
@@ -68,8 +72,8 @@ def increment(vals):
 
 
 @pytest.fixture
-def scheduler(request):
-    sched = DummyScheduler()
+def scheduler(request, freeze_time, timezone):
+    sched = DummyScheduler(timezone)
     if 'start_scheduler' in request.keywords:
         sched.start()
         request.addfinalizer(lambda: sched.shutdown() if sched.running else None)
@@ -208,7 +212,7 @@ class TestOfflineScheduler(object):
 
 @pytest.mark.start_scheduler
 class TestRunningScheduler(object):
-    def test_add_job_object(self, scheduler):
+    def test_add_job_object(self, scheduler, freeze_time):
         """Tests that any callable object is accepted (and not just functions)."""
 
         class A(object):
@@ -220,11 +224,11 @@ class TestRunningScheduler(object):
 
         a = A()
         job = scheduler.add_job('interval', a, seconds=1)
-        scheduler.now = job.next_run_time
+        freeze_time.set(job.next_run_time)
         scheduler._process_jobs()
         assert a.val == 1
 
-    def test_add_job_method(self, scheduler):
+    def test_add_job_method(self, scheduler, freeze_time):
         """Tests that bound methods can be scheduled (at least with MemoryJobStore)."""
 
         class A(object):
@@ -236,7 +240,7 @@ class TestRunningScheduler(object):
 
         a = A()
         job = scheduler.add_job('interval', a.method, seconds=1)
-        scheduler.now = job.next_run_time
+        freeze_time.set(job.next_run_time)
         scheduler._process_jobs()
         assert a.val == 1
 
@@ -283,7 +287,7 @@ class TestRunningScheduler(object):
         scheduler._process_jobs()
         assert vals[0] == 1
 
-    def test_remove_all_jobs(self, scheduler):
+    def test_remove_all_jobs(self, scheduler, freeze_time):
         """Tests that removing all jobs clears all job stores."""
 
         vals = [0]
@@ -303,20 +307,20 @@ class TestRunningScheduler(object):
         scheduler.remove_all_jobs('default')
         assert scheduler.get_jobs() == [job2]
 
-    def test_job_finished(self, scheduler):
+    def test_job_finished(self, scheduler, freeze_time):
         vals = [0]
         job = scheduler.add_job('interval', increment, args=(vals,), max_runs=1)
-        scheduler.now = job.next_run_time
+        freeze_time.set(job.next_run_time)
         scheduler._process_jobs()
         assert vals == [1]
         assert job not in scheduler.get_jobs()
 
-    def test_job_exception(self, scheduler, logstream):
+    def test_job_exception(self, scheduler, freeze_time, logstream):
         def failure():
             raise DummyException
 
         job = scheduler.add_job('date', failure, run_date=datetime(9999, 9, 9))
-        scheduler.now = job.next_run_time
+        freeze_time.set(job.next_run_time)
         scheduler._process_jobs()
         assert 'DummyException' in logstream.getvalue()
 
@@ -328,17 +332,17 @@ class TestRunningScheduler(object):
         job = scheduler.add_job('interval', lambda: None, seconds=1, misfire_grace_time=2)
         assert job.misfire_grace_time == 2
 
-    def test_coalesce_on(self, scheduler):
+    def test_coalesce_on(self, scheduler, freeze_time):
         """Tests that the job is only executed once when it is scheduled to be executed twice in a row."""
 
         vals = [0]
         events = []
         scheduler.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        job = scheduler.add_job('interval', increment, seconds=1, start_date=dummy_datetime, args=(vals,),
+        job = scheduler.add_job('interval', increment, seconds=1, start_date=freeze_time.current, args=(vals,),
                                 coalesce=True, misfire_grace_time=2)
 
         # Turn the clock 2 seconds forward
-        scheduler.now += timedelta(seconds=2)
+        freeze_time.set(freeze_time.current + timedelta(seconds=2))
 
         scheduler._process_jobs()
         job.refresh()
@@ -347,7 +351,7 @@ class TestRunningScheduler(object):
         assert events[0].code == EVENT_JOB_EXECUTED
         assert vals == [1]
 
-    def test_coalesce_off(self, scheduler):
+    def test_coalesce_off(self, scheduler, freeze_time):
         """Tests that every scheduled run for the job is executed even when they are in the past
         (but still within misfire_grace_time).
         """
@@ -355,11 +359,11 @@ class TestRunningScheduler(object):
         vals = [0]
         events = []
         scheduler.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        job = scheduler.add_job('interval', increment, seconds=1, start_date=dummy_datetime, args=(vals,),
+        job = scheduler.add_job('interval', increment, seconds=1, start_date=freeze_time.current, args=(vals,),
                                 coalesce=False, misfire_grace_time=2)
 
         # Turn the clock 2 seconds forward
-        scheduler.now += timedelta(seconds=2)
+        freeze_time.set(freeze_time.current + timedelta(seconds=2))
 
         scheduler._process_jobs()
         job.refresh()
@@ -397,54 +401,23 @@ class TestRunningScheduler(object):
 
         pytest.raises(KeyError, scheduler.remove_jobstore, 'dummy2')
 
-    def test_job_next_run_time(self, scheduler):
+    def test_job_next_run_time(self, scheduler, freeze_time):
         """Tests against bug #5."""
 
         vals = [0]
-        job = scheduler.add_job('interval', increment, seconds=1, start_date=dummy_datetime, args=(vals,),
+        job = scheduler.add_job('interval', increment, seconds=1, start_date=freeze_time.current, args=(vals,),
                                 misfire_grace_time=3)
 
-        scheduler.now = job.next_run_time
+        freeze_time.set(job.next_run_time)
         scheduler._process_jobs()
         assert vals == [1]
 
         scheduler._process_jobs()
         assert vals == [1]
 
-        scheduler.now = job.next_run_time + timedelta(seconds=1)
+        freeze_time.set(job.next_run_time + timedelta(seconds=1))
         scheduler._process_jobs()
         assert vals == [2]
-
-    def test_max_instances(self, scheduler):
-        """Tests that the maximum instance limit on a job is respected and that missed job events are dispatched when
-        the job cannot be run due to the instance limitation.
-        """
-
-        def wait_event():
-            vals[0] += 1
-            event.wait(2)
-
-        vals = [0]
-        events = []
-        event = Event()
-        shutdown_event = Event()
-        scheduler._threadpool = ThreadPool()
-        scheduler.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        scheduler.add_listener(lambda e: shutdown_event.set(), EVENT_SCHEDULER_SHUTDOWN)
-        scheduler.add_job('interval', wait_event, seconds=1, start_date=dummy_datetime, max_instances=2, max_runs=4)
-        for _ in range(4):
-            scheduler._process_jobs()
-            scheduler.now += timedelta(seconds=1)
-        event.set()
-        scheduler.shutdown()
-        shutdown_event.wait(2)
-
-        assert vals == [2]
-        assert len(events) == 4
-        assert events[0].code == EVENT_JOB_MISSED
-        assert events[1].code == EVENT_JOB_MISSED
-        assert events[2].code == EVENT_JOB_EXECUTED
-        assert events[3].code == EVENT_JOB_EXECUTED
 
     def test_scheduler_double_start(self, scheduler):
         pytest.raises(SchedulerAlreadyRunningError, scheduler.start)
@@ -458,162 +431,205 @@ class TestRunningScheduler(object):
 
 
 class SchedulerImplementationTestBase(object):
+    @pytest.fixture(autouse=True)
+    def executor(self, scheduler):
+        dummy = DummyPoolExecutor()
+        executor = BasePoolExecutor(scheduler, dummy)
+        scheduler.add_executor(executor)
+
     @pytest.fixture
-    def scheduler(self, request):
-        sched = self.create_scheduler()
-        request.addfinalizer(lambda: self.finish(sched))
-        return sched
+    def start_scheduler(self, request, scheduler):
+        def cleanup():
+            if scheduler.running:
+                scheduler.shutdown()
 
-    def create_scheduler(self):
-        raise NotImplementedError
+        request.addfinalizer(cleanup)
+        return scheduler.start
 
-    def create_event(self):
-        return Event()
+    @pytest.fixture
+    def eventqueue(self, scheduler):
+        from six.moves.queue import Queue
+        events = Queue()
+        scheduler.add_listener(events.put)
+        return events
 
-    def process_events(self):
-        pass
+    def wait_event(self, queue):
+        return queue.get(True, 1)
 
-    def finish(self, sched):
-        pass
+    def test_add_pending_job(self, scheduler, freeze_time, eventqueue, start_scheduler):
+        """Tests that pending jobs are added (and if due, executed) when the scheduler starts."""
 
-    def test_scheduler_implementation(self, scheduler):
-        """Tests that starting the scheduler eventually calls _process_jobs()."""
+        freeze_time.set_increment(timedelta(seconds=0.2))
+        scheduler.add_job('date', lambda x, y: x + y, args=[1, 2], run_date=freeze_time.next())
+        start_scheduler()
 
-        class TimeRoller(object):
-            def __init__(self, start, step):
-                self.now = start
-                self.step = timedelta(seconds=step)
+        assert self.wait_event(eventqueue).code == EVENT_JOBSTORE_ADDED
+        assert self.wait_event(eventqueue).code == EVENT_JOBSTORE_JOB_ADDED
+        assert self.wait_event(eventqueue).code == EVENT_SCHEDULER_START
+        event = self.wait_event(eventqueue)
+        assert event.code == EVENT_JOB_EXECUTED
+        assert event.retval == 3
+        assert self.wait_event(eventqueue).code == EVENT_JOBSTORE_JOB_REMOVED
 
-            def next(self):
-                return self.now + self.step
+    def test_add_live_job(self, scheduler, freeze_time, eventqueue, start_scheduler):
+        """Tests that adding a job causes it to be executed after the specified delay."""
 
-            def __call__(self):
-                now = self.now
-                self.now = self.next()
-                return now
+        freeze_time.set_increment(timedelta(seconds=0.2))
+        start_scheduler()
+        assert self.wait_event(eventqueue).code == EVENT_JOBSTORE_ADDED
+        assert self.wait_event(eventqueue).code == EVENT_SCHEDULER_START
 
-        events = []
-        vals = [0]
-        job_removed_event = self.create_event()
-        shutdown_event = self.create_event()
-        scheduler._threadpool = DummyThreadPool()
+        scheduler.add_job('date', lambda x, y: x + y, args=[1, 2],
+                          run_date=freeze_time.next() + freeze_time.increment * 2)
+        assert self.wait_event(eventqueue).code == EVENT_JOBSTORE_JOB_ADDED
+        event = self.wait_event(eventqueue)
+        assert event.code == EVENT_JOB_EXECUTED
+        assert event.retval == 3
+        assert self.wait_event(eventqueue).code == EVENT_JOBSTORE_JOB_REMOVED
 
-        # Test that pending jobs are added (and if due, executed) when the scheduler starts
-        scheduler._current_time = time_roller = TimeRoller(dummy_datetime, 0.2)
-        scheduler.add_listener(events.append)
-        scheduler.add_listener(lambda e: job_removed_event.set(), EVENT_JOBSTORE_JOB_REMOVED)
-        scheduler.add_job('date', increment, run_date=time_roller.next(), args=(vals,))
-        scheduler.start()
-        self.process_events()
-        job_removed_event.wait(2)
-        assert job_removed_event.is_set()
-        assert vals[0] == 1
-        assert len(events) == 5
-        assert events[0].code == EVENT_JOBSTORE_ADDED
-        assert events[1].code == EVENT_JOBSTORE_JOB_ADDED
-        assert events[2].code == EVENT_SCHEDULER_START
-        assert events[3].code == EVENT_JOB_EXECUTED
-        assert events[4].code == EVENT_JOBSTORE_JOB_REMOVED
-        del events[:]
-        job_removed_event.clear()
+    def test_shutdown(self, scheduler, eventqueue, start_scheduler):
+        """Tests that shutting down the scheduler emits the proper event."""
 
-        # Test that adding a job causes it to be executed after the specified delay
-        job = scheduler.add_job('date', increment, run_date=time_roller.next() + time_roller.step * 2, args=(vals,))
-        self.process_events()
-        sleep(0.5)
-        self.process_events()
-        job_removed_event.wait(2)
-        assert job_removed_event.is_set()
-        assert vals[0] == 2
-        assert len(events) == 3
-        assert events[0].code == EVENT_JOBSTORE_JOB_ADDED
-        assert events[1].code == EVENT_JOB_EXECUTED
-        assert events[2].code == EVENT_JOBSTORE_JOB_REMOVED
-        del events[:]
-        job_removed_event.clear()
+        start_scheduler()
+        assert self.wait_event(eventqueue).code == EVENT_JOBSTORE_ADDED
+        assert self.wait_event(eventqueue).code == EVENT_SCHEDULER_START
 
-        # Test that shutting down the scheduler emits the proper event
-        scheduler.add_listener(lambda e: shutdown_event.set(), EVENT_SCHEDULER_SHUTDOWN)
         scheduler.shutdown()
-        self.process_events()
-        shutdown_event.wait(2)
-        assert shutdown_event.is_set()
-        assert len(events) == 1
-        assert events[0].code == EVENT_SCHEDULER_SHUTDOWN
+        assert self.wait_event(eventqueue).code == EVENT_SCHEDULER_SHUTDOWN
 
 
 class TestBlockingScheduler(SchedulerImplementationTestBase):
-    def create_scheduler(self):
-        sched = BlockingScheduler()
-        self.thread = Thread(target=sched.start)
-        sched.start = self.thread.start
-        return sched
+    @pytest.fixture
+    def scheduler(self):
+        return BlockingScheduler()
 
-    def finish(self, sched):
-        self.thread.join()
+    @pytest.fixture
+    def start_scheduler(self, request, scheduler):
+        def cleanup():
+            if scheduler.running:
+                scheduler.shutdown()
+            thread.join()
+
+        request.addfinalizer(cleanup)
+        thread = Thread(target=scheduler.start)
+        return thread.start
 
 
 class TestBackgroundScheduler(SchedulerImplementationTestBase):
-    def create_scheduler(self):
+    @pytest.fixture
+    def scheduler(self):
         return BackgroundScheduler()
 
 
 class TestAsyncIOScheduler(SchedulerImplementationTestBase):
-    def create_scheduler(self):
-        asyncio = pytest.importorskip('apscheduler.schedulers.asyncio')
-        sched = asyncio.AsyncIOScheduler()
-        self.thread = Thread(target=sched._eventloop.run_forever)
-        self.thread.start()
-        return sched
+    @pytest.fixture
+    def event_loop(self):
+        asyncio = pytest.importorskip('asyncio')
+        return asyncio.new_event_loop()
 
-    def finish(self, sched):
-        sched._eventloop.call_soon_threadsafe(sched._eventloop.stop)
-        self.thread.join()
+    @pytest.fixture
+    def scheduler(self, event_loop):
+        asyncio = pytest.importorskip('apscheduler.schedulers.asyncio')
+        return asyncio.AsyncIOScheduler(event_loop=event_loop)
+
+    @pytest.fixture
+    def start_scheduler(self, request, event_loop, scheduler):
+        def cleanup():
+            if scheduler.running:
+                event_loop.call_soon_threadsafe(scheduler.shutdown)
+            event_loop.call_soon_threadsafe(event_loop.stop)
+            thread.join()
+
+        event_loop.call_soon_threadsafe(scheduler.start)
+        request.addfinalizer(cleanup)
+        thread = Thread(target=event_loop.run_forever)
+        return thread.start
 
 
 class TestGeventScheduler(SchedulerImplementationTestBase):
-    def create_scheduler(self):
+    @pytest.fixture
+    def scheduler(self):
         gevent = pytest.importorskip('apscheduler.schedulers.gevent')
         return gevent.GeventScheduler()
 
-    def create_event(self):
+    @pytest.fixture
+    def calc_event(self):
         from gevent.event import Event
         return Event()
 
+    @pytest.fixture
+    def eventqueue(self, scheduler):
+        from gevent.queue import Queue
+        events = Queue()
+        scheduler.add_listener(events.put)
+        return events
+
 
 class TestTornadoScheduler(SchedulerImplementationTestBase):
-    def create_scheduler(self):
-        tornado = pytest.importorskip('apscheduler.schedulers.tornado')
-        sched = tornado.TornadoScheduler()
-        self.thread = Thread(target=sched._ioloop.start)
-        self.thread.start()
-        return sched
+    @pytest.fixture
+    def io_loop(self):
+        ioloop = pytest.importorskip('tornado.ioloop')
+        return ioloop.IOLoop()
 
-    def finish(self, sched):
-        sched._ioloop.add_callback(sched._ioloop.stop)
-        self.thread.join()
+    @pytest.fixture
+    def scheduler(self, io_loop):
+        tornado = pytest.importorskip('apscheduler.schedulers.tornado')
+        return tornado.TornadoScheduler(io_loop=io_loop)
+
+    @pytest.fixture
+    def start_scheduler(self, request, io_loop, scheduler):
+        def cleanup():
+            if scheduler.running:
+                io_loop.add_callback(scheduler.shutdown)
+            io_loop.add_callback(io_loop.stop)
+            thread.join()
+
+        io_loop.add_callback(scheduler.start)
+        request.addfinalizer(cleanup)
+        thread = Thread(target=io_loop.start)
+        return thread.start
 
 
 class TestTwistedScheduler(SchedulerImplementationTestBase):
-    def create_scheduler(self):
+    @pytest.fixture
+    def reactor(self):
+        selectreactor = pytest.importorskip('twisted.internet.selectreactor')
+        return selectreactor.SelectReactor()
+
+    @pytest.fixture
+    def scheduler(self, reactor):
         twisted = pytest.importorskip('apscheduler.schedulers.twisted')
-        sched = twisted.TwistedScheduler()
-        self.thread = Thread(target=sched._reactor.run, args=(False,))
-        self.thread.start()
-        return sched
+        return twisted.TwistedScheduler(reactor=reactor)
 
-    def finish(self, sched):
-        sched._reactor.callFromThread(sched._reactor.stop)
-        self.thread.join()
+    @pytest.fixture
+    def start_scheduler(self, request, reactor, scheduler):
+        def cleanup():
+            if scheduler.running:
+                reactor.callFromThread(scheduler.shutdown)
+            reactor.callFromThread(reactor.stop)
+            thread.join()
+
+        reactor.callFromThread(scheduler.start)
+        request.addfinalizer(cleanup)
+        thread = Thread(target=reactor.run, args=(False,))
+        return thread.start
 
 
+@pytest.mark.skip
 class TestQtScheduler(SchedulerImplementationTestBase):
-    def create_scheduler(self):
+    @pytest.fixture(scope='class')
+    def coreapp(self):
+        QtCore = pytest.importorskip('PySide.QtCore')
+        QtCore.QCoreApplication([])
+
+    @pytest.fixture
+    def scheduler(self, coreapp):
         qt = pytest.importorskip('apscheduler.schedulers.qt')
-        from PySide.QtCore import QCoreApplication
-        QCoreApplication([])
         return qt.QtScheduler()
 
-    def process_events(self):
+    def wait_event(self, queue):
         from PySide.QtCore import QCoreApplication
-        QCoreApplication.processEvents()
+
+        while queue.empty():
+            QCoreApplication.processEvents()
+        return queue.get_nowait()

@@ -9,11 +9,12 @@ from dateutil.tz import tzlocal
 import six
 
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
-from apscheduler.util import *
+from apscheduler.executors.base import MaxInstancesReachedError
+from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.jobstores.memory import MemoryJobStore
-from apscheduler.job import Job, MaxInstancesReachedError, JobHandle
+from apscheduler.job import Job, JobHandle
 from apscheduler.events import *
-from apscheduler.threadpool import ThreadPool
+from apscheduler.util import *
 
 
 class BaseScheduler(six.with_metaclass(ABCMeta)):
@@ -27,6 +28,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     def __init__(self, gconfig={}, **options):
         super(BaseScheduler, self).__init__()
+        self._executors = {}
+        self._executors_lock = self._create_lock()
         self._jobstores = {}
         self._jobstores_lock = self._create_lock()
         self._listeners = []
@@ -52,9 +55,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         if self.running:
             raise SchedulerAlreadyRunningError
 
-        # Create a RAMJobStore as the default if there is no default job store
+        # Create a default executor if nothing else is configured
+        if not 'default' in self._executors:
+            self.add_executor(self._create_default_executor(), 'default')
+
+        # Create a default job store if nothing else is configured
         if not 'default' in self._jobstores:
-            self.add_jobstore(MemoryJobStore(), 'default', True)
+            self.add_jobstore(self._create_default_jobstore(), 'default', True)
 
         # Schedule all pending jobs
         for job, jobstore in self._pending_jobs:
@@ -79,8 +86,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         self._stopped = True
 
-        # Shut down the thread pool
-        self._threadpool.shutdown(wait)
+        # Shut down all executors
+        for executor in six.itervalues(self._executors):
+            executor.shutdown(wait)
 
         # Close all job stores
         for jobstore in six.itervalues(self._jobstores):
@@ -93,7 +101,23 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     def running(self):
         return not self._stopped
 
-    def add_jobstore(self, jobstore, alias, quiet=False):
+    def add_executor(self, executor, alias='default'):
+        """
+        Adds an executor to this scheduler.
+
+        :param executor: the executor instance to be added
+        :param alias: alias for the scheduler
+        :type executor: `~apscheduler.executors.base.BaseExecutor`
+        :type alias: str
+        """
+
+        with self._executors_lock:
+            if alias in self._executors:
+                raise KeyError('This scheduler already has an executor by the alias of "%s"' % alias)
+            executor.scheduler = self
+            self._executors[alias] = executor
+
+    def add_jobstore(self, jobstore, alias='default', quiet=False):
         """
         Adds a job store to this scheduler.
 
@@ -156,7 +180,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     del self._listeners[i]
 
     def add_job(self, trigger, func, args=None, kwargs=None, id=None, name=None, misfire_grace_time=None, coalesce=None,
-                max_runs=None, max_instances=1, jobstore='default', **trigger_args):
+                max_runs=None, max_instances=1, jobstore='default', executor='default', **trigger_args):
         """
         Adds the given job to the job list and notifies the scheduler thread.
 
@@ -182,6 +206,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param max_runs: maximum number of times this job is allowed to be triggered
         :param max_instances: maximum number of concurrently running instances allowed for this job
         :param jobstore: alias of the job store to store the job in
+        :param executor: alias of the executor to run the job with
         :type id: str/unicode
         :type args: list/tuple
         :type jobstore: str/unicode
@@ -190,6 +215,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :type coalesce: bool
         :type max_runs: int
         :type max_instances: int
+        :type jobstore: str
+        :type executor: str
         :rtype: :class:`~apscheduler.job.JobHandle`
         """
 
@@ -198,6 +225,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         job_kwargs = {
             'trigger': trigger,
             'trigger_args': trigger_args,
+            'executor': executor,
             'func': func,
             'args': tuple(args) if args is not None else (),
             'kwargs': dict(kwargs) if kwargs is not None else {},
@@ -220,12 +248,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         return JobHandle(self, jobstore, job)
 
     def scheduled_job(self, trigger, args=None, kwargs=None, id=None, name=None, misfire_grace_time=None, coalesce=None,
-                      max_runs=None, max_instances=1, jobstore='default', **trigger_args):
+                      max_runs=None, max_instances=1, jobstore='default', executor='default', **trigger_args):
         """A decorator version of :meth:`add_job`."""
 
         def inner(func):
             self.add_job(trigger, func, args, kwargs, id, misfire_grace_time, coalesce, name, max_runs,
-                         max_instances, jobstore, **trigger_args)
+                         max_instances, jobstore, executor, **trigger_args)
             return func
         return inner
 
@@ -360,12 +388,19 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self.coalesce = asbool(config.pop('coalesce', True))
         self.timezone = astimezone(config.pop('timezone', None)) or tzlocal()
 
-        # Configure the thread pool
-        if 'threadpool' in config:
-            self._threadpool = maybe_ref(config['threadpool'])
-        else:
-            threadpool_opts = combine_opts(config, 'threadpool.')
-            self._threadpool = ThreadPool(**threadpool_opts)
+        # Configure executors
+        executor_opts = combine_opts(config, 'executor.')
+        executors = {}
+        for key, value in executor_opts.items():
+            store_name, option = key.split('.', 1)
+            opts_dict = executors.setdefault(store_name, {})
+            opts_dict[option] = value
+
+        for alias, opts in executors.items():
+            classname = opts.pop('class')
+            cls = maybe_ref(classname)
+            executor = cls(**opts)
+            self.add_executor(executor, alias)
 
         # Configure job stores
         jobstore_opts = combine_opts(config, 'jobstore.')
@@ -381,6 +416,18 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             jobstore = cls(**opts)
             self.add_jobstore(jobstore, alias, True)
 
+    def _create_default_jobstore(self):
+        return MemoryJobStore()
+
+    def _create_default_executor(self):
+        return ThreadPoolExecutor(self)
+
+    def _lookup_executor(self, executor):
+        try:
+            return self._executors[executor]
+        except KeyError:
+            raise KeyError('No such executor: %s' % executor)
+
     def _notify_listeners(self, event):
         with self._listeners_lock:
             listeners = tuple(self._listeners)
@@ -393,8 +440,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     self.logger.exception('Error notifying listener')
 
     def _real_add_job(self, job, jobstore, wakeup):
-        # Recalculate the next run time
-        job.next_run_time = job.trigger.get_next_fire_time(self._current_time())
+        # Calculate the next run time
+        now = datetime.now(self.timezone)
+        job.next_run_time = job.trigger.get_next_fire_time(now)
 
         # Add the job to the given job store
         store = self._jobstores.get(jobstore)
@@ -417,70 +465,22 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """Triggers :meth:`_process_jobs` to be run in an implementation specific manner."""
 
     def _create_lock(self):
+        """Creates a reentrant lock object."""
+
         return RLock()
 
-    def _current_time(self):
-        return datetime.now(self.timezone)
-
-    def _run_job(self, job, run_times):
-        """Acts as a harness that runs the actual job code in the thread pool."""
-
-        for run_time in run_times:
-            # See if the job missed its run time window, and handle possible
-            # misfires accordingly
-            difference = self._current_time() - run_time
-            grace_time = timedelta(seconds=job.misfire_grace_time)
-            if difference > grace_time:
-                # Notify listeners about a missed run
-                event = JobEvent(EVENT_JOB_MISSED, job, run_time)
-                self._notify_listeners(event)
-                self.logger.warning('Run time of job "%s" was missed by %s', job, difference)
-            else:
-                try:
-                    job.add_instance()
-                except MaxInstancesReachedError:
-                    event = JobEvent(EVENT_JOB_MISSED, job, run_time)
-                    self._notify_listeners(event)
-                    self.logger.warning(
-                        'Execution of job "%s" skipped: maximum number of running instances reached (%d)', job,
-                        job.max_instances)
-                    break
-
-                self.logger.info('Running job "%s" (scheduled at %s)', job, run_time)
-
-                try:
-                    retval = job.func(*job.args, **job.kwargs)
-                except:
-                    # Notify listeners about the exception
-                    exc, tb = sys.exc_info()[1:]
-                    event = JobEvent(EVENT_JOB_ERROR, job, run_time, exception=exc, traceback=tb)
-                    self._notify_listeners(event)
-
-                    self.logger.exception('Job "%s" raised an exception', job)
-                else:
-                    # Notify listeners about successful execution
-                    event = JobEvent(EVENT_JOB_EXECUTED, job, run_time, retval=retval)
-                    self._notify_listeners(event)
-
-                    self.logger.info('Job "%s" executed successfully', job)
-
-                job.remove_instance()
-
-                # If coalescing is enabled, don't attempt any further runs
-                if job.coalesce:
-                    break
-
     def _process_jobs(self):
-        """Iterates through jobs in every jobstore, starts jobs that are due and figures out how long to wait for
-        the next round.
+        """
+        Iterates through jobs in every jobstore, starts jobs that are due and figures out how long to wait for the next
+        round.
         """
 
         self.logger.debug('Looking for jobs to run')
-        now = self._current_time()
+        now = datetime.now(self.timezone)
         next_wakeup_time = None
 
         with self._jobstores_lock:
-            for alias, jobstore in six.iteritems(self._jobstores):
+            for jobstore_alias, jobstore in six.iteritems(self._jobstores):
                 jobs, jobstore_next_wakeup_time = jobstore.get_pending_jobs(now)
                 if not next_wakeup_time:
                     next_wakeup_time = jobstore_next_wakeup_time
@@ -488,27 +488,42 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     next_wakeup_time = min(next_wakeup_time or jobstore_next_wakeup_time)
 
                 for job in jobs:
-                    run_times = job.get_run_times(now)
-                    if run_times:
-                        self._threadpool.submit(self._run_job, job, run_times)
+                    # Look up the job's executor
+                    try:
+                        executor = self._lookup_executor(job.executor)
+                    except:
+                        self.logger.error('Executor lookup failed for job "%s": %s', job, job.executor)
+                        continue
 
-                        # Update the job, but don't keep finished jobs around
-                        job_runs = job.runs + 1 if job.coalesce else len(run_times)
+                    run_times = job.get_run_times(now)
+                    run_times = run_times[-1:] if run_times and job.coalesce else run_times
+                    if run_times:
+                        try:
+                            executor.submit_job(job, run_times)
+                        except MaxInstancesReachedError:
+                            self.logger.warning(
+                                'Execution of job "%s" skipped: maximum number of running instances reached (%d)',
+                                job, job.max_instances)
+                            continue
+                        except:
+                            self.logger.exception('Error submitting job "%s" to executor "%s"', job, job.executor)
+                            continue
+
+                        # Update the job if it has a next execution time and the number of runs has not reached maximum,
+                        # otherwise remove it from the job store
+                        job_runs = job.runs + len(run_times)
                         job_next_run = job.trigger.get_next_fire_time(now + timedelta(microseconds=1))
                         if job_next_run and (job.max_runs is None or job_runs < job.max_runs):
                             changes = {'next_run_time': job_next_run, 'runs': job_runs}
                             jobstore.modify_job(job.id, changes)
+                            next_wakeup_time = min(next_wakeup_time, job_next_run) if next_wakeup_time else job_next_run
                         else:
-                            self.remove_job(job.id, alias)
-
-                    if not next_wakeup_time:
-                        next_wakeup_time = job.next_run_time
-                    elif job.next_run_time:
-                        next_wakeup_time = min(next_wakeup_time, job.next_run_time)
+                            self.remove_job(job.id, jobstore_alias)
 
         # Determine the delay until this method should be called again
         if next_wakeup_time is not None:
-            wait_seconds = time_difference(next_wakeup_time, now)
+            wait_seconds = timedelta_seconds(next_wakeup_time - now)
+            self.logger.debug('now = %s, next_wakeup_time = %s', now, next_wakeup_time)
             self.logger.debug('Next wakeup is due at %s (in %f seconds)', next_wakeup_time, wait_seconds)
         else:
             wait_seconds = None

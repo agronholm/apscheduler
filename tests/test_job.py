@@ -4,7 +4,7 @@ from dateutil.tz import tzoffset
 import pytest
 import six
 
-from apscheduler.job import Job, MaxInstancesReachedError, JobHandle
+from apscheduler.job import Job, JobHandle
 from apscheduler.triggers.date import DateTrigger
 from tests.conftest import maxpython
 
@@ -16,7 +16,7 @@ except ImportError:
 
 local_tz = tzoffset('DUMMYTZ', 3600)
 run_time = datetime(2010, 12, 13, 0, 8, 0, tzinfo=local_tz)
-job_defaults = {'trigger': 'date', 'trigger_args': {'run_date': run_time, 'timezone': local_tz},
+job_defaults = {'trigger': 'date', 'executor': 'default', 'trigger_args': {'run_date': run_time, 'timezone': local_tz},
                 'func': '%s:dummyfunc' % __name__, 'args': (), 'kwargs': {}, 'id': 'testid', 'misfire_grace_time': 1,
                 'coalesce': False, 'name': None, 'max_runs': None, 'max_instances': 1}
 
@@ -75,17 +75,18 @@ class TestJob(object):
     def test_getstate(self, trigger):
         job = create_job(trigger=trigger, trigger_args=None)
         state = job.__getstate__()
-        assert state == dict(version=1, trigger=trigger, func='tests.test_job:dummyfunc', name='dummyfunc', args=(),
-                             kwargs={}, id='testid', misfire_grace_time=1, coalesce=False, max_runs=None,
-                             max_instances=1, runs=0, next_run_time=None)
+        assert state == dict(version=1, trigger=trigger, executor='default', func='tests.test_job:dummyfunc',
+                             name='dummyfunc', args=(), kwargs={}, id='testid', misfire_grace_time=1, coalesce=False,
+                             max_runs=None, max_instances=1, runs=0, next_run_time=None)
 
     def test_setstate(self, job):
         trigger = DateTrigger(local_tz, '2010-12-14 13:05:00')
-        state = dict(version=1, trigger=trigger, func='tests.test_job:dummyfunc', name='testjob.dummyfunc',
-                     args=[], kwargs={}, id='other_id', misfire_grace_time=2, max_runs=2, coalesce=True,
-                     max_instances=2, runs=1, next_run_time=None)
+        state = dict(version=1, trigger=trigger, executor='dummyexecutor', func='tests.test_job:dummyfunc',
+                     name='testjob.dummyfunc', args=[], kwargs={}, id='other_id', misfire_grace_time=2, max_runs=2,
+                     coalesce=True, max_instances=2, runs=1, next_run_time=None)
         job.__setstate__(state)
         assert job.id == 'other_id'
+        assert job.executor == 'dummyexecutor'
         assert job.trigger == trigger
         assert job.func == dummyfunc
         assert job.max_runs == 2
@@ -104,28 +105,6 @@ class TestJob(object):
         assert job == job2
 
         assert not job == 'bleh'
-
-    def test_instances(self, job):
-        job.max_instances = 2
-        assert job.instances == 0
-
-        job.add_instance()
-        assert job.instances == 1
-
-        job.add_instance()
-        assert job.instances == 2
-
-        with pytest.raises(MaxInstancesReachedError):
-            job.add_instance()
-
-        job.remove_instance()
-        assert job.instances == 1
-
-        job.remove_instance()
-        assert job.instances == 0
-
-        with pytest.raises(AssertionError):
-            job.remove_instance()
 
     def test_job_repr(self, job):
         assert repr(job) == '<Job (id=testid)>'

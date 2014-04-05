@@ -9,3 +9,4 @@ dist/
 build/
 .coverage
 .cache/
+example.sqlite

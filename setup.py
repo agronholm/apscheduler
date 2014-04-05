@@ -19,6 +19,10 @@ class PyTest(TestCommand):
         errno = pytest.main(self.test_args)
         sys.exit(errno)
 
+extra_requirements = []
+if sys.version_info < (3, 2):
+    extra_requirements.append('futures')
+
 here = os.path.dirname(__file__)
 readme_path = os.path.join(here, 'README.rst')
 readme = open(readme_path).read()
@@ -45,7 +49,7 @@ setup(
     keywords='scheduling cron',
     license='MIT',
     packages=find_packages(exclude=['tests']),
-    install_requires=['six', 'python-dateutil'],
+    install_requires=['six', 'python-dateutil'] + extra_requirements,
     tests_require=['pytest >= 2.5.1', 'pytest-cov'],
     cmdclass={'test': PyTest},
     zip_safe=False,

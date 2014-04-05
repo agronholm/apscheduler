@@ -1,7 +1,6 @@
 from datetime import datetime
 import os
 
-from dateutil.tz import tzoffset
 import pytest
 
 from apscheduler.jobstores.memory import MemoryJobStore
@@ -9,10 +8,10 @@ from apscheduler.jobstores.base import JobLookupError, ConflictingIdError, Trans
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.job import Job
 
-local_tz = tzoffset('DUMMYTZ', 3600)
+#local_tz = tzoffset('DUMMYTZ', 3600)
 run_time = datetime(2999, 1, 1)
-job_defaults = {'args': (), 'kwargs': {},  'misfire_grace_time': 1, 'coalesce': False, 'name': None, 'max_runs': None,
-                'max_instances': 1}
+#job_defaults = {'args': (), 'kwargs': {},  'misfire_grace_time': 1, 'coalesce': False, 'name': None, 'max_runs': None,
+#                'max_instances': 1}
 
 
 def dummy_job():
@@ -36,7 +35,8 @@ def memjobstore(request):
 def sqlalchemyjobstore(request):
     def finish():
         store.close()
-        os.remove('tempdb.sqlite')
+        if os.path.exists('tempdb.sqlite'):
+            os.remove('tempdb.sqlite')
 
     sqlalchemy = pytest.importorskip('apscheduler.jobstores.sqlalchemy')
     store = sqlalchemy.SQLAlchemyJobStore(url='sqlite:///tempdb.sqlite')
@@ -57,72 +57,74 @@ def mongodbjobstore(request):
     return store
 
 
-@pytest.fixture
+@pytest.fixture(params=[memjobstore, sqlalchemyjobstore, mongodbjobstore], ids=['memory', 'sqlalchemy', 'mongodb'])
 def jobstore(request):
     return request.param(request)
 
 
-def create_job(jobstore, func=dummy_job, trigger_date=run_time, id=None):
-    trigger_date.replace(tzinfo=local_tz)
-    trigger = DateTrigger(local_tz, trigger_date)
-    job = Job(trigger=trigger, func=func, id=id, next_run_time=trigger.run_date, **job_defaults)
-    jobstore.add_job(job)
-    return job
-
-persistent_jobstores = [sqlalchemyjobstore, mongodbjobstore]
-persistent_jobstores_ids = ['sqlalchemy', 'mongodb']
-all_jobstores = [memjobstore] + persistent_jobstores
-all_jobstores_ids = ['memory'] + persistent_jobstores_ids
+@pytest.fixture(params=[sqlalchemyjobstore, mongodbjobstore], ids=['sqlalchemy', 'mongodb'])
+def persistent_jobstore(request):
+    return request.param(request)
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
-def test_lookup_job(jobstore):
+@pytest.fixture
+def create_job(timezone, job_defaults):
+    def create(jobstore, func=dummy_job, trigger_date=run_time, id=None):
+        trigger_date = trigger_date.replace(tzinfo=timezone)
+        trigger = DateTrigger(timezone, trigger_date)
+        job_kwargs = job_defaults.copy()
+        job_kwargs['func'] = func
+        job_kwargs['trigger'] = trigger
+        job_kwargs['id'] = id
+        job = Job(**job_kwargs)
+        job.next_run_time = job.trigger.get_next_fire_time(trigger_date)
+        jobstore.add_job(job)
+        return job
+
+    return create
+
+
+def test_lookup_job(jobstore, create_job):
     initial_job = create_job(jobstore)
     job = jobstore.lookup_job(initial_job.id)
     assert job == initial_job
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
 def test_lookup_nonexistent_job(jobstore):
     pytest.raises(JobLookupError, jobstore.lookup_job, 'foo')
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
-def test_get_all_jobs(jobstore):
+def test_get_all_jobs(jobstore, create_job):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2013, 8, 14))
     jobs = jobstore.get_all_jobs()
     assert jobs == [job2, job1]
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
-def test_get_pending_jobs(jobstore):
+def test_get_pending_jobs(jobstore, create_job, timezone):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     job3 = create_job(jobstore, dummy_job3, datetime(2013, 8, 14))
-    jobs, next_run_time = jobstore.get_pending_jobs(datetime(2014, 2, 27, tzinfo=local_tz))
+    jobs, next_run_time = jobstore.get_pending_jobs(datetime(2014, 2, 27, tzinfo=timezone))
     assert jobs == [job3, job2]
     assert next_run_time == job1.trigger.run_date
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
-def test_get_pending_jobs_no_next(jobstore):
+def test_get_pending_jobs_no_next(jobstore, create_job, timezone):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     job3 = create_job(jobstore, dummy_job3, datetime(2013, 8, 14))
-    jobs, next_run_time = jobstore.get_pending_jobs(datetime(2016, 5, 10, tzinfo=local_tz))
+    jobs, next_run_time = jobstore.get_pending_jobs(datetime(2016, 5, 10, tzinfo=timezone))
     assert jobs == [job3, job2, job1]
     assert next_run_time is None
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
-def test_add_job_conflicting_id(jobstore):
+def test_add_job_conflicting_id(jobstore, create_job):
     create_job(jobstore, dummy_job, datetime(2016, 5, 3), id='blah')
     pytest.raises(ConflictingIdError, create_job, jobstore, dummy_job2, datetime(2014, 2, 26), id='blah')
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
-def test_update_job_id_and_others(jobstore):
+def test_update_job_id_and_others(jobstore, create_job):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     jobstore.modify_job(job1.id, {'id': 'foo', 'max_instances': 6})
@@ -134,20 +136,18 @@ def test_update_job_id_and_others(jobstore):
     assert jobs[1].max_instances == 6
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
-def test_update_job_next_runtime(jobstore):
+def test_update_job_next_runtime(jobstore, create_job, timezone):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     job3 = create_job(jobstore, dummy_job3, datetime(2013, 8, 14))
-    jobstore.modify_job(job1.id, {'next_run_time': datetime(2014, 1, 3, tzinfo=local_tz)})
+    jobstore.modify_job(job1.id, {'next_run_time': datetime(2014, 1, 3, tzinfo=timezone)})
 
     jobs = jobstore.get_all_jobs()
     assert len(jobs) == 3
     assert jobs == [job3, job1, job2]
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
-def test_update_job_next_runtime_empty(jobstore):
+def test_update_job_next_runtime_empty(jobstore, create_job):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     jobstore.modify_job(job1.id, {'next_run_time': None})
@@ -157,38 +157,33 @@ def test_update_job_next_runtime_empty(jobstore):
     assert jobs == [job1, job2]
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
-def test_update_job_conflicting_id(jobstore):
+def test_update_job_conflicting_id(jobstore, create_job):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     pytest.raises(ConflictingIdError, jobstore.modify_job, job2.id, {'id': job1.id})
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
 def test_update_job_nonexistent_job(jobstore):
     pytest.raises(JobLookupError, jobstore.modify_job, 'foo', {'next_run_time': None})
 
 
-@pytest.mark.parametrize('jobstore', persistent_jobstores, indirect=True, ids=persistent_jobstores_ids)
-def test_one_job_fails_to_load(jobstore, monkeypatch):
-    job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
-    job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
-    job3 = create_job(jobstore, dummy_job3, datetime(2013, 8, 14))
+def test_one_job_fails_to_load(persistent_jobstore, create_job, monkeypatch):
+    job1 = create_job(persistent_jobstore, dummy_job, datetime(2016, 5, 3))
+    job2 = create_job(persistent_jobstore, dummy_job2, datetime(2014, 2, 26))
+    job3 = create_job(persistent_jobstore, dummy_job3, datetime(2013, 8, 14))
 
     # Make the dummy_job2 function disappear
     monkeypatch.delitem(globals(), 'dummy_job2')
 
-    jobs = jobstore.get_all_jobs()
+    jobs = persistent_jobstore.get_all_jobs()
     assert jobs == [job3, job1]
 
 
-@pytest.mark.parametrize('jobstore', persistent_jobstores, indirect=True, ids=persistent_jobstores_ids)
-def test_transient_job_error(jobstore):
-    pytest.raises(TransientJobError, create_job, jobstore, lambda: None, datetime(2016, 5, 3))
+def test_transient_job_error(persistent_jobstore, create_job):
+    pytest.raises(TransientJobError, create_job, persistent_jobstore, lambda: None, datetime(2016, 5, 3))
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
-def test_remove_job(jobstore):
+def test_remove_job(jobstore, create_job):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
 
@@ -201,13 +196,11 @@ def test_remove_job(jobstore):
     assert jobs == []
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
 def test_remove_nonexistent_job(jobstore):
     pytest.raises(JobLookupError, jobstore.remove_job, 'blah')
 
 
-@pytest.mark.parametrize('jobstore', all_jobstores, indirect=True, ids=all_jobstores_ids)
-def test_remove_all_jobs(jobstore):
+def test_remove_all_jobs(jobstore, create_job):
     create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
 
@@ -228,7 +221,7 @@ def test_repr_mongodbjobstore(mongodbjobstore):
     assert repr(mongodbjobstore) == "<MongoDBJobStore (connection=Connection('localhost', 27017))>"
 
 
-def test_memstore_close(memjobstore):
+def test_memstore_close(memjobstore, create_job):
     create_job(memjobstore, dummy_job, datetime(2016, 5, 3))
     memjobstore.close()
     assert not memjobstore.get_all_jobs()

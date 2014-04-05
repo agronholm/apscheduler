@@ -30,7 +30,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         if engine:
             self.engine = maybe_ref(engine)
         elif url:
-            self.engine = create_engine(url, echo=True)
+            self.engine = create_engine(url)
         else:
             raise ValueError('Need either "engine" or "url" defined')
 
@@ -40,7 +40,7 @@ class SQLAlchemyJobStore(BaseJobStore):
             pickle_coltype = PickleType(pickle_protocol)
         self.jobs_t = Table(
             tablename, metadata,
-            Column('id', Unicode(1024), primary_key=True),
+            Column('id', Unicode(1024, _warn_on_bytestring=False), primary_key=True),
             Column('next_run_time', BigInteger, index=True),
             Column('job_data', pickle_coltype, nullable=False)
         )

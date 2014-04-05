@@ -1,6 +1,5 @@
 from collections import Iterable, Mapping
 from inspect import isfunction, ismethod
-from threading import Lock
 from datetime import timedelta, datetime
 from uuid import uuid4
 
@@ -15,31 +14,29 @@ except ImportError:
     from inspect import getargspec
 
 
-class MaxInstancesReachedError(Exception):
-    pass
-
-
 class Job(object):
     """
     Encapsulates the actual Job along with its metadata. This class is used internally by APScheduler, and should never
     be instantiated by the user.
     """
 
-    __slots__ = ('_lock', 'id', 'trigger', 'func', 'func_ref', 'args', 'kwargs', 'name', 'misfire_grace_time',
-                 'coalesce', 'max_runs', 'max_instances', 'runs', 'instances', 'next_run_time')
+    __slots__ = ('id', 'trigger', 'executor', 'func', 'func_ref', 'args', 'kwargs', 'name', 'misfire_grace_time',
+                 'coalesce', 'max_runs', 'max_instances', 'runs', 'next_run_time')
 
     trigger_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
     trigger_classes = {}
 
-    def __init__(self, **kwargs):
+    def __init__(self, id=None, **kwargs):
         super(Job, self).__init__()
-        self.instances = 0
         self.runs = 0
         self.next_run_time = None
 
+        if id and not isinstance(id, six.string_types):
+            raise TypeError("id must be a nonempty string")
+        self.id = id or uuid4().hex
+
         changes = self.validate_changes(kwargs)
         self.modify(changes)
-        self._lock = Lock()
 
     def modify(self, changes):
         for key, value in six.iteritems(changes):
@@ -49,14 +46,6 @@ class Job(object):
         """Validates the changes to the Job and makes the modifications if and only if all of them validate."""
 
         approved = {}
-
-        if 'id' in changes:
-            value = changes.pop('id')
-            if value is None:
-                value = uuid4().hex
-            elif not isinstance(value, six.string_types):
-                raise TypeError("id must be a nonempty string")
-            approved['id'] = value
 
         if 'func' in changes or 'args' in changes or 'kwargs' in changes:
             func = changes.pop('func') if 'func' in changes else self.func
@@ -147,6 +136,12 @@ class Job(object):
 
             approved['trigger'] = trigger
 
+        if 'executor' in changes:
+            value = changes.pop('executor')
+            if not isinstance(value, six.string_types):
+                raise TypeError('executor must be a string')
+            approved['executor'] = value
+
         if 'next_run_time' in changes:
             value = changes.pop('next_run_time')
             if not isinstance(value, datetime):
@@ -215,23 +210,13 @@ class Job(object):
 
         return run_times
 
-    def add_instance(self):
-        with self._lock:
-            if self.instances == self.max_instances:
-                raise MaxInstancesReachedError
-            self.instances += 1
-
-    def remove_instance(self):
-        with self._lock:
-            assert self.instances > 0, 'Already at 0 instances'
-            self.instances -= 1
-
     def __getstate__(self):
         return {
             'version': 1,
             'id': self.id,
             'func': self.func_ref,
             'trigger': self.trigger,
+            'executor': self.executor,
             'args': self.args,
             'kwargs': self.kwargs,
             'name': self.name,
@@ -245,13 +230,13 @@ class Job(object):
 
     def __setstate__(self, state):
         if state.get('version', 1) > 1:
-            raise ValueError('Job has version %s, but only version 1 and lower can be handled' % state['version'])
+            raise ValueError('Job has version %s, but only version 1 can be handled' % state['version'])
 
-        self._lock = Lock()
         self.id = state['id']
         self.func_ref = state['func']
         self.func = ref_to_obj(self.func_ref)
         self.trigger = state['trigger']
+        self.executor = state['executor']
         self.args = state['args']
         self.kwargs = state['kwargs']
         self.name = state['name']
@@ -261,7 +246,6 @@ class Job(object):
         self.max_instances = state['max_instances']
         self.runs = state['runs']
         self.next_run_time = state['next_run_time']
-        self.instances = 0
 
     def __eq__(self, other):
         if isinstance(other, Job):

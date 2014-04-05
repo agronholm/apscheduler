@@ -13,7 +13,7 @@ def tick():
 
 if __name__ == '__main__':
     scheduler = GeventScheduler()
-    scheduler.add_job(tick, 'interval', {'seconds': 3})
+    scheduler.add_job('interval', tick, seconds=3)
     g = scheduler.start()  # g is the greenlet that runs the scheduler loop
     print('Press Ctrl+C to exit')
 

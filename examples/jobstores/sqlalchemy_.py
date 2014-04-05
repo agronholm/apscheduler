@@ -18,10 +18,10 @@ def alarm(time):
 
 if __name__ == '__main__':
     scheduler = BlockingScheduler()
-    url = sys.argv[1] or 'sqlite://example.sqlite'
+    url = sys.argv[1] if len(sys.argv) > 1 else 'sqlite:///example.sqlite'
     scheduler.add_jobstore(SQLAlchemyJobStore(url))
     alarm_time = datetime.now() + timedelta(seconds=10)
-    scheduler.add_job(alarm, 'date', [alarm_time], args=[datetime.now()])
+    scheduler.add_job('date', alarm, run_date=alarm_time, args=[datetime.now()])
     print('To clear the alarms, delete the example.sqlite file.')
     print('Press Ctrl+C to exit')
 

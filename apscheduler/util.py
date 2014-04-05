@@ -4,15 +4,14 @@ This module contains several handy functions primarily meant for internal use.
 
 from datetime import date, datetime, timedelta, tzinfo
 from calendar import timegm
-from time import mktime
 import re
 
 from dateutil.tz import gettz, tzutc
 import six
 
 __all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
-           'utc_timestamp_to_datetime', 'timedelta_seconds', 'time_difference', 'datetime_ceil', 'combine_opts',
-           'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref')
+           'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'combine_opts', 'get_callable_name',
+           'obj_to_ref', 'ref_to_obj', 'maybe_ref')
 
 
 def asint(text):
@@ -119,22 +118,6 @@ def timedelta_seconds(delta):
     """
     return delta.days * 24 * 60 * 60 + delta.seconds + \
         delta.microseconds / 1000000.0
-
-
-def time_difference(date1, date2):
-    """
-    Returns the time difference in seconds between the given two datetime objects.
-    The difference is calculated as: date1 - date2.
-
-    :param date1: the later datetime
-    :type date1: datetime
-    :param date2: the earlier datetime
-    :type date2: datetime
-    :rtype: float
-    """
-    later = mktime(date1.timetuple()) + date1.microsecond / 1000000.0
-    earlier = mktime(date2.timetuple()) + date2.microsecond / 1000000.0
-    return later - earlier
 
 
 def datetime_ceil(dateval):

@@ -142,41 +142,6 @@ def test_timedelta_seconds():
     assert seconds == 150
 
 
-def test_time_difference_positive():
-    earlier = datetime(2008, 9, 1, second=3)
-    later = datetime(2008, 9, 1, second=49)
-    assert time_difference(later, earlier) == 46
-
-
-def test_time_difference_negative():
-    earlier = datetime(2009, 4, 7, second=7)
-    later = datetime(2009, 4, 7, second=56)
-    assert time_difference(earlier, later) == -49
-
-
-class TestDSTTimeDifference(object):
-    @pytest.fixture(scope='class', autouse=True)
-    def timezone(self, request):
-        def finish():
-            del os.environ['TZ']
-            time.tzset()
-
-        if hasattr(time, 'tzset'):
-            os.environ['TZ'] = 'Europe/Helsinki'
-            time.tzset()
-            request.addfinalizer(finish)
-
-    def test_time_difference_daylight_1(self):
-        earlier = datetime(2010, 3, 28, 2)
-        later = datetime(2010, 3, 28, 4)
-        assert time_difference(later, earlier) == 3600
-
-    def test_time_difference_daylight_2(self):
-        earlier = datetime(2010, 10, 31, 2)
-        later = datetime(2010, 10, 31, 5)
-        assert time_difference(later, earlier) == 14400
-
-
 def test_datetime_ceil_round():
     dateval = datetime(2009, 4, 7, 2, 10, 16, 4000)
     correct_answer = datetime(2009, 4, 7, 2, 10, 17)
