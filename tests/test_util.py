@@ -1,17 +1,13 @@
 # coding: utf-8
 from datetime import date, datetime, timedelta, tzinfo
-import time
-import os
-import shelve
 from functools import partial
+import shelve
 
 from dateutil.tz import tzoffset, gettz
 import pytest
 
 from apscheduler.util import *
 from tests.conftest import minpython
-
-local_tz = tzoffset('DUMMYTZ', 3600)
 
 
 class DummyClass(object):
@@ -86,51 +82,51 @@ def test_astimezone_fail():
     pytest.raises(TypeError, astimezone, 4)
 
 
-def test_convert_datetime_date():
+def test_convert_datetime_date(timezone):
     dateval = date(2009, 8, 1)
-    datetimeval = convert_to_datetime(dateval, local_tz, None)
+    datetimeval = convert_to_datetime(dateval, timezone, None)
     correct_datetime = datetime(2009, 8, 1)
     assert isinstance(datetimeval, datetime)
-    assert datetimeval == correct_datetime.replace(tzinfo=local_tz)
+    assert datetimeval == correct_datetime.replace(tzinfo=timezone)
 
 
-def test_convert_datetime_passthrough():
+def test_convert_datetime_passthrough(timezone):
     datetimeval = datetime(2009, 8, 1, 5, 6, 12)
-    convertedval = convert_to_datetime(datetimeval, local_tz, None)
-    assert convertedval == datetimeval.replace(tzinfo=local_tz)
+    convertedval = convert_to_datetime(datetimeval, timezone, None)
+    assert convertedval == datetimeval.replace(tzinfo=timezone)
 
 
-def test_convert_datetime_text1():
-    convertedval = convert_to_datetime('2009-8-1', local_tz, None)
-    assert convertedval == datetime(2009, 8, 1, tzinfo=local_tz)
+def test_convert_datetime_text1(timezone):
+    convertedval = convert_to_datetime('2009-8-1', timezone, None)
+    assert convertedval == datetime(2009, 8, 1, tzinfo=timezone)
 
 
-def test_convert_datetime_text2():
-    convertedval = convert_to_datetime('2009-8-1 5:16:12', local_tz, None)
-    assert convertedval == datetime(2009, 8, 1, 5, 16, 12, tzinfo=local_tz)
+def test_convert_datetime_text2(timezone):
+    convertedval = convert_to_datetime('2009-8-1 5:16:12', timezone, None)
+    assert convertedval == datetime(2009, 8, 1, 5, 16, 12, tzinfo=timezone)
 
 
-def test_datestring_parse_datetime_micro():
-    convertedval = convert_to_datetime('2009-8-1 5:16:12.843821', local_tz, None)
-    assert convertedval == datetime(2009, 8, 1, 5, 16, 12, 843821, tzinfo=local_tz)
+def test_datestring_parse_datetime_micro(timezone):
+    convertedval = convert_to_datetime('2009-8-1 5:16:12.843821', timezone, None)
+    assert convertedval == datetime(2009, 8, 1, 5, 16, 12, 843821, tzinfo=timezone)
 
 
-def test_existing_tzinfo():
+def test_existing_tzinfo(timezone):
     alter_tz = tzoffset('ALTERNATE', -3600)
     dateval = datetime(2009, 8, 1, tzinfo=alter_tz)
-    assert convert_to_datetime(dateval, local_tz, None) == dateval
+    assert convert_to_datetime(dateval, timezone, None) == dateval
 
 
-def test_convert_datetime_invalid():
-    pytest.raises(TypeError, convert_to_datetime, 995302092123, local_tz, None)
+def test_convert_datetime_invalid(timezone):
+    pytest.raises(TypeError, convert_to_datetime, 995302092123, timezone, None)
 
 
-def test_convert_datetime_invalid_str():
-    pytest.raises(ValueError, convert_to_datetime, '19700-12-1', local_tz, None)
+def test_convert_datetime_invalid_str(timezone):
+    pytest.raises(ValueError, convert_to_datetime, '19700-12-1', timezone, None)
 
 
-def test_datetime_to_utc_timestamp():
-    dt = datetime(2014, 3, 12, 5, tzinfo=local_tz)
+def test_datetime_to_utc_timestamp(timezone):
+    dt = datetime(2014, 3, 12, 5, tzinfo=timezone)
     timestamp = datetime_to_utc_timestamp(dt)
     dt2 = utc_timestamp_to_datetime(timestamp)
     assert dt2 == dt

@@ -8,10 +8,7 @@ from apscheduler.jobstores.base import JobLookupError, ConflictingIdError, Trans
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.job import Job
 
-#local_tz = tzoffset('DUMMYTZ', 3600)
 run_time = datetime(2999, 1, 1)
-#job_defaults = {'args': (), 'kwargs': {},  'misfire_grace_time': 1, 'coalesce': False, 'name': None, 'max_runs': None,
-#                'max_instances': 1}
 
 
 def dummy_job():

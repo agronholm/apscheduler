@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 
-from dateutil.tz import tzoffset
 import pytest
 import six
 
@@ -14,43 +13,26 @@ try:
 except ImportError:
     from mock import MagicMock
 
-local_tz = tzoffset('DUMMYTZ', 3600)
-run_time = datetime(2010, 12, 13, 0, 8, 0, tzinfo=local_tz)
-job_defaults = {'trigger': 'date', 'executor': 'default', 'trigger_args': {'run_date': run_time, 'timezone': local_tz},
-                'func': '%s:dummyfunc' % __name__, 'args': (), 'kwargs': {}, 'id': 'testid', 'misfire_grace_time': 1,
-                'coalesce': False, 'name': None, 'max_runs': None, 'max_instances': 1}
-
 
 def dummyfunc():
     pass
 
 
-def create_job(**kwargs):
-    job_kwargs = job_defaults.copy()
-    job_kwargs.update(kwargs)
-    return Job(**job_kwargs)
-
-
 @pytest.fixture
-def trigger():
-    return DateTrigger(local_tz, run_time)
-
-
-@pytest.fixture
-def job():
-    return create_job()
+def job(create_job):
+    return create_job(func=dummyfunc)
 
 
 class TestJob(object):
-    def test_job_func(self):
+    def test_job_func(self, create_job):
         job = create_job(func=dummyfunc)
         assert job.func is dummyfunc
 
-    def test_job_func_ref(self):
+    def test_job_func_ref(self, create_job):
         job = create_job(func='%s:dummyfunc' % __name__)
         assert job.func is dummyfunc
 
-    def test_job_bad_func(self):
+    def test_job_bad_func(self, create_job):
         exc = pytest.raises(TypeError, create_job, func=object())
         assert 'textual reference' in str(exc.value)
 
@@ -58,11 +40,12 @@ class TestJob(object):
         exc = pytest.raises(ValueError, job.__setstate__, {'version': 9999})
         assert 'version' in str(exc.value)
 
-    def test_get_run_times(self, job):
+    def test_get_run_times(self, create_job, timezone):
+        run_time = datetime(2010, 12, 13, 0, 8, 0, tzinfo=timezone)
         expected_times = [run_time + timedelta(seconds=1),
                           run_time + timedelta(seconds=2)]
-        job = create_job(trigger='interval', trigger_args={'seconds': 1, 'timezone': local_tz, 'start_date': run_time},
-                         next_run_time=expected_times[0])
+        job = create_job(trigger='interval', trigger_args={'seconds': 1, 'timezone': timezone, 'start_date': run_time},
+                         next_run_time=expected_times[0], func=dummyfunc)
         run_times = job.get_run_times(run_time)
         assert run_times == []
 
@@ -72,15 +55,14 @@ class TestJob(object):
         run_times = job.get_run_times(expected_times[1])
         assert run_times == expected_times
 
-    def test_getstate(self, trigger):
-        job = create_job(trigger=trigger, trigger_args=None)
+    def test_getstate(self, job):
         state = job.__getstate__()
-        assert state == dict(version=1, trigger=trigger, executor='default', func='tests.test_job:dummyfunc',
+        assert state == dict(version=1, trigger=job.trigger, executor='default', func='tests.test_job:dummyfunc',
                              name='dummyfunc', args=(), kwargs={}, id='testid', misfire_grace_time=1, coalesce=False,
                              max_runs=None, max_instances=1, runs=0, next_run_time=None)
 
-    def test_setstate(self, job):
-        trigger = DateTrigger(local_tz, '2010-12-14 13:05:00')
+    def test_setstate(self, job, timezone):
+        trigger = DateTrigger(timezone, '2010-12-14 13:05:00')
         state = dict(version=1, trigger=trigger, executor='dummyexecutor', func='tests.test_job:dummyfunc',
                      name='testjob.dummyfunc', args=[], kwargs={}, id='other_id', misfire_grace_time=2, max_runs=2,
                      coalesce=True, max_instances=2, runs=1, next_run_time=None)
@@ -95,10 +77,12 @@ class TestJob(object):
         assert job.runs == 1
         assert job.next_run_time is None
 
-    def test_jobs_equal(self, job):
+    def test_jobs_equal(self, create_job, timezone):
+        job = create_job(func=dummyfunc)
         assert job == job
 
-        job2 = create_job(trigger=DateTrigger(local_tz, run_time), id='otherid', func=lambda: None)
+        job2 = create_job(trigger='date', id='otherid', trigger_args={'run_date': datetime.now(), 'timezone': timezone},
+                          func=dummyfunc)
         assert not job == job2
 
         job2.id = job.id
@@ -166,9 +150,9 @@ class TestJobHandle(object):
         assert repr(jobhandle) == '<JobHandle (id=testid name=dummyfunc)>'
 
     def test_jobhandle_str(self, jobhandle):
-        assert str(jobhandle) == 'dummyfunc (trigger: date[2010-12-13 00:08:00 DUMMYTZ], next run at: None)'
+        assert str(jobhandle) == 'dummyfunc (trigger: date[2011-04-03 18:40:00 DUMMYTZ], next run at: None)'
 
     @maxpython(3, 0)
     def test_jobhandle_unicode(self, jobhandle):
         assert jobhandle.__unicode__() == six.u(
-            'dummyfunc (trigger: date[2010-12-13 00:08:00 DUMMYTZ], next run at: None)')
+            'dummyfunc (trigger: date[2011-04-03 18:40:00 DUMMYTZ], next run at: None)')
