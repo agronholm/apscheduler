@@ -62,7 +62,7 @@ class TestJob(object):
                              max_runs=None, max_instances=1, runs=0, next_run_time=None)
 
     def test_setstate(self, job, timezone):
-        trigger = DateTrigger(timezone, '2010-12-14 13:05:00')
+        trigger = DateTrigger('2010-12-14 13:05:00', timezone)
         state = dict(version=1, trigger=trigger, executor='dummyexecutor', func='tests.test_job:dummyfunc',
                      name='testjob.dummyfunc', args=[], kwargs={}, id='other_id', misfire_grace_time=2, max_runs=2,
                      coalesce=True, max_instances=2, runs=1, next_run_time=None)

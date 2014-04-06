@@ -68,7 +68,7 @@ def persistent_jobstore(request):
 def create_job(timezone, job_defaults):
     def create(jobstore, func=dummy_job, trigger_date=run_time, id=None):
         trigger_date = trigger_date.replace(tzinfo=timezone)
-        trigger = DateTrigger(timezone, trigger_date)
+        trigger = DateTrigger(trigger_date, timezone)
         job_kwargs = job_defaults.copy()
         job_kwargs['func'] = func
         job_kwargs['trigger'] = trigger

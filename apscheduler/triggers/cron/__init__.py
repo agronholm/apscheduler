@@ -1,4 +1,5 @@
 from datetime import datetime
+from dateutil.tz import tzlocal
 
 from six import iteritems
 
@@ -20,12 +21,11 @@ class CronTrigger(BaseTrigger):
         'second': BaseField
     }
 
-    def __init__(self, timezone, year=None, month=None, day=None, week=None, day_of_week=None, hour=None, minute=None,
-                 second=None, start_date=None):
+    def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None, minute=None,
+                 second=None, start_date=None, timezone=None):
         """
         Triggers when current time matches all specified time constraints, emulating the UNIX cron scheduler.
 
-        :param timezone: time zone for ``start_date``
         :param year: year to run on
         :param month: month to run on
         :param day: day of month to run on
@@ -34,10 +34,11 @@ class CronTrigger(BaseTrigger):
         :param hour: hour to run on
         :param second: second to run on
         :param start_date: earliest possible date/time to trigger on
+        :param timezone: time zone for ``start_date``
         :type timezone: str or an instance of a :cls:`~datetime.tzinfo` subclass
         """
 
-        self.timezone = astimezone(timezone)
+        self.timezone = astimezone(timezone) or getattr(self.start_date, 'tzinfo', None) or tzlocal()
         self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date') if start_date else None
 
         values = dict((key, value) for (key, value) in iteritems(locals())
