@@ -1,7 +1,8 @@
+from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import convert_to_datetime, datetime_repr, astimezone
 
 
-class DateTrigger(object):
+class DateTrigger(BaseTrigger):
     def __init__(self, timezone, run_date):
         """
         Triggers once on the given datetime.

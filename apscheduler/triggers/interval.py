@@ -1,10 +1,11 @@
 from datetime import datetime, timedelta
 from math import ceil
 
+from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import convert_to_datetime, timedelta_seconds, datetime_repr, astimezone
 
 
-class IntervalTrigger(object):
+class IntervalTrigger(BaseTrigger):
     def __init__(self, timezone, weeks=0, days=0, hours=0, minutes=0, seconds=0, start_date=None):
         """
         Triggers on specified intervals.

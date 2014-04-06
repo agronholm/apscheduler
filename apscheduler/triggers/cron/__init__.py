@@ -1,12 +1,13 @@
-from datetime import date, datetime
+from datetime import datetime
 
 from six import iteritems
 
+from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.cron.fields import *
 from apscheduler.util import datetime_ceil, convert_to_datetime, datetime_repr, astimezone
 
 
-class CronTrigger(object):
+class CronTrigger(BaseTrigger):
     FIELD_NAMES = ('year', 'month', 'day', 'week', 'day_of_week', 'hour', 'minute', 'second')
     FIELDS_MAP = {
         'year': BaseField,
