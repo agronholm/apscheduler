@@ -30,7 +30,7 @@ if __name__ == '__main__':
     label.show()
 
     scheduler = QtScheduler()
-    scheduler.add_job('interval', tick, seconds=3)
+    scheduler.add_job(tick, 'interval', seconds=3)
     scheduler.start()
 
     # Execution will block here until the user closes the windows or Ctrl+C is pressed.

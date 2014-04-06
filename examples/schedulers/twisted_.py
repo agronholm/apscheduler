@@ -14,7 +14,7 @@ def tick():
 
 if __name__ == '__main__':
     scheduler = TwistedScheduler()
-    scheduler.add_job('interval', tick, seconds=3)
+    scheduler.add_job(tick, 'interval', seconds=3)
     scheduler.start()
     print('Press Ctrl+C to exit')
 

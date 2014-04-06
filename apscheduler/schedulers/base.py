@@ -187,8 +187,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 if callback == cb:
                     del self._listeners[i]
 
-    def add_job(self, trigger, func, args=None, kwargs=None, id=None, name=None, misfire_grace_time=None, coalesce=None,
-                max_runs=None, max_instances=1, jobstore='default', executor='default', **trigger_args):
+    def add_job(self, func, trigger=None, args=None, kwargs=None, id=None, name=None, misfire_grace_time=None,
+                coalesce=None, max_runs=None, max_instances=1, jobstore='default', executor='default', **trigger_args):
         """
         Adds the given job to the job list and notifies the scheduler thread.
 
@@ -202,8 +202,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
           passed on to the trigger's constructor
         # an instance of a trigger class
 
-        :param trigger: trigger that determines when ``func`` is called
         :param func: callable (or a textual reference to one) to run at the given time
+        :param trigger: trigger that determines when ``func`` is called
         :param args: list of positional arguments to call func with
         :param kwargs: dict of keyword arguments to call func with
         :param id: explicit identifier for the job (for modifying it later)
@@ -215,18 +215,24 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param max_instances: maximum number of concurrently running instances allowed for this job
         :param jobstore: alias of the job store to store the job in
         :param executor: alias of the executor to run the job with
-        :type id: str/unicode
         :type args: list/tuple
-        :type jobstore: str/unicode
-        :type misfire_grace_time: int
         :type kwargs: dict
+        :type id: str/unicode
+        :type name: str/unicode
+        :type misfire_grace_time: int
         :type coalesce: bool
         :type max_runs: int
         :type max_instances: int
-        :type jobstore: str
-        :type executor: str
+        :type jobstore: str/unicode
+        :type executor: str/unicode
         :rtype: :class:`~apscheduler.job.JobHandle`
         """
+
+        # If no trigger was specified, assume that the job should be run now
+        if trigger is None:
+            trigger = 'date'
+            trigger_args['run_date'] = datetime.now(self.timezone)
+            misfire_grace_time = None
 
         trigger_args.setdefault('timezone', self.timezone)
 
@@ -260,8 +266,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """A decorator version of :meth:`add_job`."""
 
         def inner(func):
-            self.add_job(trigger, func, args, kwargs, id, misfire_grace_time, coalesce, name, max_runs,
-                         max_instances, jobstore, executor, **trigger_args)
+            self.add_job(func, trigger, args, kwargs, id, misfire_grace_time, coalesce, name, max_runs, max_instances,
+                         jobstore, executor, **trigger_args)
             return func
         return inner
 
@@ -493,7 +499,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 if not next_wakeup_time:
                     next_wakeup_time = jobstore_next_wakeup_time
                 elif jobstore_next_wakeup_time:
-                    next_wakeup_time = min(next_wakeup_time or jobstore_next_wakeup_time)
+                    next_wakeup_time = min(next_wakeup_time, jobstore_next_wakeup_time)
 
                 for job in jobs:
                     # Look up the job's executor

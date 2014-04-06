@@ -1,13 +1,12 @@
 from datetime import datetime, timedelta
 from logging import StreamHandler, ERROR
-from concurrent.futures import Future
 from threading import Thread
 from copy import copy
 import os
 
 import pytest
-from apscheduler.executors.pool import PoolExecutor
 
+from apscheduler.executors.pool import PoolExecutor
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
 from apscheduler.schedulers.base import BaseScheduler
@@ -45,7 +44,7 @@ class DummyScheduler(BaseScheduler):
         super(DummyScheduler, self).shutdown()
 
     def _wakeup(self):
-        pass
+        self._process_jobs()
 
 
 def increment(vals):
@@ -79,11 +78,11 @@ class TestOfflineScheduler(object):
             scheduler.add_jobstore(MemoryJobStore(), 'dummy')
 
     def test_add_job_by_reference(self, scheduler):
-        job = scheduler.add_job('date', 'copy:copy', run_date=datetime(2200, 7, 24), args=[()])
+        job = scheduler.add_job('copy:copy', 'date', run_date=datetime(2200, 7, 24), args=[()])
         assert job.func == 'copy:copy'
 
     def test_modify_job(self, scheduler):
-        scheduler.add_job('interval', lambda: None, seconds=1, id='foo')
+        scheduler.add_job(lambda: None, 'interval', seconds=1, id='foo')
         scheduler.modify_job('foo', max_runs=3456)
         job = scheduler.get_jobs()[0]
         assert job.max_runs == 3456
@@ -129,7 +128,7 @@ class TestOfflineScheduler(object):
     def test_pending_jobs(self, scheduler):
         """Tests that pending jobs are properly added to the jobs list, but only when the scheduler is started."""
 
-        job = scheduler.add_job('date', lambda: None, run_date=datetime(9999, 9, 9))
+        job = scheduler.add_job(lambda: None, 'date', run_date=datetime(9999, 9, 9))
         assert scheduler.get_jobs(pending=False) == []
         assert scheduler.get_jobs(pending=True) == [job]
         assert scheduler.get_jobs() == [job]
@@ -143,7 +142,7 @@ class TestOfflineScheduler(object):
         scheduler.print_jobs(out=out)
         assert out.getvalue() == ''
 
-        scheduler.add_job('date', copy, run_date=datetime(2200, 5, 19), args=[()])
+        scheduler.add_job(copy, 'date', run_date=datetime(2200, 5, 19), args=[()])
         out = StringIO()
         scheduler.print_jobs(out=out)
         expected = 'Pending jobs:%s    '\
@@ -154,7 +153,7 @@ class TestOfflineScheduler(object):
     def test_invalid_callable_args(self, scheduler):
         """Tests that attempting to schedule a job with an invalid number of arguments raises an exception."""
 
-        exc = pytest.raises(ValueError, scheduler.add_job, 'date', lambda x: None, run_date=datetime(9999, 9, 9),
+        exc = pytest.raises(ValueError, scheduler.add_job, lambda x: None, 'date', run_date=datetime(9999, 9, 9),
                             args=[1, 2])
         assert str(exc.value) == ('The list of positional arguments is longer than the target callable can handle '
                                   '(allowed: 1, given in args: 2)')
@@ -162,14 +161,14 @@ class TestOfflineScheduler(object):
     def test_invalid_callable_kwargs(self, scheduler):
         """Tests that attempting to schedule a job with unmatched keyword arguments raises an exception."""
 
-        exc = pytest.raises(ValueError, scheduler.add_job, 'date', lambda x: None, run_date=datetime(9999, 9, 9),
+        exc = pytest.raises(ValueError, scheduler.add_job, lambda x: None, 'date', run_date=datetime(9999, 9, 9),
                             kwargs={'x': 0, 'y': 1})
         assert str(exc.value) == 'The target callable does not accept the following keyword arguments: y'
 
     def test_missing_callable_args(self, scheduler):
         """Tests that attempting to schedule a job with missing arguments raises an exception."""
 
-        exc = pytest.raises(ValueError, scheduler.add_job, 'date', lambda x, y, z: None, run_date=datetime(9999, 9, 9),
+        exc = pytest.raises(ValueError, scheduler.add_job, lambda x, y, z: None, 'date', run_date=datetime(9999, 9, 9),
                             args=[1], kwargs={'y': 0})
         assert str(exc.value) == 'The following arguments are not supplied: z'
 
@@ -177,7 +176,7 @@ class TestOfflineScheduler(object):
         """Tests that attempting to schedule a job where the combination of args and kwargs are in conflict raises an
         exception."""
 
-        exc = pytest.raises(ValueError, scheduler.add_job, 'date', lambda x, y: None, run_date=datetime(9999, 9, 9),
+        exc = pytest.raises(ValueError, scheduler.add_job, lambda x, y: None, 'date', run_date=datetime(9999, 9, 9),
                             args=[1, 2], kwargs={'y': 1})
         assert str(exc.value) == 'The following arguments are supplied in both args and kwargs: y'
 
@@ -204,7 +203,7 @@ class TestRunningScheduler(object):
                 self.val += 1
 
         a = A()
-        job = scheduler.add_job('interval', a, seconds=1)
+        job = scheduler.add_job(a, 'interval', seconds=1)
         freeze_time.set(job.next_run_time)
         scheduler._process_jobs()
         assert a.val == 1
@@ -220,10 +219,17 @@ class TestRunningScheduler(object):
                 self.val += 1
 
         a = A()
-        job = scheduler.add_job('interval', a.method, seconds=1)
+        job = scheduler.add_job(a.method, 'interval', seconds=1)
         freeze_time.set(job.next_run_time)
         scheduler._process_jobs()
         assert a.val == 1
+
+    def test_add_job_no_trigger(self, scheduler):
+        """Tests that adding a job without a trigger causes it to be executed immediately."""
+
+        vals = [0]
+        scheduler.add_job(increment, args=(vals,))
+        assert vals == [1]
 
     def test_add_job_decorator(self, scheduler):
         """Tests that the scheduled_job decorator works."""
@@ -239,7 +245,7 @@ class TestRunningScheduler(object):
     def test_modify_job(self, scheduler):
         events = []
         scheduler.add_listener(events.append, EVENT_JOBSTORE_JOB_MODIFIED)
-        scheduler.add_job('interval', lambda: None, seconds=1, id='foo')
+        scheduler.add_job(lambda: None, 'interval', seconds=1, id='foo')
         scheduler.modify_job('foo', max_runs=3456)
         assert len(events) == 1
 
@@ -249,7 +255,7 @@ class TestRunningScheduler(object):
     def test_modify_job_next_run_time(self, scheduler):
         """Tests that modifying a job's next_run_time will cause the scheduler to be woken up."""
 
-        scheduler.add_job('interval', lambda: None, seconds=1, id='foo')
+        scheduler.add_job(lambda: None, 'interval', seconds=1, id='foo')
         scheduler._wakeup = MagicMock()
         scheduler.modify_job('foo', next_run_time=datetime(2014, 4, 1))
         scheduler._wakeup.assert_called_once_with()
@@ -258,7 +264,7 @@ class TestRunningScheduler(object):
         vals = [0]
         events = []
         scheduler.add_listener(events.append, EVENT_JOBSTORE_JOB_REMOVED)
-        job = scheduler.add_job('cron', increment, args=(vals,))
+        job = scheduler.add_job(increment, 'cron', args=(vals,))
         scheduler.now = job.next_run_time
         scheduler._process_jobs()
         assert vals[0] == 1
@@ -273,8 +279,8 @@ class TestRunningScheduler(object):
 
         vals = [0]
         scheduler.add_jobstore(MemoryJobStore(), 'alter')
-        scheduler.add_job('interval', increment, seconds=1, args=(vals,))
-        scheduler.add_job('interval', increment, seconds=1, args=(vals,), jobstore='alter')
+        scheduler.add_job(increment, 'interval', seconds=1, args=(vals,))
+        scheduler.add_job(increment, 'interval', seconds=1, args=(vals,), jobstore='alter')
         scheduler.remove_all_jobs()
         assert scheduler.get_jobs() == []
 
@@ -283,14 +289,14 @@ class TestRunningScheduler(object):
 
         vals = [0]
         scheduler.add_jobstore(MemoryJobStore(), 'alter')
-        scheduler.add_job('interval', increment, seconds=1, args=(vals,))
-        job2 = scheduler.add_job('interval', increment, seconds=1, args=(vals,), jobstore='alter')
+        scheduler.add_job(increment, 'interval', seconds=1, args=(vals,))
+        job2 = scheduler.add_job(increment, 'interval', seconds=1, args=(vals,), jobstore='alter')
         scheduler.remove_all_jobs('default')
         assert scheduler.get_jobs() == [job2]
 
     def test_job_finished(self, scheduler, freeze_time):
         vals = [0]
-        job = scheduler.add_job('interval', increment, args=(vals,), max_runs=1)
+        job = scheduler.add_job(increment, 'interval', args=(vals,), max_runs=1)
         freeze_time.set(job.next_run_time)
         scheduler._process_jobs()
         assert vals == [1]
@@ -300,17 +306,17 @@ class TestRunningScheduler(object):
         def failure():
             raise DummyException
 
-        job = scheduler.add_job('date', failure, run_date=datetime(9999, 9, 9))
+        job = scheduler.add_job(failure, 'date', run_date=datetime(9999, 9, 9))
         freeze_time.set(job.next_run_time)
         scheduler._process_jobs()
         assert 'DummyException' in logstream.getvalue()
 
     def test_misfire_grace_time(self, scheduler):
         scheduler.misfire_grace_time = 3
-        job = scheduler.add_job('interval', lambda: None, seconds=1)
+        job = scheduler.add_job(lambda: None, 'interval', seconds=1)
         assert job.misfire_grace_time == 3
 
-        job = scheduler.add_job('interval', lambda: None, seconds=1, misfire_grace_time=2)
+        job = scheduler.add_job(lambda: None, 'interval', seconds=1, misfire_grace_time=2)
         assert job.misfire_grace_time == 2
 
     def test_coalesce_on(self, scheduler, freeze_time):
@@ -319,7 +325,8 @@ class TestRunningScheduler(object):
         vals = [0]
         events = []
         scheduler.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        job = scheduler.add_job('interval', increment, seconds=1, start_date=freeze_time.current, args=(vals,),
+        scheduler._wakeup = lambda: None
+        job = scheduler.add_job(increment, 'interval', seconds=1, start_date=freeze_time.current, args=(vals,),
                                 coalesce=True, misfire_grace_time=2)
 
         # Turn the clock 2 seconds forward
@@ -340,7 +347,7 @@ class TestRunningScheduler(object):
         vals = [0]
         events = []
         scheduler.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        job = scheduler.add_job('interval', increment, seconds=1, start_date=freeze_time.current, args=(vals,),
+        job = scheduler.add_job(increment, 'interval', seconds=1, start_date=freeze_time.current, args=(vals,),
                                 coalesce=False, misfire_grace_time=2)
 
         # Turn the clock 2 seconds forward
@@ -362,7 +369,7 @@ class TestRunningScheduler(object):
                    '    No scheduled jobs%s' % (os.linesep, os.linesep)
         assert out.getvalue() == expected
 
-        scheduler.add_job('date', copy, run_date=datetime(2200, 5, 19), args=[()])
+        scheduler.add_job(copy, 'date', run_date=datetime(2200, 5, 19), args=[()])
         out = StringIO()
         scheduler.print_jobs(out=out)
         expected = 'Jobstore default:%s    '\
@@ -372,7 +379,7 @@ class TestRunningScheduler(object):
 
     def test_jobstore(self, scheduler):
         scheduler.add_jobstore(MemoryJobStore(), 'dummy')
-        job = scheduler.add_job('date', lambda: None, run_date=datetime(2200, 7, 24), jobstore='dummy')
+        job = scheduler.add_job(lambda: None, 'date', run_date=datetime(2200, 7, 24), jobstore='dummy')
         assert scheduler.get_jobs() == [job]
         scheduler.remove_jobstore('dummy')
         assert scheduler.get_jobs() == []
@@ -386,7 +393,8 @@ class TestRunningScheduler(object):
         """Tests against bug #5."""
 
         vals = [0]
-        job = scheduler.add_job('interval', increment, seconds=1, start_date=freeze_time.current, args=(vals,),
+        scheduler._wakeup = lambda: None
+        job = scheduler.add_job(increment, 'interval', seconds=1, start_date=freeze_time.current, args=(vals,),
                                 misfire_grace_time=3)
 
         freeze_time.set(job.next_run_time)
@@ -439,7 +447,7 @@ class SchedulerImplementationTestBase(object):
         """Tests that pending jobs are added (and if due, executed) when the scheduler starts."""
 
         freeze_time.set_increment(timedelta(seconds=0.2))
-        scheduler.add_job('date', lambda x, y: x + y, args=[1, 2], run_date=freeze_time.next())
+        scheduler.add_job(lambda x, y: x + y, 'date', args=[1, 2], run_date=freeze_time.next())
         start_scheduler()
 
         assert self.wait_event(eventqueue).code == EVENT_JOBSTORE_ADDED
@@ -458,7 +466,7 @@ class SchedulerImplementationTestBase(object):
         assert self.wait_event(eventqueue).code == EVENT_JOBSTORE_ADDED
         assert self.wait_event(eventqueue).code == EVENT_SCHEDULER_START
 
-        scheduler.add_job('date', lambda x, y: x + y, args=[1, 2],
+        scheduler.add_job(lambda x, y: x + y, 'date', args=[1, 2],
                           run_date=freeze_time.next() + freeze_time.increment * 2)
         assert self.wait_event(eventqueue).code == EVENT_JOBSTORE_JOB_ADDED
         event = self.wait_event(eventqueue)

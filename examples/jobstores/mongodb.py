@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
     scheduler.add_jobstore(jobstore)
     alarm_time = datetime.now() + timedelta(seconds=10)
-    scheduler.add_job('date', alarm, run_date=alarm_time, args=[datetime.now()])
+    scheduler.add_job(alarm, 'date', run_date=alarm_time, args=[datetime.now()])
     print('To clear the alarms, run this example with the --clear argument.')
     print('Press Ctrl+C to exit')
 
