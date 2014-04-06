@@ -51,3 +51,7 @@ class AsyncIOScheduler(BaseScheduler):
         self._stop_timer()
         wait_seconds = self._process_jobs()
         self._start_timer(wait_seconds)
+
+    def _create_default_executor(self):
+        from apscheduler.executors.asyncio import AsyncIOExecutor
+        return AsyncIOExecutor()

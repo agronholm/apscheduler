@@ -3,7 +3,8 @@ import time
 import pytest
 
 from apscheduler.executors.base import MaxInstancesReachedError
-from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
+from apscheduler.executors.pool import PoolExecutor
+
 
 try:
     from unittest.mock import Mock, MagicMock
@@ -18,9 +19,10 @@ def scheduler():
     return scheduler_
 
 
-@pytest.fixture(params=[ThreadPoolExecutor, ProcessPoolExecutor], ids=['threadpool', 'processpool'])
+@pytest.fixture(params=['thread', 'process'])
 def executor(request, scheduler):
-    executor_ = request.param(scheduler)
+    executor_ = PoolExecutor(request.param)
+    executor_.start(scheduler)
     request.addfinalizer(executor_.shutdown)
     return executor_
 

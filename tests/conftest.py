@@ -60,7 +60,7 @@ def freeze_time(monkeypatch, timezone):
     freezer = TimeFreezer(datetime(2011, 4, 3, 18, 40, tzinfo=timezone))
     fake_datetime = Mock(datetime, now=freezer.get)
     monkeypatch.setattr('apscheduler.schedulers.base.datetime', fake_datetime)
-    monkeypatch.setattr('apscheduler.executors.pool.datetime', fake_datetime)
+    monkeypatch.setattr('apscheduler.executors.base.datetime', fake_datetime)
     return freezer
 
 

@@ -10,7 +10,7 @@ import six
 
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
 from apscheduler.executors.base import MaxInstancesReachedError
-from apscheduler.executors.pool import ThreadPoolExecutor
+from apscheduler.executors.pool import PoolExecutor
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job, JobHandle
 from apscheduler.events import *
@@ -62,6 +62,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         # Create a default job store if nothing else is configured
         if not 'default' in self._jobstores:
             self.add_jobstore(self._create_default_jobstore(), 'default', True)
+
+        # Start all the executors
+        for executor in six.itervalues(self._executors):
+            executor.start(self)
 
         # Schedule all pending jobs
         for job, jobstore in self._pending_jobs:
@@ -116,6 +120,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 raise KeyError('This scheduler already has an executor by the alias of "%s"' % alias)
             executor.scheduler = self
             self._executors[alias] = executor
+
+            # Start the executor right away if the scheduler is running
+            if self.running:
+                executor.start(self)
 
     def add_jobstore(self, jobstore, alias='default', quiet=False):
         """
@@ -420,7 +428,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         return MemoryJobStore()
 
     def _create_default_executor(self):
-        return ThreadPoolExecutor(self)
+        return PoolExecutor('thread')
 
     def _lookup_executor(self, executor):
         try:

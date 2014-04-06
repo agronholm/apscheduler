@@ -6,7 +6,7 @@ from copy import copy
 import os
 
 import pytest
-from apscheduler.executors.pool import BasePoolExecutor
+from apscheduler.executors.pool import PoolExecutor
 
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
@@ -29,22 +29,6 @@ except ImportError:
     from mock import MagicMock
 
 
-class DummyPoolExecutor(object):
-    def submit(self, func, *arg, **kwargs):
-        f = Future()
-        try:
-            retval = func(*arg, **kwargs)
-        except Exception as e:
-            f.set_exception(e)
-        else:
-            f.set_result(retval)
-
-        return f
-
-    def shutdown(self, wait=True):
-        pass
-
-
 class DummyException(Exception):
     pass
 
@@ -52,16 +36,13 @@ class DummyException(Exception):
 class DummyScheduler(BaseScheduler):
     def __init__(self, timezone, gconfig={}, **options):
         super(DummyScheduler, self).__init__(gconfig, timezone=timezone, **options)
-        self.add_executor(BasePoolExecutor(self, DummyPoolExecutor()), 'default')
+        self.add_executor(PoolExecutor('debug'), 'default')
 
     def start(self):
         super(DummyScheduler, self).start()
 
     def shutdown(self, wait=True):
         super(DummyScheduler, self).shutdown()
-
-    def _create_default_executor(self):
-        return DummyPoolExecutor()
 
     def _wakeup(self):
         pass
@@ -433,9 +414,7 @@ class TestRunningScheduler(object):
 class SchedulerImplementationTestBase(object):
     @pytest.fixture(autouse=True)
     def executor(self, scheduler):
-        dummy = DummyPoolExecutor()
-        executor = BasePoolExecutor(scheduler, dummy)
-        scheduler.add_executor(executor)
+        scheduler.add_executor(PoolExecutor('debug'))
 
     @pytest.fixture
     def start_scheduler(self, request, scheduler):
