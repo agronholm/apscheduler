@@ -96,7 +96,18 @@ def convert_to_datetime(input, timezone, arg_name):
     if isinstance(timezone, six.string_types):
         timezone = gettz(timezone)
 
-    return datetime_.replace(tzinfo=timezone)
+    # When working with pytz timezone's you should use the localize
+    # method when converting an offset-naive datetime. For all other
+    # timezones (typically non-DST observing) it is safe to override
+    # tzinfo with the specified timezone.
+    #
+    # For more information read the pytz manual: http://pytz.sourceforge.net/
+    if hasattr(timezone, 'localize'):
+        datetime_ = timezone.localize(datetime_)
+    else:
+        datetime_ = datetime_.replace(tzinfo=timezone)
+
+    return datetime_
 
 
 def datetime_to_utc_timestamp(timeval):

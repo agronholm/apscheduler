@@ -71,8 +71,10 @@ class CronTrigger(BaseTrigger):
         :rtype: tuple
         :return: a tuple containing the new date, and the number of the field that was actually incremented
         """
+        # Make sure to respect the timezone of the dateval parameter.
+        values = {'tzinfo': dateval.tzinfo}
+
         i = 0
-        values = {}
         while i < len(self.fields):
             field = self.fields[i]
             if not field.REAL:
@@ -99,10 +101,10 @@ class CronTrigger(BaseTrigger):
                     values[field.name] = value + 1
                     i += 1
 
-        return datetime(tzinfo=self.timezone, **values), fieldnum
+        return datetime(**values), fieldnum
 
     def _set_field_value(self, dateval, fieldnum, new_value):
-        values = {}
+        values = {'tzinfo': dateval.tzinfo}
         for i, field in enumerate(self.fields):
             if field.REAL:
                 if i < fieldnum:
@@ -112,12 +114,17 @@ class CronTrigger(BaseTrigger):
                 else:
                     values[field.name] = new_value
 
-        return datetime(tzinfo=self.timezone, **values)
+        return datetime(**values)
 
     def get_next_fire_time(self, start_date):
         if self.start_date:
             start_date = max(start_date, self.start_date)
         next_date = datetime_ceil(start_date)
+
+        # Make sure the timezone of next_date is in the timezone that
+        # the CronTrigger's field values are in.
+        next_date = next_date.astimezone(self.timezone)
+
         fieldnum = 0
         while 0 <= fieldnum < len(self.fields):
             field = self.fields[fieldnum]
@@ -139,7 +146,10 @@ class CronTrigger(BaseTrigger):
                 fieldnum += 1
 
         if fieldnum >= 0:
-            return next_date
+            # Make sure that the returned date is in the trigger
+            # timezone. Also, has the additional benefit of normalizing
+            # the returned datetime.
+            return next_date.astimezone(self.timezone)
 
     def __str__(self):
         options = ["%s='%s'" % (f.name, str(f)) for f in self.fields if not f.is_default]

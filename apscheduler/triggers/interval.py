@@ -28,9 +28,9 @@ class IntervalTrigger(BaseTrigger):
             self.interval = timedelta(seconds=1)
             self.interval_length = 1
 
-        timezone = astimezone(timezone) or tzlocal()
-        start_date = start_date or datetime.now(timezone)
-        self.start_date = convert_to_datetime(start_date, timezone, 'start_date')
+        self.timezone = astimezone(timezone) or tzlocal()
+        start_date = start_date or datetime.now(self.timezone) + self.interval
+        self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date')
 
     def get_next_fire_time(self, start_date):
         if start_date < self.start_date:
@@ -38,7 +38,12 @@ class IntervalTrigger(BaseTrigger):
 
         timediff_seconds = timedelta_seconds(start_date - self.start_date)
         next_interval_num = int(ceil(timediff_seconds / self.interval_length))
-        return self.start_date + self.interval * next_interval_num
+        next_date = self.start_date + self.interval * next_interval_num
+
+        # Make sure that the returned date is in the trigger timezone.
+        # Also, has the additional benefit of normalizing the returned
+        # datetime.
+        return next_date.astimezone(self.timezone)
 
     def __str__(self):
         return 'interval[%s]' % str(self.interval)

@@ -50,7 +50,7 @@ setup(
     license='MIT',
     packages=find_packages(exclude=['tests']),
     install_requires=['six', 'python-dateutil'] + extra_requirements,
-    tests_require=['pytest >= 2.5.1', 'pytest-cov'],
+    tests_require=['pytest >= 2.5.1', 'pytest-cov', 'pytz'],
     cmdclass={'test': PyTest},
     zip_safe=False,
     entry_points={
