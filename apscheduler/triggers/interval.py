@@ -29,7 +29,7 @@ class IntervalTrigger(BaseTrigger):
             self.interval_length = 1
 
         timezone = astimezone(timezone) or tzlocal()
-        start_date = start_date or datetime.now(timezone)
+        start_date = start_date or datetime.now(timezone) + self.interval
         self.start_date = convert_to_datetime(start_date, timezone, 'start_date')
 
     def get_next_fire_time(self, start_date):
