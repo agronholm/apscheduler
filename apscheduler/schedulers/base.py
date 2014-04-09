@@ -283,13 +283,14 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             # Check if the job is among the pending jobs
             for job, store in self._pending_jobs:
                 if job.id == job_id:
-                    job.modify(changes)
+                    job.modify(**changes)
                     return
-            else:
-                store = self._jobstores[jobstore]
-                job = store.lookup_job(changes.get('id', job_id))
-                changes = job.validate_changes(changes)
-                store.modify_job(job_id, changes)
+
+            # Otherwise, look up the job store, make the modifications to the job and have the store update it
+            store = self._jobstores[jobstore]
+            job = store.lookup_job(changes.get('id', job_id))
+            job.modify(**changes)
+            store.update_job(job)
 
         self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_JOB_MODIFIED, jobstore, job_id))
 
@@ -495,13 +496,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         with self._jobstores_lock:
             for jobstore_alias, jobstore in six.iteritems(self._jobstores):
-                jobs, jobstore_next_wakeup_time = jobstore.get_pending_jobs(now)
-                if not next_wakeup_time:
-                    next_wakeup_time = jobstore_next_wakeup_time
-                elif jobstore_next_wakeup_time:
-                    next_wakeup_time = min(next_wakeup_time, jobstore_next_wakeup_time)
-
-                for job in jobs:
+                for job in jobstore.get_pending_jobs(now):
                     # Look up the job's executor
                     try:
                         executor = self._lookup_executor(job.executor)
@@ -528,16 +523,19 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                         job_runs = job.runs + len(run_times)
                         job_next_run = job.trigger.get_next_fire_time(now + timedelta(microseconds=1))
                         if job_next_run and (job.max_runs is None or job_runs < job.max_runs):
-                            changes = {'next_run_time': job_next_run, 'runs': job_runs}
-                            jobstore.modify_job(job.id, changes)
-                            next_wakeup_time = min(next_wakeup_time, job_next_run) if next_wakeup_time else job_next_run
+                            job.modify(next_run_time=job_next_run, runs=job_runs)
+                            jobstore.update_job(job)
                         else:
                             self.remove_job(job.id, jobstore_alias)
 
+                # Set a new next wakeup time if there isn't one yet or the jobstore has an even earlier one
+                jobstore_next_run_time = jobstore.get_next_run_time()
+                if jobstore_next_run_time and (next_wakeup_time is None or jobstore_next_run_time < next_wakeup_time):
+                    next_wakeup_time = jobstore_next_run_time
+
         # Determine the delay until this method should be called again
         if next_wakeup_time is not None:
-            wait_seconds = timedelta_seconds(next_wakeup_time - now)
-            self.logger.debug('now = %s, next_wakeup_time = %s', now, next_wakeup_time)
+            wait_seconds = max(timedelta_seconds(next_wakeup_time - now), 0)
             self.logger.debug('Next wakeup is due at %s (in %f seconds)', next_wakeup_time, wait_seconds)
         else:
             wait_seconds = None

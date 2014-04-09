@@ -2,18 +2,21 @@
 Stores jobs in a database table using SQLAlchemy.
 """
 from __future__ import absolute_import
-import pickle
 import logging
 
 import six
 
-from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError, TransientJobError
+from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
 try:
-    from sqlalchemy import (create_engine, Table, PickleType, Column, MetaData, Unicode, BigInteger, LargeBinary,
-                            select, __version__ as sqlalchemy_version)
+    import cPickle as pickle
+except ImportError:  # pragma: nocover
+    import pickle
+
+try:
+    from sqlalchemy import create_engine, Table, Column, MetaData, Unicode, BigInteger, LargeBinary, select
     from sqlalchemy.exc import IntegrityError
 except ImportError:  # pragma: nocover
     raise ImportError('SQLAlchemyJobStore requires SQLAlchemy installed')
@@ -34,79 +37,53 @@ class SQLAlchemyJobStore(BaseJobStore):
         else:
             raise ValueError('Need either "engine" or "url" defined')
 
-        if sqlalchemy_version < '0.7':  # pragma: nocover
-            pickle_coltype = PickleType(pickle_protocol, mutable=False)
-        else:
-            pickle_coltype = PickleType(pickle_protocol)
         self.jobs_t = Table(
             tablename, metadata,
             Column('id', Unicode(1024, _warn_on_bytestring=False), primary_key=True),
             Column('next_run_time', BigInteger, index=True),
-            Column('job_data', pickle_coltype, nullable=False)
+            Column('job_state', LargeBinary, nullable=False)
         )
 
         self.jobs_t.create(self.engine, True)
 
     def lookup_job(self, id):
-        selectable = select([self.jobs_t]).where(self.jobs_t.c.id == id)
-        row = self.engine.execute(selectable).fetchone()
-        if row is None:
+        selectable = select([self.jobs_t.c.job_state]).where(self.jobs_t.c.id == id)
+        job_state = self.engine.execute(selectable).scalar()
+        if job_state is None:
             raise JobLookupError(id)
-        return self._reconstitute_job(row)
+        return self._reconstitute_job(job_state)
 
     def get_pending_jobs(self, now):
         timestamp = datetime_to_utc_timestamp(now)
-        selectable = select([self.jobs_t]).where(self.jobs_t.c.next_run_time <= timestamp).\
-            order_by(self.jobs_t.c.next_run_time)
-        jobs = self._get_jobs(selectable)
+        return self._get_jobs(self.jobs_t.c.next_run_time <= timestamp)
 
-        selectable = select([self.jobs_t.c.next_run_time]).where(self.jobs_t.c.next_run_time > timestamp).\
-            order_by(self.jobs_t.c.next_run_time).limit(1)
+    def get_next_run_time(self):
+        selectable = select([self.jobs_t.c.next_run_time]).order_by(self.jobs_t.c.next_run_time).limit(1)
         next_run_time = self.engine.execute(selectable).scalar()
-        return jobs, utc_timestamp_to_datetime(next_run_time)
+        return utc_timestamp_to_datetime(next_run_time)
 
     def get_all_jobs(self):
-        selectable = select([self.jobs_t]).order_by(self.jobs_t.c.next_run_time)
-        return self._get_jobs(selectable)
+        return self._get_jobs()
 
     def add_job(self, job):
-        job_dict = job.__getstate__()
-        if not job_dict.get('func'):
-            raise TransientJobError(job.id)
-
-        row_dict = {
-            'id': job_dict.pop('id'),
-            'next_run_time': datetime_to_utc_timestamp(job_dict['next_run_time']),
-            'job_data': job_dict
-        }
-
-        insert = self.jobs_t.insert().values(**row_dict)
+        insert = self.jobs_t.insert().values(**{
+            'id': job.id,
+            'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
+            'job_state': pickle.dumps(job.__getstate__(), self.pickle_protocol)
+        })
         try:
             self.engine.execute(insert)
         except IntegrityError:
             raise ConflictingIdError(job.id)
 
-    def modify_job(self, id, changes):
-        selectable = select([self.jobs_t]).where(self.jobs_t.c.id == id)
-        row = self.engine.execute(selectable).fetchone()
-        if row is None:
+    def update_job(self, job):
+        update = self.jobs_t.update().values(**{
+            'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
+            'job_state': pickle.dumps(job.__getstate__(), self.pickle_protocol)
+        }).where(self.jobs_t.c.id == job.id)
+        result = self.engine.execute(update)
+        if result.rowcount == 0:
             raise JobLookupError(id)
-        job_dict = dict(row.items())['job_data']
-
-        row_changes = {}
-        if 'id' in changes:
-            row_changes['id'] = changes.pop('id')
-        if 'next_run_time' in changes:
-            row_changes['next_run_time'] = datetime_to_utc_timestamp(changes['next_run_time'])
-        if changes:
-            job_dict.update(changes)
-            row_changes['job_data'] = job_dict
-
-        update = self.jobs_t.update().where(self.jobs_t.c.id == id).values(**row_changes)
-        try:
-            self.engine.execute(update)
-        except IntegrityError:
-            raise ConflictingIdError(row_changes['id'])
 
     def remove_job(self, id):
         delete = self.jobs_t.delete().where(self.jobs_t.c.id == id)
@@ -121,20 +98,23 @@ class SQLAlchemyJobStore(BaseJobStore):
     def close(self):
         self.engine.dispose()
 
-    def _reconstitute_job(self, row):
+    @staticmethod
+    def _reconstitute_job(job_state):
+        job_state = pickle.loads(job_state)
         job = Job.__new__(Job)
-        job_dict = dict(id=row.id, **row.job_data)
-        job.__setstate__(job_dict)
+        job.__setstate__(job_state)
         return job
 
-    def _get_jobs(self, selectable):
+    def _get_jobs(self, *conditions):
         jobs = []
+        selectable = select([self.jobs_t.c.id, self.jobs_t.c.job_state]).order_by(self.jobs_t.c.next_run_time)
+        selectable = selectable.where(*conditions) if conditions else selectable
         for row in self.engine.execute(selectable):
             try:
-                job = self._reconstitute_job(row)
-                jobs.append(job)
+                jobs.append(self._reconstitute_job(row.job_state))
             except Exception:
                 logger.exception(six.u('Unable to restore job (id=%s)'), row.id)
+
         return jobs
 
     def __repr__(self):

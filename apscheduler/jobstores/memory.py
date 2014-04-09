@@ -3,8 +3,6 @@ Stores jobs in an array in RAM. Provides no persistence support.
 """
 from __future__ import absolute_import
 
-import six
-
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 
 
@@ -21,19 +19,15 @@ class MemoryJobStore(BaseJobStore):
             raise JobLookupError(id)
 
     def get_pending_jobs(self, now):
-        index, end = 0, len(self._jobs)
-        pending_jobs = []
-        next_run_time = None
-        while index < end:
-            job = self._jobs[index]
-            if job.next_run_time <= now:
-                pending_jobs.append(job)
-                index += 1
-            else:
-                next_run_time = job.next_run_time
-                break
+        pending = []
+        for job in self._jobs:
+            if job.next_run_time and job.next_run_time <= now:
+                pending.append(job)
 
-        return pending_jobs, next_run_time
+        return pending
+
+    def get_next_run_time(self):
+        return self._jobs[0].next_run_time if self._jobs else None
 
     def get_all_jobs(self):
         return list(self._jobs)
@@ -46,25 +40,19 @@ class MemoryJobStore(BaseJobStore):
         self._jobs.insert(index, job)
         self._jobs_index[job.id] = job
 
-    def modify_job(self, id, changes):
-        job = self.lookup_job(id)
+    def update_job(self, job):
+        old_job = self.lookup_job(job.id)
+        old_index = self._get_job_index(old_job)
+        self._jobs_index[old_job.id] = job
 
-        # If the job identifier changed, need to update the index
-        if 'id' in changes and changes['id'] != job.id:
-            del self._jobs_index[job.id]
-            if changes['id'] in self._jobs_index:
-                raise ConflictingIdError(changes['id'])
-            self._jobs_index[changes['id']] = job
-
-        # Need to update the location of the job in the list if the next run time changes
-        if 'next_run_time' in changes:
-            index = self._get_job_index(job)
-            del self._jobs[index]
-            index = self._bisect_job(changes['next_run_time'])
+        # If the next run time has not changed, simply replace the job in its present index.
+        # Otherwise, reinsert the job to the list to preserve the ordering.
+        if old_job.next_run_time == job.next_run_time:
+            self._jobs[old_index] = job
+        else:
+            del self._jobs[old_index]
+            index = self._bisect_job(job.next_run_time)
             self._jobs.insert(index, job)
-
-        for key, value in six.iteritems(changes):
-            setattr(job, key, value)
 
     def remove_job(self, id):
         job = self.lookup_job(id)

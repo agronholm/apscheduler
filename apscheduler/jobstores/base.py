@@ -43,12 +43,19 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
 
     @abstractmethod
     def get_pending_jobs(self, now):
-        """Returns a two element tuple:
-           #. the list of jobs that have ``next_run_time`` earlier or equal to ``now`` (sorted by next run time)
-           #. the timestamp (:class:`~datetime.datetime`) of the earliest pending job not on the list above
+        """Returns the list of jobs that have ``next_run_time`` earlier or equal to ``now``, sorted by next run time
 
-        :type now: :class:`~datetime.datetime` (with tzinfo)
+        :param now: the current (timezone aware) datetime
+        :type now: :class:`~datetime.datetime`
         :rtype: :class:`list`
+        """
+
+    @abstractmethod
+    def get_next_run_time(self):
+        """Returns the earliest run time of all the jobs stored in this job store, or ``None`` if there are no active
+        jobs.
+
+        :rtype: :class:`~datetime.datetime`
         """
 
     @abstractmethod
@@ -67,13 +74,11 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         """
 
     @abstractmethod
-    def modify_job(self, id, changes):
-        """Makes the specified changes to the given job.
+    def update_job(self, job):
+        """Replaces the job in the store with the given newer version.
 
-        :param id: identifier of the job
-        :param changes: mapping of job attribute -> value
-        :type id: str/unicode
-        :type changes: :class:`dict`
+        :param job: the job to add
+        :type job: :class:`~apscheduler.job.Job`
         :raises: :class:`~apscheduler.jobstore.base.JobLookupError` if the job does not exist.
         """
 

@@ -6,7 +6,7 @@ import logging
 
 import six
 
-from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError, TransientJobError
+from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
@@ -46,68 +46,44 @@ class MongoDBJobStore(BaseJobStore):
         self.collection.ensure_index('next_run_time', sparse=True)
 
     def lookup_job(self, id):
-        job_dict = self.collection.find_one(id)
-        if job_dict is None:
+        document = self.collection.find_one(id, ['job_state'])
+        if document is None:
             raise JobLookupError(id)
-        return self._reconstitute_job(job_dict)
+        return self._reconstitute_job(document['job_state'])
 
     def get_pending_jobs(self, now):
         timestamp = datetime_to_utc_timestamp(now)
-        jobs = self._get_jobs({'next_run_time': {'$lte': timestamp}})
-        next_job_dict = self.collection.find_one({'next_run_time': {'$gt': timestamp}}, fields=['next_run_time'],
-                                                 sort=[('next_run_time', ASCENDING)])
-        next_run_time = next_job_dict['next_run_time'] if next_job_dict else None
-        return jobs, utc_timestamp_to_datetime(next_run_time)
+        return self._get_jobs({'next_run_time': {'$lte': timestamp}})
+
+    def get_next_run_time(self):
+        document = self.collection.find_one(fields=['next_run_time'], sort=[('next_run_time', ASCENDING)])
+        return utc_timestamp_to_datetime(document['next_run_time']) if document else None
 
     def get_all_jobs(self):
         return self._get_jobs({})
 
     def add_job(self, job):
-        job_dict = job.__getstate__()
-        if not job_dict.get('func'):
-            raise TransientJobError(job.id)
-
-        document = {
-            '_id': job_dict.pop('id'),
-            'next_run_time': datetime_to_utc_timestamp(job_dict['next_run_time']),
-            'job_data': Binary(pickle.dumps(job_dict, self.pickle_protocol))
-        }
         try:
-            self.collection.insert(document)
+            self.collection.insert({
+                '_id': job.id,
+                'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
+                'job_state': Binary(pickle.dumps(job.__getstate__(), self.pickle_protocol))
+            })
         except DuplicateKeyError:
             raise ConflictingIdError(job.id)
 
-    def modify_job(self, id, changes):
-        document = self.collection.find_one(id)
-        if document is None:
+    def update_job(self, job):
+        changes = {
+            'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
+            'job_state': Binary(pickle.dumps(job.__getstate__(), self.pickle_protocol))
+        }
+        result = self.collection.update({'_id': job.id}, {'$set': changes})
+        if result and result['n'] == 0:
             raise JobLookupError(id)
-
-        if 'id' in changes:
-            # The id_ field cannot be updated, so the document must be reinserted instead
-            _id = changes.pop('id')
-            job_data = pickle.loads(document['job_data'])
-            job_data.update(changes)
-            document = {
-                '_id': _id,
-                'next_run_time': datetime_to_utc_timestamp(job_data['next_run_time']),
-                'job_data': Binary(pickle.dumps(job_data, self.pickle_protocol))
-            }
-            try:
-                self.collection.insert(document)
-            except DuplicateKeyError:
-                raise ConflictingIdError(_id)
-            self.collection.remove(id)
-        elif changes:
-            job_data = pickle.loads(document['job_data'])
-            job_data.update(changes)
-            document_changes = {'job_data': Binary(pickle.dumps(job_data, self.pickle_protocol))}
-            if 'next_run_time' in changes:
-                document_changes['next_run_time'] = datetime_to_utc_timestamp(changes['next_run_time'])
-            self.collection.update({'_id': id}, {'$set': document_changes})
 
     def remove_job(self, id):
         result = self.collection.remove(id)
-        if result and result['n'] != 1:
+        if result and result['n'] == 0:
             raise JobLookupError(id)
 
     def remove_all_jobs(self):
@@ -116,22 +92,20 @@ class MongoDBJobStore(BaseJobStore):
     def close(self):
         self.connection.disconnect()
 
-    def _reconstitute_job(self, document):
+    @staticmethod
+    def _reconstitute_job(job_state):
+        job_state = pickle.loads(job_state)
         job = Job.__new__(Job)
-        job_data = pickle.loads(document.pop('job_data'))
-        document.update(job_data)
-        document['id'] = document['_id']
-        job.__setstate__(document)
+        job.__setstate__(job_state)
         return job
 
     def _get_jobs(self, conditions):
         jobs = []
-        for job_dict in self.collection.find(conditions, sort=[('next_run_time', ASCENDING)]):
+        for document in self.collection.find(conditions, ['_id', 'job_state'], sort=[('next_run_time', ASCENDING)]):
             try:
-                job = self._reconstitute_job(job_dict)
-                jobs.append(job)
-            except Exception as e:
-                logger.exception(six.u('Unable to restore job (id=%s)'), job_dict['_id'])
+                jobs.append(self._reconstitute_job(document['job_state']))
+            except:
+                logger.exception(six.u('Unable to restore job (id=%s)'), document['_id'])
 
         return jobs
 

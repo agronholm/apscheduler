@@ -28,24 +28,22 @@ class Job(object):
 
     def __init__(self, id=None, **kwargs):
         super(Job, self).__init__()
-        self.runs = 0
-        self.next_run_time = None
+        kwargs.setdefault('runs', 0)
+        kwargs.setdefault('next_run_time', None)
+        self.modify(id=id or uuid4().hex, **kwargs)
 
-        if id and not isinstance(id, six.string_types):
-            raise TypeError("id must be a nonempty string")
-        self.id = id or uuid4().hex
-
-        changes = self.validate_changes(kwargs)
-        self.modify(changes)
-
-    def modify(self, changes):
-        for key, value in six.iteritems(changes):
-            setattr(self, key, value)
-
-    def validate_changes(self, changes):
+    def modify(self, **changes):
         """Validates the changes to the Job and makes the modifications if and only if all of them validate."""
 
         approved = {}
+
+        if 'id' in changes:
+            value = changes.pop('id')
+            if not isinstance(value, six.string_types):
+                raise TypeError("id must be a nonempty string")
+            if hasattr(self, 'id'):
+                raise ValueError('The job ID may not be changed')
+            approved['id'] = value
 
         if 'func' in changes or 'args' in changes or 'kwargs' in changes:
             func = changes.pop('func') if 'func' in changes else self.func
@@ -144,14 +142,15 @@ class Job(object):
 
         if 'next_run_time' in changes:
             value = changes.pop('next_run_time')
-            if not isinstance(value, datetime):
+            if value and not isinstance(value, datetime):
                 raise TypeError('next_run_time must be either None or a datetime instance')
             approved['next_run_time'] = value
 
         if changes:
             raise AttributeError('The following are not modifiable attributes of Job: %s' % ', '.join(changes))
 
-        return approved
+        for key, value in six.iteritems(approved):
+            setattr(self, key, value)
 
     @staticmethod
     def check_callable_args(func, args, kwargs):
