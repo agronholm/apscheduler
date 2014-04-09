@@ -7,18 +7,24 @@ APScheduler, see the :doc:`migration section <migration>`.
 3.0.0
 -----
 
+* Added support for timezones (special thanks to Curtis Vogt for help with this one)
+
 * Split the old Scheduler class into BlockingScheduler and BackgroundScheduler and added integration for
   asyncio (PEP 3156), Gevent, Tornado, Twisted and Qt event loops
 
 * Overhauled the job store system for much better scalability
 
+* Added the ability to modify jobs
+
 * Dropped the Redis and Shelve job stores because they could not work with the new job store system
 
-* Added a hook for customizing reading of current time
+* Adding jobs is now done exclusively through ``add_job()`` -- the shortcuts to triggers were removed
 
-* Added support for timezones
+* It is now possible to add a job directly to an executor without scheduling, by omitting the trigger argument
 
-* Removed the shortcuts to built-in triggers in the scheduler API so they no longer get preferential treatment
+* Replaced the thread pool with a pluggable executor system
+
+* Added support for running jobs in subprocesses
 
 * Switched from nose to py.test for running unit tests
 
