@@ -56,7 +56,8 @@ class MongoDBJobStore(BaseJobStore):
         return self._get_jobs({'next_run_time': {'$lte': timestamp}})
 
     def get_next_run_time(self):
-        document = self.collection.find_one(fields=['next_run_time'], sort=[('next_run_time', ASCENDING)])
+        document = self.collection.find_one({'next_run_time': {'$ne': None}}, fields=['next_run_time'],
+                                            sort=[('next_run_time', ASCENDING)])
         return utc_timestamp_to_datetime(document['next_run_time']) if document else None
 
     def get_all_jobs(self):

@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 class SQLAlchemyJobStore(BaseJobStore):
     def __init__(self, url=None, engine=None, tablename='apscheduler_jobs', metadata=None,
                  pickle_protocol=pickle.HIGHEST_PROTOCOL):
+        super(SQLAlchemyJobStore, self).__init__()
         self.pickle_protocol = pickle_protocol
         metadata = maybe_ref(metadata) or MetaData()
 
@@ -58,7 +59,8 @@ class SQLAlchemyJobStore(BaseJobStore):
         return self._get_jobs(self.jobs_t.c.next_run_time <= timestamp)
 
     def get_next_run_time(self):
-        selectable = select([self.jobs_t.c.next_run_time]).order_by(self.jobs_t.c.next_run_time).limit(1)
+        selectable = select([self.jobs_t.c.next_run_time]).where(self.jobs_t.c.next_run_time != None).\
+            order_by(self.jobs_t.c.next_run_time).limit(1)
         next_run_time = self.engine.execute(selectable).scalar()
         return utc_timestamp_to_datetime(next_run_time)
 

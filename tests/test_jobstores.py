@@ -52,12 +52,25 @@ def mongodbjobstore(request):
     return store
 
 
-@pytest.fixture(params=[memjobstore, sqlalchemyjobstore, mongodbjobstore], ids=['memory', 'sqlalchemy', 'mongodb'])
+@pytest.fixture
+def redisjobstore(request):
+    def finish():
+        store.remove_all_jobs()
+        store.close()
+
+    redis = pytest.importorskip('apscheduler.jobstores.redis')
+    store = redis.RedisJobStore()
+    request.addfinalizer(finish)
+    return store
+
+
+@pytest.fixture(params=[memjobstore, sqlalchemyjobstore, mongodbjobstore, redisjobstore],
+                ids=['memory', 'sqlalchemy', 'mongodb', 'redis'])
 def jobstore(request):
     return request.param(request)
 
 
-@pytest.fixture(params=[sqlalchemyjobstore, mongodbjobstore], ids=['sqlalchemy', 'mongodb'])
+@pytest.fixture(params=[sqlalchemyjobstore, mongodbjobstore, redisjobstore], ids=['sqlalchemy', 'mongodb', 'redis'])
 def persistent_jobstore(request):
     return request.param(request)
 
@@ -136,15 +149,18 @@ def test_update_job(jobstore, create_job, timezone):
 
 
 @pytest.mark.parametrize('next_run_time', [datetime(2013, 8, 13), None], ids=['earlier', 'null'])
-def test_update_job_next_runtime(jobstore, create_job, next_run_time):
+def test_update_job_next_runtime(jobstore, create_job, next_run_time, timezone):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
-    create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
-    create_job(jobstore, dummy_job3, datetime(2013, 8, 14))
+    job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
+    job3 = create_job(jobstore, dummy_job3, datetime(2013, 8, 14))
     replacement = create_job(None, dummy_job, datetime.now(), id=job1.id)
-    replacement.next_run_time = None
+    replacement.next_run_time = next_run_time.replace(tzinfo=timezone) if next_run_time else None
     jobstore.update_job(replacement)
 
-    assert jobstore.get_next_run_time() == replacement.next_run_time
+    if next_run_time:
+        assert jobstore.get_next_run_time() == replacement.next_run_time
+    else:
+        assert jobstore.get_next_run_time() == job3.next_run_time
 
 
 def test_update_job_nonexistent_job(jobstore, create_job):
@@ -200,6 +216,10 @@ def test_repr_sqlalchemyjobstore(sqlalchemyjobstore):
 
 def test_repr_mongodbjobstore(mongodbjobstore):
     assert repr(mongodbjobstore) == "<MongoDBJobStore (connection=Connection('localhost', 27017))>"
+
+
+def test_repr_memjobstore(redisjobstore):
+    assert repr(redisjobstore) == '<RedisJobStore>'
 
 
 def test_memstore_close(memjobstore, create_job):

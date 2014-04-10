@@ -81,8 +81,7 @@ class MemoryJobStore(BaseJobStore):
         lo, hi = 0, len(jobs)
         while lo < hi:
             mid = (lo + hi) // 2
-            if (jobs[mid].next_run_time is None and run_time is not None) or \
-                    (run_time is not None and jobs[mid].next_run_time < run_time):
+            if run_time is None or (jobs[mid].next_run_time is not None and jobs[mid].next_run_time < run_time):
                 lo = mid + 1
             else:
                 hi = mid

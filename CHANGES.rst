@@ -16,7 +16,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added the ability to modify jobs
 
-* Dropped the Redis and Shelve job stores because they could not work with the new job store system
+* Dropped the Shelve job store because it could not work with the new job store system
 
 * Adding jobs is now done exclusively through ``add_job()`` -- the shortcuts to triggers were removed
 
