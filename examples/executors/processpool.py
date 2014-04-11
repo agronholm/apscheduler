@@ -3,9 +3,9 @@ Demonstrates how to schedule a job to be run in a process pool on 3 second inter
 """
 
 from datetime import datetime
-from apscheduler.executors.pool import ProcessPoolExecutor
 
 from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.executors.pool import PoolExecutor
 
 
 def tick():
@@ -14,7 +14,7 @@ def tick():
 
 if __name__ == '__main__':
     scheduler = BlockingScheduler()
-    scheduler.add_executor(ProcessPoolExecutor(scheduler))
+    scheduler.add_executor(PoolExecutor('process'))
     scheduler.add_job(tick, 'interval', seconds=3)
     print('Press Ctrl+C to exit')
 
