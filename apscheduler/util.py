@@ -242,7 +242,7 @@ def maybe_ref(ref):
 if six.PY2:
     def repr_escape(string):
         if isinstance(string, unicode):
-            return string.encode('ascii', errors='backslashreplace')
+            return string.encode('ascii', 'backslashreplace')
         return string
 else:
     repr_escape = lambda string: string

@@ -50,7 +50,7 @@ class Job(object):
             args = changes.pop('args') if 'args' in changes else self.args
             kwargs = changes.pop('kwargs') if 'kwargs' in changes else self.kwargs
 
-            if isinstance(func, six.string_types):
+            if isinstance(func, str):
                 func_ref = func
                 func = ref_to_obj(func)
             elif callable(func):
@@ -313,7 +313,7 @@ class JobHandle(object):
         return '<JobHandle (id=%s name=%s)>' % (repr_escape(self.id), repr_escape(self.name))
 
     def __str__(self):
-        return '%s (trigger: %s, next run at: %s)' % (self.name, repr_escape(str(self.trigger)),
+        return '%s (trigger: %s, next run at: %s)' % (repr_escape(self.name), repr_escape(str(self.trigger)),
                                                       datetime_repr(self.next_run_time))
 
     def __unicode__(self):

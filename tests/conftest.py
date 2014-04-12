@@ -1,3 +1,4 @@
+# coding: utf-8
 from datetime import datetime
 import sys
 
@@ -68,8 +69,8 @@ def freeze_time(monkeypatch, timezone):
 def job_defaults(timezone):
     run_date = datetime(2011, 4, 3, 18, 40, tzinfo=timezone)
     return {'trigger': 'date', 'trigger_args': {'run_date': run_date, 'timezone': timezone}, 'executor': 'default',
-            'args': (), 'kwargs': {}, 'id': 'testid', 'misfire_grace_time': 1, 'coalesce': False, 'name': None,
-            'max_runs': None, 'max_instances': 1}
+            'args': (), 'kwargs': {}, 'id': b't\xc3\xa9st\xc3\xafd'.decode('utf-8'), 'misfire_grace_time': 1,
+            'coalesce': False, 'name': b'n\xc3\xa4m\xc3\xa9'.decode('utf-8'), 'max_runs': None, 'max_instances': 1}
 
 
 @pytest.fixture(scope='session')

@@ -1,7 +1,8 @@
+# coding: utf-8
 from datetime import datetime, timedelta
+from pip._vendor import six
 
 import pytest
-import six
 
 from apscheduler.job import Job, JobHandle
 from apscheduler.triggers.date import DateTrigger
@@ -57,9 +58,11 @@ class TestJob(object):
 
     def test_getstate(self, job):
         state = job.__getstate__()
-        assert state == dict(version=1, trigger=job.trigger, executor='default', func='tests.test_job:dummyfunc',
-                             name='dummyfunc', args=(), kwargs={}, id='testid', misfire_grace_time=1, coalesce=False,
-                             max_runs=None, max_instances=1, runs=0, next_run_time=None)
+        expected = dict(version=1, trigger=job.trigger, executor='default', func='tests.test_job:dummyfunc',
+                        name=b'n\xc3\xa4m\xc3\xa9'.decode('utf-8'), args=(), kwargs={},
+                        id=b't\xc3\xa9st\xc3\xafd'.decode('utf-8'), misfire_grace_time=1, coalesce=False,
+                        max_runs=None, max_instances=1, runs=0, next_run_time=None)
+        assert state == expected
 
     def test_setstate(self, job, timezone):
         trigger = DateTrigger('2010-12-14 13:05:00', timezone)
@@ -91,7 +94,10 @@ class TestJob(object):
         assert not job == 'bleh'
 
     def test_job_repr(self, job):
-        assert repr(job) == '<Job (id=testid)>'
+        if six.PY2:
+            assert repr(job) == '<Job (id=t\\xe9st\\xefd)>'
+        else:
+            assert repr(job) == b'<Job (id=t\xc3\xa9st\xc3\xafd)>'.decode('utf-8')
 
 
 class TestJobHandle(object):
@@ -147,12 +153,21 @@ class TestJobHandle(object):
         assert not jobhandle == 'bah'
 
     def test_jobhandle_repr(self, jobhandle):
-        assert repr(jobhandle) == '<JobHandle (id=testid name=dummyfunc)>'
+        if six.PY2:
+            assert repr(jobhandle) == '<JobHandle (id=t\\xe9st\\xefd name=n\\xe4m\\xe9)>'
+        else:
+            assert repr(jobhandle) == b'<JobHandle (id=t\xc3\xa9st\xc3\xafd name=n\xc3\xa4m\xc3\xa9)>'.decode('utf-8')
 
     def test_jobhandle_str(self, jobhandle):
-        assert str(jobhandle) == 'dummyfunc (trigger: date[2011-04-03 18:40:00 DUMMYTZ], next run at: None)'
+        if six.PY2:
+            expected = 'n\\xe4m\\xe9 (trigger: date[2011-04-03 18:40:00 DUMMYTZ], next run at: None)'
+        else:
+            expected = b'n\xc3\xa4m\xc3\xa9 (trigger: date[2011-04-03 18:40:00 DUMMYTZ], next run at: None)'.\
+                decode('utf-8')
+
+        assert str(jobhandle) == expected
 
     @maxpython(3, 0)
     def test_jobhandle_unicode(self, jobhandle):
-        assert jobhandle.__unicode__() == six.u(
-            'dummyfunc (trigger: date[2011-04-03 18:40:00 DUMMYTZ], next run at: None)')
+        assert jobhandle.__unicode__() == \
+            b'n\xc3\xa4m\xc3\xa9 (trigger: date[2011-04-03 18:40:00 DUMMYTZ], next run at: None)'.decode('utf-8')
