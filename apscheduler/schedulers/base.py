@@ -287,7 +287,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     return
 
             # Otherwise, look up the job store, make the modifications to the job and have the store update it
-            store = self._jobstores[jobstore]
+            store = self._lookup_jobstore(jobstore)
             job = store.lookup_job(changes.get('id', job_id))
             job.modify(**changes)
             store.update_job(job)
@@ -318,7 +318,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                         jobs.append(JobHandle(self, alias, job))
 
             if pending is not True:
-                jobstores = [jobstore] if jobstore else self._jobstores
+                jobstores = {jobstore: self._lookup_jobstore(jobstore)} if jobstore else self._jobstores
                 for alias, store in six.iteritems(jobstores):
                     for job in store.get_all_jobs():
                         jobs.append(JobHandle(self, alias, job))
@@ -329,7 +329,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """Returns a JobHandle for the specified job."""
 
         with self._jobstores_lock:
-            job = self._jobstores[jobstore].lookup_job(job_id)
+            store = self._lookup_jobstore(jobstore)
+            job = store.lookup_job(job_id)
             return JobHandle(self, jobstore, job)
 
     def remove_job(self, job_id, jobstore='default'):
@@ -347,7 +348,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     del self._pending_jobs[i]
                     return
 
-            self._jobstores[jobstore].remove_job(job_id)
+            store = self._lookup_jobstore(jobstore)
+            store.remove_job(job_id)
 
         # Notify listeners that a job has been removed
         event = JobStoreEvent(EVENT_JOBSTORE_JOB_REMOVED, jobstore, job_id)
@@ -363,9 +365,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
 
         with self._jobstores_lock:
-            jobstores = [jobstore] if jobstore else self._jobstores
-            for alias in jobstores:
-                self._jobstores[alias].remove_all_jobs()
+            jobstores = {jobstore: self._lookup_jobstore(jobstore)} if jobstore else self._jobstores
+            for store in six.itervalues(jobstores):
+                store.remove_all_jobs()
 
     def print_jobs(self, jobstore=None, out=None):
         """
@@ -442,6 +444,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             return self._executors[executor]
         except KeyError:
             raise KeyError('No such executor: %s' % executor)
+
+    def _lookup_jobstore(self, jobstore):
+        try:
+            return self._jobstores[jobstore]
+        except KeyError:
+            raise KeyError('No such job store: %s' % jobstore)
 
     def _notify_listeners(self, event):
         with self._listeners_lock:
