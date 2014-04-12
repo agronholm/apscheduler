@@ -186,7 +186,7 @@ class TestOfflineScheduler(object):
         exception."""
 
         func = eval("lambda x, *, y, z=1: None")
-        exc = pytest.raises(ValueError, scheduler.add_job, 'date', func, run_date=datetime(9999, 9, 9), args=[1])
+        exc = pytest.raises(ValueError, scheduler.add_job, func, 'date', run_date=datetime(9999, 9, 9), args=[1])
         assert str(exc.value) == 'The following keyword-only arguments have not been supplied in kwargs: y'
 
 
