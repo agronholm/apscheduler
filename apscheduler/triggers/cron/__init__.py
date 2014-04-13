@@ -38,7 +38,7 @@ class CronTrigger(BaseTrigger):
         :type timezone: str or an instance of a :cls:`~datetime.tzinfo` subclass
         """
 
-        self.timezone = astimezone(timezone) or getattr(self.start_date, 'tzinfo', None) or tzlocal()
+        self.timezone = astimezone(timezone) or getattr(start_date, 'tzinfo', None) or tzlocal()
         self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date') if start_date else None
 
         values = dict((key, value) for (key, value) in iteritems(locals())

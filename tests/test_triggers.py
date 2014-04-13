@@ -124,6 +124,11 @@ class TestCronTrigger(object):
     def test_cron_bad_kwarg(self, timezone):
         pytest.raises(TypeError, CronTrigger, second=0, third=1, timezone=timezone)
 
+    def test_timezone_from_start_date(self, timezone):
+        start_date = datetime(2014, 4, 13, 5, 30, tzinfo=timezone)
+        trigger = CronTrigger(year=2014, hour=4, start_date=start_date)
+        assert trigger.timezone == timezone
+
     def test_different_tz(self, timezone):
         alter_tz = tzoffset('ALTERNATE', -3600)
         trigger = CronTrigger(year=2009, week=15, day_of_week=2, timezone=timezone)
