@@ -2,6 +2,7 @@
 This module contains several handy functions primarily meant for internal use.
 """
 
+from __future__ import division
 from datetime import date, datetime, timedelta, tzinfo
 from calendar import timegm
 import re
@@ -112,7 +113,7 @@ def convert_to_datetime(input, timezone, arg_name):
 
 def datetime_to_utc_timestamp(timeval):
     if timeval is not None:
-        return timegm(timeval.utctimetuple())
+        return timegm(timeval.utctimetuple()) + timeval.microsecond / 1000000
 
 
 def utc_timestamp_to_datetime(timestamp):

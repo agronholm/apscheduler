@@ -126,7 +126,7 @@ def test_convert_datetime_invalid_str(timezone):
 
 
 def test_datetime_to_utc_timestamp(timezone):
-    dt = datetime(2014, 3, 12, 5, tzinfo=timezone)
+    dt = datetime(2014, 3, 12, 5, 40, 13, 254012, tzinfo=timezone)
     timestamp = datetime_to_utc_timestamp(dt)
     dt2 = utc_timestamp_to_datetime(timestamp)
     assert dt2 == dt
