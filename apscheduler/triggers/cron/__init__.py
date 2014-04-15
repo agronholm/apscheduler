@@ -35,7 +35,7 @@ class CronTrigger(BaseTrigger):
         :param second: second to run on
         :param start_date: earliest possible date/time to trigger on
         :param timezone: time zone for ``start_date``
-        :type timezone: str or an instance of a :cls:`~datetime.tzinfo` subclass
+        :type timezone: str|datetime.tzinfo
         """
 
         self.timezone = astimezone(timezone) or getattr(start_date, 'tzinfo', None) or tzlocal()
@@ -67,10 +67,10 @@ class CronTrigger(BaseTrigger):
 
         :type dateval: datetime
         :type fieldnum: int
-        :type amount: int
-        :rtype: tuple
         :return: a tuple containing the new date, and the number of the field that was actually incremented
+        :rtype: tuple
         """
+
         # Make sure to respect the timezone of the dateval parameter.
         values = {'tzinfo': dateval.tzinfo}
 
@@ -152,11 +152,11 @@ class CronTrigger(BaseTrigger):
             return next_date.astimezone(self.timezone)
 
     def __str__(self):
-        options = ["%s='%s'" % (f.name, str(f)) for f in self.fields if not f.is_default]
+        options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
         return 'cron[%s]' % (', '.join(options))
 
     def __repr__(self):
-        options = ["%s='%s'" % (f.name, str(f)) for f in self.fields if not f.is_default]
+        options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
         if self.start_date:
             options.append("start_date='%s'" % datetime_repr(self.start_date))
         return '<%s (%s)>' % (self.__class__.__name__, ', '.join(options))

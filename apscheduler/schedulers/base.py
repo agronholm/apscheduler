@@ -35,13 +35,11 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self._listeners = []
         self._listeners_lock = self._create_lock()
         self._pending_jobs = []
-        self._triggers = {}
         self.configure(gconfig, **options)
 
     def configure(self, gconfig={}, **options):
-        """
-        Reconfigures the scheduler with the given options. Can only be done when the scheduler isn't running.
-        """
+        """Reconfigures the scheduler with the given options. Can only be done when the scheduler isn't running."""
+
         if self.running:
             raise SchedulerAlreadyRunningError
 
@@ -85,6 +83,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         :param wait: ``True`` to wait until all currently executing jobs have finished
         """
+
         if not self.running:
             raise SchedulerNotRunningError
 
@@ -111,7 +110,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         :param executor: the executor instance to be added
         :param alias: alias for the scheduler
-        :type executor: `~apscheduler.executors.base.BaseExecutor`
+        :type executor: apscheduler.executors.base.BaseExecutor
         :type alias: str
         """
 
@@ -132,9 +131,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param jobstore: job store to be added
         :param alias: alias for the job store
         :param quiet: True to suppress scheduler thread wakeup
-        :type jobstore: instance of :class:`~apscheduler.jobstores.base.JobStore`
+        :type jobstore: apscheduler.jobstores.base.JobStore
         :type alias: str
         """
+
         with self._jobstores_lock:
             if alias in self._jobstores:
                 raise KeyError('Alias "%s" is already in use' % alias)
@@ -154,6 +154,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param close: ``True`` to close the job store after removing it
         :type alias: str
         """
+
         with self._jobstores_lock:
             jobstore = self._jobstores.pop(alias)
             if not jobstore:
@@ -175,13 +176,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param callback: any callable that takes one argument
         :param mask: bitmask that indicates which events should be listened to
         """
+
         with self._listeners_lock:
             self._listeners.append((callback, mask))
 
     def remove_listener(self, callback):
-        """
-        Removes a previously added event listener.
-        """
+        """Removes a previously added event listener."""
+
         with self._listeners_lock:
             for i, (cb, _) in enumerate(self._listeners):
                 if callback == cb:
@@ -215,17 +216,17 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param max_instances: maximum number of concurrently running instances allowed for this job
         :param jobstore: alias of the job store to store the job in
         :param executor: alias of the executor to run the job with
-        :type args: list/tuple
+        :type args: list|tuple
         :type kwargs: dict
-        :type id: str/unicode
-        :type name: str/unicode
+        :type id: str|unicode
+        :type name: str|unicode
         :type misfire_grace_time: int
         :type coalesce: bool
         :type max_runs: int
         :type max_instances: int
-        :type jobstore: str/unicode
-        :type executor: str/unicode
-        :rtype: :class:`~apscheduler.job.JobHandle`
+        :type jobstore: str|unicode
+        :type executor: str|unicode
+        :rtype: JobHandle
         """
 
         # If no trigger was specified, assume that the job should be run now
@@ -306,7 +307,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param pending: ``False`` to leave out pending jobs (jobs that are waiting for the scheduler start to be added
                         to their respective job stores), ``True`` to only include pending jobs, anything else to return
                         both
-        :return: list of :class:`~apscheduler.job.JobHandle` objects
+        :rtype: list[JobHandle]
         """
 
         with self._jobstores_lock:
@@ -326,7 +327,11 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             return jobs
 
     def get_job(self, job_id, jobstore='default'):
-        """Returns a JobHandle for the specified job."""
+        """
+        Returns a JobHandle for the specified job.
+
+        :rtype: JobHandle
+        """
 
         with self._jobstores_lock:
             store = self._lookup_jobstore(jobstore)
@@ -376,6 +381,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param jobstore: alias of the job store
         :param out: a file-like object to print to (defaults to **sys.stdout** if nothing is given)
         """
+
         out = out or sys.stdout
         with self._jobstores_lock:
             jobs = self.get_jobs(jobstore, True)
