@@ -244,6 +244,20 @@ class TestRunningScheduler(object):
         assert len(jobs) == 1
         assert jobs[0].name == 'dummyjob'
 
+    def replace_job(self, scheduler, create_job):
+        """Tests that an existing job can be replaced if the replace_existing flag is True."""
+
+        job = create_job(lambda: None, id='foo', runs=3)
+        scheduler.add_job(job)
+
+        @scheduler.scheduled_job('interval', id='foo', seconds=1)
+        def dummyjob():
+            pass
+
+        job = scheduler.get_job('foo')
+        assert job.func is dummyjob
+        assert job.runs == 3
+
     def test_modify_job(self, scheduler):
         events = []
         scheduler.add_listener(events.append, EVENT_JOBSTORE_JOB_MODIFIED)

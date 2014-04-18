@@ -11,6 +11,7 @@ import six
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
 from apscheduler.executors.base import MaxInstancesReachedError
 from apscheduler.executors.pool import PoolExecutor
+from apscheduler.jobstores.base import ConflictingIdError
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job, JobHandle
 from apscheduler.util import combine_opts, maybe_ref, asbool, astimezone, timedelta_seconds
@@ -83,8 +84,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             executor.start(self, alias)
 
         # Schedule all pending jobs
-        for job, jobstore in self._pending_jobs:
-            self._real_add_job(job, jobstore, False)
+        for job, jobstore, replace_existing in self._pending_jobs:
+            self._real_add_job(job, jobstore, replace_existing, False)
         del self._pending_jobs[:]
 
         self._stopped = False
@@ -205,7 +206,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     del self._listeners[i]
 
     def add_job(self, func, trigger=None, args=None, kwargs=None, id=None, name=None, misfire_grace_time=None,
-                coalesce=None, max_runs=None, max_instances=1, jobstore='default', executor='default', **trigger_args):
+                coalesce=None, max_runs=None, max_instances=1, jobstore='default', executor='default',
+                replace_existing=False, **trigger_args):
         """
         Adds the given job to the job list and notifies the scheduler thread.
 
@@ -232,6 +234,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param int max_instances: maximum number of concurrently running instances allowed for this job
         :param str|unicode jobstore: alias of the job store to store the job in
         :param str|unicode executor: alias of the executor to run the job with
+        :param bool replace_existing: ``True`` to replace an existing job with the same ``id`` (but retain the
+                                      number of runs from the existing one)
         :rtype: JobHandle
         """
 
@@ -261,10 +265,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Don't really add jobs to job stores before the scheduler is up and running
         if not self.running:
-            self._pending_jobs.append((job, jobstore))
+            self._pending_jobs.append((job, jobstore, replace_existing))
             self.logger.info('Adding job tentatively -- it will be properly scheduled when the scheduler starts')
         else:
-            self._real_add_job(job, jobstore, True)
+            self._real_add_job(job, jobstore, replace_existing, True)
 
         return JobHandle(self, jobstore, job)
 
@@ -274,7 +278,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         def inner(func):
             self.add_job(func, trigger, args, kwargs, id, misfire_grace_time, coalesce, name, max_runs, max_instances,
-                         jobstore, executor, **trigger_args)
+                         jobstore, executor, True, **trigger_args)
             return func
         return inner
 
@@ -288,7 +292,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         with self._jobstores_lock:
             # Check if the job is among the pending jobs
-            for job, store in self._pending_jobs:
+            for job, store, replace_existing in self._pending_jobs:
                 if job.id == job_id:
                     job.modify(**changes)
                     return
@@ -338,7 +342,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             jobs = []
 
             if pending is not False:
-                for job, alias in self._pending_jobs:
+                for job, alias, replace_existing in self._pending_jobs:
                     if jobstore is None or alias == jobstore:
                         jobs.append(JobHandle(self, alias, job))
 
@@ -372,7 +376,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         with self._jobstores_lock:
             # Check if the job is among the pending jobs
-            for i, (job, store) in enumerate(self._pending_jobs):
+            for i, (job, store, replace_existing) in enumerate(self._pending_jobs):
                 if job.id == job_id:
                     del self._pending_jobs[i]
                     return
@@ -492,10 +496,11 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 except:
                     self.logger.exception('Error notifying listener')
 
-    def _real_add_job(self, job, jobstore, wakeup):
+    def _real_add_job(self, job, jobstore, replace_existing, wakeup):
         """
         :param apscheduler.job.Job job: the job to add
         :param str|unicode jobstore: alias of the job store
+        :param bool replace_existing: ``True`` to use update_job() in case the job already exists in the store
         :param bool wakeup: ``True`` to wake up the scheduler after adding the job
         """
 
@@ -504,10 +509,16 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         job.next_run_time = job.trigger.get_next_fire_time(now)
 
         # Add the job to the given job store
-        store = self._jobstores.get(jobstore)
-        if not store:
-            raise KeyError('No such job store: %s' % jobstore)
-        store.add_job(job)
+        store = self._lookup_jobstore(jobstore)
+        try:
+            store.add_job(job)
+        except ConflictingIdError:
+            if replace_existing:
+                existing_job = store.lookup_job(job.id)
+                job.runs = existing_job.runs
+                store.update(job)
+            else:
+                raise
 
         # Notify listeners that a new job has been added
         event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, jobstore, job.id)
