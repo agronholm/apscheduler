@@ -69,7 +69,7 @@ def logstream(request, scheduler):
     loghandler.setLevel(ERROR)
     logger = getLogger('apscheduler')
     logger.addHandler(loghandler)
-    request.addfinalizer(lambda: scheduler.logger.removeHandler(loghandler))
+    request.addfinalizer(lambda: logger.removeHandler(loghandler))
     return stream
 
 

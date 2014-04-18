@@ -91,7 +91,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             del self._pending_jobs[:]
 
         self._stopped = False
-        self.logger.info('Scheduler started')
+        self._logger.info('Scheduler started')
 
         # Notify listeners that the scheduler has been started
         self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_START))
@@ -118,7 +118,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         for jobstore in six.itervalues(self._jobstores):
             jobstore.shutdown()
 
-        self.logger.info('Scheduler has been shut down')
+        self._logger.info('Scheduler has been shut down')
         self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN))
 
     @property
@@ -269,7 +269,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         with self._jobstores_lock:
             if not self.running:
                 self._pending_jobs.append((job, jobstore, replace_existing))
-                self.logger.info('Adding job tentatively -- it will be properly scheduled when the scheduler starts')
+                self._logger.info('Adding job tentatively -- it will be properly scheduled when the scheduler starts')
             else:
                 self._real_add_job(job, jobstore, replace_existing, True)
 
@@ -403,7 +403,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         event = JobStoreEvent(EVENT_JOBSTORE_JOB_REMOVED, jobstore, job_id)
         self._notify_listeners(event)
 
-        self.logger.info('Removed job %s', job_id)
+        self._logger.info('Removed job %s', job_id)
 
     def remove_all_jobs(self, jobstore=None):
         """
@@ -449,7 +449,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     def _configure(self, config):
         # Set general options
-        self.logger = maybe_ref(config.pop('logger', None)) or getLogger('apscheduler.scheduler')
+        self._logger = maybe_ref(config.pop('logger', None)) or getLogger('apscheduler.scheduler')
         self.misfire_grace_time = int(config.pop('misfire_grace_time', 1))
         self.coalesce = asbool(config.pop('coalesce', True))
         self.timezone = astimezone(config.pop('timezone', None)) or tzlocal()
@@ -533,7 +533,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 try:
                     cb(event)
                 except:
-                    self.logger.exception('Error notifying listener')
+                    self._logger.exception('Error notifying listener')
 
     def _real_add_job(self, job, jobstore, replace_existing, wakeup):
         """
@@ -563,7 +563,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, jobstore, job.id)
         self._notify_listeners(event)
 
-        self.logger.info('Added job "%s" to job store "%s"', job, jobstore)
+        self._logger.info('Added job "%s" to job store "%s"', job, jobstore)
 
         # Notify the scheduler about the new job
         if wakeup:
@@ -584,7 +584,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         round.
         """
 
-        self.logger.debug('Looking for jobs to run')
+        self._logger.debug('Looking for jobs to run')
         now = datetime.now(self.timezone)
         next_wakeup_time = None
 
@@ -595,7 +595,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     try:
                         executor = self._lookup_executor(job.executor)
                     except:
-                        self.logger.error('Executor lookup failed for job "%s": %s', job, job.executor)
+                        self._logger.error('Executor lookup failed for job "%s": %s', job, job.executor)
                         continue
 
                     run_times = job.get_run_times(now)
@@ -604,12 +604,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                         try:
                             executor.submit_job(job, run_times)
                         except MaxInstancesReachedError:
-                            self.logger.warning(
+                            self._logger.warning(
                                 'Execution of job "%s" skipped: maximum number of running instances reached (%d)',
                                 job, job.max_instances)
                             continue
                         except:
-                            self.logger.exception('Error submitting job "%s" to executor "%s"', job, job.executor)
+                            self._logger.exception('Error submitting job "%s" to executor "%s"', job, job.executor)
                             continue
 
                         # Update the job if it has a next execution time and the number of runs has not reached maximum,
@@ -630,9 +630,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         # Determine the delay until this method should be called again
         if next_wakeup_time is not None:
             wait_seconds = max(timedelta_seconds(next_wakeup_time - now), 0)
-            self.logger.debug('Next wakeup is due at %s (in %f seconds)', next_wakeup_time, wait_seconds)
+            self._logger.debug('Next wakeup is due at %s (in %f seconds)', next_wakeup_time, wait_seconds)
         else:
             wait_seconds = None
-            self.logger.debug('No jobs; waiting until a job is added')
+            self._logger.debug('No jobs; waiting until a job is added')
 
         return wait_seconds
