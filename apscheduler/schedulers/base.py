@@ -287,7 +287,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         Modifies the properties of a single job. Modifications are passed to this method as extra keyword arguments.
 
         :param str|unicode job_id: the identifier of the job
-        :param str|unicode jobstore: alias of the job store
+        :param str|unicode jobstore: alias of the job store that contains the job
         """
 
         with self._jobstores_lock:
@@ -309,12 +309,22 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self._wakeup()
 
     def pause_job(self, job_id, jobstore='default'):
-        """Causes the given job not to be executed until it is explicitly resumed."""
+        """
+        Causes the given job not to be executed until it is explicitly resumed.
+
+        :param str|unicode job_id: the identifier of the job
+        :param str|unicode jobstore: alias of the job store that contains the job
+        """
 
         self.modify_job(job_id, jobstore, next_run_time=None)
 
     def resume_job(self, job_id, jobstore='default'):
-        """Resumes the schedule of the given job, or removes the job if its schedule is finished."""
+        """
+        Resumes the schedule of the given job, or removes the job if its schedule is finished.
+
+        :param str|unicode job_id: the identifier of the job
+        :param str|unicode jobstore: alias of the job store that contains the job
+        """
 
         with self._jobstores_lock:
             store = self._lookup_jobstore(jobstore)
@@ -358,6 +368,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         Returns a JobHandle for the specified job.
 
+        :param str|unicode job_id: the identifier of the job
+        :param str|unicode jobstore: alias of the job store that contains the job
         :rtype: JobHandle
         """
 
@@ -371,7 +383,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         Removes a job, preventing it from being run any more.
 
         :param str|unicode job_id: the identifier of the job
-        :param str|unicode jobstore: alias of the job store
+        :param str|unicode jobstore: alias of the job store that contains the job
         """
 
         with self._jobstores_lock:
@@ -406,7 +418,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         Prints out a textual listing of all jobs currently scheduled on either all job stores or just a specific one.
 
-        :param str|unicode jobstore: alias of the job store
+        :param str|unicode jobstore: alias of the job store, ``None`` to list jobs from all stores
         :param file out: a file-like object to print to (defaults to **sys.stdout** if nothing is given)
         """
 
@@ -467,25 +479,49 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             jobstore = cls(**opts)
             self.add_jobstore(jobstore, alias)
 
-    def _create_default_jobstore(self):
-        return MemoryJobStore()
-
     def _create_default_executor(self):
+        """Creates a default executor store, specific to the particular scheduler type. Overwritten by subclasses."""
+
         return PoolExecutor('thread')
 
-    def _lookup_executor(self, executor):
-        try:
-            return self._executors[executor]
-        except KeyError:
-            raise KeyError('No such executor: %s' % executor)
+    def _create_default_jobstore(self):
+        """Creates a default job store, specific to the particular scheduler type. Overwritten by subclasses."""
 
-    def _lookup_jobstore(self, jobstore):
+        return MemoryJobStore()
+
+    def _lookup_executor(self, alias):
+        """
+        Returns the executor instance by the given name from the list of executors that were added to this scheduler.
+
+        :type alias: str
+        :raises KeyError: if no executor by the given alias is not found
+        """
+
         try:
-            return self._jobstores[jobstore]
+            return self._executors[alias]
         except KeyError:
-            raise KeyError('No such job store: %s' % jobstore)
+            raise KeyError('No such executor: %s' % alias)
+
+    def _lookup_jobstore(self, alias):
+        """
+        Returns the job store instance by the given name from the list of job stores that were added to this scheduler.
+
+        :type alias: str
+        :raises KeyError: if no job store by the given alias is not found
+        """
+
+        try:
+            return self._jobstores[alias]
+        except KeyError:
+            raise KeyError('No such job store: %s' % alias)
 
     def _notify_listeners(self, event):
+        """
+        Dispatches the given event to interested listeners.
+
+        :param SchedulerEvent event: the event to send
+        """
+
         with self._listeners_lock:
             listeners = tuple(self._listeners)
 
