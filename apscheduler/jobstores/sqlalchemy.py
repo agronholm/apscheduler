@@ -44,11 +44,11 @@ class SQLAlchemyJobStore(BaseJobStore):
 
         self.jobs_t.create(self.engine, True)
 
-    def lookup_job(self, id):
-        selectable = select([self.jobs_t.c.job_state]).where(self.jobs_t.c.id == id)
+    def lookup_job(self, job_id):
+        selectable = select([self.jobs_t.c.job_state]).where(self.jobs_t.c.id == job_id)
         job_state = self.engine.execute(selectable).scalar()
         if job_state is None:
-            raise JobLookupError(id)
+            raise JobLookupError(job_id)
         return self._reconstitute_job(job_state)
 
     def get_pending_jobs(self, now):
@@ -84,17 +84,17 @@ class SQLAlchemyJobStore(BaseJobStore):
         if result.rowcount == 0:
             raise JobLookupError(id)
 
-    def remove_job(self, id):
-        delete = self.jobs_t.delete().where(self.jobs_t.c.id == id)
+    def remove_job(self, job_id):
+        delete = self.jobs_t.delete().where(self.jobs_t.c.id == job_id)
         result = self.engine.execute(delete)
         if result.rowcount == 0:
-            raise JobLookupError(id)
+            raise JobLookupError(job_id)
 
     def remove_all_jobs(self):
         delete = self.jobs_t.delete()
         self.engine.execute(delete)
 
-    def close(self):
+    def shutdown(self):
         self.engine.dispose()
 
     @staticmethod

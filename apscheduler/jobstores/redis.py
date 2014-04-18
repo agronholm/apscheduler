@@ -37,10 +37,10 @@ class RedisJobStore(BaseJobStore):
         self.run_times_key = run_times_key
         self.redis = StrictRedis(db=int(db), **connect_args)
 
-    def lookup_job(self, id):
-        job_state = self.redis.hget(self.jobs_key, id)
+    def lookup_job(self, job_id):
+        job_state = self.redis.hget(self.jobs_key, job_id)
         if job_state is None:
-            raise JobLookupError(id)
+            raise JobLookupError(job_id)
 
         return self._reconstitute_job(job_state)
 
@@ -84,13 +84,13 @@ class RedisJobStore(BaseJobStore):
                 pipe.zrem(self.run_times_key, job.id)
             pipe.execute()
 
-    def remove_job(self, id):
-        if not self.redis.hexists(self.jobs_key, id):
-            raise JobLookupError(id)
+    def remove_job(self, job_id):
+        if not self.redis.hexists(self.jobs_key, job_id):
+            raise JobLookupError(job_id)
 
         with self.redis.pipeline() as pipe:
-            pipe.hdel(self.jobs_key, id)
-            pipe.zrem(self.run_times_key, id)
+            pipe.hdel(self.jobs_key, job_id)
+            pipe.zrem(self.run_times_key, job_id)
             pipe.execute()
 
     def remove_all_jobs(self):
@@ -99,7 +99,7 @@ class RedisJobStore(BaseJobStore):
             pipe.delete(self.run_times_key)
             pipe.execute()
 
-    def close(self):
+    def shutdown(self):
         self.redis.connection_pool.disconnect()
 
     @staticmethod

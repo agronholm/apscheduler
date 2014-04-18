@@ -111,9 +111,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         for executor in six.itervalues(self._executors):
             executor.shutdown(wait)
 
-        # Close all job stores
+        # Shut down all job stores
         for jobstore in six.itervalues(self._jobstores):
-            jobstore.close()
+            jobstore.shutdown()
 
         self.logger.info('Scheduler has been shut down')
         self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN))
@@ -164,22 +164,21 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         if self.running:
             self._wakeup()
 
-    def remove_jobstore(self, alias, close=True):
+    def remove_jobstore(self, alias, shutdown=True):
         """
         Removes the job store by the given alias from this scheduler.
 
         :param str|unicode alias: alias of the job store
-        :param bool close: ``True`` to close the job store after removing it
+        :param bool shutdown: ``True`` to shut down the job store after removing it
         """
 
         with self._jobstores_lock:
-            jobstore = self._jobstores.pop(alias)
-            if not jobstore:
-                raise KeyError('No such job store: %s' % alias)
+            jobstore = self._lookup_jobstore(alias)
+            del self._jobstores[alias]
 
-        # Close the job store if requested
-        if close:
-            jobstore.close()
+        # Shut down the job store if requested
+        if shutdown:
+            jobstore.shutdown()
 
         # Notify listeners that a job store has been removed
         self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_REMOVED, alias))

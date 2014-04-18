@@ -29,7 +29,7 @@ def memjobstore(request):
 @pytest.fixture
 def sqlalchemyjobstore(request):
     def finish():
-        store.close()
+        store.shutdown()
         if os.path.exists('apscheduler_unittest.sqlite'):
             os.remove('apscheduler_unittest.sqlite')
 
@@ -44,7 +44,7 @@ def mongodbjobstore(request):
     def finish():
         connection = store.collection.database.connection
         connection.drop_database(store.collection.database.name)
-        store.close()
+        store.shutdown()
 
     mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
     store = mongodb.MongoDBJobStore(database='apscheduler_unittest')
@@ -56,7 +56,7 @@ def mongodbjobstore(request):
 def redisjobstore(request):
     def finish():
         store.remove_all_jobs()
-        store.close()
+        store.shutdown()
 
     redis = pytest.importorskip('apscheduler.jobstores.redis')
     store = redis.RedisJobStore()
@@ -224,7 +224,7 @@ def test_repr_memjobstore(redisjobstore):
 
 def test_memstore_close(memjobstore, create_job):
     create_job(memjobstore, dummy_job, datetime(2016, 5, 3))
-    memjobstore.close()
+    memjobstore.shutdown()
     assert not memjobstore.get_all_jobs()
 
 

@@ -13,7 +13,9 @@ utc = tzutc()
 
 
 class MaxInstancesReachedError(Exception):
-    pass
+    def __init__(self, job):
+        super(MaxInstancesReachedError, self).__init__(
+            'Job "%s" has already reached its maximum number of instances (%d)' % (job.id, job.max_instances))
 
 
 class BaseExecutor(six.with_metaclass(ABCMeta, object)):
@@ -21,7 +23,7 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
 
     _scheduler = None
     _lock = None
-    _logger = None
+    _logger = logging.getLogger('apscheduler.executors')
 
     def __init__(self):
         super(BaseExecutor, self).__init__()
@@ -59,7 +61,7 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
         assert self._lock is not None, 'This executor has not been started yet'
         with self._lock:
             if self._instances[job.id] >= job.max_instances:
-                raise MaxInstancesReachedError
+                raise MaxInstancesReachedError(job)
 
             self._do_submit_job(job, run_times)
             self._instances[job.id] += 1

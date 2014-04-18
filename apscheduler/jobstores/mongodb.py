@@ -42,10 +42,10 @@ class MongoDBJobStore(BaseJobStore):
         self.collection = self.connection[database][collection]
         self.collection.ensure_index('next_run_time', sparse=True)
 
-    def lookup_job(self, id):
-        document = self.collection.find_one(id, ['job_state'])
+    def lookup_job(self, job_id):
+        document = self.collection.find_one(job_id, ['job_state'])
         if document is None:
-            raise JobLookupError(id)
+            raise JobLookupError(job_id)
         return self._reconstitute_job(document['job_state'])
 
     def get_pending_jobs(self, now):
@@ -79,15 +79,15 @@ class MongoDBJobStore(BaseJobStore):
         if result and result['n'] == 0:
             raise JobLookupError(id)
 
-    def remove_job(self, id):
-        result = self.collection.remove(id)
+    def remove_job(self, job_id):
+        result = self.collection.remove(job_id)
         if result and result['n'] == 0:
-            raise JobLookupError(id)
+            raise JobLookupError(job_id)
 
     def remove_all_jobs(self):
         self.collection.remove()
 
-    def close(self):
+    def shutdown(self):
         self.connection.disconnect()
 
     @staticmethod

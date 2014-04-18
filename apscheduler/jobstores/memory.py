@@ -12,11 +12,11 @@ class MemoryJobStore(BaseJobStore):
         self._jobs = []  # sorted by next_run_time
         self._jobs_index = {}  # id -> job lookup table
 
-    def lookup_job(self, id):
+    def lookup_job(self, job_id):
         try:
-            return self._jobs_index[id]
+            return self._jobs_index[job_id]
         except KeyError:
-            raise JobLookupError(id)
+            raise JobLookupError(job_id)
 
     def get_pending_jobs(self, now):
         pending = []
@@ -54,8 +54,8 @@ class MemoryJobStore(BaseJobStore):
             index = self._bisect_job(job.next_run_time)
             self._jobs.insert(index, job)
 
-    def remove_job(self, id):
-        job = self.lookup_job(id)
+    def remove_job(self, job_id):
+        job = self.lookup_job(job_id)
         index = self._get_job_index(job)
         del self._jobs[index]
         del self._jobs_index[job.id]
@@ -64,7 +64,7 @@ class MemoryJobStore(BaseJobStore):
         self._jobs = []
         self._jobs_index = {}
 
-    def close(self):
+    def shutdown(self):
         self.remove_all_jobs()
 
     def _get_job_index(self, job):

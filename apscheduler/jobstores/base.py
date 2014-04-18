@@ -12,24 +12,24 @@ import six
 class JobLookupError(KeyError):
     """Raised when the job store cannot find a job for update or removal."""
 
-    def __init__(self, id):
-        super(JobLookupError, self).__init__(six.u('No job by the id of %s was found') % id)
+    def __init__(self, job_id):
+        super(JobLookupError, self).__init__(six.u('No job by the id of %s was found') % job_id)
 
 
 class ConflictingIdError(KeyError):
     """Raised when the uniqueness of job IDs is being violated."""
 
-    def __init__(self, id):
-        super(ConflictingIdError, self).__init__(six.u('Job identifier (%s) conflicts with an existing job') % id)
+    def __init__(self, job_id):
+        super(ConflictingIdError, self).__init__(six.u('Job identifier (%s) conflicts with an existing job') % job_id)
 
 
 class TransientJobError(ValueError):
     """Raised when an attempt to add transient (with no func_ref) job to a persistent job store is detected."""
 
-    def __init__(self, id):
+    def __init__(self, job_id):
         super(TransientJobError, self).__init__(
             six.u('Job (%s) cannot be added to this job store because a reference to the callable could not be '
-                  'determined.') % id)
+                  'determined.') % job_id)
 
 
 class BaseJobStore(six.with_metaclass(ABCMeta)):
@@ -46,12 +46,15 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
 
         self._logger = logging.getLogger('apscheduler.jobstores.%s' % alias)
 
+    def shutdown(self):
+        """Frees any resources still bound to this job store."""
+
     @abstractmethod
-    def lookup_job(self, id):
+    def lookup_job(self, job_id):
         """
         Returns a specific job.
 
-        :param str/unicode id: identifier of the job
+        :param str/unicode job_id: identifier of the job
         :rtype: Job
         :raises JobLookupError: if the job is not found.
         """
@@ -100,20 +103,17 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         """
 
     @abstractmethod
-    def remove_job(self, id):
+    def remove_job(self, job_id):
         """
         Removes the given job from this store.
 
-        :param str|unicode id: identifier of the job
+        :param str|unicode job_id: identifier of the job
         :raises JobLookupError: if the job does not exist.
         """
 
     @abstractmethod
     def remove_all_jobs(self):
         """Removes all jobs from this store."""
-
-    def close(self):
-        """Frees any resources still bound to this job store."""
 
     def __repr__(self):
         return '<%s>' % self.__class__.__name__
