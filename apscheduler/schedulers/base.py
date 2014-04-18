@@ -94,7 +94,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self._logger.info('Scheduler started')
 
         # Notify listeners that the scheduler has been started
-        self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_START))
+        self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_START))
 
     @abstractmethod
     def shutdown(self, wait=True):
@@ -119,7 +119,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             jobstore.shutdown()
 
         self._logger.info('Scheduler has been shut down')
-        self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN))
+        self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN))
 
     @property
     def running(self):
@@ -161,7 +161,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 jobstore.start(self, alias)
 
         # Notify listeners that a new job store has been added
-        self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_ADDED, alias))
+        self._dispatch_event(JobStoreEvent(EVENT_JOBSTORE_ADDED, alias))
 
         # Notify the scheduler so it can scan the new job store for jobs
         if self.running:
@@ -184,7 +184,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             jobstore.shutdown()
 
         # Notify listeners that a job store has been removed
-        self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_REMOVED, alias))
+        self._dispatch_event(JobStoreEvent(EVENT_JOBSTORE_REMOVED, alias))
 
     def add_listener(self, callback, mask=EVENT_ALL):
         """
@@ -306,7 +306,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             job.modify(**changes)
             store.update_job(job)
 
-        self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_JOB_MODIFIED, jobstore, job_id))
+        self._dispatch_event(JobStoreEvent(EVENT_JOBSTORE_JOB_MODIFIED, jobstore, job_id))
 
         # Wake up the scheduler since the job's next run time may have been changed
         self._wakeup()
@@ -401,7 +401,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Notify listeners that a job has been removed
         event = JobStoreEvent(EVENT_JOBSTORE_JOB_REMOVED, jobstore, job_id)
-        self._notify_listeners(event)
+        self._dispatch_event(event)
 
         self._logger.info('Removed job %s', job_id)
 
@@ -518,7 +518,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         except KeyError:
             raise KeyError('No such job store: %s' % alias)
 
-    def _notify_listeners(self, event):
+    def _dispatch_event(self, event):
         """
         Dispatches the given event to interested listeners.
 
@@ -561,7 +561,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Notify listeners that a new job has been added
         event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, jobstore, job.id)
-        self._notify_listeners(event)
+        self._dispatch_event(event)
 
         self._logger.info('Added job "%s" to job store "%s"', job, jobstore)
 

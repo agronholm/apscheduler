@@ -114,17 +114,17 @@ class TestOfflineScheduler(object):
         scheduler.add_listener(val.append)
 
         event = SchedulerEvent(EVENT_SCHEDULER_START)
-        scheduler._notify_listeners(event)
+        scheduler._dispatch_event(event)
         assert len(val) == 1
         assert val[0] == event
 
         event = SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN)
-        scheduler._notify_listeners(event)
+        scheduler._dispatch_event(event)
         assert len(val) == 2
         assert val[1] == event
 
         scheduler.remove_listener(val.append)
-        scheduler._notify_listeners(event)
+        scheduler._dispatch_event(event)
         assert len(val) == 2
 
     def test_pending_jobs(self, scheduler):

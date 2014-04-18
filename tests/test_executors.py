@@ -36,7 +36,7 @@ def test_max_instances(scheduler, executor, create_job, freeze_time):
     """Tests that the maximum instance limit on a job is respected."""
 
     events = []
-    scheduler._notify_listeners = lambda event: events.append(event)
+    scheduler._dispatch_event = lambda event: events.append(event)
     job = create_job(func=wait_event, max_instances=2, max_runs=3)
     executor.submit_job(job, [freeze_time.current])
     executor.submit_job(job, [freeze_time.current])

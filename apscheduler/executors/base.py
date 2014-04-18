@@ -77,7 +77,7 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
             self._instances[job_id] -= 1
 
         for event in events:
-            self._scheduler._notify_listeners(event)
+            self._scheduler._dispatch_event(event)
 
     def _run_job_error(self, job_id, exc_type, exc_value, traceback):
         """Called by the executor with the exception if there is an error calling `run_job`."""
@@ -86,7 +86,7 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
             self._instances[job_id] -= 1
 
         exc_info = (exc_type, exc_value, traceback)
-        self._logger.error('Error running job %s' % job_id, exc_info=exc_info)
+        self._logger.error('Error running job %s', job_id, exc_info=exc_info)
 
 
 def run_job(job, run_times, logger_name):
