@@ -5,7 +5,9 @@ fields.
 
 from calendar import monthrange
 
-from apscheduler.triggers.cron.expressions import *
+from apscheduler.triggers.cron.expressions import (
+    AllExpression, RangeExpression, WeekdayPositionExpression, LastDayOfMonthExpression, WeekdayRangeExpression)
+
 
 __all__ = ('MIN_VALUES', 'MAX_VALUES', 'DEFAULT_VALUES', 'BaseField', 'WeekField', 'DayOfMonthField', 'DayOfWeekField')
 

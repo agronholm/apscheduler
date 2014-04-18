@@ -13,8 +13,11 @@ from apscheduler.executors.base import MaxInstancesReachedError
 from apscheduler.executors.pool import PoolExecutor
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job, JobHandle
-from apscheduler.events import *
-from apscheduler.util import *
+from apscheduler.util import combine_opts, maybe_ref, asbool, astimezone, timedelta_seconds
+from apscheduler.events import (
+    SchedulerEvent, JobStoreEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOBSTORE_ADDED,
+    EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_JOBSTORE_JOB_MODIFIED, EVENT_JOBSTORE_JOB_REMOVED,
+    EVENT_JOBSTORE_JOB_ADDED)
 
 
 class BaseScheduler(six.with_metaclass(ABCMeta)):
@@ -54,11 +57,11 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             raise SchedulerAlreadyRunningError
 
         # Create a default executor if nothing else is configured
-        if not 'default' in self._executors:
+        if 'default' not in self._executors:
             self.add_executor(self._create_default_executor(), 'default')
 
         # Create a default job store if nothing else is configured
-        if not 'default' in self._jobstores:
+        if 'default' not in self._jobstores:
             self.add_jobstore(self._create_default_jobstore(), 'default')
 
         # Start all the job stores

@@ -213,7 +213,7 @@ def ref_to_obj(ref):
     """
     if not isinstance(ref, six.string_types):
         raise TypeError('References must be strings')
-    if not ':' in ref:
+    if ':' not in ref:
         raise ValueError('Invalid reference')
 
     modulename, rest = ref.split(':', 1)
@@ -242,7 +242,7 @@ def maybe_ref(ref):
 
 if six.PY2:
     def repr_escape(string):
-        if isinstance(string, unicode):
+        if isinstance(string, six.text_type):
             return string.encode('ascii', 'backslashreplace')
         return string
 else:

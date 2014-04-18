@@ -4,7 +4,7 @@ from dateutil.tz import tzlocal
 from six import iteritems
 
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.triggers.cron.fields import *
+from apscheduler.triggers.cron.fields import BaseField, WeekField, DayOfMonthField, DayOfWeekField, DEFAULT_VALUES
 from apscheduler.util import datetime_ceil, convert_to_datetime, datetime_repr, astimezone
 
 
