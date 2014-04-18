@@ -7,6 +7,7 @@ import os
 import pytest
 
 from apscheduler.executors.pool import PoolExecutor
+from apscheduler.jobstores.base import BaseJobStore
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
 from apscheduler.schedulers.base import BaseScheduler
@@ -259,6 +260,54 @@ class TestRunningScheduler(object):
         scheduler._wakeup = MagicMock()
         scheduler.modify_job('foo', next_run_time=datetime(2014, 4, 1))
         scheduler._wakeup.assert_called_once_with()
+
+    def test_pause_job(self, scheduler, freeze_time):
+        """Tests that pausing a job causes the scheduler to have the job store update the job with no next run time."""
+
+        jobstore = MagicMock(BaseJobStore)
+        scheduler._wakeup = MagicMock()
+        scheduler.add_jobstore(jobstore, 'mock')
+        scheduler.add_job(lambda: None, 'interval', seconds=10, id='foo', jobstore='mock')
+        job = jobstore.add_job.call_args[0][0]
+        assert job.next_run_time == freeze_time.current + timedelta(seconds=10)
+
+        jobstore.lookup_job = MagicMock(return_value=job)
+        scheduler.pause_job('foo', 'mock')
+        jobstore.lookup_job.assert_called_once_with('foo')
+        assert jobstore.update_job.call_count == 1
+        job = jobstore.update_job.call_args[0][0]
+        assert job.next_run_time is None
+        assert scheduler._wakeup.call_count == 3
+
+    def test_resume_job(self, scheduler, create_job):
+        """Tests that resuming a job causes the scheduler to have the job store update the job with a next run time."""
+
+        job = create_job(func=lambda: None)
+        assert job.next_run_time is None
+        jobstore = MagicMock(BaseJobStore, lookup_job=lambda job_id: job)
+        scheduler._wakeup = MagicMock()
+        scheduler.add_jobstore(jobstore, 'mock')
+
+        scheduler.resume_job(job.id, 'mock')
+        jobstore.update_job.assert_called_once_with(job)
+        assert job.next_run_time == job.trigger.run_date
+        assert scheduler._wakeup.call_count == 2
+
+    def test_resume_job_remove(self, scheduler, create_job, timezone):
+        """
+        Tests that resuming a job causes the scheduler to remove the job when a next run time cannot be calculated for
+        it.
+        """
+
+        job = create_job(func=lambda: None, trigger_args={'run_date': datetime(2000, 1, 1), 'timezone': timezone})
+        assert job.next_run_time is None
+        jobstore = MagicMock(BaseJobStore, lookup_job=lambda job_id: job)
+        scheduler._wakeup = MagicMock()
+        scheduler.add_jobstore(jobstore, 'mock')
+
+        scheduler.resume_job(job.id, 'mock')
+        jobstore.remove_job.assert_called_once_with(job.id)
+        assert scheduler._wakeup.call_count == 1
 
     def test_remove_job(self, scheduler):
         vals = [0]

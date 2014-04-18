@@ -298,6 +298,24 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         # Wake up the scheduler since the job's next run time may have been changed
         self._wakeup()
 
+    def pause_job(self, job_id, jobstore='default'):
+        """Causes the given job not to be executed until it is explicitly resumed."""
+
+        self.modify_job(job_id, jobstore, next_run_time=None)
+
+    def resume_job(self, job_id, jobstore='default'):
+        """Resumes the schedule of the given job, or removes the job if its schedule is finished."""
+
+        with self._jobstores_lock:
+            store = self._lookup_jobstore(jobstore)
+            job = store.lookup_job(job_id)
+            now = datetime.now(self.timezone)
+            next_run_time = job.trigger.get_next_fire_time(now)
+            if next_run_time:
+                self.modify_job(job_id, jobstore, next_run_time=next_run_time)
+            else:
+                self.remove_job(job.id, jobstore)
+
     def get_jobs(self, jobstore=None, pending=None):
         """
         Returns a list of pending jobs (if the scheduler hasn't been started yet) and scheduled jobs,
