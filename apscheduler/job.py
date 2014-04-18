@@ -198,7 +198,12 @@ class Job(object):
                              ', '.join(unmatched_kwargs))
 
     def get_run_times(self, now):
-        """Computes the scheduled run times between ``next_run_time`` and ``now``."""
+        """
+        Computes the scheduled run times between ``next_run_time`` and ``now``.
+
+        :type now: datetime
+        :rtype: list[datetime]
+        """
 
         run_times = []
         run_time = self.next_run_time

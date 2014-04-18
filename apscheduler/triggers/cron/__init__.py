@@ -26,16 +26,15 @@ class CronTrigger(BaseTrigger):
         """
         Triggers when current time matches all specified time constraints, emulating the UNIX cron scheduler.
 
-        :param year: year to run on
-        :param month: month to run on
-        :param day: day of month to run on
-        :param week: week of the year to run on
-        :param day_of_week: weekday to run on (0 = Monday)
-        :param hour: hour to run on
-        :param second: second to run on
-        :param start_date: earliest possible date/time to trigger on
-        :param timezone: time zone for ``start_date``
-        :type timezone: str|datetime.tzinfo
+        :param int|str year: year to run on
+        :param int|str month: month to run on
+        :param int|str day: day of month to run on
+        :param int|str week: week of the year to run on
+        :param int|str day_of_week: weekday to run on (0 = Monday)
+        :param int|str hour: hour to run on
+        :param int|str second: second to run on
+        :param datetime|str start_date: earliest possible date/time to trigger on
+        :param datetime.tzinfo|str timezone: time zone for ``start_date``
         """
 
         self.timezone = astimezone(timezone) or getattr(start_date, 'tzinfo', None) or tzlocal()

@@ -2,6 +2,7 @@
 Abstract base class that provides the interface needed by all job stores.
 Job store methods are also documented here.
 """
+
 from abc import ABCMeta, abstractmethod
 import logging
 
@@ -39,69 +40,72 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         Called by the scheduler when the scheduler is being started or when the job store is being added to an already
         running scheduler.
 
-        :type scheduler: `~apscheduler.scheduler.base.BaseScheduler`
+        :param apscheduler.schedulers.base.BaseScheduler scheduler: the scheduler that is starting this job store
+        :param str|unicode alias: alias of this job store as it was assigned to the scheduler
         """
 
         self._logger = logging.getLogger('apscheduler.jobstores.%s' % alias)
 
     @abstractmethod
     def lookup_job(self, id):
-        """Returns a specific job.
+        """
+        Returns a specific job.
 
-        :param id: identifier of the job
-        :type id: str/unicode
-        :rtype: :class:`~apscheduler.job.Job`
-        :raises: :class:`~apscheduler.jobstore.base.JobLookupError` if the job is not found.
+        :param str/unicode id: identifier of the job
+        :rtype: Job
+        :raises JobLookupError: if the job is not found.
         """
 
     @abstractmethod
     def get_pending_jobs(self, now):
-        """Returns the list of jobs that have ``next_run_time`` earlier or equal to ``now``, sorted by next run time
+        """
+        Returns the list of jobs that have ``next_run_time`` earlier or equal to ``now``, sorted by next run time
 
-        :param now: the current (timezone aware) datetime
-        :type now: :class:`~datetime.datetime`
-        :rtype: :class:`list`
+        :param datetime.datetime now: the current (timezone aware) datetime
+        :rtype: list[Job]
         """
 
     @abstractmethod
     def get_next_run_time(self):
-        """Returns the earliest run time of all the jobs stored in this job store, or ``None`` if there are no active
-        jobs.
+        """
+        Returns the earliest run time of all the jobs stored in this job store, or ``None`` if there are no active jobs.
 
-        :rtype: :class:`~datetime.datetime`
+        :rtype: datetime.datetime
         """
 
     @abstractmethod
     def get_all_jobs(self):
-        """Returns a list of all contained jobs (sorted by next run time).
+        """
+        Returns a list of all contained jobs (sorted by next run time).
 
-        :rtype: :class:`list`
+        :rtype: list[Job]
         """
 
     @abstractmethod
     def add_job(self, job):
-        """Adds the given job to this store.
+        """
+        Adds the given job to this store.
 
-        :param job: the job to add
-        :type job: :class:`~apscheduler.job.Job`
+        :param Job job: the job to add
+        :raises ConflictingIdError: if there is another job in this store with the same ID
         """
 
     @abstractmethod
     def update_job(self, job):
-        """Replaces the job in the store with the given newer version.
+        """
+        Replaces the job in the store with the given newer version.
 
-        :param job: the job to add
-        :type job: :class:`~apscheduler.job.Job`
-        :raises: :class:`~apscheduler.jobstore.base.JobLookupError` if the job does not exist.
+        :param Job job: the job to update
+        :raises JobLookupError: if the job does not exist.
         """
 
     @abstractmethod
     def remove_job(self, id):
-        """Removes the given job from this store.
+        """
+        Removes the given job from this store.
 
-        :param id: identifier of the job
-        :type id: str/unicode
-        :raises: :class:`~apscheduler.jobstore.base.JobLookupError` if the job does not exist.
+        :param str|unicode id: identifier of the job
+        :raises JobLookupError: if the job does not exist.
         """
 
     @abstractmethod

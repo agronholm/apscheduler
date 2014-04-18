@@ -1,6 +1,4 @@
-"""
-This module contains several handy functions primarily meant for internal use.
-"""
+"""This module contains several handy functions primarily meant for internal use."""
 
 from __future__ import division
 from datetime import date, datetime, timedelta, tzinfo
@@ -22,6 +20,7 @@ def asint(text):
     :type text: str
     :rtype: int
     """
+
     if text is not None:
         return int(text)
 
@@ -32,6 +31,7 @@ def asbool(obj):
 
     :rtype: bool
     """
+
     if isinstance(obj, str):
         obj = obj.strip().lower()
         if obj in ('true', 'yes', 'on', 'y', 't', '1'):
@@ -46,7 +46,7 @@ def astimezone(obj):
     """
     Interprets an object as a timezone.
 
-    :rtype: :class:`~datetime.tzinfo`
+    :rtype: tzinfo
     """
 
     if isinstance(obj, six.string_types):
@@ -76,6 +76,7 @@ def convert_to_datetime(input, timezone, arg_name):
 
     :rtype: datetime
     """
+
     if isinstance(input, datetime):
         datetime_ = input
     elif isinstance(input, date):
@@ -128,6 +129,7 @@ def timedelta_seconds(delta):
     :type delta: timedelta
     :rtype: float
     """
+
     return delta.days * 24 * 60 * 60 + delta.seconds + \
         delta.microseconds / 1000000.0
 
@@ -138,6 +140,7 @@ def datetime_ceil(dateval):
 
     :type dateval: datetime
     """
+
     if dateval.microsecond > 0:
         return dateval + timedelta(seconds=1,
                                    microseconds=-dateval.microsecond)
@@ -158,6 +161,7 @@ def combine_opts(global_config, prefix, local_config={}):
     :type local_config: dict
     :rtype: dict
     """
+
     prefixlen = len(prefix)
     subconf = {}
     for key, value in global_config.items():
@@ -171,7 +175,10 @@ def combine_opts(global_config, prefix, local_config={}):
 def get_callable_name(func):
     """
     Returns the best available display name for the given function/callable.
+
+    :rtype: str
     """
+
     f_self = getattr(func, '__self__', None) or getattr(func, 'im_self', None)
 
     if f_self and hasattr(func, '__name__'):
@@ -195,7 +202,10 @@ def get_callable_name(func):
 def obj_to_ref(obj):
     """
     Returns the path to the given object.
+
+    :rtype: str
     """
+
     try:
         ref = '%s:%s' % (obj.__module__, get_callable_name(obj))
         obj2 = ref_to_obj(ref)
@@ -210,7 +220,10 @@ def obj_to_ref(obj):
 def ref_to_obj(ref):
     """
     Returns the object pointed to by ``ref``.
+
+    :type ref: str
     """
+
     if not isinstance(ref, six.string_types):
         raise TypeError('References must be strings')
     if ':' not in ref:
@@ -235,6 +248,7 @@ def maybe_ref(ref):
     Returns the object that the given reference points to, if it is indeed a reference.
     If it is not a reference, the object is returned as-is.
     """
+
     if not isinstance(ref, str):
         return ref
     return ref_to_obj(ref)

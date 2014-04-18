@@ -9,9 +9,8 @@ class DateTrigger(BaseTrigger):
         """
         Triggers once on the given datetime.
 
-        :param run_date: the date/time to run the job at
-        :param timezone: time zone for ``run_date``
-        :type timezone: str or an instance of a :cls:`~datetime.tzinfo` subclass
+        :param datetime|str run_date: the date/time to run the job at
+        :param datetime.tzinfo|str timezone: time zone for ``run_date``
         """
 
         self.timezone = astimezone(timezone) or tzlocal()

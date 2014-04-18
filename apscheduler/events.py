@@ -23,8 +23,9 @@ class SchedulerEvent(object):
     """
     An event that concerns the scheduler itself.
 
-    :var code: the type code of this event
+    :ivar code: the type code of this event
     """
+
     def __init__(self, code):
         super(SchedulerEvent, self).__init__()
         self.code = code
@@ -37,9 +38,10 @@ class JobStoreEvent(SchedulerEvent):
     """
     An event that concerns job stores.
 
-    :var alias: the alias of the job store involved
-    :var job: the new job if a job was added
+    :ivar alias: the alias of the job store involved
+    :ivar job: the new job if a job was added
     """
+
     def __init__(self, code, alias, job_id=None):
         super(JobStoreEvent, self).__init__(code)
         self.alias = alias
@@ -51,12 +53,13 @@ class JobEvent(SchedulerEvent):
     """
     An event that concerns the execution of individual jobs.
 
-    :var job: the job instance in question
-    :var scheduled_run_time: the time when the job was scheduled to be run
-    :var retval: the return value of the successfully executed job
-    :var exception: the exception raised by the job
-    :var traceback: the traceback object associated with the exception
+    :ivar job: the job instance in question
+    :ivar scheduled_run_time: the time when the job was scheduled to be run
+    :ivar retval: the return value of the successfully executed job
+    :ivar exception: the exception raised by the job
+    :ivar traceback: the traceback object associated with the exception
     """
+
     def __init__(self, code, job_id, scheduled_run_time, retval=None, exception=None, traceback=None):
         super(JobEvent, self).__init__(code)
         self.job_id = job_id

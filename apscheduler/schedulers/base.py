@@ -41,7 +41,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self.configure(gconfig, **options)
 
     def configure(self, gconfig={}, **options):
-        """Reconfigures the scheduler with the given options. Can only be done when the scheduler isn't running."""
+        """
+        Reconfigures the scheduler with the given options. Can only be done when the scheduler isn't running.
+
+        :param dict gconfig: a "global" configuration dictionary whose values can be overridden by keyword arguments to
+                             this method
+        :raises SchedulerAlreadyRunningError: if the scheduler is already running
+        """
 
         if self.running:
             raise SchedulerAlreadyRunningError
@@ -51,7 +57,11 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     @abstractmethod
     def start(self):
-        """Starts the scheduler. The details of this process depend on the implementation."""
+        """
+        Starts the scheduler. The details of this process depend on the implementation.
+
+        :raises SchedulerAlreadyRunningError: if the scheduler is already running
+        """
 
         if self.running:
             raise SchedulerAlreadyRunningError
@@ -88,7 +98,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         Shuts down the scheduler. Does not interrupt any currently running jobs.
 
-        :param wait: ``True`` to wait until all currently executing jobs have finished
+        :param bool wait: ``True`` to wait until all currently executing jobs have finished
+        :raises SchedulerNotRunningError: if the scheduler has not been started yet
         """
 
         if not self.running:
@@ -115,10 +126,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         Adds an executor to this scheduler.
 
-        :param executor: the executor instance to be added
-        :param alias: alias for the scheduler
-        :type executor: apscheduler.executors.base.BaseExecutor
-        :type alias: str
+        :param apscheduler.executors.base.BaseExecutor executor: the executor instance to be added
+        :param str|unicode alias: alias for the scheduler
         """
 
         with self._executors_lock:
@@ -135,10 +144,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         Adds a job store to this scheduler.
 
-        :param jobstore: job store to be added
-        :param alias: alias for the job store
-        :type jobstore: apscheduler.jobstores.base.JobStore
-        :type alias: str
+        :param apscheduler.jobstores.base.BaseJobStore jobstore: job store to be added
+        :param str|unicode alias: alias for the job store
         """
 
         with self._jobstores_lock:
@@ -161,8 +168,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         Removes the job store by the given alias from this scheduler.
 
-        :param close: ``True`` to close the job store after removing it
-        :type alias: str
+        :param str|unicode alias: alias of the job store
+        :param bool close: ``True`` to close the job store after removing it
         """
 
         with self._jobstores_lock:
@@ -184,7 +191,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         types.
 
         :param callback: any callable that takes one argument
-        :param mask: bitmask that indicates which events should be listened to
+        :param int mask: bitmask that indicates which events should be listened to
         """
 
         with self._listeners_lock:
@@ -214,28 +221,18 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         # an instance of a trigger class
 
         :param func: callable (or a textual reference to one) to run at the given time
-        :param trigger: trigger that determines when ``func`` is called
-        :param args: list of positional arguments to call func with
-        :param kwargs: dict of keyword arguments to call func with
-        :param id: explicit identifier for the job (for modifying it later)
-        :param name: textual description of the job
-        :param misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
-        :param coalesce: run once instead of many times if the scheduler determines that the job should be run more than
-                         once in succession
-        :param max_runs: maximum number of times this job is allowed to be triggered
-        :param max_instances: maximum number of concurrently running instances allowed for this job
-        :param jobstore: alias of the job store to store the job in
-        :param executor: alias of the executor to run the job with
-        :type args: list|tuple
-        :type kwargs: dict
-        :type id: str|unicode
-        :type name: str|unicode
-        :type misfire_grace_time: int
-        :type coalesce: bool
-        :type max_runs: int
-        :type max_instances: int
-        :type jobstore: str|unicode
-        :type executor: str|unicode
+        :param str|apscheduler.triggers.base.BaseTrigger trigger: trigger that determines when ``func`` is called
+        :param list|tuple args: list of positional arguments to call func with
+        :param dict kwargs: dict of keyword arguments to call func with
+        :param str|unicode id: explicit identifier for the job (for modifying it later)
+        :param str|unicode name: textual description of the job
+        :param int misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
+        :param bool coalesce: run once instead of many times if the scheduler determines that the job should be run more
+                              than once in succession
+        :param int max_runs: maximum number of times this job is allowed to be triggered
+        :param int max_instances: maximum number of concurrently running instances allowed for this job
+        :param str|unicode jobstore: alias of the job store to store the job in
+        :param str|unicode executor: alias of the executor to run the job with
         :rtype: JobHandle
         """
 
@@ -286,8 +283,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         Modifies the properties of a single job. Modifications are passed to this method as extra keyword arguments.
 
-        :param job_id: the identifier of the job
-        :param jobstore: alias of the job store
+        :param str|unicode job_id: the identifier of the job
+        :param str|unicode jobstore: alias of the job store
         """
 
         with self._jobstores_lock:
@@ -331,10 +328,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         Returns a list of pending jobs (if the scheduler hasn't been started yet) and scheduled jobs,
         either from a specific job store or from all of them.
 
-        :param jobstore: alias of the job store
-        :param pending: ``False`` to leave out pending jobs (jobs that are waiting for the scheduler start to be added
-                        to their respective job stores), ``True`` to only include pending jobs, anything else to return
-                        both
+        :param str|unicode jobstore: alias of the job store
+        :param bool pending: ``False`` to leave out pending jobs (jobs that are waiting for the scheduler start to be
+                             added to their respective job stores), ``True`` to only include pending jobs, anything else
+                             to return both
         :rtype: list[JobHandle]
         """
 
@@ -370,8 +367,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         Removes a job, preventing it from being run any more.
 
-        :param job_id: the identifier of the job
-        :param jobstore: alias of the job store
+        :param str|unicode job_id: the identifier of the job
+        :param str|unicode jobstore: alias of the job store
         """
 
         with self._jobstores_lock:
@@ -394,7 +391,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         Removes all jobs from the specified job store, or all job stores if none is given.
 
-        :param jobstore: alias of the job store
+        :param str|unicode jobstore: alias of the job store
         """
 
         with self._jobstores_lock:
@@ -406,8 +403,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         Prints out a textual listing of all jobs currently scheduled on either all job stores or just a specific one.
 
-        :param jobstore: alias of the job store
-        :param out: a file-like object to print to (defaults to **sys.stdout** if nothing is given)
+        :param str|unicode jobstore: alias of the job store
+        :param file out: a file-like object to print to (defaults to **sys.stdout** if nothing is given)
         """
 
         out = out or sys.stdout
@@ -497,6 +494,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     self.logger.exception('Error notifying listener')
 
     def _real_add_job(self, job, jobstore, wakeup):
+        """
+        :param apscheduler.job.Job job: the job to add
+        :param str|unicode jobstore: alias of the job store
+        :param bool wakeup: ``True`` to wake up the scheduler after adding the job
+        """
+
         # Calculate the next run time
         now = datetime.now(self.timezone)
         job.next_run_time = job.trigger.get_next_fire_time(now)

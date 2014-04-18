@@ -32,7 +32,8 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
         Called by the scheduler when the scheduler is being started or when the executor is being added to an already
         running scheduler.
 
-        :type scheduler: `~apscheduler.scheduler.base.BaseScheduler`
+        :param apscheduler.schedulers.base.BaseScheduler scheduler: the scheduler that is starting this executor
+        :param str|unicode alias: alias of this executor as it was assigned to the scheduler
         """
 
         self._scheduler = scheduler
@@ -43,17 +44,16 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
         """
         Shuts down this executor.
 
-        :param wait: ``True`` to wait until all submitted jobs have been executed
+        :param bool wait: ``True`` to wait until all submitted jobs have been executed
         """
 
     def submit_job(self, job, run_times):
         """
         Submits job for execution.
 
-        :param job: job to execute
-        :param run_times: list of `~datetime.datetime` objects specifying when the job should have been run
-        :type job: `~apscheduler.scheduler.job.Job`
-        :type run_times: list
+        :param Job job: job to execute
+        :param list[datetime] run_times: list of datetimes specifying when the job should have been run
+        :raises MaxInstancesReachedError: if the maximum number of allowed instances for this job has been reached
         """
 
         assert self._lock is not None, 'This executor has not been started yet'

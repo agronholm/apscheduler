@@ -10,16 +10,17 @@ from apscheduler.util import convert_to_datetime, timedelta_seconds, datetime_re
 class IntervalTrigger(BaseTrigger):
     def __init__(self, weeks=0, days=0, hours=0, minutes=0, seconds=0, start_date=None, timezone=None):
         """
-        Triggers on specified intervals.
+        Triggers on specified intervals, starting on ``start_date`` if specified, ``datetime.now()`` + interval
+        otherwise.
 
-        :param weeks: number of weeks to wait
-        :param days: number of days to wait
-        :param hours: number of hours to wait
-        :param minutes: number of minutes to wait
-        :param seconds: number of seconds to wait
-        :param start_date: when to first execute the job and start the counter (default is after the given interval)
-        :param timezone: time zone for ``start_date``
-        :type timezone: str or an instance of a :cls:`~datetime.tzinfo` subclass
+        :param int weeks: number of weeks to wait
+        :param int days: number of days to wait
+        :param int hours: number of hours to wait
+        :param int minutes: number of minutes to wait
+        :param int seconds: number of seconds to wait
+        :param datetime|str start_date: when to first execute the job and start the counter (default is after the given
+                                        interval)
+        :param datetime.tzinfo|str timezone: time zone for ``start_date``
         """
 
         self.interval = timedelta(weeks=weeks, days=days, hours=hours, minutes=minutes, seconds=seconds)

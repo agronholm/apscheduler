@@ -9,4 +9,6 @@ class BaseTrigger(six.with_metaclass(ABCMeta)):
         """
         Returns the next datetime, equal to or greater than ``start_date``, when this trigger will fire.
         If no such datetime can be calculated, returns ``None``.
+
+        :type start_date: datetime.datetime
         """
