@@ -22,7 +22,7 @@ def scheduler():
 @pytest.fixture(params=['thread', 'process'])
 def executor(request, scheduler):
     executor_ = PoolExecutor(request.param)
-    executor_.start(scheduler)
+    executor_.start(scheduler, 'dummy')
     request.addfinalizer(executor_.shutdown)
     return executor_
 

@@ -2,7 +2,6 @@
 Stores jobs in a database table using SQLAlchemy.
 """
 from __future__ import absolute_import
-import logging
 
 import six
 
@@ -20,8 +19,6 @@ try:
     from sqlalchemy.exc import IntegrityError
 except ImportError:  # pragma: nocover
     raise ImportError('SQLAlchemyJobStore requires SQLAlchemy installed')
-
-logger = logging.getLogger(__name__)
 
 
 class SQLAlchemyJobStore(BaseJobStore):
@@ -115,7 +112,7 @@ class SQLAlchemyJobStore(BaseJobStore):
             try:
                 jobs.append(self._reconstitute_job(row.job_state))
             except Exception:
-                logger.exception(six.u('Unable to restore job (id=%s)'), row.id)
+                self._logger.exception(six.u('Unable to restore job (id=%s)'), row.id)
 
         return jobs
 

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from logging import StreamHandler, ERROR
+from logging import StreamHandler, ERROR, getLogger
 from threading import Thread
 from copy import copy
 import os
@@ -67,7 +67,8 @@ def logstream(request, scheduler):
     stream = StringIO()
     loghandler = StreamHandler(stream)
     loghandler.setLevel(ERROR)
-    scheduler.logger.addHandler(loghandler)
+    logger = getLogger('apscheduler')
+    logger.addHandler(loghandler)
     request.addfinalizer(lambda: scheduler.logger.removeHandler(loghandler))
     return stream
 

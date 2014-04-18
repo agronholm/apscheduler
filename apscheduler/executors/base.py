@@ -9,7 +9,6 @@ import six
 
 from apscheduler.events import JobEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 
-logger = logging.getLogger('apscheduler.executors')
 utc = tzutc()
 
 
@@ -22,12 +21,13 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
 
     _scheduler = None
     _lock = None
+    _logger = None
 
     def __init__(self):
         super(BaseExecutor, self).__init__()
         self._instances = defaultdict(lambda: 0)
 
-    def start(self, scheduler):
+    def start(self, scheduler, alias):
         """
         Called by the scheduler when the scheduler is being started or when the executor is being added to an already
         running scheduler.
@@ -37,6 +37,7 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
 
         self._scheduler = scheduler
         self._lock = scheduler._create_lock()
+        self._logger = logging.getLogger('apscheduler.executors.%s' % alias)
 
     def shutdown(self, wait=True):
         """
@@ -83,13 +84,14 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
             self._instances[job_id] -= 1
 
         exc_info = (exc_type, exc_value, traceback)
-        logger.error('Error running job %s' % job_id, exc_info=exc_info)
+        self._logger.error('Error running job %s' % job_id, exc_info=exc_info)
 
 
-def run_job(job, run_times):
+def run_job(job, run_times, logger_name):
     """Called by executors to run the job. Returns a list of scheduler events to be dispatched by the scheduler."""
 
     events = []
+    logger = logging.getLogger(logger_name)
     for run_time in run_times:
         # See if the job missed its run time window, and handle possible misfires accordingly
         difference = datetime.now(utc) - run_time

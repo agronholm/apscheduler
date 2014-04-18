@@ -2,7 +2,6 @@
 Stores jobs in a Redis database.
 """
 from __future__ import absolute_import
-import logging
 
 import six
 
@@ -19,8 +18,6 @@ try:
     from redis import StrictRedis
 except ImportError:  # pragma: nocover
     raise ImportError('RedisJobStore requires redis installed')
-
-logger = logging.getLogger(__name__)
 
 
 class RedisJobStore(BaseJobStore):
@@ -118,7 +115,7 @@ class RedisJobStore(BaseJobStore):
             try:
                 jobs.append(self._reconstitute_job(job_state))
             except Exception:
-                logger.exception(six.u('Unable to restore job (id=%s)'), job_id)
+                self._logger.exception(six.u('Unable to restore job (id=%s)'), job_id)
 
         return jobs
 

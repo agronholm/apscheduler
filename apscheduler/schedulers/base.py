@@ -59,11 +59,15 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Create a default job store if nothing else is configured
         if not 'default' in self._jobstores:
-            self.add_jobstore(self._create_default_jobstore(), 'default', True)
+            self.add_jobstore(self._create_default_jobstore(), 'default')
+
+        # Start all the job stores
+        for alias, store in six.iteritems(self._executors):
+            store.start(self, alias)
 
         # Start all the executors
-        for executor in six.itervalues(self._executors):
-            executor.start(self)
+        for alias, executor in six.iteritems(self._executors):
+            executor.start(self, alias)
 
         # Schedule all pending jobs
         for job, jobstore in self._pending_jobs:
@@ -124,13 +128,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             if self.running:
                 executor.start(self)
 
-    def add_jobstore(self, jobstore, alias='default', quiet=False):
+    def add_jobstore(self, jobstore, alias='default'):
         """
         Adds a job store to this scheduler.
 
         :param jobstore: job store to be added
         :param alias: alias for the job store
-        :param quiet: True to suppress scheduler thread wakeup
         :type jobstore: apscheduler.jobstores.base.JobStore
         :type alias: str
         """
@@ -140,11 +143,15 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 raise KeyError('Alias "%s" is already in use' % alias)
             self._jobstores[alias] = jobstore
 
+            # Start the job store right away if the scheduler is running
+            if self.running:
+                jobstore.start(self, alias)
+
         # Notify listeners that a new job store has been added
         self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_ADDED, alias))
 
         # Notify the scheduler so it can scan the new job store for jobs
-        if not quiet and self.running:
+        if self.running:
             self._wakeup()
 
     def remove_jobstore(self, alias, close=True):
@@ -424,7 +431,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     def _configure(self, config):
         # Set general options
-        self.logger = maybe_ref(config.pop('logger', None)) or getLogger('apscheduler')
+        self.logger = maybe_ref(config.pop('logger', None)) or getLogger('apscheduler.scheduler')
         self.misfire_grace_time = int(config.pop('misfire_grace_time', 1))
         self.coalesce = asbool(config.pop('coalesce', True))
         self.timezone = astimezone(config.pop('timezone', None)) or tzlocal()
@@ -455,7 +462,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             classname = opts.pop('class')
             cls = maybe_ref(classname)
             jobstore = cls(**opts)
-            self.add_jobstore(jobstore, alias, True)
+            self.add_jobstore(jobstore, alias)
 
     def _create_default_jobstore(self):
         return MemoryJobStore()

@@ -2,7 +2,6 @@
 Stores jobs in a MongoDB database.
 """
 from __future__ import absolute_import
-import logging
 
 import six
 
@@ -21,8 +20,6 @@ try:
     from pymongo import Connection, ASCENDING
 except ImportError:  # pragma: nocover
     raise ImportError('MongoDBJobStore requires PyMongo installed')
-
-logger = logging.getLogger(__name__)
 
 
 class MongoDBJobStore(BaseJobStore):
@@ -106,7 +103,7 @@ class MongoDBJobStore(BaseJobStore):
             try:
                 jobs.append(self._reconstitute_job(document['job_state']))
             except:
-                logger.exception(six.u('Unable to restore job (id=%s)'), document['_id'])
+                self._logger.exception(six.u('Unable to restore job (id=%s)'), document['_id'])
 
         return jobs
 

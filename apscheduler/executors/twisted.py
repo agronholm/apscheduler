@@ -6,8 +6,8 @@ from apscheduler.executors.base import BaseExecutor, run_job
 class TwistedExecutor(BaseExecutor):
     """Runs jobs in the reactor's thread pool."""
 
-    def start(self, scheduler):
-        super(TwistedExecutor, self).start(scheduler)
+    def start(self, scheduler, alias):
+        super(TwistedExecutor, self).start(scheduler, alias)
         self._reactor = scheduler._reactor
 
     def _do_submit_job(self, job, run_times):
@@ -17,4 +17,4 @@ class TwistedExecutor(BaseExecutor):
             else:
                 self._run_job_error(job.id, result.type, result.value, result.tb)
 
-        self._reactor.getThreadPool().callInThreadWithCallback(callback, run_job, job, run_times)
+        self._reactor.getThreadPool().callInThreadWithCallback(callback, run_job, job, run_times, self._logger.name)

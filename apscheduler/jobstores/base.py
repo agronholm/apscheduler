@@ -3,6 +3,7 @@ Abstract base class that provides the interface needed by all job stores.
 Job store methods are also documented here.
 """
 from abc import ABCMeta, abstractmethod
+import logging
 
 import six
 
@@ -31,6 +32,18 @@ class TransientJobError(ValueError):
 
 
 class BaseJobStore(six.with_metaclass(ABCMeta)):
+    _logger = logging.getLogger('apscheduler.jobstores')
+
+    def start(self, scheduler, alias):
+        """
+        Called by the scheduler when the scheduler is being started or when the job store is being added to an already
+        running scheduler.
+
+        :type scheduler: `~apscheduler.scheduler.base.BaseScheduler`
+        """
+
+        self._logger = logging.getLogger('apscheduler.jobstores.%s' % alias)
+
     @abstractmethod
     def lookup_job(self, id):
         """Returns a specific job.
