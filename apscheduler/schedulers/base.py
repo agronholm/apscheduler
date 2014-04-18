@@ -67,26 +67,28 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         if self.running:
             raise SchedulerAlreadyRunningError
 
-        # Create a default executor if nothing else is configured
-        if 'default' not in self._executors:
-            self.add_executor(self._create_default_executor(), 'default')
+        with self._executors_lock:
+            # Create a default executor if nothing else is configured
+            if 'default' not in self._executors:
+                self.add_executor(self._create_default_executor(), 'default')
 
-        # Create a default job store if nothing else is configured
-        if 'default' not in self._jobstores:
-            self.add_jobstore(self._create_default_jobstore(), 'default')
+            # Start all the executors
+            for alias, executor in six.iteritems(self._executors):
+                executor.start(self, alias)
 
-        # Start all the job stores
-        for alias, store in six.iteritems(self._executors):
-            store.start(self, alias)
+        with self._jobstores_lock:
+            # Create a default job store if nothing else is configured
+            if 'default' not in self._jobstores:
+                self.add_jobstore(self._create_default_jobstore(), 'default')
 
-        # Start all the executors
-        for alias, executor in six.iteritems(self._executors):
-            executor.start(self, alias)
+            # Start all the job stores
+            for alias, store in six.iteritems(self._executors):
+                store.start(self, alias)
 
-        # Schedule all pending jobs
-        for job, jobstore, replace_existing in self._pending_jobs:
-            self._real_add_job(job, jobstore, replace_existing, False)
-        del self._pending_jobs[:]
+            # Schedule all pending jobs
+            for job, jobstore, replace_existing in self._pending_jobs:
+                self._real_add_job(job, jobstore, replace_existing, False)
+            del self._pending_jobs[:]
 
         self._stopped = False
         self.logger.info('Scheduler started')
@@ -151,7 +153,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         with self._jobstores_lock:
             if alias in self._jobstores:
-                raise KeyError('Alias "%s" is already in use' % alias)
+                raise KeyError('This scheduler already has a job store by the alias of "%s"' % alias)
             self._jobstores[alias] = jobstore
 
             # Start the job store right away if the scheduler is running
@@ -264,11 +266,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         job = Job(**job_kwargs)
 
         # Don't really add jobs to job stores before the scheduler is up and running
-        if not self.running:
-            self._pending_jobs.append((job, jobstore, replace_existing))
-            self.logger.info('Adding job tentatively -- it will be properly scheduled when the scheduler starts')
-        else:
-            self._real_add_job(job, jobstore, replace_existing, True)
+        with self._jobstores_lock:
+            if not self.running:
+                self._pending_jobs.append((job, jobstore, replace_existing))
+                self.logger.info('Adding job tentatively -- it will be properly scheduled when the scheduler starts')
+            else:
+                self._real_add_job(job, jobstore, replace_existing, True)
 
         return JobHandle(self, jobstore, job)
 
@@ -480,12 +483,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             self.add_jobstore(jobstore, alias)
 
     def _create_default_executor(self):
-        """Creates a default executor store, specific to the particular scheduler type. Overwritten by subclasses."""
+        """Creates a default executor store, specific to the particular scheduler type."""
 
         return PoolExecutor('thread')
 
     def _create_default_jobstore(self):
-        """Creates a default job store, specific to the particular scheduler type. Overwritten by subclasses."""
+        """Creates a default job store, specific to the particular scheduler type."""
 
         return MemoryJobStore()
 
