@@ -151,7 +151,7 @@ def test_update_job(jobstore, create_job, timezone):
 @pytest.mark.parametrize('next_run_time', [datetime(2013, 8, 13), None], ids=['earlier', 'null'])
 def test_update_job_next_runtime(jobstore, create_job, next_run_time, timezone):
     job1 = create_job(jobstore, dummy_job, datetime(2016, 5, 3))
-    job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
+    create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     job3 = create_job(jobstore, dummy_job3, datetime(2013, 8, 14))
     replacement = create_job(None, dummy_job, datetime.now(), id=job1.id)
     replacement.next_run_time = next_run_time.replace(tzinfo=timezone) if next_run_time else None
@@ -171,7 +171,7 @@ def test_update_job_nonexistent_job(jobstore, create_job):
 def test_one_job_fails_to_load(persistent_jobstore, create_job, monkeypatch, timezone):
     job1 = create_job(persistent_jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(persistent_jobstore, dummy_job2, datetime(2014, 2, 26))
-    job3 = create_job(persistent_jobstore, dummy_job3, datetime(2013, 8, 14))
+    create_job(persistent_jobstore, dummy_job3, datetime(2013, 8, 14))
 
     # Make the dummy_job2 function disappear
     monkeypatch.delitem(globals(), 'dummy_job3')
@@ -220,7 +220,7 @@ def test_repr_mongodbjobstore(mongodbjobstore):
     assert repr(mongodbjobstore) == "<MongoDBJobStore (connection=Connection('localhost', 27017))>"
 
 
-def test_repr_memjobstore(redisjobstore):
+def test_repr_redisjobstore(redisjobstore):
     assert repr(redisjobstore) == '<RedisJobStore>'
 
 

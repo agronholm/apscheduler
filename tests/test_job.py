@@ -5,7 +5,7 @@ from functools import partial
 import pytest
 import six
 
-from apscheduler.job import Job, JobHandle
+from apscheduler.job import JobHandle
 from apscheduler.triggers.date import DateTrigger
 from tests.conftest import maxpython
 

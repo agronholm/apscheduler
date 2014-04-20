@@ -6,7 +6,10 @@ import shelve
 from dateutil.tz import tzoffset, gettz
 import pytest
 
-from apscheduler.util import *
+from apscheduler.util import (
+    asint, asbool, astimezone, convert_to_datetime, datetime_to_utc_timestamp, utc_timestamp_to_datetime,
+    timedelta_seconds, datetime_ceil, combine_opts, get_callable_name, obj_to_ref, ref_to_obj, maybe_ref,
+    check_callable_args)
 from tests.conftest import minpython
 
 

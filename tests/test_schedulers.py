@@ -16,7 +16,6 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.events import (SchedulerEvent, EVENT_JOB_EXECUTED, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN,
                                 EVENT_JOB_MISSED, EVENT_JOBSTORE_ADDED, EVENT_JOBSTORE_JOB_ADDED,
                                 EVENT_JOBSTORE_JOB_REMOVED, EVENT_JOBSTORE_JOB_MODIFIED)
-from tests.conftest import minpython
 
 try:
     from StringIO import StringIO
