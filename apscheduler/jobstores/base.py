@@ -54,9 +54,9 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         """
         Returns a specific job.
 
-        :param str/unicode job_id: identifier of the job
+        :param str|unicode job_id: identifier of the job
         :rtype: Job
-        :raises JobLookupError: if the job is not found.
+        :raises JobLookupError: if the job is not found
         """
 
     @abstractmethod
@@ -99,7 +99,7 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         Replaces the job in the store with the given newer version.
 
         :param Job job: the job to update
-        :raises JobLookupError: if the job does not exist.
+        :raises JobLookupError: if the job does not exist
         """
 
     @abstractmethod
@@ -108,7 +108,7 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         Removes the given job from this store.
 
         :param str|unicode job_id: identifier of the job
-        :raises JobLookupError: if the job does not exist.
+        :raises JobLookupError: if the job does not exist
         """
 
     @abstractmethod

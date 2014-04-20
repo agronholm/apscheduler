@@ -39,7 +39,7 @@ class JobStoreEvent(SchedulerEvent):
     An event that concerns job stores.
 
     :ivar alias: the alias of the job store involved
-    :ivar job: the new job if a job was added
+    :ivar job_id: identifier of the new job if a job was added
     """
 
     def __init__(self, code, alias, job_id=None):
@@ -53,7 +53,7 @@ class JobEvent(SchedulerEvent):
     """
     An event that concerns the execution of individual jobs.
 
-    :ivar job: the job instance in question
+    :ivar job_id: identifier of the job in question
     :ivar scheduled_run_time: the time when the job was scheduled to be run
     :ivar retval: the return value of the successfully executed job
     :ivar exception: the exception raised by the job
