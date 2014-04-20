@@ -168,16 +168,18 @@ def test_update_job_nonexistent_job(jobstore, create_job):
     pytest.raises(JobLookupError, jobstore.update_job, job)
 
 
-def test_one_job_fails_to_load(persistent_jobstore, create_job, monkeypatch):
+def test_one_job_fails_to_load(persistent_jobstore, create_job, monkeypatch, timezone):
     job1 = create_job(persistent_jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(persistent_jobstore, dummy_job2, datetime(2014, 2, 26))
     job3 = create_job(persistent_jobstore, dummy_job3, datetime(2013, 8, 14))
 
     # Make the dummy_job2 function disappear
-    monkeypatch.delitem(globals(), 'dummy_job2')
+    monkeypatch.delitem(globals(), 'dummy_job3')
 
     jobs = persistent_jobstore.get_all_jobs()
-    assert jobs == [job3, job1]
+    assert jobs == [job2, job1]
+
+    assert persistent_jobstore.get_next_run_time() == datetime(2014, 2, 26, tzinfo=timezone)
 
 
 def test_remove_job(jobstore, create_job):

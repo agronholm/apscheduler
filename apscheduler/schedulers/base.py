@@ -595,7 +595,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     try:
                         executor = self._lookup_executor(job.executor)
                     except:
-                        self._logger.error('Executor lookup failed for job "%s": %s', job, job.executor)
+                        self._logger.error('Executor lookup ("%s") failed for job "%s" -- removing it from the job'
+                                           'store', job.executor, job)
+                        self.remove_job(job.id, jobstore_alias)
                         continue
 
                     run_times = job.get_run_times(now)

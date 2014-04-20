@@ -111,11 +111,20 @@ class RedisJobStore(BaseJobStore):
 
     def _reconstitute_jobs(self, job_states):
         jobs = []
+        failed_job_ids = []
         for job_id, job_state in job_states:
             try:
                 jobs.append(self._reconstitute_job(job_state))
-            except Exception:
-                self._logger.exception(six.u('Unable to restore job (id=%s)'), job_id)
+            except:
+                self._logger.exception('Unable to restore job "%s" -- removing it', job_id)
+                failed_job_ids.append(job_id)
+
+        # Remove all the jobs we failed to restore
+        if failed_job_ids:
+            with self.redis.pipeline() as pipe:
+                pipe.hdel(self.jobs_key, *failed_job_ids)
+                pipe.zrem(self.run_times_key, *failed_job_ids)
+                pipe.execute()
 
         return jobs
 

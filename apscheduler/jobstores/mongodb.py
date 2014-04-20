@@ -3,8 +3,6 @@ Stores jobs in a MongoDB database.
 """
 from __future__ import absolute_import
 
-import six
-
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
@@ -99,11 +97,17 @@ class MongoDBJobStore(BaseJobStore):
 
     def _get_jobs(self, conditions):
         jobs = []
+        failed_job_ids = []
         for document in self.collection.find(conditions, ['_id', 'job_state'], sort=[('next_run_time', ASCENDING)]):
             try:
                 jobs.append(self._reconstitute_job(document['job_state']))
             except:
-                self._logger.exception(six.u('Unable to restore job (id=%s)'), document['_id'])
+                self._logger.exception('Unable to restore job "%s" -- removing it', document['_id'])
+                failed_job_ids.append(document['_id'])
+
+        # Remove all the jobs we failed to restore
+        if failed_job_ids:
+            self.collection.remove({'_id': {'$in': failed_job_ids}})
 
         return jobs
 

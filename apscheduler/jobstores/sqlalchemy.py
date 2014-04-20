@@ -3,8 +3,6 @@ Stores jobs in a database table using SQLAlchemy.
 """
 from __future__ import absolute_import
 
-import six
-
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
@@ -108,11 +106,18 @@ class SQLAlchemyJobStore(BaseJobStore):
         jobs = []
         selectable = select([self.jobs_t.c.id, self.jobs_t.c.job_state]).order_by(self.jobs_t.c.next_run_time)
         selectable = selectable.where(*conditions) if conditions else selectable
+        failed_job_ids = set()
         for row in self.engine.execute(selectable):
             try:
                 jobs.append(self._reconstitute_job(row.job_state))
-            except Exception:
-                self._logger.exception(six.u('Unable to restore job (id=%s)'), row.id)
+            except:
+                self._logger.exception('Unable to restore job "%s" -- removing it', row.id)
+                failed_job_ids.add(row.id)
+
+        # Remove all the jobs we failed to restore
+        if failed_job_ids:
+            delete = self.jobs_t.delete().where(self.jobs_t.c.id.in_(failed_job_ids))
+            self.engine.execute(delete)
 
         return jobs
 
