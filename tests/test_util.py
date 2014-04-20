@@ -194,3 +194,45 @@ def test_ref_to_obj():
 def test_maybe_ref():
     assert maybe_ref('shelve:open') == shelve.open
     assert maybe_ref(shelve.open) == shelve.open
+
+
+class TestCheckCallableArgs(object):
+    @pytest.fixture(params=[True, False], ids=['signature', 'getargspec'])
+    def use_signature(self, request, monkeypatch):
+        if not request.param:
+            monkeypatch.setattr('apscheduler.util.signature', None)
+
+    def test_invalid_callable_args(self, use_signature):
+        """Tests that attempting to create a job with an invalid number of arguments raises an exception."""
+
+        exc = pytest.raises(ValueError, check_callable_args, lambda x: None, [1, 2], {})
+        assert str(exc.value) == ('The list of positional arguments is longer than the target callable can handle '
+                                  '(allowed: 1, given in args: 2)')
+
+    def test_invalid_callable_kwargs(self, use_signature):
+        """Tests that attempting to schedule a job with unmatched keyword arguments raises an exception."""
+
+        exc = pytest.raises(ValueError, check_callable_args, lambda x: None, [], {'x': 0, 'y': 1})
+        assert str(exc.value) == 'The target callable does not accept the following keyword arguments: y'
+
+    def test_missing_callable_args(self, use_signature):
+        """Tests that attempting to schedule a job with missing arguments raises an exception."""
+
+        exc = pytest.raises(ValueError, check_callable_args, lambda x, y, z: None, [1], {'y': 0})
+        assert str(exc.value) == 'The following arguments have not been supplied: z'
+
+    def test_conflicting_callable_args(self, use_signature):
+        """Tests that attempting to schedule a job where the combination of args and kwargs are in conflict raises an
+        exception."""
+
+        exc = pytest.raises(ValueError, check_callable_args, lambda x, y: None, [1, 2], {'y': 1})
+        assert str(exc.value) == 'The following arguments are supplied in both args and kwargs: y'
+
+    @minpython(3)
+    def test_unfulfilled_kwargs(self):
+        """Tests that attempting to schedule a job where not all keyword-only arguments are fulfilled raises an
+        exception."""
+
+        func = eval("lambda x, *, y, z=1: None")
+        exc = pytest.raises(ValueError, check_callable_args, func, [1], {})
+        assert str(exc.value) == 'The following keyword-only arguments have not been supplied in kwargs: y'

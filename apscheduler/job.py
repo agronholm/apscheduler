@@ -1,17 +1,11 @@
 from collections import Iterable, Mapping
-from inspect import isfunction, ismethod
 from datetime import timedelta, datetime
 from uuid import uuid4
 
 from pkg_resources import iter_entry_points
 import six
 
-from apscheduler.util import ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name
-
-try:
-    from inspect import getfullargspec as getargspec
-except ImportError:
-    from inspect import getargspec
+from apscheduler.util import ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name, check_callable_args
 
 
 class Job(object):
@@ -69,7 +63,9 @@ class Job(object):
                 raise TypeError('args must be a non-string iterable')
             if isinstance(kwargs, six.string_types) or not isinstance(kwargs, Mapping):
                 raise TypeError('kwargs must be a dict-like object')
-            self.check_callable_args(func, args, kwargs)
+
+            check_callable_args(func, args, kwargs)
+
             approved['func'] = func
             approved['func_ref'] = func_ref
             approved['args'] = args
@@ -151,51 +147,6 @@ class Job(object):
 
         for key, value in six.iteritems(approved):
             setattr(self, key, value)
-
-    @staticmethod
-    def check_callable_args(func, args, kwargs):
-        """Ensures that the given callable can be called with the given arguments."""
-
-        if not isfunction(func) and not ismethod(func) and hasattr(func, '__call__'):
-            func = func.__call__
-        argspec = getargspec(func)
-        argspec_args = argspec.args[1:] if ismethod(func) else argspec.args
-        varkw = getattr(argspec, 'varkw', None) or getattr(argspec, 'keywords', None)
-        kwargs_set = frozenset(kwargs)
-        mandatory_args = frozenset(argspec_args[:-len(argspec.defaults)] if argspec.defaults else argspec_args)
-        mandatory_args_matches = frozenset(argspec_args[:len(args)])
-        mandatory_kwargs_matches = set(kwargs).intersection(mandatory_args)
-        kwonly_args = frozenset(getattr(argspec, 'kwonlyargs', []))
-        kwonly_defaults = frozenset(getattr(argspec, 'kwonlydefaults', None) or ())
-
-        # Make sure there are no conflicts between args and kwargs
-        pos_kwargs_conflicts = mandatory_args_matches.intersection(mandatory_kwargs_matches)
-        if pos_kwargs_conflicts:
-            raise ValueError('The following arguments are supplied in both args and kwargs: %s' %
-                             ', '.join(pos_kwargs_conflicts))
-
-        # Check that the number of positional arguments minus the number of matched kwargs matches the argspec
-        missing_args = mandatory_args - mandatory_args_matches.union(mandatory_kwargs_matches)
-        if missing_args:
-            raise ValueError('The following arguments are not supplied: %s' % ', '.join(missing_args))
-
-        # Check that the callable can accept the given number of positional arguments
-        if not argspec.varargs and len(args) > len(argspec_args):
-            raise ValueError('The list of positional arguments is longer than the target callable can handle '
-                             '(allowed: %d, given in args: %d)' % (len(argspec_args), len(args)))
-
-        # Check that the callable can accept the given keyword arguments
-        if not varkw:
-            unmatched_kwargs = kwargs_set - frozenset(argspec_args).union(kwonly_args)
-            if unmatched_kwargs:
-                raise ValueError('The target callable does not accept the following keyword arguments: %s' %
-                                 ', '.join(unmatched_kwargs))
-
-        # Check that all keyword-only arguments have been supplied
-        unmatched_kwargs = kwonly_args - kwargs_set - kwonly_defaults
-        if unmatched_kwargs:
-            raise ValueError('The following keyword-only arguments have not been supplied in kwargs: %s' %
-                             ', '.join(unmatched_kwargs))
 
     def get_run_times(self, now):
         """

@@ -1,13 +1,13 @@
 # coding: utf-8
 from datetime import datetime, timedelta
-from pip._vendor import six
+from functools import partial
 
 import pytest
+import six
 
 from apscheduler.job import Job, JobHandle
 from apscheduler.triggers.date import DateTrigger
 from tests.conftest import maxpython
-
 
 try:
     from unittest.mock import MagicMock
@@ -26,10 +26,21 @@ def job(create_job):
 
 class TestJob(object):
     def test_job_func(self, create_job):
+        """Tests that Job can accept a plain, direct function."""
+
         job = create_job(func=dummyfunc)
         assert job.func is dummyfunc
 
+    def test_job_non_inspectable_func(self, create_job):
+        """Tests that Job can accept a function that fails on inspect.getargspec()."""
+
+        func = partial(dummyfunc)
+        job = create_job(func=func)
+        assert job.func is func
+
     def test_job_func_ref(self, create_job):
+        """Tests that Job can accept a function by its textual reference."""
+
         job = create_job(func='%s:dummyfunc' % __name__)
         assert job.func is dummyfunc
 

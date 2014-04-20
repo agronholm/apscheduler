@@ -152,45 +152,6 @@ class TestOfflineScheduler(object):
             'next run at: None)%s' % (os.linesep, os.linesep)
         assert out.getvalue() == expected
 
-    def test_invalid_callable_args(self, scheduler):
-        """Tests that attempting to schedule a job with an invalid number of arguments raises an exception."""
-
-        exc = pytest.raises(ValueError, scheduler.add_job, lambda x: None, 'date', run_date=datetime(9999, 9, 9),
-                            args=[1, 2])
-        assert str(exc.value) == ('The list of positional arguments is longer than the target callable can handle '
-                                  '(allowed: 1, given in args: 2)')
-
-    def test_invalid_callable_kwargs(self, scheduler):
-        """Tests that attempting to schedule a job with unmatched keyword arguments raises an exception."""
-
-        exc = pytest.raises(ValueError, scheduler.add_job, lambda x: None, 'date', run_date=datetime(9999, 9, 9),
-                            kwargs={'x': 0, 'y': 1})
-        assert str(exc.value) == 'The target callable does not accept the following keyword arguments: y'
-
-    def test_missing_callable_args(self, scheduler):
-        """Tests that attempting to schedule a job with missing arguments raises an exception."""
-
-        exc = pytest.raises(ValueError, scheduler.add_job, lambda x, y, z: None, 'date', run_date=datetime(9999, 9, 9),
-                            args=[1], kwargs={'y': 0})
-        assert str(exc.value) == 'The following arguments are not supplied: z'
-
-    def test_conflicting_callable_args(self, scheduler):
-        """Tests that attempting to schedule a job where the combination of args and kwargs are in conflict raises an
-        exception."""
-
-        exc = pytest.raises(ValueError, scheduler.add_job, lambda x, y: None, 'date', run_date=datetime(9999, 9, 9),
-                            args=[1, 2], kwargs={'y': 1})
-        assert str(exc.value) == 'The following arguments are supplied in both args and kwargs: y'
-
-    @minpython(3)
-    def test_unfulfilled_kwargs(self, scheduler):
-        """Tests that attempting to schedule a job where not all keyword-only arguments are fulfilled raises an
-        exception."""
-
-        func = eval("lambda x, *, y, z=1: None")
-        exc = pytest.raises(ValueError, scheduler.add_job, func, 'date', run_date=datetime(9999, 9, 9), args=[1])
-        assert str(exc.value) == 'The following keyword-only arguments have not been supplied in kwargs: y'
-
 
 @pytest.mark.start_scheduler
 class TestRunningScheduler(object):
