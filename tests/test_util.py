@@ -231,6 +231,12 @@ class TestCheckCallableArgs(object):
         exc = pytest.raises(ValueError, check_callable_args, lambda x, y: None, [1, 2], {'y': 1})
         assert str(exc.value) == 'The following arguments are supplied in both args and kwargs: y'
 
+    def test_positional_only_args(self):
+        """Tests that an attempt to use keyword arguments for positional-only arguments raises an exception."""
+
+        exc = pytest.raises(ValueError, check_callable_args, pow, [1], {'y': 1})
+        assert str(exc.value) == 'The following arguments are supplied in both args and kwargs: y'
+
     @minpython(3)
     def test_unfulfilled_kwargs(self):
         """Tests that attempting to schedule a job where not all keyword-only arguments are fulfilled raises an

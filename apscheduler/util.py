@@ -21,6 +21,8 @@ __all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_
            'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'combine_opts', 'get_callable_name',
            'obj_to_ref', 'ref_to_obj', 'maybe_ref', 'repr_escape', 'check_callable_args')
 
+undefined = object()  #: a unique object that only signifies that no value is defined
+
 
 def asint(text):
     """
@@ -329,15 +331,14 @@ def check_callable_args(func, args, kwargs):
         argspec_args = argspec.args if not ismethod(func) else argspec.args[1:]
         has_varargs = bool(argspec.varargs)
         has_var_kwargs = bool(argspec.keywords)
-        empty = object()
-        for arg, default in six.moves.zip_longest(argspec_args, argspec.defaults or (), fillvalue=empty):
+        for arg, default in six.moves.zip_longest(argspec_args, argspec.defaults or (), fillvalue=undefined):
             if arg in unmatched_kwargs and unmatched_args:
                 pos_kwargs_conflicts.append(arg)
             elif unmatched_args:
                 del unmatched_args[0]
             elif arg in unmatched_kwargs:
                 unmatched_kwargs.remove(arg)
-            elif default is empty:
+            elif default is undefined:
                 unsatisfied_args.append(arg)
 
     # Make sure there are no conflicts between args and kwargs

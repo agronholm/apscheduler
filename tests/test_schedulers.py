@@ -99,14 +99,17 @@ class TestOfflineScheduler(object):
     def test_configure_no_prefix(self, scheduler):
         global_options = {'misfire_grace_time': '2', 'coalesce': 'false'}
         scheduler.configure(global_options)
-        assert scheduler.misfire_grace_time == 1
-        assert scheduler.coalesce is True
+        assert scheduler._job_defaults['misfire_grace_time'] == 1
+        assert scheduler._job_defaults['coalesce'] is True
 
     def test_configure_prefix(self, scheduler):
-        global_options = {'apscheduler.misfire_grace_time': 2, 'apscheduler.coalesce': False}
+        global_options = {
+            'apscheduler.job_defaults.misfire_grace_time': 2,
+            'apscheduler.job_defaults.coalesce': False
+        }
         scheduler.configure(global_options)
-        assert scheduler.misfire_grace_time == 2
-        assert scheduler.coalesce is False
+        assert scheduler._job_defaults['misfire_grace_time'] == 2
+        assert scheduler._job_defaults['coalesce'] is False
 
     def test_add_listener(self, scheduler):
         val = []
@@ -336,7 +339,7 @@ class TestRunningScheduler(object):
         assert 'DummyException' in logstream.getvalue()
 
     def test_misfire_grace_time(self, scheduler):
-        scheduler.misfire_grace_time = 3
+        scheduler._job_defaults['misfire_grace_time'] = 3
         job = scheduler.add_job(lambda: None, 'interval', seconds=1)
         assert job.misfire_grace_time == 3
 

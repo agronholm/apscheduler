@@ -14,7 +14,7 @@ from apscheduler.executors.pool import PoolExecutor
 from apscheduler.jobstores.base import ConflictingIdError
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job, JobHandle
-from apscheduler.util import combine_opts, maybe_ref, asbool, astimezone, timedelta_seconds
+from apscheduler.util import combine_opts, maybe_ref, asbool, astimezone, timedelta_seconds, undefined, asint
 from apscheduler.events import (
     SchedulerEvent, JobStoreEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOBSTORE_ADDED,
     EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_JOBSTORE_JOB_MODIFIED, EVENT_JOBSTORE_JOB_REMOVED,
@@ -207,8 +207,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 if callback == cb:
                     del self._listeners[i]
 
-    def add_job(self, func, trigger=None, args=None, kwargs=None, id=None, name=None, misfire_grace_time=None,
-                coalesce=None, max_runs=None, max_instances=1, jobstore='default', executor='default',
+    def add_job(self, func, trigger=None, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined,
+                coalesce=undefined, max_runs=undefined, max_instances=undefined, jobstore='default', executor='default',
                 replace_existing=False, **trigger_args):
         """
         Adds the given job to the job list and notifies the scheduler thread.
@@ -241,14 +241,17 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :rtype: JobHandle
         """
 
+        # Use the scheduler's time zone if nothing else is specified
+        trigger_args.setdefault('timezone', self.timezone)
+
         # If no trigger was specified, assume that the job should be run now
         if trigger is None:
             trigger = 'date'
             trigger_args['run_date'] = datetime.now(self.timezone)
             misfire_grace_time = None
 
-        trigger_args.setdefault('timezone', self.timezone)
-
+        # Assemble the final job arguments, substituting with default values where no other value is provided
+        default_replace = lambda key, value: value if value is not undefined else self._job_defaults.get(key)
         job_kwargs = {
             'trigger': trigger,
             'trigger_args': trigger_args,
@@ -258,10 +261,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             'kwargs': dict(kwargs) if kwargs is not None else {},
             'id': id,
             'name': name,
-            'misfire_grace_time': misfire_grace_time if misfire_grace_time is not None else self.misfire_grace_time,
-            'coalesce': coalesce if coalesce is not None else self.coalesce,
-            'max_runs': max_runs,
-            'max_instances': max_instances
+            'misfire_grace_time': default_replace('misfire_grace_time', misfire_grace_time),
+            'coalesce': default_replace('coalesce', coalesce),
+            'max_runs': default_replace('max_runs', max_runs),
+            'max_instances': default_replace('max_instances', max_instances),
         }
         job = Job(**job_kwargs)
 
@@ -450,9 +453,16 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     def _configure(self, config):
         # Set general options
         self._logger = maybe_ref(config.pop('logger', None)) or getLogger('apscheduler.scheduler')
-        self.misfire_grace_time = int(config.pop('misfire_grace_time', 1))
-        self.coalesce = asbool(config.pop('coalesce', True))
         self.timezone = astimezone(config.pop('timezone', None)) or tzlocal()
+
+        # Set the job defaults
+        job_defaults = combine_opts(config, 'job_defaults.')
+        self._job_defaults = {
+            'misfire_grace_time': asint(job_defaults.get('misfire_grace_time', '1')),
+            'coalesce': asbool(job_defaults.get('coalesce', True)),
+            'max_runs': asint(job_defaults.get('max_runs')),
+            'max_instances': asint(job_defaults.get('max_instances', '1'))
+        }
 
         # Configure executors
         executor_opts = combine_opts(config, 'executor.')

@@ -96,12 +96,13 @@ def run_job(job, run_times, logger_name):
     logger = logging.getLogger(logger_name)
     for run_time in run_times:
         # See if the job missed its run time window, and handle possible misfires accordingly
-        difference = datetime.now(utc) - run_time
-        grace_time = timedelta(seconds=job.misfire_grace_time)
-        if difference > grace_time:
-            events.append(JobEvent(EVENT_JOB_MISSED, job, run_time))
-            logger.warning('Run time of job "%s" was missed by %s', job, difference)
-            continue
+        if job.misfire_grace_time is not None:
+            difference = datetime.now(utc) - run_time
+            grace_time = timedelta(seconds=job.misfire_grace_time)
+            if difference > grace_time:
+                events.append(JobEvent(EVENT_JOB_MISSED, job, run_time))
+                logger.warning('Run time of job "%s" was missed by %s', job, difference)
+                continue
 
         logger.info('Running job "%s" (scheduled at %s)', job, run_time)
         try:
