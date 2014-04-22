@@ -225,22 +225,32 @@ class TestCheckCallableArgs(object):
         assert str(exc.value) == 'The following arguments have not been supplied: z'
 
     def test_conflicting_callable_args(self, use_signature):
-        """Tests that attempting to schedule a job where the combination of args and kwargs are in conflict raises an
-        exception."""
+        """
+        Tests that attempting to schedule a job where the combination of args and kwargs are in conflict raises an
+        exception.
+        """
 
         exc = pytest.raises(ValueError, check_callable_args, lambda x, y: None, [1, 2], {'y': 1})
         assert str(exc.value) == 'The following arguments are supplied in both args and kwargs: y'
 
+    def test_signature_positional_only(self):
+        """Tests that a function where signature() fails is accepted."""
+
+        check_callable_args(object().__setattr__, ('blah', 1), {})
+
+    @minpython(3, 4)
     def test_positional_only_args(self):
         """Tests that an attempt to use keyword arguments for positional-only arguments raises an exception."""
 
-        exc = pytest.raises(ValueError, check_callable_args, pow, [1], {'y': 1})
-        assert str(exc.value) == 'The following arguments are supplied in both args and kwargs: y'
+        exc = pytest.raises(ValueError, check_callable_args, object.__setattr__, ['blah'], {'value': 1})
+        assert str(exc.value) == 'The following arguments cannot be given as keyword arguments: value'
 
     @minpython(3)
     def test_unfulfilled_kwargs(self):
-        """Tests that attempting to schedule a job where not all keyword-only arguments are fulfilled raises an
-        exception."""
+        """
+        Tests that attempting to schedule a job where not all keyword-only arguments are fulfilled raises an
+        exception.
+        """
 
         func = eval("lambda x, *, y, z=1: None")
         exc = pytest.raises(ValueError, check_callable_args, func, [1], {})

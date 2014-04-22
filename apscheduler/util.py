@@ -291,7 +291,11 @@ def check_callable_args(func, args, kwargs):
     has_varargs = has_var_kwargs = False  # indicates if the signature defines *args and **kwargs respectively
 
     if signature:
-        sig = signature(func)
+        try:
+            sig = signature(func)
+        except ValueError:
+            return  # signature() doesn't work against every kind of callable
+
         for param in six.itervalues(sig.parameters):
             if param.kind == param.POSITIONAL_OR_KEYWORD:
                 if param.name in unmatched_kwargs and unmatched_args:
