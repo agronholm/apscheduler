@@ -171,9 +171,9 @@ class TestJobHandle(object):
 
     def test_jobhandle_str(self, jobhandle):
         if six.PY2:
-            expected = 'n\\xe4m\\xe9 (trigger: date[2011-04-03 18:40:00 DUMMYTZ], next run at: None)'
+            expected = 'n\\xe4m\\xe9 (trigger: date[2011-04-03 18:40:00 CET], next run at: None)'
         else:
-            expected = b'n\xc3\xa4m\xc3\xa9 (trigger: date[2011-04-03 18:40:00 DUMMYTZ], next run at: None)'.\
+            expected = b'n\xc3\xa4m\xc3\xa9 (trigger: date[2011-04-03 18:40:00 CET], next run at: None)'.\
                 decode('utf-8')
 
         assert str(jobhandle) == expected
@@ -181,4 +181,4 @@ class TestJobHandle(object):
     @maxpython(3, 0)
     def test_jobhandle_unicode(self, jobhandle):
         assert jobhandle.__unicode__() == \
-            b'n\xc3\xa4m\xc3\xa9 (trigger: date[2011-04-03 18:40:00 DUMMYTZ], next run at: None)'.decode('utf-8')
+            b'n\xc3\xa4m\xc3\xa9 (trigger: date[2011-04-03 18:40:00 CET], next run at: None)'.decode('utf-8')

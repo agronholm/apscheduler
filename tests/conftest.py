@@ -2,8 +2,8 @@
 from datetime import datetime
 import sys
 
-from dateutil.tz import tzoffset
 import pytest
+import pytz
 
 from apscheduler.job import Job
 
@@ -33,7 +33,7 @@ def maxpython(*version):
 
 @pytest.fixture(scope='session')
 def timezone():
-    return tzoffset('DUMMYTZ', 3600)
+    return pytz.timezone('Europe/Berlin')
 
 
 @pytest.fixture

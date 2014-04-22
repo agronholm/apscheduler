@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from logging import getLogger
 import sys
 
-from dateutil.tz import tzlocal
+from tzlocal import get_localzone
 import six
 
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
@@ -453,7 +453,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     def _configure(self, config):
         # Set general options
         self._logger = maybe_ref(config.pop('logger', None)) or getLogger('apscheduler.scheduler')
-        self.timezone = astimezone(config.pop('timezone', None)) or tzlocal()
+        self.timezone = astimezone(config.pop('timezone', None)) or get_localzone()
 
         # Set the job defaults
         job_defaults = combine_opts(config, 'job_defaults.')

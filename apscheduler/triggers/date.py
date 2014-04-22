@@ -1,4 +1,4 @@
-from dateutil.tz import tzlocal
+from tzlocal import get_localzone
 
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import convert_to_datetime, datetime_repr, astimezone
@@ -13,15 +13,12 @@ class DateTrigger(BaseTrigger):
         :param datetime.tzinfo|str timezone: time zone for ``run_date``
         """
 
-        self.timezone = astimezone(timezone) or tzlocal()
-        self.run_date = convert_to_datetime(run_date, self.timezone, 'run_date')
+        timezone = astimezone(timezone) or get_localzone()
+        self.run_date = convert_to_datetime(run_date, timezone, 'run_date')
 
     def get_next_fire_time(self, start_date):
         if self.run_date >= start_date:
-            # Make sure that the returned date is in the trigger
-            # timezone. Also, has the additional benefit of normalizing
-            # the returned datetime.
-            return self.run_date.astimezone(self.timezone)
+            return self.run_date
 
     def __str__(self):
         return 'date[%s]' % datetime_repr(self.run_date)

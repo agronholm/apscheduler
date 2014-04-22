@@ -1,7 +1,7 @@
 from datetime import timedelta, datetime
 from math import ceil
 
-from dateutil.tz import tzlocal
+from tzlocal import get_localzone
 
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import convert_to_datetime, timedelta_seconds, datetime_repr, astimezone
@@ -29,7 +29,7 @@ class IntervalTrigger(BaseTrigger):
             self.interval = timedelta(seconds=1)
             self.interval_length = 1
 
-        self.timezone = astimezone(timezone) or tzlocal()
+        self.timezone = astimezone(timezone) or get_localzone()
         start_date = start_date or datetime.now(self.timezone) + self.interval
         self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date')
 
@@ -40,11 +40,7 @@ class IntervalTrigger(BaseTrigger):
         timediff_seconds = timedelta_seconds(start_date - self.start_date)
         next_interval_num = int(ceil(timediff_seconds / self.interval_length))
         next_date = self.start_date + self.interval * next_interval_num
-
-        # Make sure that the returned date is in the trigger timezone.
-        # Also, has the additional benefit of normalizing the returned
-        # datetime.
-        return next_date.astimezone(self.timezone)
+        return self.timezone.normalize(next_date)
 
     def __str__(self):
         return 'interval[%s]' % str(self.interval)

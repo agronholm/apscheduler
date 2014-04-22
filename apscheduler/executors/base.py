@@ -4,12 +4,10 @@ from datetime import datetime, timedelta
 import logging
 import sys
 
-from dateutil.tz import tzutc
+from pytz import utc
 import six
 
 from apscheduler.events import JobEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
-
-utc = tzutc()
 
 
 class MaxInstancesReachedError(Exception):

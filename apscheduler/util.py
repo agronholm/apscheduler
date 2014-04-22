@@ -1,12 +1,12 @@
 """This module contains several handy functions primarily meant for internal use."""
 
 from __future__ import division
-from datetime import date, datetime, timedelta, tzinfo
+from datetime import date, datetime, time, timedelta, tzinfo
 from inspect import isfunction, ismethod, getargspec
 from calendar import timegm
 import re
 
-from dateutil.tz import gettz, tzutc
+from pytz import timezone, utc
 import six
 
 try:
@@ -61,7 +61,7 @@ def astimezone(obj):
     """
 
     if isinstance(obj, six.string_types):
-        return gettz(obj)
+        return timezone(obj)
     if isinstance(obj, tzinfo):
         return obj
     if obj is not None:
@@ -74,7 +74,7 @@ _DATE_REGEX = re.compile(
     r'(?:\.(?P<microsecond>\d{1,6}))?)?')
 
 
-def convert_to_datetime(input, timezone, arg_name):
+def convert_to_datetime(input, tz, arg_name):
     """
     Converts the given object to a timezone aware datetime object.
     If a timezone aware datetime object is passed, it is returned unmodified.
@@ -85,13 +85,16 @@ def convert_to_datetime(input, timezone, arg_name):
     date with time (Y-m-d H:M:S) or with date+time with microseconds
     (Y-m-d H:M:S.micro).
 
+    :param str|datetime input: the datetime or string to convert to a timezone aware datetime
+    :param datetime.tzinfo tz: timezone to interpret ``input`` in
+    :param str arg_name: the name of the argument (used in an error message)
     :rtype: datetime
     """
 
     if isinstance(input, datetime):
         datetime_ = input
     elif isinstance(input, date):
-        datetime_ = datetime.fromordinal(input.toordinal())
+        datetime_ = datetime.combine(input, time())
     elif isinstance(input, six.string_types):
         m = _DATE_REGEX.match(input)
         if not m:
@@ -104,23 +107,15 @@ def convert_to_datetime(input, timezone, arg_name):
 
     if datetime_.tzinfo is not None:
         return datetime_
-    if timezone is None:
-        raise ValueError('The "timezone" argument must be specified if %s has no timezone information' % arg_name)
-    if isinstance(timezone, six.string_types):
-        timezone = gettz(timezone)
+    if tz is None:
+        raise ValueError('The "tz" argument must be specified if %s has no timezone information' % arg_name)
+    if isinstance(tz, six.string_types):
+        tz = timezone(tz)
 
-    # When working with pytz timezone's you should use the localize
-    # method when converting an offset-naive datetime. For all other
-    # timezones (typically non-DST observing) it is safe to override
-    # tzinfo with the specified timezone.
-    #
-    # For more information read the pytz manual: http://pytz.sourceforge.net/
-    if hasattr(timezone, 'localize'):
-        datetime_ = timezone.localize(datetime_)
-    else:
-        datetime_ = datetime_.replace(tzinfo=timezone)
-
-    return datetime_
+    try:
+        return tz.localize(datetime_)
+    except AttributeError:
+        raise TypeError('Only pytz timezones are supported (need the localize() and normalize() methods)')
 
 
 def datetime_to_utc_timestamp(timeval):
@@ -130,7 +125,7 @@ def datetime_to_utc_timestamp(timeval):
 
 def utc_timestamp_to_datetime(timestamp):
     if timestamp is not None:
-        return datetime.fromtimestamp(timestamp, tzutc())
+        return datetime.fromtimestamp(timestamp, utc)
 
 
 def timedelta_seconds(delta):
@@ -153,8 +148,7 @@ def datetime_ceil(dateval):
     """
 
     if dateval.microsecond > 0:
-        return dateval + timedelta(seconds=1,
-                                   microseconds=-dateval.microsecond)
+        return dateval + timedelta(seconds=1, microseconds=-dateval.microsecond)
     return dateval
 
 

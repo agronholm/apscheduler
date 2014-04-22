@@ -150,7 +150,7 @@ class TestOfflineScheduler(object):
         out = StringIO()
         scheduler.print_jobs(out=out)
         expected = 'Pending jobs:%s    '\
-            'copy (trigger: date[2200-05-19 00:00:00 DUMMYTZ], '\
+            'copy (trigger: date[2200-05-19 00:00:00 CET], '\
             'next run at: None)%s' % (os.linesep, os.linesep)
         assert out.getvalue() == expected
 
@@ -400,8 +400,8 @@ class TestRunningScheduler(object):
         out = StringIO()
         scheduler.print_jobs(out=out)
         expected = 'Jobstore default:%s    '\
-            'copy (trigger: date[2200-05-19 00:00:00 DUMMYTZ], '\
-            'next run at: 2200-05-19 00:00:00 DUMMYTZ)%s' % (os.linesep, os.linesep)
+            'copy (trigger: date[2200-05-19 00:00:00 CET], '\
+            'next run at: 2200-05-19 00:00:00 CET)%s' % (os.linesep, os.linesep)
         assert out.getvalue() == expected
 
     def test_jobstore(self, scheduler):

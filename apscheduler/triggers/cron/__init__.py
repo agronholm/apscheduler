@@ -1,7 +1,7 @@
 from datetime import datetime
-from dateutil.tz import tzlocal
 
-from six import iteritems
+from tzlocal import get_localzone
+import six
 
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.cron.fields import BaseField, WeekField, DayOfMonthField, DayOfWeekField, DEFAULT_VALUES
@@ -37,10 +37,10 @@ class CronTrigger(BaseTrigger):
         :param datetime.tzinfo|str timezone: time zone for ``start_date``
         """
 
-        self.timezone = astimezone(timezone) or getattr(start_date, 'tzinfo', None) or tzlocal()
+        self.timezone = astimezone(timezone) or getattr(start_date, 'tzinfo', None) or get_localzone()
         self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date') if start_date else None
 
-        values = dict((key, value) for (key, value) in iteritems(locals())
+        values = dict((key, value) for (key, value) in six.iteritems(locals())
                       if key in self.FIELD_NAMES and value is not None)
         self.fields = []
         assign_defaults = False
@@ -70,9 +70,7 @@ class CronTrigger(BaseTrigger):
         :rtype: tuple
         """
 
-        # Make sure to respect the timezone of the dateval parameter.
-        values = {'tzinfo': dateval.tzinfo}
-
+        values = {}
         i = 0
         while i < len(self.fields):
             field = self.fields[i]
@@ -100,10 +98,10 @@ class CronTrigger(BaseTrigger):
                     values[field.name] = value + 1
                     i += 1
 
-        return datetime(**values), fieldnum
+        return self.timezone.localize(datetime(**values)), fieldnum
 
     def _set_field_value(self, dateval, fieldnum, new_value):
-        values = {'tzinfo': dateval.tzinfo}
+        values = {}
         for i, field in enumerate(self.fields):
             if field.REAL:
                 if i < fieldnum:
@@ -113,16 +111,12 @@ class CronTrigger(BaseTrigger):
                 else:
                     values[field.name] = new_value
 
-        return datetime(**values)
+        return self.timezone.localize(datetime(**values))
 
     def get_next_fire_time(self, start_date):
         if self.start_date:
             start_date = max(start_date, self.start_date)
-        next_date = datetime_ceil(start_date)
-
-        # Make sure the timezone of next_date is in the timezone that
-        # the CronTrigger's field values are in.
-        next_date = next_date.astimezone(self.timezone)
+        next_date = datetime_ceil(start_date).astimezone(self.timezone)
 
         fieldnum = 0
         while 0 <= fieldnum < len(self.fields):
@@ -145,10 +139,7 @@ class CronTrigger(BaseTrigger):
                 fieldnum += 1
 
         if fieldnum >= 0:
-            # Make sure that the returned date is in the trigger
-            # timezone. Also, has the additional benefit of normalizing
-            # the returned datetime.
-            return next_date.astimezone(self.timezone)
+            return next_date
 
     def __str__(self):
         options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
