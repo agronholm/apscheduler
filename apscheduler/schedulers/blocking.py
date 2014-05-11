@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 from threading import Event
 
+import six
+
 from apscheduler.schedulers.base import BaseScheduler
 
 
@@ -21,7 +23,7 @@ class BlockingScheduler(BaseScheduler):
     def _main_loop(self):
         while self.running:
             wait_seconds = self._process_jobs()
-            self._event.wait(wait_seconds)
+            self._event.wait(wait_seconds or six.MAXSIZE)
             self._event.clear()
 
     def _wakeup(self):
