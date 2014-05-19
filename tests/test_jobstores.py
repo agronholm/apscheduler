@@ -78,7 +78,7 @@ def persistent_jobstore(request):
 @pytest.fixture
 def create_job(timezone, job_defaults):
     def create(jobstore, func=dummy_job, trigger_date=datetime(2999, 1, 1), id=None, **kwargs):
-        trigger_date = trigger_date.replace(tzinfo=timezone)
+        trigger_date = timezone.localize(trigger_date)
         trigger = DateTrigger(trigger_date, timezone)
         job_kwargs = job_defaults.copy()
         job_kwargs['func'] = func
@@ -115,10 +115,10 @@ def test_get_pending_jobs(jobstore, create_job, timezone):
     create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     job3 = create_job(jobstore, dummy_job3, datetime(2013, 8, 14))
-    jobs = jobstore.get_pending_jobs(datetime(2014, 2, 27, tzinfo=timezone))
+    jobs = jobstore.get_pending_jobs(timezone.localize(datetime(2014, 2, 27)))
     assert jobs == [job3, job2]
 
-    jobs = jobstore.get_pending_jobs(datetime(2013, 8, 13, tzinfo=timezone))
+    jobs = jobstore.get_pending_jobs(timezone.localize(datetime(2013, 8, 13)))
     assert jobs == []
 
 
@@ -126,7 +126,7 @@ def test_get_next_run_time(jobstore, create_job, timezone):
     create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     create_job(jobstore, dummy_job3, datetime(2013, 8, 14))
-    assert jobstore.get_next_run_time() == datetime(2013, 8, 14, tzinfo=timezone)
+    assert jobstore.get_next_run_time() == timezone.localize(datetime(2013, 8, 14))
 
 
 def test_add_job_conflicting_id(jobstore, create_job):
@@ -144,7 +144,7 @@ def test_update_job(jobstore, create_job, timezone):
     assert len(jobs) == 2
     assert jobs[0].id == job2.id
     assert jobs[1].id == job1.id
-    assert jobs[1].next_run_time == datetime(2016, 5, 4, tzinfo=timezone)
+    assert jobs[1].next_run_time == timezone.localize(datetime(2016, 5, 4))
     assert jobs[1].max_instances == 6
 
 
@@ -154,7 +154,7 @@ def test_update_job_next_runtime(jobstore, create_job, next_run_time, timezone):
     create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     job3 = create_job(jobstore, dummy_job3, datetime(2013, 8, 14))
     replacement = create_job(None, dummy_job, datetime.now(), id=job1.id)
-    replacement.next_run_time = next_run_time.replace(tzinfo=timezone) if next_run_time else None
+    replacement.next_run_time = timezone.localize(next_run_time) if next_run_time else None
     jobstore.update_job(replacement)
 
     if next_run_time:
@@ -179,7 +179,7 @@ def test_one_job_fails_to_load(persistent_jobstore, create_job, monkeypatch, tim
     jobs = persistent_jobstore.get_all_jobs()
     assert jobs == [job2, job1]
 
-    assert persistent_jobstore.get_next_run_time() == datetime(2014, 2, 26, tzinfo=timezone)
+    assert persistent_jobstore.get_next_run_time() == timezone.localize(datetime(2014, 2, 26))
 
 
 def test_remove_job(jobstore, create_job):
