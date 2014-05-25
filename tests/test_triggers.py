@@ -144,21 +144,21 @@ class TestCronTrigger(object):
 
     def test_dst_change(self):
         """
-        Making sure that CronTrigger works during the ambiguous "fall-back" DST period.
+        Making sure that CronTrigger works correctly when crossing the DST switch threshold.
         Note that you should explicitly compare datetimes as strings to avoid the internal datetime comparison which
         would test for equality in the UTC timezone.
         """
 
         eastern = pytz.timezone('US/Eastern')
-        trigger = CronTrigger(hour='*', timezone=eastern)
+        trigger = CronTrigger(minute='*/30', timezone=eastern)
 
         datetime_edt = eastern.localize(datetime(2013, 11, 3, 1, 5), is_dst=True)
-        correct_next_date = eastern.localize(datetime(2013, 11, 3, 1), is_dst=False)
+        correct_next_date = eastern.localize(datetime(2013, 11, 3, 1, 30), is_dst=True)
         assert str(trigger.get_next_fire_time(datetime_edt)) == str(correct_next_date)
 
-        datetime_est = eastern.localize(datetime(2013, 3, 10, 1, 5), is_dst=False)
-        correct_next_date = eastern.localize(datetime(2013, 3, 10, 3), is_dst=True)
-        assert str(trigger.get_next_fire_time(datetime_est)) == str(correct_next_date)
+        datetime_edt = eastern.localize(datetime(2013, 11, 3, 1, 35), is_dst=True)
+        correct_next_date = eastern.localize(datetime(2013, 11, 3, 1), is_dst=False)
+        assert str(trigger.get_next_fire_time(datetime_edt)) == str(correct_next_date)
 
     def test_timezone_change(self, timezone):
         """
