@@ -93,7 +93,9 @@ def convert_to_datetime(input, tz, arg_name):
     :rtype: datetime
     """
 
-    if isinstance(input, datetime):
+    if input is None:
+        return
+    elif isinstance(input, datetime):
         datetime_ = input
     elif isinstance(input, date):
         datetime_ = datetime.combine(input, time())

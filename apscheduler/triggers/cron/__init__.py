@@ -22,7 +22,7 @@ class CronTrigger(BaseTrigger):
     }
 
     def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None, minute=None,
-                 second=None, start_date=None, timezone=None):
+                 second=None, start_date=None, end_date=None, timezone=None):
         """
         Triggers when current time matches all specified time constraints, emulating the UNIX cron scheduler.
 
@@ -34,11 +34,21 @@ class CronTrigger(BaseTrigger):
         :param int|str hour: hour to run on
         :param int|str second: second to run on
         :param datetime|str start_date: earliest possible date/time to trigger on
-        :param datetime.tzinfo|str timezone: time zone for ``start_date``
+        :param datetime|str end_date: latest possible date/time to trigger on
+        :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
         """
 
-        self.timezone = astimezone(timezone) or getattr(start_date, 'tzinfo', None) or get_localzone()
-        self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date') if start_date else None
+        if timezone:
+            self.timezone = astimezone(timezone)
+        elif start_date and start_date.tzinfo:
+            self.timezone = start_date.tzinfo
+        elif end_date and end_date.tzinfo:
+            self.timezone = end_date.tzinfo
+        else:
+            self.timezone = get_localzone()
+
+        self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date')
+        self.end_date = convert_to_datetime(end_date, self.timezone, 'end_date')
 
         values = dict((key, value) for (key, value) in six.iteritems(locals())
                       if key in self.FIELD_NAMES and value is not None)
@@ -139,6 +149,10 @@ class CronTrigger(BaseTrigger):
             else:
                 # A valid value was found, no changes necessary
                 fieldnum += 1
+
+            # Return if the date has rolled past the end date
+            if self.end_date and next_date > self.end_date:
+                return None
 
         if fieldnum >= 0:
             return next_date

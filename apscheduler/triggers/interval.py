@@ -8,7 +8,7 @@ from apscheduler.util import convert_to_datetime, timedelta_seconds, datetime_re
 
 
 class IntervalTrigger(BaseTrigger):
-    def __init__(self, weeks=0, days=0, hours=0, minutes=0, seconds=0, start_date=None, timezone=None):
+    def __init__(self, weeks=0, days=0, hours=0, minutes=0, seconds=0, start_date=None, end_date=None, timezone=None):
         """
         Triggers on specified intervals, starting on ``start_date`` if specified, ``datetime.now()`` + interval
         otherwise.
@@ -18,9 +18,9 @@ class IntervalTrigger(BaseTrigger):
         :param int hours: number of hours to wait
         :param int minutes: number of minutes to wait
         :param int seconds: number of seconds to wait
-        :param datetime|str start_date: when to first execute the job and start the counter (default is after the given
-                                        interval)
-        :param datetime.tzinfo|str timezone: time zone for ``start_date``
+        :param datetime|str start_date: starting point for the interval calculation
+        :param datetime|str end_date: latest possible date/time to trigger on
+        :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
         """
 
         self.interval = timedelta(weeks=weeks, days=days, hours=hours, minutes=minutes, seconds=seconds)
@@ -29,9 +29,18 @@ class IntervalTrigger(BaseTrigger):
             self.interval = timedelta(seconds=1)
             self.interval_length = 1
 
-        self.timezone = astimezone(timezone) or get_localzone()
-        start_date = start_date or datetime.now(self.timezone) + self.interval
+        if timezone:
+            self.timezone = astimezone(timezone)
+        elif start_date and start_date.tzinfo:
+            self.timezone = start_date.tzinfo
+        elif end_date and end_date.tzinfo:
+            self.timezone = end_date.tzinfo
+        else:
+            self.timezone = get_localzone()
+
+        start_date = start_date or (datetime.now() + self.interval)
         self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date')
+        self.end_date = convert_to_datetime(end_date, self.timezone, 'end_date')
 
     def get_next_fire_time(self, start_date):
         if start_date < self.start_date:
@@ -39,8 +48,10 @@ class IntervalTrigger(BaseTrigger):
 
         timediff_seconds = timedelta_seconds(start_date - self.start_date)
         next_interval_num = int(ceil(timediff_seconds / self.interval_length))
-        next_date = self.start_date + self.interval * next_interval_num
-        return self.timezone.normalize(next_date)
+        next_date = self.timezone.normalize(self.start_date + self.interval * next_interval_num)
+        if self.end_date and next_date > self.end_date:
+            return None
+        return next_date
 
     def __str__(self):
         return 'interval[%s]' % str(self.interval)

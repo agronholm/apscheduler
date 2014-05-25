@@ -22,6 +22,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Adding jobs is now done exclusively through ``add_job()`` -- the shortcuts to triggers were removed
 
+* Added the ``end_date`` parameter to cron and interval triggers
+
 * It is now possible to add a job directly to an executor without scheduling, by omitting the trigger argument
 
 * Replaced the thread pool with a pluggable executor system

@@ -43,8 +43,8 @@ def freeze_time(monkeypatch, timezone):
             self.current = initial
             self.increment = None
 
-        def get(self, tzinfo):
-            now = self.current.astimezone(tzinfo)
+        def get(self, tzinfo=None):
+            now = self.current.astimezone(tzinfo) if tzinfo else self.current.replace(tzinfo=None)
             if self.increment:
                 self.current += self.increment
             return now

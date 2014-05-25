@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from tzlocal import get_localzone
 
 from apscheduler.triggers.base import BaseTrigger
@@ -5,16 +7,16 @@ from apscheduler.util import convert_to_datetime, datetime_repr, astimezone
 
 
 class DateTrigger(BaseTrigger):
-    def __init__(self, run_date, timezone=None):
+    def __init__(self, run_date=None, timezone=None):
         """
-        Triggers once on the given datetime.
+        Triggers once on the given datetime. If ``run_date`` is left empty, current time is used.
 
         :param datetime|str run_date: the date/time to run the job at
-        :param datetime.tzinfo|str timezone: time zone for ``run_date``
+        :param datetime.tzinfo|str timezone: time zone for ``run_date`` if it doesn't have one already
         """
 
         timezone = astimezone(timezone) or get_localzone()
-        self.run_date = convert_to_datetime(run_date, timezone, 'run_date')
+        self.run_date = convert_to_datetime(run_date or datetime.now(), timezone, 'run_date')
 
     def get_next_fire_time(self, start_date):
         if self.run_date >= start_date:

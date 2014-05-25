@@ -133,6 +133,14 @@ class TestCronTrigger(object):
         trigger = CronTrigger(year=2014, hour=4, start_date=start_date)
         assert trigger.timezone == start_date.tzinfo
 
+    def test_end_date(self, timezone):
+        end_date = timezone.localize(datetime(2014, 4, 13, 3))
+        trigger = CronTrigger(year=2014, hour=4, end_date=end_date)
+
+        start_date = timezone.localize(datetime(2014, 4, 13, 2, 30))
+        assert trigger.get_next_fire_time(start_date - timedelta(1)) == start_date.replace(day=12, hour=4, minute=0)
+        assert trigger.get_next_fire_time(start_date) is None
+
     def test_different_tz(self, timezone):
         alter_tz = pytz.FixedOffset(-600)
         trigger = CronTrigger(year=2009, week=15, day_of_week=2, timezone=timezone)
@@ -256,13 +264,22 @@ class TestIntervalTrigger(object):
         correct_next_date = timezone.localize(datetime(2009, 8, 4, 1, second=3))
         assert trigger.get_next_fire_time(start_date) == correct_next_date
 
+    def test_end_date(self, timezone):
+        """Tests that the interval trigger won't return any datetimes past the set end time."""
+
+        start_date = timezone.localize(datetime(2014, 5, 26))
+        trigger = IntervalTrigger(minutes=5, start_date=start_date, end_date=datetime(2014, 5, 26, 0, 7),
+                                  timezone=timezone)
+        assert trigger.get_next_fire_time(start_date + timedelta(minutes=2)) == start_date.replace(minute=5)
+        assert trigger.get_next_fire_time(start_date + timedelta(minutes=6)) is None
+
     def test_dst_change(self):
         """
-        Making sure that IntervalTrigger works during the ambiguous
-        "fall-back" DST period. Note that you should explicitly
-        compare datetimes as strings to avoid the internal datetime
-        comparison which would test for equality in the UTC timezone.
+        Making sure that IntervalTrigger works during the ambiguous "fall-back" DST period.
+        Note that you should explicitly compare datetimes as strings to avoid the internal datetime comparison which
+        would test for equality in the UTC timezone.
         """
+
         eastern = pytz.timezone('US/Eastern')
         start_date = datetime(2013, 6, 1)  # Start within EDT
         trigger = IntervalTrigger(hours=1, start_date=start_date, timezone=eastern)
