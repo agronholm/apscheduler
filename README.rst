@@ -16,7 +16,7 @@ Features
 ========
 
 * Thread-safe API
-* Excellent test coverage (tested on CPython 2.6 - 2.7, 3.2 - 3.4, PyPy 2.2)
+* Excellent test coverage (tested on CPython 2.6 - 2.7, 3.2 - 3.4, PyPy 2.3)
 * Configurable scheduling mechanisms (triggers):
 
   * Cron-like scheduling
