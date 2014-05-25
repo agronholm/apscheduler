@@ -63,6 +63,8 @@ def astimezone(obj):
     if isinstance(obj, six.string_types):
         return timezone(obj)
     if isinstance(obj, tzinfo):
+        if not hasattr(obj, 'localize') or not hasattr(obj, 'normalize'):
+            raise TypeError('Only timezones from the pytz library are supported')
         return obj
     if obj is not None:
         raise TypeError('Expected tzinfo, got %s instead' % obj.__class__.__name__)
@@ -113,7 +115,7 @@ def convert_to_datetime(input, tz, arg_name):
         tz = timezone(tz)
 
     try:
-        return tz.localize(datetime_)
+        return tz.localize(datetime_, is_dst=None)
     except AttributeError:
         raise TypeError('Only pytz timezones are supported (need the localize() and normalize() methods)')
 
