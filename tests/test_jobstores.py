@@ -8,6 +8,11 @@ from apscheduler.jobstores.base import JobLookupError, ConflictingIdError
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.job import Job
 
+try:
+    from unittest.mock import MagicMock
+except ImportError:
+    from mock import MagicMock
+
 
 def dummy_job():
     pass
@@ -81,6 +86,8 @@ def create_job(timezone, job_defaults):
         trigger_date = timezone.localize(trigger_date)
         trigger = DateTrigger(trigger_date, timezone)
         job_kwargs = job_defaults.copy()
+        job_kwargs['scheduler'] = MagicMock()
+        job_kwargs['jobstore'] = MagicMock()
         job_kwargs['func'] = func
         job_kwargs['trigger'] = trigger
         job_kwargs['id'] = id
@@ -115,10 +122,10 @@ def test_get_pending_jobs(jobstore, create_job, timezone):
     create_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     job3 = create_job(jobstore, dummy_job3, datetime(2013, 8, 14))
-    jobs = jobstore.get_pending_jobs(timezone.localize(datetime(2014, 2, 27)))
+    jobs = jobstore.get_due_jobs(timezone.localize(datetime(2014, 2, 27)))
     assert jobs == [job3, job2]
 
-    jobs = jobstore.get_pending_jobs(timezone.localize(datetime(2013, 8, 13)))
+    jobs = jobstore.get_due_jobs(timezone.localize(datetime(2013, 8, 13)))
     assert jobs == []
 
 

@@ -44,7 +44,7 @@ class RedisJobStore(BaseJobStore):
 
         return self._reconstitute_job(job_state)
 
-    def get_pending_jobs(self, now):
+    def get_due_jobs(self, now):
         timestamp = datetime_to_utc_timestamp(now)
         job_ids = self.redis.zrangebyscore(self.run_times_key, 0, timestamp)
         if job_ids:
@@ -102,11 +102,12 @@ class RedisJobStore(BaseJobStore):
     def shutdown(self):
         self.redis.connection_pool.disconnect()
 
-    @staticmethod
-    def _reconstitute_job(job_state):
+    def _reconstitute_job(self, job_state):
         job_state = pickle.loads(job_state)
         job = Job.__new__(Job)
         job.__setstate__(job_state)
+        job._scheduler = self._scheduler
+        job._jobstore = self
         return job
 
     def _reconstitute_jobs(self, job_states):

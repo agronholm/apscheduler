@@ -1,8 +1,3 @@
-"""
-Abstract base class that provides the interface needed by all job stores.
-Job store methods are also documented here.
-"""
-
 from abc import ABCMeta, abstractmethod
 import logging
 
@@ -33,6 +28,9 @@ class TransientJobError(ValueError):
 
 
 class BaseJobStore(six.with_metaclass(ABCMeta)):
+    """Abstract base class that provides the interface needed by all job stores."""
+
+    _scheduler = None
     _logger = logging.getLogger('apscheduler.jobstores')
 
     def start(self, scheduler, alias):
@@ -44,6 +42,7 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         :param str|unicode alias: alias of this job store as it was assigned to the scheduler
         """
 
+        self._scheduler = scheduler
         self._logger = logging.getLogger('apscheduler.jobstores.%s' % alias)
 
     def shutdown(self):
@@ -54,13 +53,16 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         """
         Returns a specific job.
 
+        The job store is responsible for setting the ``scheduler`` and ``jobstore`` attributes of the returned job to
+        point to the scheduler and itself, respectively.
+
         :param str|unicode job_id: identifier of the job
         :rtype: Job
         :raises JobLookupError: if the job is not found
         """
 
     @abstractmethod
-    def get_pending_jobs(self, now):
+    def get_due_jobs(self, now):
         """
         Returns the list of jobs that have ``next_run_time`` earlier or equal to ``now``, sorted by next run time
 
@@ -80,6 +82,9 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
     def get_all_jobs(self):
         """
         Returns a list of all contained jobs (sorted by next run time).
+
+        The job store is responsible for setting the ``scheduler`` and ``jobstore`` attributes of the returned jobs to
+        point to the scheduler and itself, respectively.
 
         :rtype: list[Job]
         """

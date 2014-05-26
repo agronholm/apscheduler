@@ -13,7 +13,7 @@ from apscheduler.executors.base import MaxInstancesReachedError
 from apscheduler.executors.pool import PoolExecutor
 from apscheduler.jobstores.base import ConflictingIdError
 from apscheduler.jobstores.memory import MemoryJobStore
-from apscheduler.job import Job, JobHandle
+from apscheduler.job import Job
 from apscheduler.util import combine_opts, maybe_ref, asbool, astimezone, timedelta_seconds, undefined, asint
 from apscheduler.events import (
     SchedulerEvent, JobStoreEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOBSTORE_ADDED,
@@ -87,7 +87,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
             # Schedule all pending jobs
             for job, jobstore, replace_existing in self._pending_jobs:
-                self._real_add_job(job, jobstore, replace_existing, False)
+                self._real_add_job(job, replace_existing, False)
             del self._pending_jobs[:]
 
         self._stopped = False
@@ -238,7 +238,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param str|unicode executor: alias of the executor to run the job with
         :param bool replace_existing: ``True`` to replace an existing job with the same ``id`` (but retain the
                                       number of runs from the existing one)
-        :rtype: JobHandle
+        :rtype: Job
         """
 
         # Use the scheduler's time zone if nothing else is specified
@@ -247,7 +247,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         # If no trigger was specified, assume that the job should be run now
         if trigger is None:
             trigger = 'date'
-            trigger_args['run_date'] = datetime.now(self.timezone)
             misfire_grace_time = None
 
         # Assemble the final job arguments, substituting with default values where no other value is provided
@@ -266,7 +265,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             'max_runs': default_replace('max_runs', max_runs),
             'max_instances': default_replace('max_instances', max_instances),
         }
-        job = Job(**job_kwargs)
+        job = Job(self, jobstore, **job_kwargs)
 
         # Don't really add jobs to job stores before the scheduler is up and running
         with self._jobstores_lock:
@@ -274,9 +273,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 self._pending_jobs.append((job, jobstore, replace_existing))
                 self._logger.info('Adding job tentatively -- it will be properly scheduled when the scheduler starts')
             else:
-                self._real_add_job(job, jobstore, replace_existing, True)
+                self._real_add_job(job, replace_existing, True)
 
-        return JobHandle(self, jobstore, job)
+        return job
 
     def scheduled_job(self, trigger, args=None, kwargs=None, id=None, name=None, misfire_grace_time=None, coalesce=None,
                       max_runs=None, max_instances=1, jobstore='default', executor='default', **trigger_args):
@@ -300,13 +299,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             # Check if the job is among the pending jobs
             for job, store, replace_existing in self._pending_jobs:
                 if job.id == job_id:
-                    job.modify(**changes)
+                    job._modify(**changes)
                     return
 
             # Otherwise, look up the job store, make the modifications to the job and have the store update it
             store = self._lookup_jobstore(jobstore)
             job = store.lookup_job(changes.get('id', job_id))
-            job.modify(**changes)
+            job._modify(**changes)
             store.update_job(job)
 
         self._dispatch_event(JobStoreEvent(EVENT_JOBSTORE_JOB_MODIFIED, jobstore, job_id))
@@ -351,7 +350,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param bool pending: ``False`` to leave out pending jobs (jobs that are waiting for the scheduler start to be
                              added to their respective job stores), ``True`` to only include pending jobs, anything else
                              to return both
-        :rtype: list[JobHandle]
+        :rtype: list[Job]
         """
 
         with self._jobstores_lock:
@@ -360,29 +359,28 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             if pending is not False:
                 for job, alias, replace_existing in self._pending_jobs:
                     if jobstore is None or alias == jobstore:
-                        jobs.append(JobHandle(self, alias, job))
+                        jobs.append(job)
 
             if pending is not True:
                 jobstores = {jobstore: self._lookup_jobstore(jobstore)} if jobstore else self._jobstores
                 for alias, store in six.iteritems(jobstores):
                     for job in store.get_all_jobs():
-                        jobs.append(JobHandle(self, alias, job))
+                        jobs.append(job)
 
             return jobs
 
     def get_job(self, job_id, jobstore='default'):
         """
-        Returns a JobHandle for the specified job.
+        Returns the Job that matches the given ``job_id``.
 
         :param str|unicode job_id: the identifier of the job
         :param str|unicode jobstore: alias of the job store that contains the job
-        :rtype: JobHandle
+        :rtype: Job
         """
 
         with self._jobstores_lock:
             store = self._lookup_jobstore(jobstore)
-            job = store.lookup_job(job_id)
-            return JobHandle(self, jobstore, job)
+            return store.lookup_job(job_id)
 
     def remove_job(self, job_id, jobstore='default'):
         """
@@ -545,10 +543,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 except:
                     self._logger.exception('Error notifying listener')
 
-    def _real_add_job(self, job, jobstore, replace_existing, wakeup):
+    def _real_add_job(self, job, replace_existing, wakeup):
         """
-        :param apscheduler.job.Job job: the job to add
-        :param str|unicode jobstore: alias of the job store
+        :param Job job: the job to add
         :param bool replace_existing: ``True`` to use update_job() in case the job already exists in the store
         :param bool wakeup: ``True`` to wake up the scheduler after adding the job
         """
@@ -558,7 +555,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         job.next_run_time = job.trigger.get_next_fire_time(now)
 
         # Add the job to the given job store
-        store = self._lookup_jobstore(jobstore)
+        jobstore_alias = job._jobstore
+        store = self._lookup_jobstore(jobstore_alias)
         try:
             store.add_job(job)
         except ConflictingIdError:
@@ -569,11 +567,14 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             else:
                 raise
 
+        # Mark the job as no longer pending
+        job._jobstore = store
+
         # Notify listeners that a new job has been added
-        event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, jobstore, job.id)
+        event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, job.id, jobstore_alias)
         self._dispatch_event(event)
 
-        self._logger.info('Added job "%s" to job store "%s"', job, jobstore)
+        self._logger.info('Added job "%s" to job store "%s"', job.name, jobstore_alias)
 
         # Notify the scheduler about the new job
         if wakeup:
@@ -600,7 +601,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         with self._jobstores_lock:
             for jobstore_alias, jobstore in six.iteritems(self._jobstores):
-                for job in jobstore.get_pending_jobs(now):
+                for job in jobstore.get_due_jobs(now):
                     # Look up the job's executor
                     try:
                         executor = self._lookup_executor(job.executor)
@@ -629,7 +630,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                         job_runs = job.runs + len(run_times)
                         job_next_run = job.trigger.get_next_fire_time(now + timedelta(microseconds=1))
                         if job_next_run and (job.max_runs is None or job_runs < job.max_runs):
-                            job.modify(next_run_time=job_next_run, runs=job_runs)
+                            job._modify(next_run_time=job_next_run, runs=job_runs)
                             jobstore.update_job(job)
                         else:
                             self.remove_job(job.id, jobstore_alias)

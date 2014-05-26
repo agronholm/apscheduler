@@ -46,7 +46,7 @@ class MongoDBJobStore(BaseJobStore):
             raise JobLookupError(job_id)
         return self._reconstitute_job(document['job_state'])
 
-    def get_pending_jobs(self, now):
+    def get_due_jobs(self, now):
         timestamp = datetime_to_utc_timestamp(now)
         return self._get_jobs({'next_run_time': {'$lte': timestamp}})
 
@@ -88,11 +88,12 @@ class MongoDBJobStore(BaseJobStore):
     def shutdown(self):
         self.connection.disconnect()
 
-    @staticmethod
-    def _reconstitute_job(job_state):
+    def _reconstitute_job(self, job_state):
         job_state = pickle.loads(job_state)
         job = Job.__new__(Job)
         job.__setstate__(job_state)
+        job._scheduler = self._scheduler
+        job._jobstore = self
         return job
 
     def _get_jobs(self, conditions):

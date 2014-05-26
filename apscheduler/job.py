@@ -14,19 +14,54 @@ class Job(object):
     be instantiated by the user.
     """
 
-    __slots__ = ('id', 'trigger', 'executor', 'func', 'func_ref', 'args', 'kwargs', 'name', 'misfire_grace_time',
-                 'coalesce', 'max_runs', 'max_instances', 'runs', 'next_run_time')
+    __slots__ = ('_scheduler', '_jobstore', 'id', 'trigger', 'executor', 'func', 'func_ref', 'args', 'kwargs', 'name',
+                 'misfire_grace_time', 'coalesce', 'max_runs', 'max_instances', 'runs', 'next_run_time')
 
     trigger_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
     trigger_classes = {}
 
-    def __init__(self, id=None, **kwargs):
+    def __init__(self, scheduler, jobstore, id=None, **kwargs):
         super(Job, self).__init__()
+        super(Job, self).__setattr__('_scheduler', scheduler)
+        super(Job, self).__setattr__('_jobstore', jobstore)
         kwargs.setdefault('runs', 0)
         kwargs.setdefault('next_run_time', None)
-        self.modify(id=id or uuid4().hex, **kwargs)
+        self._modify(id=id or uuid4().hex, **kwargs)
 
     def modify(self, **changes):
+        """Makes the given changes to this job and saves it in the associated job store."""
+
+        self._scheduler.modify_job(self.id, **changes)
+
+    def remove(self):
+        """Removes this job from its associated job store."""
+
+        self._scheduler.remove_job(self.id, self._jobstore)
+
+    def get_run_times(self, now):
+        """
+        Computes the scheduled run times between ``next_run_time`` and ``now``.
+
+        :type now: datetime
+        :rtype: list[datetime]
+        """
+
+        run_times = []
+        run_time = self.next_run_time
+        increment = timedelta(microseconds=1)
+        while (not self.max_runs or self.runs < self.max_runs) and run_time and run_time <= now:
+            run_times.append(run_time)
+            run_time = self.trigger.get_next_fire_time(run_time + increment)
+
+        return run_times
+
+    @property
+    def pending(self):
+        """Returns ``True`` if the referenced job is still waiting to be added to its designated job store."""
+
+        return isinstance(self._jobstore, six.string_types)
+
+    def _modify(self, **changes):
         """Validates the changes to the Job and makes the modifications if and only if all of them validate."""
 
         approved = {}
@@ -146,24 +181,7 @@ class Job(object):
             raise AttributeError('The following are not modifiable attributes of Job: %s' % ', '.join(changes))
 
         for key, value in six.iteritems(approved):
-            setattr(self, key, value)
-
-    def get_run_times(self, now):
-        """
-        Computes the scheduled run times between ``next_run_time`` and ``now``.
-
-        :type now: datetime
-        :rtype: list[datetime]
-        """
-
-        run_times = []
-        run_time = self.next_run_time
-        increment = timedelta(microseconds=1)
-        while (not self.max_runs or self.runs < self.max_runs) and run_time and run_time <= now:
-            run_times.append(run_time)
-            run_time = self.trigger.get_next_fire_time(run_time + increment)
-
-        return run_times
+            super(Job, self).__setattr__(key, value)
 
     def __getstate__(self):
         return {
@@ -207,66 +225,11 @@ class Job(object):
             return self.id == other.id
         return NotImplemented
 
-    def __repr__(self):
-        return '<Job (id=%s)>' % repr_escape(self.id)
-
-
-class JobHandle(object):
-    __slots__ = ('scheduler', 'jobstore', '_job_state')
-
-    def __init__(self, scheduler, jobstore, job):
-        super(JobHandle, self).__init__()
-        self.scheduler = scheduler
-        self.jobstore = jobstore
-        self._job_state = job.__getstate__()
-
-    def remove(self):
-        """Deletes the referenced job."""
-
-        self.scheduler.remove_job(self.id, self.jobstore)
-
-    def modify(self, **changes):
-        """Modifies the referenced job."""
-
-        self.scheduler.modify_job(self.id, self.jobstore, **changes)
-        self._job_state['id'] = changes.get('id', self.id)
-        self.refresh()
-
-    def refresh(self):
-        """Reloads the current state of the referenced job from the scheduler."""
-
-        jobhandle = self.scheduler.get_job(self.id, self.jobstore)
-        self._job_state = jobhandle._job_state
-
-    @property
-    def pending(self):
-        """Returns ``True`` if the referenced job is still waiting to be added to its designated job store."""
-
-        for job in self.scheduler.get_jobs(self.jobstore, True):
-            if job.id == self.id:
-                return True
-
-        return False
-
-    def __getattr__(self, item):
-        try:
-            return self._job_state[item]
-        except KeyError:
-            raise AttributeError(item)
-
-    def __setattr__(self, key, value):
-        if key in self.__slots__:
-            super(JobHandle, self).__setattr__(key, value)
-        else:
-            self.modify(**{key: value})
-
-    def __eq__(self, other):
-        if isinstance(other, JobHandle):
-            return self.id == other.id
-        return NotImplemented
+    # def __setattr__(self, key, value):
+    #     self._modify(**{key: value})
 
     def __repr__(self):
-        return '<JobHandle (id=%s name=%s)>' % (repr_escape(self.id), repr_escape(self.name))
+        return '<Job (id=%s name=%s)>' % (repr_escape(self.id), repr_escape(self.name))
 
     def __str__(self):
         return '%s (trigger: %s, next run at: %s)' % (repr_escape(self.name), repr_escape(str(self.trigger)),

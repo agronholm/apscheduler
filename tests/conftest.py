@@ -63,6 +63,7 @@ def freeze_time(monkeypatch, timezone):
     monkeypatch.setattr('apscheduler.schedulers.base.datetime', fake_datetime)
     monkeypatch.setattr('apscheduler.executors.base.datetime', fake_datetime)
     monkeypatch.setattr('apscheduler.triggers.interval.datetime', fake_datetime)
+    monkeypatch.setattr('apscheduler.triggers.date.datetime', fake_datetime)
     return freezer
 
 
@@ -77,6 +78,8 @@ def job_defaults(timezone):
 @pytest.fixture(scope='session')
 def create_job(job_defaults):
     def create(**kwargs):
+        kwargs.setdefault('scheduler', Mock())
+        kwargs.setdefault('jobstore', Mock())
         job_kwargs = job_defaults.copy()
         job_kwargs.update(kwargs)
         return Job(**job_kwargs)

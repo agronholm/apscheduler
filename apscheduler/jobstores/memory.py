@@ -18,7 +18,7 @@ class MemoryJobStore(BaseJobStore):
         except KeyError:
             raise JobLookupError(job_id)
 
-    def get_pending_jobs(self, now):
+    def get_due_jobs(self, now):
         pending = []
         for job in self._jobs:
             if job.next_run_time and job.next_run_time <= now:

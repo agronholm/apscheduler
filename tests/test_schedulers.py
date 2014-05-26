@@ -80,7 +80,7 @@ class TestOfflineScheduler(object):
 
     def test_add_job_by_reference(self, scheduler):
         job = scheduler.add_job('copy:copy', 'date', run_date=datetime(2200, 7, 24), args=[()])
-        assert job.func == 'copy:copy'
+        assert job.func is copy
 
     def test_modify_job(self, scheduler):
         scheduler.add_job(lambda: None, 'interval', seconds=1, id='foo')
@@ -360,7 +360,6 @@ class TestRunningScheduler(object):
         freeze_time.set(freeze_time.current + timedelta(seconds=2))
 
         scheduler._process_jobs()
-        job.refresh()
         assert job.runs == 1
         assert len(events) == 1
         assert events[0].code == EVENT_JOB_EXECUTED
@@ -381,7 +380,6 @@ class TestRunningScheduler(object):
         freeze_time.set(freeze_time.current + timedelta(seconds=2))
 
         scheduler._process_jobs()
-        job.refresh()
         assert job.runs == 3
         assert len(events) == 3
         assert events[0].code == EVENT_JOB_EXECUTED
