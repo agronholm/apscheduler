@@ -60,13 +60,13 @@ class TestJob(object):
                           run_time + timedelta(seconds=2)]
         job = create_job(trigger='interval', trigger_args={'seconds': 1, 'timezone': timezone, 'start_date': run_time},
                          next_run_time=expected_times[0], func=dummyfunc)
-        run_times = job.get_run_times(run_time)
+        run_times = job._get_run_times(run_time)
         assert run_times == []
 
-        run_times = job.get_run_times(expected_times[0])
+        run_times = job._get_run_times(expected_times[0])
         assert run_times == [expected_times[0]]
 
-        run_times = job.get_run_times(expected_times[1])
+        run_times = job._get_run_times(expected_times[1])
         assert run_times == expected_times
 
     def test_pending(self, job):
