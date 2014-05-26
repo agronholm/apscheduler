@@ -118,7 +118,7 @@ class TestJob(object):
         if six.PY2:
             assert repr(job) == '<Job (id=t\\xe9st\\xefd name=n\\xe4m\\xe9)>'
         else:
-            assert repr(job) == b'<Job (id=t\xc3\xa9st\xc3\xafd name=n\xe4m\xe9)>'.decode('utf-8')
+            assert repr(job) == b'<Job (id=t\xc3\xa9st\xc3\xafd name=n\xc3\xa4m\xc3\xa9)>'.decode('utf-8')
 
     def test_str(self, job):
         if six.PY2:
