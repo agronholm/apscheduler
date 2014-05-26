@@ -13,7 +13,19 @@ class Job(object):
     Contains the options given when scheduling callables and its current schedule and other state.
     This class should never be instantiated by the user.
 
-    :ivar str|unicode id: unique identifier of this job
+    :var str id: the unique identifier of this job
+    :var str name: the description of this job
+    :var func: the callable to execute
+    :var tuple|list args: positional arguments to the callable
+    :var dict kwargs: keyword arguments to the callable
+    :var bool coalesce: whether to only run the job once when several run times are due
+    :var trigger: the trigger object that controls the schedule of this job
+    :var str executor: the name of the executor that will run this job
+    :var int misfire_grace_time: the time (in seconds) how much this job's execution is allowed to be late
+    :var int max_instances: the maximum number of concurrently executing instances allowed for this job
+    :var int runs: the number of times this job has been triggered
+    :var int max_runs: the maximum number of times this job is  allowed to run
+    :var datetime.datetime next_run_time: the next scheduled run time of this job
     """
 
     __slots__ = ('_scheduler', '_jobstore', 'id', 'trigger', 'executor', 'func', 'func_ref', 'args', 'kwargs', 'name',
@@ -24,19 +36,22 @@ class Job(object):
 
     def __init__(self, scheduler, jobstore, id=None, **kwargs):
         super(Job, self).__init__()
-        super(Job, self).__setattr__('_scheduler', scheduler)
-        super(Job, self).__setattr__('_jobstore', jobstore)
+        self._scheduler = scheduler
+        self._jobstore = jobstore
         kwargs.setdefault('runs', 0)
         kwargs.setdefault('next_run_time', None)
         self._modify(id=id or uuid4().hex, **kwargs)
 
     def modify(self, **changes):
-        """Makes the given changes to this job and saves it in the associated job store."""
+        """
+        Makes the given changes to this job and saves it in the associated job store.
+        Accepted keyword arguments are the same as the variables on this class.
+        """
 
         self._scheduler.modify_job(self.id, **changes)
 
     def remove(self):
-        """Removes this job from its associated job store."""
+        """Unschedules this job and removes it from its associated job store."""
 
         self._scheduler.remove_job(self.id, self._jobstore)
 
@@ -183,7 +198,7 @@ class Job(object):
             raise AttributeError('The following are not modifiable attributes of Job: %s' % ', '.join(changes))
 
         for key, value in six.iteritems(approved):
-            super(Job, self).__setattr__(key, value)
+            setattr(self, key, value)
 
     def __getstate__(self):
         return {
@@ -226,9 +241,6 @@ class Job(object):
         if isinstance(other, Job):
             return self.id == other.id
         return NotImplemented
-
-    # def __setattr__(self, key, value):
-    #     self._modify(**{key: value})
 
     def __repr__(self):
         return '<Job (id=%s name=%s)>' % (repr_escape(self.id), repr_escape(self.name))
