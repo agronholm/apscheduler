@@ -611,7 +611,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                         self.remove_job(job.id, jobstore_alias)
                         continue
 
-                    run_times = job.get_run_times(now)
+                    run_times = job._get_run_times(now)
                     run_times = run_times[-1:] if run_times and job.coalesce else run_times
                     if run_times:
                         try:

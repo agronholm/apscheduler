@@ -10,8 +10,10 @@ from apscheduler.util import ref_to_obj, obj_to_ref, datetime_repr, repr_escape,
 
 class Job(object):
     """
-    Encapsulates the actual Job along with its metadata. This class is used internally by APScheduler, and should never
-    be instantiated by the user.
+    Contains the options given when scheduling callables and its current schedule and other state.
+    This class should never be instantiated by the user.
+
+    :ivar str|unicode id: unique identifier of this job
     """
 
     __slots__ = ('_scheduler', '_jobstore', 'id', 'trigger', 'executor', 'func', 'func_ref', 'args', 'kwargs', 'name',
@@ -38,7 +40,13 @@ class Job(object):
 
         self._scheduler.remove_job(self.id, self._jobstore)
 
-    def get_run_times(self, now):
+    @property
+    def pending(self):
+        """Returns ``True`` if the referenced job is still waiting to be added to its designated job store."""
+
+        return isinstance(self._jobstore, six.string_types)
+
+    def _get_run_times(self, now):
         """
         Computes the scheduled run times between ``next_run_time`` and ``now``.
 
@@ -54,12 +62,6 @@ class Job(object):
             run_time = self.trigger.get_next_fire_time(run_time + increment)
 
         return run_times
-
-    @property
-    def pending(self):
-        """Returns ``True`` if the referenced job is still waiting to be added to its designated job store."""
-
-        return isinstance(self._jobstore, six.string_types)
 
     def _modify(self, **changes):
         """Validates the changes to the Job and makes the modifications if and only if all of them validate."""
