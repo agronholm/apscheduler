@@ -38,13 +38,13 @@ class JobStoreEvent(SchedulerEvent):
     """
     An event that concerns job stores.
 
-    :ivar alias: the alias of the job store involved
+    :ivar jobstore_alias: the alias of the job store involved
     :ivar job_id: identifier of the new job if a job was added
     """
 
-    def __init__(self, code, alias, job_id=None):
+    def __init__(self, code, jobstore_alias, job_id=None):
         super(JobStoreEvent, self).__init__(code)
-        self.alias = alias
+        self.jobstore_alias = jobstore_alias
         if job_id:
             self.job_id = job_id
 
