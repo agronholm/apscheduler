@@ -7,7 +7,7 @@ from apscheduler.schedulers.base import BaseScheduler
 class BlockingScheduler(BaseScheduler):
     """A scheduler that runs in the foreground. Calling :meth:`start` will block."""
 
-    MAX_WAIT_TIME = 9223372036854
+    MAX_WAIT_TIME = 4294967  # Maximum value accepted by Event.wait() on Windows
 
     _event = None
 

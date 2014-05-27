@@ -219,9 +219,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         The ``trigger`` argument can either be:
 
-        # the plugin name of the trigger (e.g. "cron"), in which case any extra keyword arguments to this method are
+        1. the plugin name of the trigger (e.g. "cron"), in which case any extra keyword arguments to this method are
           passed on to the trigger's constructor
-        # an instance of a trigger class
+        1. an instance of a trigger class
 
         :param func: callable (or a textual reference to one) to run at the given time
         :param str|apscheduler.triggers.base.BaseTrigger trigger: trigger that determines when ``func`` is called

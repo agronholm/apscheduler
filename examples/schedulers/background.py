@@ -4,6 +4,7 @@ Demonstrates how to use the background scheduler to schedule a job that executes
 
 from datetime import datetime
 import time
+import os
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -16,7 +17,7 @@ if __name__ == '__main__':
     scheduler = BackgroundScheduler()
     scheduler.add_job(tick, 'interval', seconds=3)
     scheduler.start()
-    print('Press Ctrl+C to exit')
+    print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
 
     try:
         # This is here to simulate application activity (which keeps the main thread alive).

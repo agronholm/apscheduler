@@ -7,6 +7,7 @@ You can also give it the database URL as an argument. See the SQLAlchemy documen
 
 from datetime import datetime, timedelta
 import sys
+import os
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
@@ -23,7 +24,7 @@ if __name__ == '__main__':
     alarm_time = datetime.now() + timedelta(seconds=10)
     scheduler.add_job(alarm, 'date', run_date=alarm_time, args=[datetime.now()])
     print('To clear the alarms, delete the example.sqlite file.')
-    print('Press Ctrl+C to exit')
+    print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
 
     try:
         scheduler.start()
