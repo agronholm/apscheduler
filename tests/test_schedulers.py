@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 from logging import StreamHandler, ERROR, getLogger
 from threading import Thread
 from copy import copy
-import os
 
 import pytest
 
@@ -149,9 +148,8 @@ class TestOfflineScheduler(object):
         scheduler.add_job(copy, 'date', run_date=datetime(2200, 5, 19), args=[()])
         out = StringIO()
         scheduler.print_jobs(out=out)
-        expected = 'Pending jobs:%s    '\
-            'copy (trigger: date[2200-05-19 00:00:00 CET], '\
-            'next run at: None)%s' % (os.linesep, os.linesep)
+        expected = 'Pending jobs:\n    '\
+            'copy (trigger: date[2200-05-19 00:00:00 CET], next run at: None)\n'
         assert out.getvalue() == expected
 
 
@@ -390,16 +388,15 @@ class TestRunningScheduler(object):
     def test_print_jobs(self, scheduler):
         out = StringIO()
         scheduler.print_jobs(out=out)
-        expected = 'Jobstore default:%s'\
-                   '    No scheduled jobs%s' % (os.linesep, os.linesep)
+        expected = 'Jobstore default:\n'\
+                   '    No scheduled jobs\n'
         assert out.getvalue() == expected
 
         scheduler.add_job(copy, 'date', run_date=datetime(2200, 5, 19), args=[()])
         out = StringIO()
         scheduler.print_jobs(out=out)
-        expected = 'Jobstore default:%s    '\
-            'copy (trigger: date[2200-05-19 00:00:00 CET], '\
-            'next run at: 2200-05-19 00:00:00 CET)%s' % (os.linesep, os.linesep)
+        expected = 'Jobstore default:\n    '\
+            'copy (trigger: date[2200-05-19 00:00:00 CET], next run at: 2200-05-19 00:00:00 CET)\n'
         assert out.getvalue() == expected
 
     def test_jobstore(self, scheduler):
