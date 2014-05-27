@@ -7,3 +7,4 @@ Module Contents
 ---------------
 
 .. autoclass:: Job
+    :members:

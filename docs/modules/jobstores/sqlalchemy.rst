@@ -1,7 +1,7 @@
-:mod:`apscheduler.jobstores.sqlalchemy_store`
-=============================================
+:mod:`apscheduler.jobstores.sqlalchemy`
+=======================================
 
-.. automodule:: apscheduler.jobstores.sqlalchemy_store
+.. automodule:: apscheduler.jobstores.sqlalchemy
 
 Module Contents
 ---------------

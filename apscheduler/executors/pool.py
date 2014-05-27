@@ -19,6 +19,18 @@ class DebugExecutor(concurrent.futures.Executor):
 
 
 class PoolExecutor(BaseExecutor):
+    """
+    An executor that runs jobs in a concurrent.futures thread or process pool.
+
+    :param str pool_type:
+      The type of the pool to create:
+
+      * ``thread``: create a thread pool
+      * ``process``: create a process pool
+      * ``debug``: run jobs directly in the calling thread
+    :param max_workers: the size of the thread/process pool. Ignored for pool_type=debug.
+    """
+
     def __init__(self, pool_type, max_workers=10):
         super(PoolExecutor, self).__init__()
 

@@ -1,7 +1,7 @@
-:mod:`apscheduler.jobstores.mongodb_store`
-=============================================
+:mod:`apscheduler.jobstores.mongodb`
+====================================
 
-.. automodule:: apscheduler.jobstores.mongodb_store
+.. automodule:: apscheduler.jobstores.mongodb
 
 Module Contents
 ---------------

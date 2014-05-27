@@ -1,7 +1,7 @@
-:mod:`apscheduler.jobstores.redis_store`
-=============================================
+:mod:`apscheduler.jobstores.redis`
+========================================
 
-.. automodule:: apscheduler.jobstores.redis_store
+.. automodule:: apscheduler.jobstores.redis
 
 Module Contents
 ---------------
