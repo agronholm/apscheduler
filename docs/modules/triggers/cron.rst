@@ -6,7 +6,10 @@
 API
 ---
 
+Trigger alias for :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job`: ``cron``
+
 .. autoclass:: CronTrigger
+    :show-inheritance:
 
 
 Introduction

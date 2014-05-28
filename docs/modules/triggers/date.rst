@@ -6,7 +6,10 @@
 API
 ---
 
+Trigger alias for :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job`: ``date``
+
 .. autoclass:: DateTrigger
+    :show-inheritance:
 
 
 Introduction
