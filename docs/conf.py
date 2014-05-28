@@ -64,7 +64,7 @@ release = apscheduler.release
 
 # List of directories, relative to source directory, that shouldn't be searched
 # for source files.
-exclude_trees = ['_build']
+exclude_trees = ['_build', 'build', '.tox', '.git', 'examples']
 
 # The reST default role (used for this markup: `text`) to use for all documents.
 #default_role = None
@@ -86,6 +86,7 @@ pygments_style = 'sphinx'
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []
 
+autodoc_member_order = 'alphabetical'
 
 # -- Options for HTML output ---------------------------------------------------
 
