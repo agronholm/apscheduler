@@ -7,6 +7,7 @@ API
 ---
 
 .. autoclass:: QtScheduler
+    :show-inheritance:
 
 
 Introduction

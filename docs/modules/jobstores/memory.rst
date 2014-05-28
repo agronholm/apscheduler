@@ -7,6 +7,7 @@ API
 ---
 
 .. autoclass:: MemoryJobStore
+    :show-inheritance:
 
 
 Introduction

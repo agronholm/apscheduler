@@ -7,6 +7,7 @@ API
 ---
 
 .. autoclass:: GeventScheduler
+    :show-inheritance:
 
 
 Introduction

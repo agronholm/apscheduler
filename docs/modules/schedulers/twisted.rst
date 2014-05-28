@@ -7,6 +7,7 @@ API
 ---
 
 .. autoclass:: TwistedScheduler
+    :show-inheritance:
 
 
 Introduction

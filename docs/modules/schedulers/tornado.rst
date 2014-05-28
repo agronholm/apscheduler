@@ -7,6 +7,7 @@ API
 ---
 
 .. autoclass:: TornadoScheduler
+    :show-inheritance:
 
 
 Introduction

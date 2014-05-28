@@ -7,6 +7,7 @@ API
 ---
 
 .. autoclass:: RedisJobStore(db=0, jobs_key='apscheduler.jobs', run_times_key='apscheduler.run_times', pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args)
+    :show-inheritance:
 
 
 Introduction

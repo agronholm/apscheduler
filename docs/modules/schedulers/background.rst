@@ -7,6 +7,7 @@ API
 ---
 
 .. autoclass:: BackgroundScheduler
+    :show-inheritance:
 
 
 Introduction

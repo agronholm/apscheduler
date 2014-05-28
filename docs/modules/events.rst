@@ -11,9 +11,11 @@ API
 
 .. autoclass:: JobStoreEvent
     :members:
+    :show-inheritance:
 
 .. autoclass:: JobEvent
     :members:
+    :show-inheritance:
 
 
 Event codes

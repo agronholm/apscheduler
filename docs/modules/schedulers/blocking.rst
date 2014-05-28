@@ -7,6 +7,7 @@ API
 ---
 
 .. autoclass:: BlockingScheduler
+    :show-inheritance:
 
 
 Introduction

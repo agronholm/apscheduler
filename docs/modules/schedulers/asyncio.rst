@@ -7,6 +7,7 @@ API
 ---
 
 .. autoclass:: AsyncIOScheduler
+    :show-inheritance:
 
 
 Introduction
