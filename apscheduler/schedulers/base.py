@@ -208,7 +208,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     del self._listeners[i]
 
     def add_job(self, func, trigger=None, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined,
-                coalesce=undefined, max_runs=undefined, max_instances=undefined, jobstore='default', executor='default',
+                coalesce=undefined, max_instances=undefined, jobstore='default', executor='default',
                 replace_existing=False, **trigger_args):
         """
         Adds the given job to the job list and wakes up the scheduler if it's already running.
@@ -233,7 +233,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param int misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
         :param bool coalesce: run once instead of many times if the scheduler determines that the job should be run more
                               than once in succession
-        :param int max_runs: maximum number of times this job is allowed to be triggered
         :param int max_instances: maximum number of concurrently running instances allowed for this job
         :param str|unicode jobstore: alias of the job store to store the job in
         :param str|unicode executor: alias of the executor to run the job with
@@ -263,7 +262,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             'name': name,
             'misfire_grace_time': default_replace('misfire_grace_time', misfire_grace_time),
             'coalesce': default_replace('coalesce', coalesce),
-            'max_runs': default_replace('max_runs', max_runs),
             'max_instances': default_replace('max_instances', max_instances),
         }
         job = Job(self, jobstore, **job_kwargs)
@@ -279,13 +277,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         return job
 
     def scheduled_job(self, trigger, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined,
-                      coalesce=undefined, max_runs=undefined, max_instances=undefined, jobstore='default',
-                      executor='default', **trigger_args):
+                      coalesce=undefined, max_instances=undefined, jobstore='default', executor='default',
+                      **trigger_args):
         """A decorator version of :meth:`add_job`, except that ``replace_existing`` is always ``True``."""
 
         def inner(func):
-            self.add_job(func, trigger, args, kwargs, id, misfire_grace_time, coalesce, name, max_runs, max_instances,
-                         jobstore, executor, True, **trigger_args)
+            self.add_job(func, trigger, args, kwargs, id, name, misfire_grace_time, coalesce, max_instances, jobstore,
+                         executor, True, **trigger_args)
             return func
         return inner
 
@@ -460,7 +458,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self._job_defaults = {
             'misfire_grace_time': asint(job_defaults.get('misfire_grace_time', '1')),
             'coalesce': asbool(job_defaults.get('coalesce', True)),
-            'max_runs': asint(job_defaults.get('max_runs')),
             'max_instances': asint(job_defaults.get('max_instances', '1'))
         }
 
@@ -563,8 +560,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             store.add_job(job)
         except ConflictingIdError:
             if replace_existing:
-                existing_job = store.lookup_job(job.id)
-                job.runs = existing_job.runs
                 store.update(job)
             else:
                 raise
@@ -629,10 +624,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
                         # Update the job if it has a next execution time and the number of runs has not reached maximum,
                         # otherwise remove it from the job store
-                        job_runs = job.runs + len(run_times)
                         job_next_run = job.trigger.get_next_fire_time(now + timedelta(microseconds=1))
-                        if job_next_run and (job.max_runs is None or job_runs < job.max_runs):
-                            job._modify(next_run_time=job_next_run, runs=job_runs)
+                        if job_next_run:
+                            job._modify(next_run_time=job_next_run)
                             jobstore.update_job(job)
                         else:
                             self.remove_job(job.id, jobstore_alias)

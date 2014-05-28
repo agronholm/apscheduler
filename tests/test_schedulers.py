@@ -83,9 +83,9 @@ class TestOfflineScheduler(object):
 
     def test_modify_job(self, scheduler):
         scheduler.add_job(lambda: None, 'interval', seconds=1, id='foo')
-        scheduler.modify_job('foo', max_runs=3456)
+        scheduler.modify_job('foo', max_instances=3456)
         job = scheduler.get_jobs()[0]
-        assert job.max_runs == 3456
+        assert job.max_instances == 3456
 
     def test_configure_jobstore(self, scheduler):
         conf = {'apscheduler.jobstore.memstore.class': 'apscheduler.jobstores.memory:MemoryJobStore'}
@@ -217,17 +217,16 @@ class TestRunningScheduler(object):
 
         job = scheduler.get_job('foo')
         assert job.func is dummyjob
-        assert job.runs == 3
 
     def test_modify_job(self, scheduler):
         events = []
         scheduler.add_listener(events.append, EVENT_JOBSTORE_JOB_MODIFIED)
         scheduler.add_job(lambda: None, 'interval', seconds=1, id='foo')
-        scheduler.modify_job('foo', max_runs=3456)
+        scheduler.modify_job('foo', max_instances=3456)
         assert len(events) == 1
 
         job = scheduler.get_jobs()[0]
-        assert job.max_runs == 3456
+        assert job.max_instances == 3456
 
     def test_modify_job_next_run_time(self, scheduler):
         """Tests that modifying a job's next_run_time will cause the scheduler to be woken up."""
@@ -321,7 +320,7 @@ class TestRunningScheduler(object):
 
     def test_job_finished(self, scheduler, freeze_time):
         vals = [0]
-        job = scheduler.add_job(increment, 'interval', args=(vals,), max_runs=1)
+        job = scheduler.add_job(increment, 'interval', args=(vals,), end_date=freeze_time.current)
         freeze_time.set(job.next_run_time)
         scheduler._process_jobs()
         assert vals == [1]
@@ -351,14 +350,13 @@ class TestRunningScheduler(object):
         events = []
         scheduler.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
         scheduler._wakeup = lambda: None
-        job = scheduler.add_job(increment, 'interval', seconds=1, start_date=freeze_time.current, args=(vals,),
-                                coalesce=True, misfire_grace_time=2)
+        scheduler.add_job(increment, 'interval', seconds=1, start_date=freeze_time.current, args=(vals,),
+                          coalesce=True, misfire_grace_time=2)
 
         # Turn the clock 2 seconds forward
         freeze_time.set(freeze_time.current + timedelta(seconds=2))
 
         scheduler._process_jobs()
-        assert job.runs == 1
         assert len(events) == 1
         assert events[0].code == EVENT_JOB_EXECUTED
         assert vals == [1]
@@ -371,14 +369,13 @@ class TestRunningScheduler(object):
         vals = [0]
         events = []
         scheduler.add_listener(events.append, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
-        job = scheduler.add_job(increment, 'interval', seconds=1, start_date=freeze_time.current, args=(vals,),
-                                coalesce=False, misfire_grace_time=2)
+        scheduler.add_job(increment, 'interval', seconds=1, start_date=freeze_time.current, args=(vals,),
+                          coalesce=False, misfire_grace_time=2)
 
         # Turn the clock 2 seconds forward
         freeze_time.set(freeze_time.current + timedelta(seconds=2))
 
         scheduler._process_jobs()
-        assert job.runs == 3
         assert len(events) == 3
         assert events[0].code == EVENT_JOB_EXECUTED
         assert events[1].code == EVENT_JOB_EXECUTED

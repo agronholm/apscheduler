@@ -20,6 +20,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Dropped the Shelve job store because it could not work with the new job store system
 
+* Dropped the max_runs option and run counting of jobs since it could not be implemented reliably
+
 * Adding jobs is now done exclusively through ``add_job()`` -- the shortcuts to triggers were removed
 
 * Added the ``end_date`` parameter to cron and interval triggers

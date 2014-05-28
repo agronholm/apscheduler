@@ -23,13 +23,11 @@ class Job(object):
     :var str executor: the name of the executor that will run this job
     :var int misfire_grace_time: the time (in seconds) how much this job's execution is allowed to be late
     :var int max_instances: the maximum number of concurrently executing instances allowed for this job
-    :var int runs: the number of times this job has been triggered
-    :var int max_runs: the maximum number of times this job is  allowed to run
     :var datetime.datetime next_run_time: the next scheduled run time of this job
     """
 
     __slots__ = ('_scheduler', '_jobstore', 'id', 'trigger', 'executor', 'func', 'func_ref', 'args', 'kwargs', 'name',
-                 'misfire_grace_time', 'coalesce', 'max_runs', 'max_instances', 'runs', 'next_run_time')
+                 'misfire_grace_time', 'coalesce', 'max_instances', 'next_run_time')
 
     trigger_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
     trigger_classes = {}
@@ -38,7 +36,6 @@ class Job(object):
         super(Job, self).__init__()
         self._scheduler = scheduler
         self._jobstore = jobstore
-        kwargs.setdefault('runs', 0)
         kwargs.setdefault('next_run_time', None)
         self._modify(id=id or uuid4().hex, **kwargs)
 
@@ -96,7 +93,7 @@ class Job(object):
         run_times = []
         run_time = self.next_run_time
         increment = timedelta(microseconds=1)
-        while (not self.max_runs or self.runs < self.max_runs) and run_time and run_time <= now:
+        while run_time and run_time <= now:
             run_times.append(run_time)
             run_time = self.trigger.get_next_fire_time(run_time + increment)
 
@@ -169,18 +166,6 @@ class Job(object):
                 raise TypeError('max_instances must be a positive integer')
             approved['max_instances'] = value
 
-        if 'runs' in changes or 'max_runs' in changes:
-            runs = changes.pop('runs') if 'runs' in changes else self.runs
-            max_runs = changes.pop('max_runs') if 'max_runs' in changes else self.max_runs
-            if not isinstance(runs, six.integer_types) or runs < 0:
-                raise TypeError('runs must be a non-negative integer')
-            if max_runs is not None and (not isinstance(max_runs, six.integer_types) or max_runs <= 0):
-                raise TypeError('max_runs must be either None or a positive integer')
-            if max_runs is not None and runs >= max_runs:
-                raise TypeError('runs (%d) may not be equal to or over max_runs (%d)' % (runs, max_runs))
-            approved['runs'] = runs
-            approved['max_runs'] = max_runs
-
         if 'trigger' in changes:
             trigger = changes.pop('trigger')
             if isinstance(trigger, str):
@@ -236,9 +221,7 @@ class Job(object):
             'name': self.name,
             'misfire_grace_time': self.misfire_grace_time,
             'coalesce': self.coalesce,
-            'max_runs': self.max_runs,
             'max_instances': self.max_instances,
-            'runs': self.runs,
             'next_run_time': self.next_run_time
         }
 
@@ -256,9 +239,7 @@ class Job(object):
         self.name = state['name']
         self.misfire_grace_time = state['misfire_grace_time']
         self.coalesce = state['coalesce']
-        self.max_runs = state['max_runs']
         self.max_instances = state['max_instances']
-        self.runs = state['runs']
         self.next_run_time = state['next_run_time']
 
     def __eq__(self, other):

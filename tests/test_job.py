@@ -82,23 +82,21 @@ class TestJob(object):
         expected = dict(version=1, trigger=job.trigger, executor='default', func='tests.test_job:dummyfunc',
                         name=b'n\xc3\xa4m\xc3\xa9'.decode('utf-8'), args=(), kwargs={},
                         id=b't\xc3\xa9st\xc3\xafd'.decode('utf-8'), misfire_grace_time=1, coalesce=False,
-                        max_runs=None, max_instances=1, runs=0, next_run_time=None)
+                        max_instances=1, next_run_time=None)
         assert state == expected
 
     def test_setstate(self, job, timezone):
         trigger = DateTrigger('2010-12-14 13:05:00', timezone)
         state = dict(version=1, scheduler=MagicMock(), jobstore=MagicMock(), trigger=trigger, executor='dummyexecutor',
                      func='tests.test_job:dummyfunc', name='testjob.dummyfunc', args=[], kwargs={}, id='other_id',
-                     misfire_grace_time=2, max_runs=2, coalesce=True, max_instances=2, runs=1, next_run_time=None)
+                     misfire_grace_time=2, coalesce=True, max_instances=2, next_run_time=None)
         job.__setstate__(state)
         assert job.id == 'other_id'
         assert job.executor == 'dummyexecutor'
         assert job.trigger == trigger
         assert job.func == dummyfunc
-        assert job.max_runs == 2
         assert job.coalesce is True
         assert job.max_instances == 2
-        assert job.runs == 1
         assert job.next_run_time is None
 
     def test_eq(self, create_job, timezone):
