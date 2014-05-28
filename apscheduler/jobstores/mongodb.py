@@ -24,7 +24,8 @@ class MongoDBJobStore(BaseJobStore):
 
     :param str database: database to store jobs in
     :param str collection: collection to store jobs in
-    :param client: a :class:`~pymongo.mongo_client.MongoClient` to use instead of providing connection arguments
+    :param client: a :class:`~pymongo.mongo_client.MongoClient` instance to use instead of providing connection
+                   arguments
     :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the highest available
     """
 

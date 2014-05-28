@@ -6,7 +6,7 @@
 API
 ---
 
-.. autoclass:: MongoDBJobStore
+.. autoclass:: MongoDBJobStore(database='apscheduler', collection='jobs', client=None, pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args)
 
 
 Introduction

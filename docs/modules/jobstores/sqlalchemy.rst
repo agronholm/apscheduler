@@ -6,7 +6,7 @@
 API
 ---
 
-.. autoclass:: SQLAlchemyJobStore
+.. autoclass:: SQLAlchemyJobStore(url=None, engine=None, tablename='apscheduler_jobs', metadata=None, pickle_protocol=pickle.HIGHEST_PROTOCOL)
 
 
 Introduction
