@@ -9,6 +9,25 @@ from apscheduler.util import datetime_ceil, convert_to_datetime, datetime_repr, 
 
 
 class CronTrigger(BaseTrigger):
+    """
+    Triggers when current time matches all specified time constraints, similarly to how the UNIX cron scheduler works.
+
+    :param int|str year: 4-digit year
+    :param int|str month: month (1-12)
+    :param int|str day: day of the (1-31)
+    :param int|str week: ISO week (1-53)
+    :param int|str day_of_week: number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun)
+    :param int|str hour: hour (0-23)
+    :param int|str minute: minute (0-59)
+    :param int|str second: second (0-59)
+    :param datetime|str start_date: earliest possible date/time to trigger on (inclusive)
+    :param datetime|str end_date: latest possible date/time to trigger on (inclusive)
+    :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
+                                         (defaults to scheduler timezone)
+
+    .. note:: The first weekday is always **monday**.
+    """
+
     FIELD_NAMES = ('year', 'month', 'day', 'week', 'day_of_week', 'hour', 'minute', 'second')
     FIELDS_MAP = {
         'year': BaseField,
@@ -23,21 +42,6 @@ class CronTrigger(BaseTrigger):
 
     def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None, minute=None,
                  second=None, start_date=None, end_date=None, timezone=None):
-        """
-        Triggers when current time matches all specified time constraints, emulating the UNIX cron scheduler.
-
-        :param int|str year: year to run on
-        :param int|str month: month to run on
-        :param int|str day: day of month to run on
-        :param int|str week: week of the year to run on
-        :param int|str day_of_week: weekday to run on (0 = Monday)
-        :param int|str hour: hour to run on
-        :param int|str second: second to run on
-        :param datetime|str start_date: earliest possible date/time to trigger on
-        :param datetime|str end_date: latest possible date/time to trigger on
-        :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
-        """
-
         if timezone:
             self.timezone = astimezone(timezone)
         elif start_date and start_date.tzinfo:
