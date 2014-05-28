@@ -278,9 +278,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         return job
 
-    def scheduled_job(self, trigger, args=None, kwargs=None, id=None, name=None, misfire_grace_time=None, coalesce=None,
-                      max_runs=None, max_instances=1, jobstore='default', executor='default', **trigger_args):
-        """A decorator version of :meth:`add_job`."""
+    def scheduled_job(self, trigger, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined,
+                      coalesce=undefined, max_runs=undefined, max_instances=undefined, jobstore='default',
+                      executor='default', **trigger_args):
+        """A decorator version of :meth:`add_job`, except that ``replace_existing`` is always ``True``."""
 
         def inner(func):
             self.add_job(func, trigger, args, kwargs, id, misfire_grace_time, coalesce, name, max_runs, max_instances,
