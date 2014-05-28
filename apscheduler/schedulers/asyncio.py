@@ -18,7 +18,15 @@ def run_in_event_loop(func):
 
 
 class AsyncIOScheduler(BaseScheduler):
-    """A scheduler that runs on an asyncio (PEP 3156) event loop."""
+    """
+    A scheduler that runs on an asyncio (:pep:`3156`) event loop.
+
+    Extra options:
+
+    ============== =============================================================
+    ``event_loop`` AsyncIO event loop to use (defaults to the global event loop)
+    ============== =============================================================
+    """
 
     _eventloop = None
     _timeout = None

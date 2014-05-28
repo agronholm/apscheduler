@@ -3,8 +3,8 @@
 
 .. automodule:: apscheduler.schedulers.base
 
-Module Contents
----------------
+API
+---
 
 .. autoclass:: BaseScheduler
     :members:

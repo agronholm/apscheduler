@@ -18,7 +18,15 @@ def run_in_reactor(func):
 
 
 class TwistedScheduler(BaseScheduler):
-    """A scheduler that runs on a Twisted reactor."""
+    """
+    A scheduler that runs on a Twisted reactor.
+
+    Extra options:
+
+    =========== ========================================================
+    ``reactor`` Reactor instance to use (defaults to the global reactor)
+    =========== ========================================================
+    """
 
     _reactor = None
     _delayedcall = None

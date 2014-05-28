@@ -19,7 +19,13 @@ def run_in_ioloop(func):
 
 
 class TornadoScheduler(BaseScheduler):
-    """A scheduler that runs on a Tornado IOLoop."""
+    """
+    A scheduler that runs on a Tornado IOLoop.
+
+    =========== ===============================================================
+    ``io_loop`` Tornado IOLoop instance to use (defaults to the global IO loop)
+    =========== ===============================================================
+    """
 
     _ioloop = None
     _timeout = None
