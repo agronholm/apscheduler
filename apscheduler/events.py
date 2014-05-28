@@ -4,16 +4,16 @@ __all__ = ('EVENT_SCHEDULER_START', 'EVENT_SCHEDULER_SHUTDOWN', 'EVENT_JOBSTORE_
            'JobEvent')
 
 
-EVENT_SCHEDULER_START = 1         # The scheduler was started
-EVENT_SCHEDULER_SHUTDOWN = 2      # The scheduler was shut down
-EVENT_JOBSTORE_ADDED = 4          # A job store was added to the scheduler
-EVENT_JOBSTORE_REMOVED = 8        # A job store was removed from the scheduler
-EVENT_JOBSTORE_JOB_ADDED = 16     # A job was added to a job store
-EVENT_JOBSTORE_JOB_REMOVED = 32   # A job was removed from a job store
-EVENT_JOBSTORE_JOB_MODIFIED = 64  # A job was modified from outside the scheduler
-EVENT_JOB_EXECUTED = 128          # A job was executed successfully
-EVENT_JOB_ERROR = 256             # A job raised an exception during execution
-EVENT_JOB_MISSED = 512            # A job's execution was missed
+EVENT_SCHEDULER_START = 1
+EVENT_SCHEDULER_SHUTDOWN = 2
+EVENT_JOBSTORE_ADDED = 4
+EVENT_JOBSTORE_REMOVED = 8
+EVENT_JOBSTORE_JOB_ADDED = 16
+EVENT_JOBSTORE_JOB_REMOVED = 32
+EVENT_JOBSTORE_JOB_MODIFIED = 64
+EVENT_JOB_EXECUTED = 128
+EVENT_JOB_ERROR = 256
+EVENT_JOB_MISSED = 512
 EVENT_ALL = (EVENT_SCHEDULER_START | EVENT_SCHEDULER_SHUTDOWN | EVENT_JOBSTORE_ADDED | EVENT_JOBSTORE_REMOVED |
              EVENT_JOBSTORE_JOB_ADDED | EVENT_JOBSTORE_JOB_REMOVED | EVENT_JOBSTORE_JOB_MODIFIED | EVENT_JOB_EXECUTED |
              EVENT_JOB_ERROR | EVENT_JOB_MISSED)
