@@ -211,17 +211,18 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 coalesce=undefined, max_runs=undefined, max_instances=undefined, jobstore='default', executor='default',
                 replace_existing=False, **trigger_args):
         """
-        Adds the given job to the job list and notifies the scheduler thread.
+        Adds the given job to the job list and wakes up the scheduler if it's already running.
+
+        Any argument that defaults to ``undefined`` will use scheduler defaults if no value is provided.
 
         The ``func`` argument can be given either as a callable object or a textual reference in the
         ``package.module:some.object`` format, where the first half (separated by ``:``) is an importable module and the
         second half is a reference to the callable object, relative to the module.
 
         The ``trigger`` argument can either be:
-
-        #. the plugin name of the trigger (e.g. "cron"), in which case any extra keyword arguments to this method are
-          passed on to the trigger's constructor
-        #. an instance of a trigger class
+          #. the alias name of the trigger (e.g. ``date``, ``interval`` or ``cron``), in which case any extra keyword
+             arguments to this method are passed on to the trigger's constructor
+          #. an instance of a trigger class
 
         :param func: callable (or a textual reference to one) to run at the given time
         :param str|apscheduler.triggers.base.BaseTrigger trigger: trigger that determines when ``func`` is called
