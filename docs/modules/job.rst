@@ -3,8 +3,8 @@
 
 .. automodule:: apscheduler.job
 
-Module Contents
----------------
+API
+---
 
 .. autoclass:: Job
     :members:

@@ -46,12 +46,36 @@ class Job(object):
         """
         Makes the given changes to this job and saves it in the associated job store.
         Accepted keyword arguments are the same as the variables on this class.
+
+        .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.modify_job`
         """
 
-        self._scheduler.modify_job(self.id, **changes)
+        self._scheduler.modify_job(self.id, self._jobstore, **changes)
+
+    def pause(self):
+        """
+        Temporarily suspend the execution of this job.
+
+        .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.pause_job`
+        """
+
+        self._scheduler.pause_job(self.id, self._jobstore)
+
+    def resume(self):
+        """
+        Resume the schedule of this job if previously paused.
+
+        .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.resume_job`
+        """
+
+        self._scheduler.resume_job(self.id, self._jobstore)
 
     def remove(self):
-        """Unschedules this job and removes it from its associated job store."""
+        """
+        Unschedules this job and removes it from its associated job store.
+
+        .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.remove_job`
+        """
 
         self._scheduler.remove_job(self.id, self._jobstore)
 
