@@ -224,7 +224,7 @@ def test_repr_sqlalchemyjobstore(sqlalchemyjobstore):
 
 
 def test_repr_mongodbjobstore(mongodbjobstore):
-    assert repr(mongodbjobstore) == "<MongoDBJobStore (connection=Connection('localhost', 27017))>"
+    assert repr(mongodbjobstore) == "<MongoDBJobStore (client=MongoClient('localhost', 27017))>"
 
 
 def test_repr_redisjobstore(redisjobstore):
@@ -254,15 +254,15 @@ def test_sqlalchemy_missing_engine():
     assert 'Need either' in str(exc.value)
 
 
-def test_mongodb_connection_ref():
-    global mongodb_connection
+def test_mongodb_client_ref():
+    global mongodb_client
     mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
-    mongodb_connection = mongodb.Connection()
+    mongodb_client = mongodb.MongoClient()
     try:
-        mongodb.MongoDBJobStore(connection='%s:mongodb_connection' % __name__)
+        mongodb.MongoDBJobStore(client='%s:mongodb_client' % __name__)
     finally:
-        mongodb_connection.disconnect()
-        del mongodb_connection
+        mongodb_client.disconnect()
+        del mongodb_client
 
 
 def test_mongodb_null_database():

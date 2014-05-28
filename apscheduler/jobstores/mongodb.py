@@ -1,6 +1,3 @@
-"""
-Stores jobs in a MongoDB database.
-"""
 from __future__ import absolute_import
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
@@ -15,13 +12,23 @@ except ImportError:  # pragma: nocover
 try:
     from bson.binary import Binary
     from pymongo.errors import DuplicateKeyError
-    from pymongo import Connection, ASCENDING
+    from pymongo import MongoClient, ASCENDING
 except ImportError:  # pragma: nocover
     raise ImportError('MongoDBJobStore requires PyMongo installed')
 
 
 class MongoDBJobStore(BaseJobStore):
-    def __init__(self, database='apscheduler', collection='jobs', connection=None,
+    """
+    Stores jobs in a MongoDB database. Any leftover keyword arguments are directly passed to pymongo's `MongoClient
+    <http://api.mongodb.org/python/current/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient>`_.
+
+    :param str database: database to store jobs in
+    :param str collection: collection to store jobs in
+    :param client: a :class:`~pymongo.mongo_client.MongoClient` to use instead of providing connection arguments
+    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the highest available
+    """
+
+    def __init__(self, database='apscheduler', collection='jobs', client=None,
                  pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
         super(MongoDBJobStore, self).__init__()
         self.pickle_protocol = pickle_protocol
@@ -31,11 +38,11 @@ class MongoDBJobStore(BaseJobStore):
         if not collection:
             raise ValueError('The "collection" parameter must not be empty')
 
-        if connection:
-            self.connection = maybe_ref(connection)
+        if client:
+            self.connection = maybe_ref(client)
         else:
             connect_args.setdefault('w', 1)
-            self.connection = Connection(**connect_args)
+            self.connection = MongoClient(**connect_args)
 
         self.collection = self.connection[database][collection]
         self.collection.ensure_index('next_run_time', sparse=True)
@@ -113,4 +120,4 @@ class MongoDBJobStore(BaseJobStore):
         return jobs
 
     def __repr__(self):
-        return '<%s (connection=%s)>' % (self.__class__.__name__, self.connection)
+        return '<%s (client=%s)>' % (self.__class__.__name__, self.connection)

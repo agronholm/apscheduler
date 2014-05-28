@@ -3,8 +3,8 @@
 
 .. automodule:: apscheduler.jobstores.base
 
-Module Contents
----------------
+API
+---
 
 .. autoclass:: BaseJobStore
     :members:

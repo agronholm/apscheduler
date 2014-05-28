@@ -1,6 +1,3 @@
-"""
-Stores jobs in a database table using SQLAlchemy.
-"""
 from __future__ import absolute_import
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
@@ -20,6 +17,18 @@ except ImportError:  # pragma: nocover
 
 
 class SQLAlchemyJobStore(BaseJobStore):
+    """
+    Stores jobs in a database table using SQLAlchemy. The table will be created if it doesn't exist in the database.
+
+    :param str url: connection string (see `SQLAlchemy documentation
+                    <http://docs.sqlalchemy.org/en/latest/core/engines.html?highlight=create_engine#database-urls>`_
+                    on this)
+    :param engine: an SQLAlchemy Engine to use instead of creating a new one based on ``url``
+    :param str tablename: name of the table to store jobs in
+    :param metadata: a :class:`~sqlalchemy.MetaData` instance to use instead of creating a new one
+    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the highest available
+    """
+
     def __init__(self, url=None, engine=None, tablename='apscheduler_jobs', metadata=None,
                  pickle_protocol=pickle.HIGHEST_PROTOCOL):
         super(SQLAlchemyJobStore, self).__init__()

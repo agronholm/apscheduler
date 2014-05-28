@@ -1,6 +1,3 @@
-"""
-Stores jobs in a Redis database.
-"""
 from __future__ import absolute_import
 
 import six
@@ -21,6 +18,15 @@ except ImportError:  # pragma: nocover
 
 
 class RedisJobStore(BaseJobStore):
+    """
+    Stores jobs in a Redis database. Any leftover keyword arguments are directly passed to redis's StrictRedis.
+
+    :param int db: the database number to store jobs in
+    :param str jobs_key: key to store jobs in
+    :param str run_times_key: key to store the jobs' run times in
+    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the highest available
+    """
+
     def __init__(self, db=0, jobs_key='apscheduler.jobs', run_times_key='apscheduler.run_times',
                  pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
         super(RedisJobStore, self).__init__()

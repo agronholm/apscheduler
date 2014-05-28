@@ -3,8 +3,22 @@
 
 .. automodule:: apscheduler.jobstores.mongodb
 
-Module Contents
----------------
+API
+---
 
 .. autoclass:: MongoDBJobStore
-    :members:
+
+
+Introduction
+------------
+
+MongoDBJobStore stores jobs in a `MongoDB <http://www.mongodb.com/>`_ database.
+
+.. list-table::
+   :widths: 1 4
+
+   * - External dependencies
+     - `pymongo <https://pypi.python.org/pypi/pymongo/>`_
+   * - Example
+     - ``examples/jobstores/mongodb.py``
+       (`view online <https://bitbucket.org/agronholm/apscheduler/src/master/examples/jobstores/mongodb.py>`_).
