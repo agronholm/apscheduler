@@ -1,3 +1,11 @@
+###########################
+Contributing to APScheduler
+###########################
+
+If you wish to add a feature or fix a bug in APScheduler, you need to follow certain procedures and rules to get your
+changes accepted. This is to maintain the high quality of the code base.
+
+
 Contribution Process
 ====================
 

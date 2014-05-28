@@ -1,31 +1,43 @@
-Migrating from APScheduler v2.x to 3.0
-======================================
+###############################################
+Migrating from previous versions of APScheduler
+###############################################
 
-The 3.0 series is API incompatible with previous releases due to a design
-overhaul.
+From v2.x to 3.0
+================
 
-API changes
------------
+The 3.0 series is API incompatible with previous releases due to a design overhaul.
+
+Configuration changes
+---------------------
+
+* The "operating mode" concept is gone -- use either BlockingScheduler or BackgroundScheduler directly
+
+Scheduler API changes
+---------------------
 
 * The trigger-specific scheduling methods have been removed entirely from the
   Scheduler class. Instead, you have to use the
-  :meth:`~apscheduler.scheduler.Scheduler.add_job` method or the
-  :meth:`~apscheduler.scheduler.Scheduler.scheduled_job` decorator, giving the
+  :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job` method or the
+  :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job` decorator, giving the
   entry point name of the trigger, or an already constructed instance.
   It should also be noted that the signature of
-  :meth:`~apscheduler.scheduler.Scheduler.add_job` has changed due to this.
-* Adding a job before the scheduler has been started can now fail if no next
-  execution time can be calculated for it. Previously it would only fail when
-  the scheduler was started.
+  :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job` has changed due to this.
 * The "simple" trigger has been renamed to "date"
+* The old thread pool is gone and it is replaced by :class:`~apscheduler.executors.pool.PoolExecutor`
+
+Job store changes
+-----------------
+
+The job store system was completely overhauled for both efficiency and forwards compatibility.
+Unfortunately, this means that the old data is not compatible with the new job stores.
+If you need to migrate existing data from APScheduler 2.x to 3.x, contact the APScheduler author.
 
 
-Migrating from APScheduler v1.x to 2.0
-======================================
+From v1.x to 2.0
+================
 
 There have been some API changes since the 1.x series. This document
 explains the changes made to v2.0 that are incompatible with the v1.x API.
-
 
 API changes
 -----------

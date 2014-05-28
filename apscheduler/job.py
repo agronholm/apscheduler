@@ -82,6 +82,10 @@ class Job(object):
 
         return isinstance(self._jobstore, six.string_types)
 
+    #
+    # Private API
+    #
+
     def _get_run_times(self, now):
         """
         Computes the scheduled run times between ``next_run_time`` and ``now``.

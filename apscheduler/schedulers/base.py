@@ -22,7 +22,17 @@ from apscheduler.events import (
 
 
 class BaseScheduler(six.with_metaclass(ABCMeta)):
-    """Base class for all schedulers."""
+    """
+    Abstract base class for all schedulers. Takes the following keyword arguments:
+
+    :param str|logging.Logger logger: logger to use for the scheduler's logging (defaults to apscheduler.scheduler)
+    :param str|datetime.tzinfo timezone: the default time zone (defaults to the local timezone)
+    :param dict job_defaults: default values for newly added jobs
+    :param dict jobstores: a dictionary of job store alias -> job store instance or configuration dict
+    :param dict executors: a dictionary of executor alias -> executor instance or configuration dict
+
+    .. seealso:: :ref:`scheduler-config`
+    """
 
     _stopped = True
 
@@ -188,12 +198,17 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     def add_listener(self, callback, mask=EVENT_ALL):
         """
+        add_listener(callback, mask=EVENT_ALL)
+
         Adds a listener for scheduler events. When a matching event occurs, ``callback`` is executed with the event
         object as its sole argument. If the ``mask`` parameter is not provided, the callback will receive events of all
         types.
 
         :param callback: any callable that takes one argument
         :param int mask: bitmask that indicates which events should be listened to
+
+        .. seealso:: :mod:`apscheduler.events`
+        .. seealso:: :ref:`scheduler-events`
         """
 
         with self._listeners_lock:
@@ -211,6 +226,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 coalesce=undefined, max_instances=undefined, jobstore='default', executor='default',
                 replace_existing=False, **trigger_args):
         """
+        add_job(func, trigger=None, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined, \
+            coalesce=undefined, max_instances=undefined, jobstore='default', executor='default', \
+            replace_existing=False, **trigger_args)
+
         Adds the given job to the job list and wakes up the scheduler if it's already running.
 
         Any argument that defaults to ``undefined`` will use scheduler defaults if no value is provided.
@@ -279,7 +298,15 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     def scheduled_job(self, trigger, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined,
                       coalesce=undefined, max_instances=undefined, jobstore='default', executor='default',
                       **trigger_args):
-        """A decorator version of :meth:`add_job`, except that ``replace_existing`` is always ``True``."""
+        """
+        scheduled_job(trigger, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined, \
+            coalesce=undefined, max_instances=undefined, jobstore='default', executor='default',**trigger_args)
+
+        A decorator version of :meth:`add_job`, except that ``replace_existing`` is always ``True``.
+
+        .. important:: The ``id`` argument must be given if scheduling a job in a persistent job store. The scheduler
+           cannot, however, enforce this requirement.
+        """
 
         def inner(func):
             self.add_job(func, trigger, args, kwargs, id, name, misfire_grace_time, coalesce, max_instances, jobstore,
@@ -420,6 +447,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     def print_jobs(self, jobstore=None, out=None):
         """
+        print_jobs(jobstore=None, out=sys.stdout)
+
         Prints out a textual listing of all jobs currently scheduled on either all job stores or just a specific one.
 
         :param str|unicode jobstore: alias of the job store, ``None`` to list jobs from all stores
@@ -445,7 +474,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                         print(six.u('    No scheduled jobs'), file=out)
 
     #
-    # Protected API
+    # Private API
     #
 
     def _configure(self, config):

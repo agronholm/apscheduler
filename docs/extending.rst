@@ -1,12 +1,12 @@
+#####################
 Extending APScheduler
-=====================
+#####################
 
-This document is meant to explain how to add extra functionality to
-APScheduler, such as custom triggers or job stores.
+This document is meant to explain how to develop your custom triggers, job stores, executors or schedulers.
 
 
-Writing and using custom triggers
----------------------------------
+Custom triggers
+---------------
 
 Triggers determine the times when the jobs should be run.
 APScheduler comes with three built-in triggers --
@@ -25,16 +25,15 @@ according to whatever scheduling logic you wish to implement. If no such
 datetime can be computed, it should return ``None``.
 
 To schedule a job using your custom trigger, you can either extends the 
-:class:`~apscheduler.scheduler.Scheduler` class to include your own shortcuts,
-or use the generic :meth:`~apscheduler.scheduler.Scheduler.add_job` method to
+:class:`~apscheduler.schedulers.base.BaseScheduler` class to include your own shortcuts,
+or use the generic :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job` method to
 add your jobs.
 
 
-Writing and using custom job stores
------------------------------------
+Custom job stores
+-----------------
 
-Job store classes should preferably inherit from
-:class:`apscheduler.jobstores.base.JobStore`. This class provides stubbed out
+Job store classes must inherit from :class:`apscheduler.jobstores.base.BaseJobStore`. This class provides stubbed out
 methods which any implementation should override. These methods also contain
 useful documentation regarding the responsibilities of a job store. It is
 recommended that you look at the existing job store implementations for
@@ -44,3 +43,11 @@ To use your job store, you must add it to the scheduler as normal::
 
   jobstore = MyJobStore()
   scheduler.add_jobstore(jobstore, 'mystore')
+
+
+Custom executors
+----------------
+
+
+Custom schedulers
+-----------------
