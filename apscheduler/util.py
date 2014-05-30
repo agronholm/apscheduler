@@ -11,7 +11,7 @@ import six
 
 try:
     from inspect import signature
-except ImportError:
+except ImportError:  # pragma: nocover
     try:
         from funcsigs import signature
     except ImportError:
@@ -107,7 +107,7 @@ def convert_to_datetime(input, tz, arg_name):
         values = dict(values)
         datetime_ = datetime(**values)
     else:
-        raise TypeError('Unsupported input type: %s' % type(input))
+        raise TypeError('Unsupported input type: %s' % input.__class__.__name__)
 
     if datetime_.tzinfo is not None:
         return datetime_

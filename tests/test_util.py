@@ -1,16 +1,16 @@
 # coding: utf-8
 from datetime import date, datetime, timedelta, tzinfo
 from functools import partial
-import shelve
 
 import pytest
 import pytz
+import six
 
 from apscheduler.util import (
     asint, asbool, astimezone, convert_to_datetime, datetime_to_utc_timestamp, utc_timestamp_to_datetime,
     timedelta_seconds, datetime_ceil, combine_opts, get_callable_name, obj_to_ref, ref_to_obj, maybe_ref,
-    check_callable_args)
-from tests.conftest import minpython
+    check_callable_args, datetime_repr, repr_escape)
+from tests.conftest import minpython, maxpython
 
 
 class DummyClass(object):
@@ -34,97 +34,91 @@ class DummyClass(object):
             pass
 
 
-def test_asint_invalid_1():
-    pytest.raises(ValueError, asint, '5s')
+class TestAsint(object):
+    @pytest.mark.parametrize('value', ['5s', 'shplse'], ids=['digit first', 'text'])
+    def test_invalid_value(self, value):
+        pytest.raises(ValueError, asint, value)
+
+    def test_number(self):
+        assert asint('539') == 539
+
+    def test_none(self):
+        assert asint(None) is None
 
 
-def test_asint_invalid_2():
-    pytest.raises(ValueError, asint, 'shplse')
+class TestAsbool(object):
+    @pytest.mark.parametrize('value', [' True', 'true ', 'Yes', ' yes ', '1  ', True],
+                             ids=['capital true', 'lowercase true', 'capital yes', 'lowercase yes', 'one', 'True'])
+    def test_true(self, value):
+        assert asbool(value) is True
+
+    @pytest.mark.parametrize('value', [' False', 'false ', 'No', ' no ', '0  ', False],
+                             ids=['capital', 'lowercase false', 'capital no', 'lowercase no', 'zero', 'False'])
+    def test_false(self, value):
+        assert asbool(value) is False
+
+    def test_bad_value(self):
+        pytest.raises(ValueError, asbool, 'yep')
 
 
-def test_asint_number():
-    assert asint('539') == 539
+class TestAstimezone(object):
+    def test_str(self):
+        value = astimezone('Europe/Helsinki')
+        assert isinstance(value, tzinfo)
+
+    def test_tz(self):
+        tz = pytz.timezone('Europe/Helsinki')
+        value = astimezone(tz)
+        assert tz is value
+
+    def test_none(self):
+        assert astimezone(None) is None
+
+    def test_bad_timezone_type(self):
+        exc = pytest.raises(TypeError, astimezone, tzinfo())
+        assert 'Only timezones from the pytz library are supported' in str(exc.value)
+
+    def test_bad_value(self):
+        exc = pytest.raises(TypeError, astimezone, 4)
+        assert 'Expected tzinfo, got int instead' in str(exc.value)
 
 
-def test_asint_none():
-    assert asint(None) is None
+class TestConvertToDatetime(object):
+    @pytest.mark.parametrize('input,expected', [
+        (None, None),
+        (date(2009, 8, 1), datetime(2009, 8, 1)),
+        (datetime(2009, 8, 1, 5, 6, 12), datetime(2009, 8, 1, 5, 6, 12)),
+        ('2009-8-1', datetime(2009, 8, 1)),
+        ('2009-8-1 5:16:12', datetime(2009, 8, 1, 5, 16, 12)),
+        (pytz.FixedOffset(-60).localize(datetime(2009, 8, 1)), pytz.FixedOffset(-60).localize(datetime(2009, 8, 1)))
+    ], ids=['None', 'date', 'datetime', 'date as text', 'datetime as text', 'existing tzinfo'])
+    def test_date(self, timezone, input, expected):
+        returned = convert_to_datetime(input, timezone, None)
+        if expected is not None:
+            assert isinstance(returned, datetime)
+            expected = timezone.localize(expected) if not expected.tzinfo else expected
 
+        assert returned == expected
 
-def test_asbool_true():
-    for val in (' True', 'true ', 'Yes', ' yes ', '1  '):
-        assert asbool(val) is True
-    assert asbool(True) is True
+    def test_invalid_input_type(self, timezone):
+        exc = pytest.raises(TypeError, convert_to_datetime, 92123, timezone, None)
+        assert str(exc.value) == 'Unsupported input type: int'
 
+    def test_invalid_input_value(self, timezone):
+        exc = pytest.raises(ValueError, convert_to_datetime, '19700-12-1', timezone, None)
+        assert str(exc.value) == 'Invalid date string'
 
-def test_asbool_false():
-    for val in (' False', 'false ', 'No', ' no ', '0  '):
-        assert asbool(val) is False
-    assert asbool(False) is False
+    def test_missing_timezone(self):
+        exc = pytest.raises(ValueError, convert_to_datetime, '2009-8-1', None, 'argname')
+        assert str(exc.value) == 'The "tz" argument must be specified if argname has no timezone information'
 
+    def test_text_timezone(self):
+        returned = convert_to_datetime('2009-8-1', 'UTC', None)
+        assert returned == datetime(2009, 8, 1, tzinfo=pytz.utc)
 
-def test_asbool_fail():
-    pytest.raises(ValueError, asbool, 'yep')
-
-
-def test_astimezone_str():
-    value = astimezone('Europe/Helsinki')
-    assert isinstance(value, tzinfo)
-
-
-def test_astimezone_tz():
-    tz = pytz.timezone('Europe/Helsinki')
-    value = astimezone(tz)
-    assert tz is value
-
-
-def test_astimezone_none():
-    assert astimezone(None) is None
-
-
-def test_astimezone_fail():
-    pytest.raises(TypeError, astimezone, 4)
-
-
-def test_convert_datetime_date(timezone):
-    dateval = date(2009, 8, 1)
-    datetimeval = convert_to_datetime(dateval, timezone, None)
-    assert isinstance(datetimeval, datetime)
-    assert datetimeval == timezone.localize(datetime(2009, 8, 1))
-
-
-def test_convert_datetime_passthrough(timezone):
-    datetimeval = datetime(2009, 8, 1, 5, 6, 12)
-    convertedval = convert_to_datetime(datetimeval, timezone, None)
-    assert convertedval == timezone.localize(datetimeval)
-
-
-def test_convert_datetime_text1(timezone):
-    convertedval = convert_to_datetime('2009-8-1', timezone, None)
-    assert convertedval == timezone.localize(datetime(2009, 8, 1))
-
-
-def test_convert_datetime_text2(timezone):
-    convertedval = convert_to_datetime('2009-8-1 5:16:12', timezone, None)
-    assert convertedval == timezone.localize(datetime(2009, 8, 1, 5, 16, 12))
-
-
-def test_datestring_parse_datetime_micro(timezone):
-    convertedval = convert_to_datetime('2009-8-1 5:16:12.843821', timezone, None)
-    assert convertedval == timezone.localize(datetime(2009, 8, 1, 5, 16, 12, 843821))
-
-
-def test_existing_tzinfo(timezone):
-    alter_tz = pytz.FixedOffset(-60)
-    dateval = alter_tz.localize(datetime(2009, 8, 1))
-    assert convert_to_datetime(dateval, timezone, None) == dateval
-
-
-def test_convert_datetime_invalid(timezone):
-    pytest.raises(TypeError, convert_to_datetime, 995302092123, timezone, None)
-
-
-def test_convert_datetime_invalid_str(timezone):
-    pytest.raises(ValueError, convert_to_datetime, '19700-12-1', timezone, None)
+    def test_bad_timezone(self):
+        exc = pytest.raises(TypeError, convert_to_datetime, '2009-8-1', tzinfo(), None)
+        assert str(exc.value) == 'Only pytz timezones are supported (need the localize() and normalize() methods)'
 
 
 def test_datetime_to_utc_timestamp(timezone):
@@ -140,62 +134,96 @@ def test_timedelta_seconds():
     assert seconds == 150
 
 
-def test_datetime_ceil_round():
-    dateval = datetime(2009, 4, 7, 2, 10, 16, 4000)
-    correct_answer = datetime(2009, 4, 7, 2, 10, 17)
-    assert datetime_ceil(dateval) == correct_answer
+@pytest.mark.parametrize('input,expected', [
+    (datetime(2009, 4, 7, 2, 10, 16, 4000), datetime(2009, 4, 7, 2, 10, 17)),
+    (datetime(2009, 4, 7, 2, 10, 16), datetime(2009, 4, 7, 2, 10, 16))
+], ids=['milliseconds', 'exact'])
+def test_datetime_ceil(input, expected):
+    assert datetime_ceil(input) == expected
 
 
-def test_datetime_ceil_exact():
-    dateval = datetime(2009, 4, 7, 2, 10, 16)
-    correct_answer = datetime(2009, 4, 7, 2, 10, 16)
-    assert datetime_ceil(dateval) == correct_answer
+@pytest.mark.parametrize('input,expected', [
+    (None, 'None'),
+    (pytz.timezone('Europe/Helsinki').localize(datetime(2014, 5, 30, 7, 12, 20)), '2014-05-30 07:12:20 EEST')
+], ids=['None', 'datetime+tzinfo'])
+def test_datetime_repr(input, expected):
+    assert datetime_repr(input) == expected
 
 
 def test_combine_opts():
-    global_opts = {'someprefix.opt1': '123',
-                   'opt2': '456',
-                   'someprefix.opt3': '789'}
+    global_opts = {'someprefix.opt1': '123', 'opt2': '456', 'someprefix.opt3': '789'}
     local_opts = {'opt3': 'abc'}
     combined = combine_opts(global_opts, 'someprefix.', local_opts)
     assert combined == dict(opt1='123', opt3='abc')
 
 
-def test_callable_name():
-    assert get_callable_name(test_callable_name) == 'test_callable_name'
-    assert get_callable_name(DummyClass.staticmeth) == 'staticmeth'
-    assert get_callable_name(DummyClass.classmeth) == 'DummyClass.classmeth'
-    assert get_callable_name(DummyClass.meth) == 'meth'
-    assert get_callable_name(DummyClass().meth) == 'DummyClass.meth'
-    assert get_callable_name(DummyClass) == 'DummyClass'
-    assert get_callable_name(DummyClass()) == 'DummyClass'
-    pytest.raises(TypeError, get_callable_name, object())
+class TestGetCallableName(object):
+    @pytest.mark.parametrize('input,expected', [
+        (asint, 'asint'),
+        (DummyClass.staticmeth, 'staticmeth'),
+        (DummyClass.classmeth, 'DummyClass.classmeth'),
+        (DummyClass.meth, 'meth'),
+        (DummyClass().meth, 'DummyClass.meth'),
+        (DummyClass, 'DummyClass'),
+        (DummyClass(), 'DummyClass')
+    ], ids=['function', 'static method', 'class method', 'unbounded method', 'bounded method', 'class', 'instance'])
+    def test_inputs(self, input, expected):
+        assert get_callable_name(input) == expected
+
+    def test_bad_input(self):
+        pytest.raises(TypeError, get_callable_name, object())
 
 
-def test_obj_to_ref():
-    pytest.raises(ValueError, obj_to_ref, DummyClass.meth)
-    pytest.raises(ValueError, obj_to_ref, DummyClass.staticmeth)
-    pytest.raises(ValueError, obj_to_ref, partial(DummyClass.meth))
-    assert obj_to_ref(DummyClass.classmeth) == 'tests.test_util:DummyClass.classmeth'
-    assert obj_to_ref(shelve.open) == 'shelve:open'
+class TestObjToRef(object):
+    @pytest.mark.parametrize('input', [DummyClass.meth, DummyClass.staticmeth, partial(DummyClass.meth)],
+                             ids=['bound method', 'static method', 'partial/bound method'])
+    def test_no_ref_found(self, input):
+        exc = pytest.raises(ValueError, obj_to_ref, input)
+        assert 'Cannot determine the reference to ' in str(exc.value)
+
+    @pytest.mark.parametrize('input,expected', [
+        (DummyClass.classmeth, 'tests.test_util:DummyClass.classmeth'),
+        (timedelta, 'datetime:timedelta'),
+    ], ids=['class method', 'timedelta'])
+    def test_valid_refs(self, input, expected):
+        assert obj_to_ref(input) == expected
+
+    @minpython(3, 3)
+    def test_inner_class_method(self):
+        """Tests that a reference to a class method of an inner class can be discovered."""
+
+        assert obj_to_ref(DummyClass.InnerDummyClass.innerclassmeth) == \
+            'tests.test_util:DummyClass.InnerDummyClass.innerclassmeth'
 
 
-@minpython(3, 3)
-def test_inner_obj_to_ref():
-    assert obj_to_ref(DummyClass.InnerDummyClass.innerclassmeth) == \
-        'tests.test_util:DummyClass.InnerDummyClass.innerclassmeth'
+class TestRefToObj(object):
+    def test_valid_ref(self):
+        assert ref_to_obj('datetime:timedelta') == timedelta
+
+    @pytest.mark.parametrize('input,error', [
+        (object(), TypeError),
+        ('module', ValueError),
+        ('module:blah', LookupError)
+    ], ids=['raw object', 'module', 'module attribute'])
+    def test_lookup_error(self, input, error):
+        pytest.raises(error, ref_to_obj, input)
 
 
-def test_ref_to_obj():
-    assert ref_to_obj('shelve:open') == shelve.open
-    pytest.raises(TypeError, ref_to_obj, object())
-    pytest.raises(ValueError, ref_to_obj, 'module')
-    pytest.raises(LookupError, ref_to_obj, 'module:blah')
+@pytest.mark.parametrize('input,expected', [
+    ('datetime:timedelta', timedelta),
+    (timedelta, timedelta)
+], ids=['textref', 'direct'])
+def test_maybe_ref(input, expected):
+    assert maybe_ref(input) == expected
 
 
-def test_maybe_ref():
-    assert maybe_ref('shelve:open') == shelve.open
-    assert maybe_ref(shelve.open) == shelve.open
+@pytest.mark.parametrize('input,expected', [
+    (b'T\xc3\xa9st'.decode('utf-8'), 'T\\xe9st' if six.PY2 else 'Tést'),
+    (1, 1)
+])
+@maxpython(3)
+def test_repr_escape_py2(input, expected):
+    assert repr_escape(input) == expected
 
 
 class TestCheckCallableArgs(object):
