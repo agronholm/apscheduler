@@ -5,15 +5,17 @@ from datetime import datetime, timedelta
 from logging import getLogger
 import sys
 
+from pkg_resources import iter_entry_points
 from tzlocal import get_localzone
 import six
 
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
 from apscheduler.executors.base import MaxInstancesReachedError
 from apscheduler.executors.pool import PoolExecutor
-from apscheduler.jobstores.base import ConflictingIdError
+from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job
+from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import combine_opts, maybe_ref, asbool, astimezone, timedelta_seconds, undefined, asint
 from apscheduler.events import (
     SchedulerEvent, JobStoreEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOBSTORE_ADDED,
@@ -34,6 +36,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     .. seealso:: :ref:`scheduler-config`
     """
 
+    trigger_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
+    trigger_classes = {}
     _stopped = True
 
     #
@@ -96,8 +100,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 store.start(self, alias)
 
             # Schedule all pending jobs
-            for job, jobstore, replace_existing in self._pending_jobs:
-                self._real_add_job(job, replace_existing, False)
+            for job, jobstore_alias, replace_existing in self._pending_jobs:
+                self._real_add_job(job, jobstore_alias, replace_existing, False)
             del self._pending_jobs[:]
 
         self._stopped = False
@@ -260,19 +264,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :rtype: Job
         """
 
-        # Use the scheduler's time zone if nothing else is specified
-        trigger_args.setdefault('timezone', self.timezone)
-
-        # If no trigger was specified, assume that the job should be run now
-        if trigger is None:
-            trigger = 'date'
-            misfire_grace_time = None
-
         # Assemble the final job arguments, substituting with default values where no other value is provided
         default_replace = lambda key, value: value if value is not undefined else self._job_defaults.get(key)
         job_kwargs = {
-            'trigger': trigger,
-            'trigger_args': trigger_args,
+            'trigger': self._create_trigger(trigger, trigger_args),
             'executor': executor,
             'func': func,
             'args': tuple(args) if args is not None else (),
@@ -283,7 +278,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             'coalesce': default_replace('coalesce', coalesce),
             'max_instances': default_replace('max_instances', max_instances),
         }
-        job = Job(self, jobstore, **job_kwargs)
+        job = Job(self, **job_kwargs)
 
         # Don't really add jobs to job stores before the scheduler is up and running
         with self._jobstores_lock:
@@ -291,7 +286,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 self._pending_jobs.append((job, jobstore, replace_existing))
                 self._logger.info('Adding job tentatively -- it will be properly scheduled when the scheduler starts')
             else:
-                self._real_add_job(job, replace_existing, True)
+                self._real_add_job(job, jobstore, replace_existing, True)
 
         return job
 
@@ -314,7 +309,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             return func
         return inner
 
-    def modify_job(self, job_id, jobstore='default', **changes):
+    def modify_job(self, job_id, jobstore=None, **changes):
         """
         Modifies the properties of a single job. Modifications are passed to this method as extra keyword arguments.
 
@@ -323,24 +318,32 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
 
         with self._jobstores_lock:
-            # Check if the job is among the pending jobs
-            for job, store, replace_existing in self._pending_jobs:
-                if job.id == job_id:
-                    job._modify(**changes)
-                    return
-
-            # Otherwise, look up the job store, make the modifications to the job and have the store update it
-            store = self._lookup_jobstore(jobstore)
-            job = store.lookup_job(changes.get('id', job_id))
+            job, jobstore = self._lookup_job(job_id, jobstore)
             job._modify(**changes)
-            store.update_job(job)
+            if jobstore:
+                self._lookup_jobstore(jobstore).update_job(job)
 
         self._dispatch_event(JobStoreEvent(EVENT_JOBSTORE_JOB_MODIFIED, jobstore, job_id))
 
         # Wake up the scheduler since the job's next run time may have been changed
         self._wakeup()
 
-    def pause_job(self, job_id, jobstore='default'):
+    def reschedule_job(self, job_id, jobstore=None, trigger=None, **trigger_args):
+        """
+        Constructs a new trigger for a job and updates its next run time.
+        Extra keyword arguments are passed directly to the trigger's constructor.
+
+        :param str|unicode job_id: the identifier of the job
+        :param str|unicode jobstore: alias of the job store that contains the job
+        :param trigger: alias of the trigger type or a trigger instance
+        """
+
+        trigger = self._create_trigger(trigger, trigger_args)
+        now = datetime.now(self.timezone)
+        next_run_time = trigger.get_next_fire_time(now)
+        self.modify_job(job_id, jobstore, trigger=trigger, next_run_time=next_run_time)
+
+    def pause_job(self, job_id, jobstore=None):
         """
         Causes the given job not to be executed until it is explicitly resumed.
 
@@ -350,7 +353,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         self.modify_job(job_id, jobstore, next_run_time=None)
 
-    def resume_job(self, job_id, jobstore='default'):
+    def resume_job(self, job_id, jobstore=None):
         """
         Resumes the schedule of the given job, or removes the job if its schedule is finished.
 
@@ -359,8 +362,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
 
         with self._jobstores_lock:
-            store = self._lookup_jobstore(jobstore)
-            job = store.lookup_job(job_id)
+            job, jobstore = self._lookup_job(job_id, jobstore)
             now = datetime.now(self.timezone)
             next_run_time = job.trigger.get_next_fire_time(now)
             if next_run_time:
@@ -396,20 +398,19 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
             return jobs
 
-    def get_job(self, job_id, jobstore='default'):
+    def get_job(self, job_id, jobstore=None):
         """
         Returns the Job that matches the given ``job_id``.
 
         :param str|unicode job_id: the identifier of the job
-        :param str|unicode jobstore: alias of the job store that contains the job
+        :param str|unicode jobstore: alias of the job store that most likely contains the job
         :rtype: Job
         """
 
         with self._jobstores_lock:
-            store = self._lookup_jobstore(jobstore)
-            return store.lookup_job(job_id)
+            return self._lookup_job(job_id, jobstore)
 
-    def remove_job(self, job_id, jobstore='default'):
+    def remove_job(self, job_id, jobstore=None):
         """
         Removes a job, preventing it from being run any more.
 
@@ -418,14 +419,24 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
 
         with self._jobstores_lock:
-            # Check if the job is among the pending jobs
-            for i, (job, store, replace_existing) in enumerate(self._pending_jobs):
-                if job.id == job_id:
-                    del self._pending_jobs[i]
-                    return
+            if jobstore:
+                self._lookup_jobstore(jobstore).remove_job(job_id)
+            else:
+                # Check if the job is among the pending jobs
+                for i, (job, jobstore_alias, replace_existing) in enumerate(self._pending_jobs):
+                    if job.id == job_id:
+                        del self._pending_jobs[i]
+                        jobstore = jobstore_alias
+                        break
+                else:  # Otherwise, try to remove it from each store until it succeeds or we run out of stores to check
+                    for alias, store in self._jobstores.items():
+                        try:
+                            store.remove_job(job_id)
+                        except JobLookupError:
+                            continue
 
-            store = self._lookup_jobstore(jobstore)
-            store.remove_job(job_id)
+                        jobstore = alias
+                        break
 
         # Notify listeners that a job has been removed
         event = JobStoreEvent(EVENT_JOBSTORE_JOB_REMOVED, jobstore, job_id)
@@ -554,6 +565,38 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         except KeyError:
             raise KeyError('No such job store: %s' % alias)
 
+    def _lookup_job(self, job_id, jobstore_alias):
+        """
+        Finds a job by its ID.
+
+        :type job_id: str
+        :param str jobstore_alias: alias of a job store to look in
+        :return tuple[Job, str]: a tuple of job, jobstore alias
+        :raises JobLookupError: if not job by the given ID is found.
+        """
+
+        # If an explicit job store alias is given, look only there
+        if jobstore_alias:
+            store = self._lookup_jobstore(jobstore_alias)
+            job = store.lookup_job(job_id)
+            if not job:
+                raise JobLookupError(job_id)
+            return job, jobstore_alias
+
+        # Check if the job is among the pending jobs
+        for job, store, replace_existing in self._pending_jobs:
+            if job.id == job_id:
+                return job, None
+
+        # Look in all job stores
+        for alias, store in self._jobstores.items():
+            try:
+                return store.lookup_job(job_id), alias
+            except JobLookupError:
+                pass
+
+        raise JobLookupError(job_id)
+
     def _dispatch_event(self, event):
         """
         Dispatches the given event to interested listeners.
@@ -571,7 +614,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 except:
                     self._logger.exception('Error notifying listener')
 
-    def _real_add_job(self, job, replace_existing, wakeup):
+    def _real_add_job(self, job, jobstore_alias, replace_existing, wakeup):
         """
         :param Job job: the job to add
         :param bool replace_existing: ``True`` to use update_job() in case the job already exists in the store
@@ -583,7 +626,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         job.next_run_time = job.trigger.get_next_fire_time(now)
 
         # Add the job to the given job store
-        jobstore_alias = job._jobstore
         store = self._lookup_jobstore(jobstore_alias)
         try:
             store.add_job(job)
@@ -594,7 +636,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 raise
 
         # Mark the job as no longer pending
-        job._jobstore = store
+        job._jobstore_alias = store
 
         # Notify listeners that a new job has been added
         event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, job.id, jobstore_alias)
@@ -609,6 +651,29 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     @abstractmethod
     def _wakeup(self):
         """Triggers :meth:`_process_jobs` to be run in an implementation specific manner."""
+
+    def _create_trigger(self, trigger, trigger_args):
+        if isinstance(trigger, BaseTrigger):
+            return trigger
+        elif trigger is None:
+            trigger = 'date'
+        elif not isinstance(trigger, six.string_types):
+            raise TypeError('Expected a trigger instance or string, got %s instead' % trigger.__class__.__name__)
+
+        # Use the scheduler's time zone if nothing else is specified
+        trigger_args.setdefault('timezone', self.timezone)
+
+        try:
+            trigger_cls = self.trigger_classes[trigger]
+        except KeyError:
+            if trigger in self.trigger_plugins:
+                trigger_cls = self.trigger_classes[trigger] = self.trigger_plugins[trigger].load()
+                if not issubclass(trigger_cls, BaseTrigger):
+                    raise TypeError('The trigger entry point does not point to a trigger class')
+            else:
+                raise KeyError('No trigger by the name "%s" was found' % trigger)
+
+        return trigger_cls(**trigger_args)
 
     def _create_lock(self):
         """Creates a reentrant lock object."""

@@ -55,8 +55,5 @@ The run date can be given as text too::
 
 To add a job to be run immediately::
 
-    # The 'date' trigger is implicit
+    # The 'date' trigger and datetime.now() as run_date are implicit
     sched.add_job(my_job, args=['text'])
-
-.. note:: Jobs added this way (no trigger specified) never time out (i.e. ``misfire grace period`` is set to
-   ``None`` by default.

@@ -31,6 +31,7 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
     """Abstract base class that provides the interface needed by all job stores."""
 
     _scheduler = None
+    _alias = None
     _logger = logging.getLogger('apscheduler.jobstores')
 
     def start(self, scheduler, alias):
@@ -43,6 +44,7 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         """
 
         self._scheduler = scheduler
+        self._alias = alias
         self._logger = logging.getLogger('apscheduler.jobstores.%s' % alias)
 
     def shutdown(self):
@@ -51,14 +53,13 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
     @abstractmethod
     def lookup_job(self, job_id):
         """
-        Returns a specific job.
+        Returns a specific job, or ``None`` if it isn't found..
 
         The job store is responsible for setting the ``scheduler`` and ``jobstore`` attributes of the returned job to
         point to the scheduler and itself, respectively.
 
         :param str|unicode job_id: identifier of the job
         :rtype: Job
-        :raises JobLookupError: if the job is not found
         """
 
     @abstractmethod

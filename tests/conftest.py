@@ -6,6 +6,8 @@ import pytest
 import pytz
 
 from apscheduler.job import Job
+from apscheduler.schedulers.blocking import BlockingScheduler
+
 
 try:
     from unittest.mock import Mock
@@ -79,8 +81,9 @@ def job_defaults(timezone):
 def create_job(job_defaults):
     def create(**kwargs):
         kwargs.setdefault('scheduler', Mock())
-        kwargs.setdefault('jobstore', Mock())
         job_kwargs = job_defaults.copy()
         job_kwargs.update(kwargs)
+        job_kwargs['trigger'] = BlockingScheduler()._create_trigger(job_kwargs.pop('trigger'),
+                                                                    job_kwargs.pop('trigger_args'))
         return Job(**job_kwargs)
     return create

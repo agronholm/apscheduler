@@ -50,9 +50,7 @@ class MongoDBJobStore(BaseJobStore):
 
     def lookup_job(self, job_id):
         document = self.collection.find_one(job_id, ['job_state'])
-        if document is None:
-            raise JobLookupError(job_id)
-        return self._reconstitute_job(document['job_state'])
+        return self._reconstitute_job(document['job_state']) if document else None
 
     def get_due_jobs(self, now):
         timestamp = datetime_to_utc_timestamp(now)
@@ -101,7 +99,7 @@ class MongoDBJobStore(BaseJobStore):
         job = Job.__new__(Job)
         job.__setstate__(job_state)
         job._scheduler = self._scheduler
-        job._jobstore = self
+        job._jobstore_alias = self._alias
         return job
 
     def _get_jobs(self, conditions):

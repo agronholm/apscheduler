@@ -1,22 +1,18 @@
-"""
-Stores jobs in an array in RAM. Provides no persistence support.
-"""
 from __future__ import absolute_import
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 
 
 class MemoryJobStore(BaseJobStore):
+    """Stores jobs in an array in RAM. Provides no persistence support."""
+
     def __init__(self):
         super(MemoryJobStore, self).__init__()
         self._jobs = []  # sorted by next_run_time
         self._jobs_index = {}  # id -> job lookup table
 
     def lookup_job(self, job_id):
-        try:
-            return self._jobs_index[job_id]
-        except KeyError:
-            raise JobLookupError(job_id)
+        return self._jobs_index.get(job_id)
 
     def get_due_jobs(self, now):
         pending = []
@@ -42,6 +38,9 @@ class MemoryJobStore(BaseJobStore):
 
     def update_job(self, job):
         old_job = self.lookup_job(job.id)
+        if old_job is None:
+            raise JobLookupError(job.id)
+
         old_index = self._get_job_index(old_job)
         self._jobs_index[old_job.id] = job
 
@@ -56,6 +55,9 @@ class MemoryJobStore(BaseJobStore):
 
     def remove_job(self, job_id):
         job = self.lookup_job(job_id)
+        if job is None:
+            raise JobLookupError(job_id)
+
         index = self._get_job_index(job)
         del self._jobs[index]
         del self._jobs_index[job.id]

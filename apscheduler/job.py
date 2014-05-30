@@ -2,7 +2,6 @@ from collections import Iterable, Mapping
 from datetime import timedelta, datetime
 from uuid import uuid4
 
-from pkg_resources import iter_entry_points
 import six
 
 from apscheduler.util import ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name, check_callable_args
@@ -26,16 +25,13 @@ class Job(object):
     :var datetime.datetime next_run_time: the next scheduled run time of this job
     """
 
-    __slots__ = ('_scheduler', '_jobstore', 'id', 'trigger', 'executor', 'func', 'func_ref', 'args', 'kwargs', 'name',
-                 'misfire_grace_time', 'coalesce', 'max_instances', 'next_run_time')
+    __slots__ = ('_scheduler', '_jobstore_alias', 'id', 'trigger', 'executor', 'func', 'func_ref', 'args', 'kwargs',
+                 'name', 'misfire_grace_time', 'coalesce', 'max_instances', 'next_run_time')
 
-    trigger_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
-    trigger_classes = {}
-
-    def __init__(self, scheduler, jobstore, id=None, **kwargs):
+    def __init__(self, scheduler, id=None, **kwargs):
         super(Job, self).__init__()
         self._scheduler = scheduler
-        self._jobstore = jobstore
+        self._jobstore_alias = None
         kwargs.setdefault('next_run_time', None)
         self._modify(id=id or uuid4().hex, **kwargs)
 
@@ -47,7 +43,16 @@ class Job(object):
         .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.modify_job`
         """
 
-        self._scheduler.modify_job(self.id, self._jobstore, **changes)
+        self._scheduler.modify_job(self.id, self._jobstore_alias, **changes)
+
+    def reschedule(self, trigger, **trigger_args):
+        """
+        Shortcut for switching the trigger on this job.
+
+        .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.reschedule_job`
+        """
+
+        self._scheduler.reschedule_job(self.id, self._jobstore_alias, trigger, **trigger_args)
 
     def pause(self):
         """
@@ -56,7 +61,7 @@ class Job(object):
         .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.pause_job`
         """
 
-        self._scheduler.pause_job(self.id, self._jobstore)
+        self._scheduler.pause_job(self.id, self._jobstore_alias)
 
     def resume(self):
         """
@@ -65,7 +70,7 @@ class Job(object):
         .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.resume_job`
         """
 
-        self._scheduler.resume_job(self.id, self._jobstore)
+        self._scheduler.resume_job(self.id, self._jobstore_alias)
 
     def remove(self):
         """
@@ -74,13 +79,13 @@ class Job(object):
         .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.remove_job`
         """
 
-        self._scheduler.remove_job(self.id, self._jobstore)
+        self._scheduler.remove_job(self.id, self._jobstore_alias)
 
     @property
     def pending(self):
         """Returns ``True`` if the referenced job is still waiting to be added to its designated job store."""
 
-        return isinstance(self._jobstore, six.string_types)
+        return self._jobstore_alias is None
 
     #
     # Private API
@@ -172,26 +177,8 @@ class Job(object):
 
         if 'trigger' in changes:
             trigger = changes.pop('trigger')
-            if isinstance(trigger, str):
-                try:
-                    trigger_cls = Job.trigger_classes[trigger]
-                except KeyError:
-                    if trigger in Job.trigger_plugins:
-                        trigger_cls = Job.trigger_classes[trigger] = Job.trigger_plugins[trigger].load()
-                        if not callable(getattr(trigger_cls, 'get_next_fire_time')):
-                            raise TypeError('The trigger entry point does not point to a trigger class')
-                    else:
-                        raise KeyError('No trigger by the name "%s" was found' % trigger)
-
-                trigger_args = changes.pop('trigger_args')
-                if not isinstance(trigger_args, Mapping):
-                    raise TypeError('trigger_args must either be a dict-like object or an iterable')
-
-                trigger = trigger_cls(**trigger_args)
-            elif not callable(getattr(trigger, 'get_next_fire_time')):
+            if not callable(getattr(trigger, 'get_next_fire_time')):
                 raise TypeError('Expected a trigger instance, got %s instead' % trigger.__class__.__name__)
-            else:
-                changes.pop('trigger_args', None)
 
             approved['trigger'] = trigger
 

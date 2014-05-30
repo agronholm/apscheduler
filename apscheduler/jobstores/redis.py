@@ -45,10 +45,7 @@ class RedisJobStore(BaseJobStore):
 
     def lookup_job(self, job_id):
         job_state = self.redis.hget(self.jobs_key, job_id)
-        if job_state is None:
-            raise JobLookupError(job_id)
-
-        return self._reconstitute_job(job_state)
+        return self._reconstitute_job(job_state) if job_state else None
 
     def get_due_jobs(self, now):
         timestamp = datetime_to_utc_timestamp(now)
@@ -113,7 +110,7 @@ class RedisJobStore(BaseJobStore):
         job = Job.__new__(Job)
         job.__setstate__(job_state)
         job._scheduler = self._scheduler
-        job._jobstore = self
+        job._jobstore_alias = self._alias
         return job
 
     def _reconstitute_jobs(self, job_states):

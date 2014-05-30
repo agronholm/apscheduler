@@ -72,10 +72,10 @@ class TestJob(object):
     def test_pending(self, job):
         """Tests that the "pending" property return True when _jobstore is a string, False otherwise."""
 
-        assert not job.pending
-
-        job._jobstore = 'test'
         assert job.pending
+
+        job._jobstore_alias = 'test'
+        assert not job.pending
 
     def test_getstate(self, job):
         state = job.__getstate__()
