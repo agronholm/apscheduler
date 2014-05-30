@@ -530,8 +530,8 @@ class TestBackgroundScheduler(SchedulerImplementationTestBase):
 class TestAsyncIOScheduler(SchedulerImplementationTestBase):
     @pytest.fixture
     def event_loop(self):
-        asyncio = pytest.importorskip('asyncio')
-        return asyncio.new_event_loop()
+        asyncio = pytest.importorskip('apscheduler.schedulers.asyncio')
+        return asyncio.asyncio.new_event_loop()
 
     @pytest.fixture
     def scheduler(self, event_loop):
