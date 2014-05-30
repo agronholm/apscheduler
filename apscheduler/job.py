@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import six
 
+from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name, check_callable_args
 
 
@@ -177,7 +178,7 @@ class Job(object):
 
         if 'trigger' in changes:
             trigger = changes.pop('trigger')
-            if not callable(getattr(trigger, 'get_next_fire_time')):
+            if not isinstance(trigger, BaseTrigger):
                 raise TypeError('Expected a trigger instance, got %s instead' % trigger.__class__.__name__)
 
             approved['trigger'] = trigger
