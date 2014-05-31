@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from tzlocal import get_localzone
 import six
@@ -129,12 +129,14 @@ class CronTrigger(BaseTrigger):
         difference = datetime(**values) - dateval.replace(tzinfo=None)
         return self.timezone.normalize(dateval + difference)
 
-    def get_next_fire_time(self, start_date):
-        if self.start_date:
-            start_date = max(start_date, self.start_date)
-        next_date = datetime_ceil(start_date).astimezone(self.timezone)
+    def get_next_fire_time(self, previous_fire_time, now):
+        if previous_fire_time:
+            start_date = max(now, previous_fire_time + timedelta(microseconds=1))
+        else:
+            start_date = max(now, self.start_date) if self.start_date else now
 
         fieldnum = 0
+        next_date = datetime_ceil(start_date).astimezone(self.timezone)
         while 0 <= fieldnum < len(self.fields):
             field = self.fields[fieldnum]
             curr_value = field.get_value(next_date)

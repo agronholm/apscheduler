@@ -340,7 +340,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         trigger = self._create_trigger(trigger, trigger_args)
         now = datetime.now(self.timezone)
-        next_run_time = trigger.get_next_fire_time(now)
+        next_run_time = trigger.get_next_fire_time(None, now)
         self.modify_job(job_id, jobstore, trigger=trigger, next_run_time=next_run_time)
 
     def pause_job(self, job_id, jobstore=None):
@@ -364,7 +364,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         with self._jobstores_lock:
             job, jobstore = self._lookup_job(job_id, jobstore)
             now = datetime.now(self.timezone)
-            next_run_time = job.trigger.get_next_fire_time(now)
+            next_run_time = job.trigger.get_next_fire_time(None, now)
             if next_run_time:
                 self.modify_job(job_id, jobstore, next_run_time=next_run_time)
             else:
@@ -623,7 +623,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Calculate the next run time
         now = datetime.now(self.timezone)
-        job.next_run_time = job.trigger.get_next_fire_time(now)
+        job.next_run_time = job.trigger.get_next_fire_time(None, now)
 
         # Add the job to the given job store
         store = self._lookup_jobstore(jobstore_alias)
@@ -716,9 +716,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                             self._logger.exception('Error submitting job "%s" to executor "%s"', job, job.executor)
                             continue
 
-                        # Update the job if it has a next execution time and the number of runs has not reached maximum,
-                        # otherwise remove it from the job store
-                        job_next_run = job.trigger.get_next_fire_time(now + timedelta(microseconds=1))
+                        # Update the job if it has a next execution time. Otherwise remove it from the job store
+                        job_next_run = job.trigger.get_next_fire_time(run_times[-1], now)
                         if job_next_run:
                             job._modify(next_run_time=job_next_run)
                             jobstore.update_job(job)

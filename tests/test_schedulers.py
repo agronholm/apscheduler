@@ -274,7 +274,8 @@ class TestRunningScheduler(object):
         it.
         """
 
-        job = create_job(func=lambda: None, trigger_args={'run_date': datetime(2000, 1, 1), 'timezone': timezone})
+        job = create_job(func=lambda: None, trigger='interval',
+                         trigger_args={'minutes': 2, 'end_date': datetime(2000, 1, 1), 'timezone': timezone})
         assert job.next_run_time is None
         jobstore = MagicMock(BaseJobStore, lookup_job=lambda job_id: job)
         scheduler._wakeup = MagicMock()
@@ -320,9 +321,8 @@ class TestRunningScheduler(object):
 
     def test_job_finished(self, scheduler, freeze_time):
         vals = [0]
-        job = scheduler.add_job(increment, 'interval', args=(vals,), end_date=freeze_time.current)
-        freeze_time.set(job.next_run_time)
-        scheduler._process_jobs()
+        job = scheduler.add_job(increment, 'interval', args=(vals,), start_date=freeze_time.current,
+                                end_date=freeze_time.current)
         assert vals == [1]
         assert job not in scheduler.get_jobs()
 

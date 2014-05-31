@@ -78,7 +78,7 @@ def create_add_job(timezone, create_job):
     def create(jobstore, func=dummy_job, run_date=datetime(2999, 1, 1), id=None, **kwargs):
         run_date = timezone.localize(run_date)
         job = create_job(func=func, trigger='date', trigger_args={'run_date': run_date}, id=id, **kwargs)
-        job.next_run_time = job.trigger.get_next_fire_time(run_date)
+        job.next_run_time = job.trigger.get_next_fire_time(None, run_date)
         if jobstore:
             jobstore.add_job(job)
         return job

@@ -94,18 +94,17 @@ class Job(object):
 
     def _get_run_times(self, now):
         """
-        Computes the scheduled run times between ``next_run_time`` and ``now``.
+        Computes the scheduled run times between ``next_run_time`` and ``now`` (inclusive).
 
         :type now: datetime
         :rtype: list[datetime]
         """
 
         run_times = []
-        run_time = self.next_run_time
-        increment = timedelta(microseconds=1)
-        while run_time and run_time <= now:
-            run_times.append(run_time)
-            run_time = self.trigger.get_next_fire_time(run_time + increment)
+        next_run_time = self.next_run_time
+        while next_run_time and next_run_time <= now:
+            run_times.append(next_run_time)
+            next_run_time = self.trigger.get_next_fire_time(next_run_time, now)
 
         return run_times
 

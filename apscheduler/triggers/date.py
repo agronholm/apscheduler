@@ -18,9 +18,8 @@ class DateTrigger(BaseTrigger):
         timezone = astimezone(timezone) or get_localzone()
         self.run_date = convert_to_datetime(run_date or datetime.now(), timezone, 'run_date')
 
-    def get_next_fire_time(self, start_date):
-        if self.run_date >= start_date:
-            return self.run_date
+    def get_next_fire_time(self, previous_fire_time, now):
+        return self.run_date if previous_fire_time is None else None
 
     def __str__(self):
         return 'date[%s]' % datetime_repr(self.run_date)

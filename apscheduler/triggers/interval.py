@@ -42,16 +42,18 @@ class IntervalTrigger(BaseTrigger):
         self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date')
         self.end_date = convert_to_datetime(end_date, self.timezone, 'end_date')
 
-    def get_next_fire_time(self, start_date):
-        if start_date < self.start_date:
-            return self.start_date
+    def get_next_fire_time(self, previous_fire_time, now):
+        if previous_fire_time:
+            next_fire_time = previous_fire_time + self.interval
+        elif self.start_date > now:
+            next_fire_time = self.start_date
+        else:
+            timediff_seconds = timedelta_seconds(now - self.start_date)
+            next_interval_num = int(ceil(timediff_seconds / self.interval_length))
+            next_fire_time = self.start_date + self.interval * next_interval_num
 
-        timediff_seconds = timedelta_seconds(start_date - self.start_date)
-        next_interval_num = int(ceil(timediff_seconds / self.interval_length))
-        next_date = self.timezone.normalize(self.start_date + self.interval * next_interval_num)
-        if self.end_date and next_date > self.end_date:
-            return None
-        return next_date
+        if not self.end_date or next_fire_time <= self.end_date:
+            return self.timezone.normalize(next_fire_time)
 
     def __str__(self):
         return 'interval[%s]' % str(self.interval)
