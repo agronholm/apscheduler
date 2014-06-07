@@ -7,7 +7,7 @@ import sys
 from pytz import utc
 import six
 
-from apscheduler.events import JobEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
+from apscheduler.events import JobExecutionEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 
 
 class MaxInstancesReachedError(Exception):
@@ -87,7 +87,7 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
         self._logger.error('Error running job %s', job_id, exc_info=exc_info)
 
 
-def run_job(job, run_times, logger_name):
+def run_job(job, jobstore_alias, run_times, logger_name):
     """Called by executors to run the job. Returns a list of scheduler events to be dispatched by the scheduler."""
 
     events = []
@@ -98,7 +98,7 @@ def run_job(job, run_times, logger_name):
             difference = datetime.now(utc) - run_time
             grace_time = timedelta(seconds=job.misfire_grace_time)
             if difference > grace_time:
-                events.append(JobEvent(EVENT_JOB_MISSED, job, run_time))
+                events.append(JobExecutionEvent(EVENT_JOB_MISSED, job.id, job.jobstore, run_time))
                 logger.warning('Run time of job "%s" was missed by %s', job, difference)
                 continue
 
@@ -107,10 +107,11 @@ def run_job(job, run_times, logger_name):
             retval = job.func(*job.args, **job.kwargs)
         except:
             exc, tb = sys.exc_info()[1:]
-            events.append(JobEvent(EVENT_JOB_ERROR, job, run_time, exception=exc, traceback=tb))
+            events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time, exception=exc,
+                                            traceback=tb))
             logger.exception('Job "%s" raised an exception', job)
         else:
-            events.append(JobEvent(EVENT_JOB_EXECUTED, job, run_time, retval=retval))
+            events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time, retval=retval))
             logger.info('Job "%s" executed successfully', job)
 
     return events

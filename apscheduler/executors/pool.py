@@ -44,7 +44,7 @@ class PoolExecutor(BaseExecutor):
             raise ValueError('Unknown pool type: %s' % pool_type)
 
     def _do_submit_job(self, job, run_times):
-        f = self._pool.submit(run_job, job, run_times, self._logger.name)
+        f = self._pool.submit(run_job, job, job._jobstore_alias, run_times, self._logger.name)
         callback = lambda f: self._run_job_success(job.id, f.result())
         f.add_done_callback(callback)
 

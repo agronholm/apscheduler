@@ -1,7 +1,8 @@
 from __future__ import print_function
 from abc import ABCMeta, abstractmethod
+from collections import MutableMapping
 from threading import RLock
-from datetime import datetime, timedelta
+from datetime import datetime
 from logging import getLogger
 import sys
 
@@ -10,17 +11,17 @@ from tzlocal import get_localzone
 import six
 
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
-from apscheduler.executors.base import MaxInstancesReachedError
+from apscheduler.executors.base import MaxInstancesReachedError, BaseExecutor
 from apscheduler.executors.pool import PoolExecutor
-from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
+from apscheduler.jobstores.base import ConflictingIdError, JobLookupError, BaseJobStore
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import combine_opts, maybe_ref, asbool, astimezone, timedelta_seconds, undefined, asint
+from apscheduler.util import maybe_ref, asbool, astimezone, timedelta_seconds, undefined, asint
 from apscheduler.events import (
-    SchedulerEvent, JobStoreEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOBSTORE_ADDED,
-    EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_JOBSTORE_JOB_MODIFIED, EVENT_JOBSTORE_JOB_REMOVED,
-    EVENT_JOBSTORE_JOB_ADDED)
+    SchedulerEvent, JobEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOBSTORE_ADDED,
+    EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_JOB_MODIFIED, EVENT_JOB_REMOVED, EVENT_JOB_ADDED, EVENT_EXECUTOR_ADDED,
+    EVENT_EXECUTOR_REMOVED, EVENT_ALL_JOBS_REMOVED)
 
 
 class BaseScheduler(six.with_metaclass(ABCMeta)):
@@ -67,7 +68,20 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         if self.running:
             raise SchedulerAlreadyRunningError
 
-        config = combine_opts(gconfig, 'apscheduler.', options)
+        # Create a structure from the dotted options (e.g. "a.b.c = d" -> {'a': {'b': {'c': 'd'}}})
+        gconfig = dict((key[11:], value) for key, value in six.iteritems(gconfig) if key.startswith('apscheduler.'))
+        config = {}
+        for key, value in six.iteritems(gconfig):
+            parts = key.split('.', 1)
+            parent = config
+            key = parts.pop(0)
+            while parts:
+                parent = parent.setdefault(key, {})
+                key = parts.pop(0)
+            parent[key] = value
+
+        # Override any options with explicit keyword arguments
+        config.update(options)
         self._configure(config)
 
     @abstractmethod
@@ -150,12 +164,31 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         with self._executors_lock:
             if alias in self._executors:
                 raise KeyError('This scheduler already has an executor by the alias of "%s"' % alias)
-            executor.scheduler = self
+
             self._executors[alias] = executor
 
             # Start the executor right away if the scheduler is running
             if self.running:
                 executor.start(self)
+
+        self._dispatch_event(SchedulerEvent(EVENT_EXECUTOR_ADDED, alias))
+
+    def remove_executor(self, alias, shutdown=True):
+        """
+        Removes the executor by the given alias from this scheduler.
+
+        :param str|unicode alias: alias of the executor
+        :param bool shutdown: ``True`` to shut down the executor after removing it
+        """
+
+        with self._jobstores_lock:
+            executor = self._lookup_executor(alias)
+            del self._executors[alias]
+
+        if shutdown:
+            executor.shutdown()
+
+        self._dispatch_event(SchedulerEvent(EVENT_EXECUTOR_REMOVED, alias))
 
     def add_jobstore(self, jobstore, alias='default'):
         """
@@ -175,7 +208,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 jobstore.start(self, alias)
 
         # Notify listeners that a new job store has been added
-        self._dispatch_event(JobStoreEvent(EVENT_JOBSTORE_ADDED, alias))
+        self._dispatch_event(SchedulerEvent(EVENT_JOBSTORE_ADDED, alias))
 
         # Notify the scheduler so it can scan the new job store for jobs
         if self.running:
@@ -193,12 +226,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             jobstore = self._lookup_jobstore(alias)
             del self._jobstores[alias]
 
-        # Shut down the job store if requested
         if shutdown:
             jobstore.shutdown()
 
-        # Notify listeners that a job store has been removed
-        self._dispatch_event(JobStoreEvent(EVENT_JOBSTORE_REMOVED, alias))
+        self._dispatch_event(SchedulerEvent(EVENT_JOBSTORE_REMOVED, alias))
 
     def add_listener(self, callback, mask=EVENT_ALL):
         """
@@ -323,7 +354,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             if jobstore:
                 self._lookup_jobstore(jobstore).update_job(job)
 
-        self._dispatch_event(JobStoreEvent(EVENT_JOBSTORE_JOB_MODIFIED, jobstore, job_id))
+        self._dispatch_event(JobEvent(EVENT_JOB_MODIFIED, job_id, jobstore))
 
         # Wake up the scheduler since the job's next run time may have been changed
         self._wakeup()
@@ -372,8 +403,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     def get_jobs(self, jobstore=None, pending=None):
         """
-        Returns a list of pending jobs (if the scheduler hasn't been started yet) and scheduled jobs,
-        either from a specific job store or from all of them.
+        Returns a list of pending jobs (if the scheduler hasn't been started yet) and scheduled jobs, either from a
+        specific job store or from all of them.
 
         :param str|unicode jobstore: alias of the job store
         :param bool pending: ``False`` to leave out pending jobs (jobs that are waiting for the scheduler start to be
@@ -391,10 +422,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                         jobs.append(job)
 
             if pending is not True:
-                jobstores = {jobstore: self._lookup_jobstore(jobstore)} if jobstore else self._jobstores
-                for alias, store in six.iteritems(jobstores):
-                    for job in store.get_all_jobs():
-                        jobs.append(job)
+                for alias, store in six.iteritems(self._jobstores):
+                    if jobstore is None or alias == jobstore:
+                        jobs.extend(store.get_all_jobs())
 
             return jobs
 
@@ -404,11 +434,15 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         :param str|unicode job_id: the identifier of the job
         :param str|unicode jobstore: alias of the job store that most likely contains the job
+        :return: the Job by the given ID, or ``None`` if it wasn't found
         :rtype: Job
         """
 
         with self._jobstores_lock:
-            return self._lookup_job(job_id, jobstore)
+            try:
+                return self._lookup_job(job_id, jobstore)[0]
+            except JobLookupError:
+                return
 
     def remove_job(self, job_id, jobstore=None):
         """
@@ -416,20 +450,20 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         :param str|unicode job_id: the identifier of the job
         :param str|unicode jobstore: alias of the job store that contains the job
+        :raises JobLookupError: if the job was not found
         """
 
         with self._jobstores_lock:
-            if jobstore:
-                self._lookup_jobstore(jobstore).remove_job(job_id)
+            # Check if the job is among the pending jobs
+            for i, (job, jobstore_alias, replace_existing) in enumerate(self._pending_jobs):
+                if job.id == job_id:
+                    del self._pending_jobs[i]
+                    jobstore = jobstore_alias
+                    break
             else:
-                # Check if the job is among the pending jobs
-                for i, (job, jobstore_alias, replace_existing) in enumerate(self._pending_jobs):
-                    if job.id == job_id:
-                        del self._pending_jobs[i]
-                        jobstore = jobstore_alias
-                        break
-                else:  # Otherwise, try to remove it from each store until it succeeds or we run out of stores to check
-                    for alias, store in self._jobstores.items():
+                # Otherwise, try to remove it from each store until it succeeds or we run out of stores to check
+                for alias, store in six.iteritems(self._jobstores):
+                    if jobstore in (None, alias):
                         try:
                             store.remove_job(job_id)
                         except JobLookupError:
@@ -438,8 +472,11 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                         jobstore = alias
                         break
 
+        if jobstore is None:
+            raise JobLookupError(job_id)
+
         # Notify listeners that a job has been removed
-        event = JobStoreEvent(EVENT_JOBSTORE_JOB_REMOVED, jobstore, job_id)
+        event = JobEvent(EVENT_JOB_REMOVED, job_id, jobstore)
         self._dispatch_event(event)
 
         self._logger.info('Removed job %s', job_id)
@@ -452,9 +489,16 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
 
         with self._jobstores_lock:
-            jobstores = {jobstore: self._lookup_jobstore(jobstore)} if jobstore else self._jobstores
-            for store in six.itervalues(jobstores):
-                store.remove_all_jobs()
+            if jobstore:
+                self._pending_jobs = [pending for pending in self._pending_jobs if pending[1] != jobstore]
+            else:
+                self._pending_jobs = []
+
+            for alias, store in six.iteritems(self._jobstores):
+                if jobstore in (None, alias):
+                    store.remove_all_jobs()
+
+        self._dispatch_event(SchedulerEvent(EVENT_ALL_JOBS_REMOVED, jobstore))
 
     def print_jobs(self, jobstore=None, out=None):
         """
@@ -468,16 +512,16 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         out = out or sys.stdout
         with self._jobstores_lock:
-            jobs = self.get_jobs(jobstore, True)
-            if jobs:
+            if self._pending_jobs:
                 print(six.u('Pending jobs:'), file=out)
-                for job in jobs:
-                    print(six.u('    %s') % job, file=out)
+                for job, jobstore_alias, replace_existing in self._pending_jobs:
+                    if jobstore in (None, jobstore_alias):
+                        print(six.u('    %s') % job, file=out)
 
             for alias, store in six.iteritems(self._jobstores):
-                if jobstore is None or alias == jobstore:
+                if jobstore in (None, alias):
                     print(six.u('Jobstore %s:') % alias, file=out)
-                    jobs = self.get_jobs(jobstore, False)
+                    jobs = store.get_all_jobs()
                     if jobs:
                         for job in jobs:
                             print(six.u('    %s') % job, file=out)
@@ -494,40 +538,40 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self.timezone = astimezone(config.pop('timezone', None)) or get_localzone()
 
         # Set the job defaults
-        job_defaults = combine_opts(config, 'job_defaults.')
+        job_defaults = config.get('job_defaults', {})
         self._job_defaults = {
-            'misfire_grace_time': asint(job_defaults.get('misfire_grace_time', '1')),
+            'misfire_grace_time': asint(job_defaults.get('misfire_grace_time', 1)),
             'coalesce': asbool(job_defaults.get('coalesce', True)),
-            'max_instances': asint(job_defaults.get('max_instances', '1'))
+            'max_instances': asint(job_defaults.get('max_instances', 1))
         }
 
         # Configure executors
-        executor_opts = combine_opts(config, 'executor.')
-        executors = {}
-        for key, value in executor_opts.items():
-            store_name, option = key.split('.', 1)
-            opts_dict = executors.setdefault(store_name, {})
-            opts_dict[option] = value
-
-        for alias, opts in executors.items():
-            classname = opts.pop('class')
-            cls = maybe_ref(classname)
-            executor = cls(**opts)
-            self.add_executor(executor, alias)
+        self._executors.clear()
+        for alias, value in six.iteritems(config.get('executors', {})):
+            if isinstance(value, BaseExecutor):
+                self.add_executor(value, alias)
+            elif isinstance(value, MutableMapping):
+                classname = value.pop('class')
+                cls = maybe_ref(classname)
+                executor = cls(**value)
+                self.add_executor(executor, alias)
+            else:
+                raise TypeError("Expected executor instance or dict for executors['%s'], got %s instead" % (
+                    alias, value.__class__.__name__))
 
         # Configure job stores
-        jobstore_opts = combine_opts(config, 'jobstore.')
-        jobstores = {}
-        for key, value in jobstore_opts.items():
-            store_name, option = key.split('.', 1)
-            opts_dict = jobstores.setdefault(store_name, {})
-            opts_dict[option] = value
-
-        for alias, opts in jobstores.items():
-            classname = opts.pop('class')
-            cls = maybe_ref(classname)
-            jobstore = cls(**opts)
-            self.add_jobstore(jobstore, alias)
+        self._jobstores.clear()
+        for alias, value in six.iteritems(config.get('jobstores', {})):
+            if isinstance(value, BaseJobStore):
+                self.add_jobstore(value, alias)
+            elif isinstance(value, MutableMapping):
+                classname = value.pop('class')
+                cls = maybe_ref(classname)
+                jobstore = cls(**value)
+                self.add_jobstore(jobstore, alias)
+            else:
+                raise TypeError("Expected job store instance or dict for jobstores['%s'], got %s instead" % (
+                    alias, value.__class__.__name__))
 
     def _create_default_executor(self):
         """Creates a default executor store, specific to the particular scheduler type."""
@@ -571,29 +615,21 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         :type job_id: str
         :param str jobstore_alias: alias of a job store to look in
-        :return tuple[Job, str]: a tuple of job, jobstore alias
-        :raises JobLookupError: if not job by the given ID is found.
+        :return tuple[Job, str]: a tuple of job, jobstore alias (jobstore alias is None in case of a pending job)
+        :raises JobLookupError: if no job by the given ID is found.
         """
 
-        # If an explicit job store alias is given, look only there
-        if jobstore_alias:
-            store = self._lookup_jobstore(jobstore_alias)
-            job = store.lookup_job(job_id)
-            if not job:
-                raise JobLookupError(job_id)
-            return job, jobstore_alias
-
         # Check if the job is among the pending jobs
-        for job, store, replace_existing in self._pending_jobs:
+        for job, alias, replace_existing in self._pending_jobs:
             if job.id == job_id:
                 return job, None
 
         # Look in all job stores
-        for alias, store in self._jobstores.items():
-            try:
-                return store.lookup_job(job_id), alias
-            except JobLookupError:
-                pass
+        for alias, store in six.iteritems(self._jobstores):
+            if jobstore_alias in (None, alias):
+                job = store.lookup_job(job_id)
+                if job is not None:
+                    return job, alias
 
         raise JobLookupError(job_id)
 
@@ -631,15 +667,15 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             store.add_job(job)
         except ConflictingIdError:
             if replace_existing:
-                store.update(job)
+                store.update_job(job)
             else:
                 raise
 
         # Mark the job as no longer pending
-        job._jobstore_alias = store
+        job._jobstore_alias = jobstore_alias
 
         # Notify listeners that a new job has been added
-        event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, job.id, jobstore_alias)
+        event = JobEvent(EVENT_JOB_ADDED, job.id, jobstore_alias)
         self._dispatch_event(event)
 
         self._logger.info('Added job "%s" to job store "%s"', job.name, jobstore_alias)
@@ -671,7 +707,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 if not issubclass(trigger_cls, BaseTrigger):
                     raise TypeError('The trigger entry point does not point to a trigger class')
             else:
-                raise KeyError('No trigger by the name "%s" was found' % trigger)
+                raise LookupError('No trigger by the name "%s" was found' % trigger)
 
         return trigger_cls(**trigger_args)
 
@@ -697,8 +733,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     try:
                         executor = self._lookup_executor(job.executor)
                     except:
-                        self._logger.error('Executor lookup ("%s") failed for job "%s" -- removing it from the job'
-                                           'store', job.executor, job)
+                        self._logger.error(
+                            'Executor lookup ("%s") failed for job "%s" -- removing it from the job store',
+                            job.executor, job)
                         self.remove_job(job.id, jobstore_alias)
                         continue
 
@@ -711,12 +748,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                             self._logger.warning(
                                 'Execution of job "%s" skipped: maximum number of running instances reached (%d)',
                                 job, job.max_instances)
-                            continue
                         except:
                             self._logger.exception('Error submitting job "%s" to executor "%s"', job, job.executor)
-                            continue
 
-                        # Update the job if it has a next execution time. Otherwise remove it from the job store
+                        # Update the job if it has a next execution time. Otherwise remove it from the job store.
                         job_next_run = job.trigger.get_next_fire_time(run_times[-1], now)
                         if job_next_run:
                             job._modify(next_run_time=job_next_run)

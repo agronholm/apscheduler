@@ -8,8 +8,8 @@ import six
 
 from apscheduler.util import (
     asint, asbool, astimezone, convert_to_datetime, datetime_to_utc_timestamp, utc_timestamp_to_datetime,
-    timedelta_seconds, datetime_ceil, combine_opts, get_callable_name, obj_to_ref, ref_to_obj, maybe_ref,
-    check_callable_args, datetime_repr, repr_escape)
+    timedelta_seconds, datetime_ceil, get_callable_name, obj_to_ref, ref_to_obj, maybe_ref, check_callable_args,
+    datetime_repr, repr_escape)
 from tests.conftest import minpython, maxpython
 
 
@@ -148,13 +148,6 @@ def test_datetime_ceil(input, expected):
 ], ids=['None', 'datetime+tzinfo'])
 def test_datetime_repr(input, expected):
     assert datetime_repr(input) == expected
-
-
-def test_combine_opts():
-    global_opts = {'someprefix.opt1': '123', 'opt2': '456', 'someprefix.opt3': '789'}
-    local_opts = {'opt3': 'abc'}
-    combined = combine_opts(global_opts, 'someprefix.', local_opts)
-    assert combined == dict(opt1='123', opt3='abc')
 
 
 class TestGetCallableName(object):

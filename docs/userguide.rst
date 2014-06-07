@@ -135,11 +135,12 @@ The following three examples are completely equivalent, and will get you:
 
 Method 1::
 
+    from pytz import utc
+
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.jobstores.mongodb import MongoDBJobStore
     from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
     from apscheduler.executors.pool import PoolExecutor
-    from pytz import utc
 
 
     jobstores = {
@@ -187,11 +188,12 @@ Method 2::
 
 Method 3::
 
+    from pytz import utc
+
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.jobstores.mongodb import MongoDBJobStore
     from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
     from apscheduler.executors.pool import PoolExecutor
-    from pytz import utc
 
 
     jobstores = {

@@ -18,8 +18,8 @@ except ImportError:  # pragma: nocover
         signature = None
 
 __all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
-           'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'combine_opts', 'get_callable_name',
-           'obj_to_ref', 'ref_to_obj', 'maybe_ref', 'repr_escape', 'check_callable_args')
+           'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'get_callable_name', 'obj_to_ref',
+           'ref_to_obj', 'maybe_ref', 'repr_escape', 'check_callable_args')
 
 undefined = object()  #: a unique object that only signifies that no value is defined
 
@@ -158,27 +158,6 @@ def datetime_ceil(dateval):
 
 def datetime_repr(dateval):
     return dateval.strftime('%Y-%m-%d %H:%M:%S %Z') if dateval else 'None'
-
-
-def combine_opts(global_config, prefix, local_config={}):
-    """
-    Returns a subdictionary from keys and values of  ``global_config`` where the key starts with the given prefix,
-    combined with options from local_config. The keys in the subdictionary have the prefix removed.
-
-    :type global_config: dict
-    :type prefix: str
-    :type local_config: dict
-    :rtype: dict
-    """
-
-    prefixlen = len(prefix)
-    subconf = {}
-    for key, value in global_config.items():
-        if key.startswith(prefix):
-            key = key[prefixlen:]
-            subconf[key] = value
-    subconf.update(local_config)
-    return subconf
 
 
 def get_callable_name(func):

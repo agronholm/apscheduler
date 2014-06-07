@@ -138,7 +138,8 @@ class TestCronTrigger(object):
         trigger = CronTrigger(year=2014, hour=4, end_date=end_date)
 
         start_date = timezone.localize(datetime(2014, 4, 13, 2, 30))
-        assert trigger.get_next_fire_time(None, start_date - timedelta(1)) == start_date.replace(day=12, hour=4, minute=0)
+        assert trigger.get_next_fire_time(None, start_date - timedelta(1)) == \
+            start_date.replace(day=12, hour=4, minute=0)
         assert trigger.get_next_fire_time(None, start_date) is None
 
     def test_different_tz(self, timezone):
@@ -189,7 +190,7 @@ class TestDateTrigger(object):
         (datetime(2009, 7, 6), None, None, datetime(2009, 9, 2), datetime(2009, 7, 6)),
         ('2009-7-6', None, None, datetime(2009, 9, 2), datetime(2009, 7, 6)),
         (datetime(2009, 7, 6), None, datetime(2009, 7, 6), datetime(2009, 9, 2), None),
-        (datetime(2009, 7, 5, 22), pytz.FixedOffset(-60), datetime(2009, 7, 6),  datetime(2009, 7, 6), None)
+        (datetime(2009, 7, 5, 22), pytz.FixedOffset(-60), datetime(2009, 7, 6), datetime(2009, 7, 6), None)
     ], ids=['earlier', 'exact', 'later', 'as text', 'previously fired', 'alternate timezone'])
     def test_get_next_fire_time(self, run_date, alter_tz, previous, now, expected, timezone):
         trigger = DateTrigger(run_date, alter_tz or timezone)
