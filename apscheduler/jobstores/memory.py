@@ -17,8 +17,9 @@ class MemoryJobStore(BaseJobStore):
     def get_due_jobs(self, now):
         pending = []
         for job in self._jobs:
-            if job.next_run_time and job.next_run_time <= now:
-                pending.append(job)
+            if not job.next_run_time or job.next_run_time > now:
+                break
+            pending.append(job)
 
         return pending
 
