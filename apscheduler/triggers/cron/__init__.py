@@ -40,6 +40,8 @@ class CronTrigger(BaseTrigger):
         'second': BaseField
     }
 
+    __slots__ = 'timezone', 'start_date', 'end_date', 'fields'
+
     def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None, minute=None,
                  second=None, start_date=None, end_date=None, timezone=None):
         if timezone:

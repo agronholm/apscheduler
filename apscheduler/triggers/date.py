@@ -14,6 +14,8 @@ class DateTrigger(BaseTrigger):
     :param datetime.tzinfo|str timezone: time zone for ``run_date`` if it doesn't have one already
     """
 
+    __slots__ = 'timezone', 'run_date'
+
     def __init__(self, run_date=None, timezone=None):
         timezone = astimezone(timezone) or get_localzone()
         self.run_date = convert_to_datetime(run_date or datetime.now(), timezone, 'run_date')
