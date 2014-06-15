@@ -146,14 +146,45 @@ def test_update_job_next_runtime(jobstore, create_add_job, next_run_time, timezo
     job1 = create_add_job(jobstore, dummy_job, datetime(2016, 5, 3))
     create_add_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     job3 = create_add_job(jobstore, dummy_job3, datetime(2013, 8, 14))
-    replacement = create_add_job(None, dummy_job, datetime.now(), id=job1.id)
-    replacement.next_run_time = timezone.localize(next_run_time) if next_run_time else None
-    jobstore.update_job(replacement)
+    job1.next_run_time = timezone.localize(next_run_time) if next_run_time else None
+    jobstore.update_job(job1)
 
     if next_run_time:
-        assert jobstore.get_next_run_time() == replacement.next_run_time
+        assert jobstore.get_next_run_time() == job1.next_run_time
     else:
         assert jobstore.get_next_run_time() == job3.next_run_time
+
+
+@pytest.mark.parametrize('next_run_time', [datetime(2013, 8, 13), None], ids=['earlier', 'null'])
+@pytest.mark.parametrize('index', [0, 1, 2], ids=['first', 'middle', 'last'])
+def test_update_job_clear_next_runtime(jobstore, create_add_job, next_run_time, timezone, index):
+    """
+    Tests that update_job() maintains the proper ordering of the jobs, even when their next run times are initially the
+    same.
+    """
+
+    jobs = [create_add_job(jobstore, dummy_job, datetime(2014, 2, 26), 'job%d' % i) for i in range(3)]
+    jobs[index].next_run_time = timezone.localize(next_run_time) if next_run_time else None
+    jobstore.update_job(jobs[index])
+    due_date = timezone.localize(datetime(2014, 2, 27))
+    due_jobs = jobstore.get_due_jobs(due_date)
+
+    assert len(due_jobs) == (3 if next_run_time else 2)
+    due_job_ids = [job.id for job in due_jobs]
+    if next_run_time:
+        if index == 0:
+            assert due_job_ids == ['job0', 'job1', 'job2']
+        elif index == 1:
+            assert due_job_ids == ['job1', 'job0', 'job2']
+        else:
+            assert due_job_ids == ['job2', 'job0', 'job1']
+    else:
+        if index == 0:
+            assert due_job_ids == ['job1', 'job2']
+        elif index == 1:
+            assert due_job_ids == ['job0', 'job2']
+        else:
+            assert due_job_ids == ['job0', 'job1']
 
 
 def test_update_job_nonexistent_job(jobstore, create_add_job):

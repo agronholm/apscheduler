@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
+from apscheduler.util import datetime_to_utc_timestamp
 
 
 class MemoryJobStore(BaseJobStore):
@@ -8,58 +9,61 @@ class MemoryJobStore(BaseJobStore):
 
     def __init__(self):
         super(MemoryJobStore, self).__init__()
-        self._jobs = []  # sorted by next_run_time
-        self._jobs_index = {}  # id -> job lookup table
+        self._jobs = []  # list of (job, timestamp), sorted by next_run_time and job id (ascending)
+        self._jobs_index = {}  # id -> (job, timestamp) lookup table
 
     def lookup_job(self, job_id):
-        return self._jobs_index.get(job_id)
+        return self._jobs_index.get(job_id, (None, None))[0]
 
     def get_due_jobs(self, now):
+        now_timestamp = datetime_to_utc_timestamp(now)
         pending = []
-        for job in self._jobs:
-            if not job.next_run_time or job.next_run_time > now:
+        for job, timestamp in self._jobs:
+            if timestamp is None or timestamp > now_timestamp:
                 break
             pending.append(job)
 
         return pending
 
     def get_next_run_time(self):
-        return self._jobs[0].next_run_time if self._jobs else None
+        return self._jobs[0][0].next_run_time if self._jobs else None
 
     def get_all_jobs(self):
-        return list(self._jobs)
+        return [j[0] for j in self._jobs]
 
     def add_job(self, job):
         if job.id in self._jobs_index:
             raise ConflictingIdError(job.id)
 
-        index = self._bisect_job(job.next_run_time)
-        self._jobs.insert(index, job)
-        self._jobs_index[job.id] = job
+        timestamp = datetime_to_utc_timestamp(job.next_run_time)
+        index = self._get_job_index(timestamp, job.id)
+        self._jobs.insert(index, (job, timestamp))
+        self._jobs_index[job.id] = (job, timestamp)
 
     def update_job(self, job):
-        old_job = self.lookup_job(job.id)
+        old_job, old_timestamp = self._jobs_index.get(job.id, (None, None))
         if old_job is None:
             raise JobLookupError(job.id)
 
-        old_index = self._get_job_index(old_job)
-        self._jobs_index[old_job.id] = job
-
         # If the next run time has not changed, simply replace the job in its present index.
         # Otherwise, reinsert the job to the list to preserve the ordering.
-        if old_job.next_run_time == job.next_run_time:
-            self._jobs[old_index] = job
+        old_index = self._get_job_index(old_timestamp, old_job.id)
+        new_timestamp = datetime_to_utc_timestamp(job.next_run_time)
+        if old_timestamp == new_timestamp:
+            self._jobs[old_index] = (job, new_timestamp)
         else:
             del self._jobs[old_index]
-            index = self._bisect_job(job.next_run_time)
-            self._jobs.insert(index, job)
+            new_index = self._get_job_index(new_timestamp, job.id)
+            self._jobs.insert(new_index, (job, new_timestamp))
+
+        self._jobs_index[old_job.id] = (job, new_timestamp)
 
     def remove_job(self, job_id):
-        job = self.lookup_job(job_id)
+        job, timestamp = self._jobs_index.get(job_id, (None, None))
         if job is None:
             raise JobLookupError(job_id)
 
-        index = self._get_job_index(job)
+        index = self._get_job_index(timestamp, job_id)
         del self._jobs[index]
         del self._jobs_index[job.id]
 
@@ -70,23 +74,30 @@ class MemoryJobStore(BaseJobStore):
     def shutdown(self):
         self.remove_all_jobs()
 
-    def _get_job_index(self, job):
-        jobs = self._jobs
-        index = self._bisect_job(job.next_run_time)
-        end = len(self._jobs)
-        while index < end:
-            if jobs[index].id == job.id:
-                return index
+    def _get_job_index(self, timestamp, job_id):
+        """
+        Returns the index of the given job, or if it's not found, the index where the job should be inserted based on
+        the given timestamp.
 
-    def _bisect_job(self, run_time):
-        # Adapted from the bisect module
-        jobs = self._jobs
-        lo, hi = 0, len(jobs)
+        :type timestamp: int
+        :type job_id: str
+        """
+
+        lo, hi = 0, len(self._jobs)
+        timestamp = float('inf') if timestamp is None else timestamp
         while lo < hi:
             mid = (lo + hi) // 2
-            if run_time is None or (jobs[mid].next_run_time is not None and jobs[mid].next_run_time < run_time):
+            mid_job, mid_timestamp = self._jobs[mid]
+            mid_timestamp = float('inf') if mid_timestamp is None else mid_timestamp
+            if mid_timestamp > timestamp:
+                hi = mid
+            elif mid_timestamp < timestamp:
+                lo = mid + 1
+            elif mid_job.id > job_id:
+                hi = mid
+            elif mid_job.id < job_id:
                 lo = mid + 1
             else:
-                hi = mid
+                return mid
 
         return lo
