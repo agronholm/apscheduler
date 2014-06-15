@@ -7,7 +7,7 @@ import pytest
 import six
 
 from apscheduler.executors.base import BaseExecutor, MaxInstancesReachedError
-from apscheduler.executors.pool import PoolExecutor
+from apscheduler.executors.debug import DebugExecutor
 from apscheduler.job import Job
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.jobstores.memory import MemoryJobStore
@@ -254,7 +254,7 @@ class TestBaseScheduler(object):
     @pytest.mark.parametrize('stopped', [True, False], ids=['stopped=True', 'stopped=False'])
     def test_add_executor(self, scheduler, stopped):
         scheduler._stopped = stopped
-        executor = PoolExecutor('debug')
+        executor = DebugExecutor()
         executor.start = MagicMock()
         scheduler.add_executor(executor)
 
@@ -265,13 +265,13 @@ class TestBaseScheduler(object):
             assert executor.start.call_count == 0
 
     def test_add_executor_already_exists(self, scheduler):
-        executor = PoolExecutor('debug')
+        executor = DebugExecutor()
         scheduler.add_executor(executor)
         exc = pytest.raises(KeyError, scheduler.add_executor, executor)
         assert exc.value.message == 'This scheduler already has an executor by the alias of "default"'
 
     def test_remove_executor(self, scheduler):
-        scheduler.add_executor(PoolExecutor('debug'), 'foo')
+        scheduler.add_executor(DebugExecutor(), 'foo')
         scheduler._dispatch_event = MagicMock()
         scheduler.remove_executor('foo')
 
@@ -821,7 +821,7 @@ class TestProcessJobs(object):
 class SchedulerImplementationTestBase(object):
     @pytest.fixture(autouse=True)
     def executor(self, scheduler):
-        scheduler.add_executor(PoolExecutor('debug'))
+        scheduler.add_executor(DebugExecutor())
 
     @pytest.fixture
     def start_scheduler(self, request, scheduler):

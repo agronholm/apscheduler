@@ -89,10 +89,10 @@ If, however, you are in the position to choose freely, then
 the recommended choice due to its strong data integrity protection.
 
 Likewise, the choice of executors is usually made for you if you use one of the frameworks above.
-Otherwise, the default :class:`~apscheduler.executors.pool.PoolExecutor` should be good enough for most purposes.
-If your workload involves CPU intensive operations, you should configure your PoolExecutor to use process pooling
-instead of thread pooling to make use of multiple CPU cores. You can add a second PoolExecutor for this purpose, and
-only configure one of them for process pooling.
+Otherwise, the default :class:`~apscheduler.executors.pool.ThreadPoolExecutor` should be good enough for most purposes.
+If your workload involves CPU intensive operations, you should consider using
+:class:`~apscheduler.executors.pool.ProcessPoolExecutor` instead to make use of multiple CPU cores.
+You could even use both at once, adding the process pool executor as a secondary executor.
 
 
 .. _scheduler-config:
@@ -118,8 +118,8 @@ Let's say you want to run BackgroundScheduler in your application with the defau
 
     # Initialize the rest of the application here, or before the scheduler initialization
 
-This will get you a BackgroundScheduler with a MemoryJobStore named "default" and a PoolExecutor named "default" with a
-default maximum thread count of 10.
+This will get you a BackgroundScheduler with a MemoryJobStore named "default" and a ThreadPoolExecutor named "default"
+with a default maximum thread count of 10.
 
 Now, suppose you want more. You want to have *two* job stores using *two* executors and you also want to tweak the
 default values for new jobs and set a different timezone.
@@ -127,8 +127,8 @@ The following three examples are completely equivalent, and will get you:
 
 * a MongoDBJobStore named "mongo"
 * an SQLAlchemyJobStore named "default" (using SQLite)
-* a PoolExecutor using threads, named "default", with a worker count of 20
-* a PoolExecutor using subprocesses, named "processpool", with a worker count of 5
+* a ThreadPoolExecutor named "default", with a worker count of 20
+* a ProcessPoolExecutor named "processpool", with a worker count of 5
 * UTC as the scheduler's timezone
 * coalescing turned off for new jobs by default
 * a default maximum instance limit of 3 for new jobs
@@ -140,7 +140,7 @@ Method 1::
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.jobstores.mongodb import MongoDBJobStore
     from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-    from apscheduler.executors.pool import PoolExecutor
+    from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 
 
     jobstores = {
@@ -148,8 +148,8 @@ Method 1::
         'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')
     }
     executors = {
-        'default': PoolExecutor('thread', 20),
-        'processpool': PoolExecutor('process', 5)
+        'default': ThreadPoolExecutor(20),
+        'processpool': ProcessPoolExecutor(5)
     }
     job_defaults = {
         'coalesce': False,
@@ -172,13 +172,11 @@ Method 2::
             'url': 'sqlite:///jobs.sqlite'
         },
         'apscheduler.executors.default': {
-            'class': 'apscheduler.executors.pool:PoolExecutor',
-            'type': 'thread',
+            'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
             'max_workers': '20'
         },
         'apscheduler.executors.processpool': {
-            'class': 'apscheduler.executors.pool:PoolExecutor',
-            'type': 'process',
+            'class': 'apscheduler.executors.pool:ProcessPoolExecutor',
             'max_workers': '5'
         },
         'apscheduler.job_defaults.coalesce': 'false',
@@ -193,7 +191,7 @@ Method 3::
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.jobstores.mongodb import MongoDBJobStore
     from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-    from apscheduler.executors.pool import PoolExecutor
+    from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 
 
     jobstores = {
@@ -201,8 +199,8 @@ Method 3::
         'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')
     }
     executors = {
-        'default': PoolExecutor('thread', max_workers=20),
-        'processpool': PoolExecutor('process', max_workers=5)
+        'default': ThreadPoolExecutor(max_workers=20),
+        'processpool': ProcessPoolExecutor(max_workers=5)
     }
     job_defaults = {
         'coalesce': False,
@@ -253,7 +251,7 @@ requirements on your job:
 #. Any arguments to the callable must be serializable
 
 Of the builtin job stores, only MemoryJobStore doesn't serialize jobs.
-Of the builtin executors, only a PoolExecutor configured for process pooling will serialize jobs.
+Of the builtin executors, only ProcessPoolExecutor will serialize jobs.
 
 .. important:: If you schedule jobs in a persistent job store during your application's initialization, you **MUST**
    define an explicit ID for the job and use ``replace_existing=True`` or you will get a new copy of the job every time

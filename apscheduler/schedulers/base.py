@@ -12,7 +12,7 @@ import six
 
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
 from apscheduler.executors.base import MaxInstancesReachedError, BaseExecutor
-from apscheduler.executors.pool import PoolExecutor
+from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError, BaseJobStore
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job
@@ -581,7 +581,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     def _create_default_executor(self):
         """Creates a default executor store, specific to the particular scheduler type."""
 
-        return PoolExecutor('thread')
+        return ThreadPoolExecutor()
 
     def _create_default_jobstore(self):
         """Creates a default job store, specific to the particular scheduler type."""

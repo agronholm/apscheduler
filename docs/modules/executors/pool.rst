@@ -6,6 +6,8 @@
 Module Contents
 ---------------
 
-.. autoclass:: PoolExecutor
+.. autoclass:: ThreadPoolExecutor
     :members:
 
+.. autoclass:: ProcessPoolExecutor
+    :members:
