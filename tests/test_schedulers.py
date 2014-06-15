@@ -699,12 +699,12 @@ Jobstore baz:
     def test_create_trigger(self, scheduler, load_plugin):
         """Tests that creating a trigger with an already loaded plugin works."""
 
-        scheduler.trigger_plugins = {}
-        scheduler.trigger_classes = {}
+        scheduler._trigger_plugins = {}
+        scheduler._trigger_classes = {}
         if load_plugin:
-            scheduler.trigger_plugins['dummy'] = MagicMock(load=MagicMock(return_value=DummyTrigger))
+            scheduler._trigger_plugins['dummy'] = MagicMock(load=MagicMock(return_value=DummyTrigger))
         else:
-            scheduler.trigger_classes['dummy'] = DummyTrigger
+            scheduler._trigger_classes['dummy'] = DummyTrigger
 
         result = scheduler._create_trigger('dummy', {'a': 1, 'b': 'x'})
 
@@ -721,7 +721,7 @@ Jobstore baz:
     def test_create_trigger_default_type(self, scheduler):
         """Tests that passing None as the trigger will create a "date" trigger instance."""
 
-        scheduler.trigger_classes = {'date': DummyTrigger}
+        scheduler._trigger_classes = {'date': DummyTrigger}
         result = scheduler._create_trigger(None, {'a': 1})
 
         assert isinstance(result, DummyTrigger)
@@ -732,8 +732,8 @@ Jobstore baz:
         assert str(exc.value) == 'Expected a trigger instance or string, got int instead'
 
     def test_create_trigger_bad_plugin_type(self, scheduler):
-        scheduler.trigger_classes = {}
-        scheduler.trigger_plugins = {'dummy': MagicMock(return_value=object)}
+        scheduler._trigger_classes = {}
+        scheduler._trigger_plugins = {'dummy': MagicMock(return_value=object)}
         exc = pytest.raises(TypeError, scheduler._create_trigger, 'dummy', {})
         assert str(exc.value) == 'The trigger entry point does not point to a trigger class'
 

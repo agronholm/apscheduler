@@ -37,8 +37,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     .. seealso:: :ref:`scheduler-config`
     """
 
-    trigger_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
-    trigger_classes = {}
+    _trigger_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
+    _trigger_classes = {}
     _stopped = True
 
     #
@@ -700,10 +700,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         trigger_args.setdefault('timezone', self.timezone)
 
         try:
-            trigger_cls = self.trigger_classes[trigger]
+            trigger_cls = self._trigger_classes[trigger]
         except KeyError:
-            if trigger in self.trigger_plugins:
-                trigger_cls = self.trigger_classes[trigger] = self.trigger_plugins[trigger].load()
+            if trigger in self._trigger_plugins:
+                trigger_cls = self._trigger_classes[trigger] = self._trigger_plugins[trigger].load()
                 if not issubclass(trigger_cls, BaseTrigger):
                     raise TypeError('The trigger entry point does not point to a trigger class')
             else:
