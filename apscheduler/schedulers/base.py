@@ -217,7 +217,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Notify the scheduler so it can scan the new job store for jobs
         if self.running:
-            self._wakeup()
+            self.wakeup()
 
     def remove_jobstore(self, alias, shutdown=True):
         """
@@ -362,7 +362,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self._dispatch_event(JobEvent(EVENT_JOB_MODIFIED, job_id, jobstore))
 
         # Wake up the scheduler since the job's next run time may have been changed
-        self._wakeup()
+        self.wakeup()
 
     def reschedule_job(self, job_id, jobstore=None, trigger=None, **trigger_args):
         """
@@ -533,6 +533,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     else:
                         print(six.u('    No scheduled jobs'), file=out)
 
+    @abstractmethod
+    def wakeup(self):
+        """
+        Notifies the scheduler that there may be jobs due for execution.
+        Triggers :meth:`_process_jobs` to be run in an implementation specific manner.
+        """
+
     #
     # Private API
     #
@@ -687,11 +694,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Notify the scheduler about the new job
         if wakeup:
-            self._wakeup()
-
-    @abstractmethod
-    def _wakeup(self):
-        """Triggers :meth:`_process_jobs` to be run in an implementation specific manner."""
+            self.wakeup()
 
     def _create_trigger(self, trigger, trigger_args):
         if isinstance(trigger, BaseTrigger):

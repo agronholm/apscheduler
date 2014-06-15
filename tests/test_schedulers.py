@@ -53,7 +53,7 @@ class DummyScheduler(BaseScheduler):
     def shutdown(self, wait=True):
         super(DummyScheduler, self).shutdown(wait)
 
-    def _wakeup(self):
+    def wakeup(self):
         pass
 
 
@@ -291,7 +291,7 @@ class TestBaseScheduler(object):
         jobstore.start = MagicMock()
         scheduler._real_add_job = MagicMock()
         scheduler._dispatch_event = MagicMock()
-        scheduler._wakeup = MagicMock()
+        scheduler.wakeup = MagicMock()
         scheduler.add_jobstore(jobstore)
 
         assert scheduler._dispatch_event.call_count == 1
@@ -300,9 +300,9 @@ class TestBaseScheduler(object):
         assert event.alias == 'default'
         if stopped:
             assert jobstore.start.call_count == 0
-            assert scheduler._wakeup.call_count == 0
+            assert scheduler.wakeup.call_count == 0
         else:
-            scheduler._wakeup.assert_called_once_with()
+            scheduler.wakeup.assert_called_once_with()
             jobstore.start.assert_called_once_with(scheduler, 'default')
 
     def test_add_jobstore_already_exists(self, scheduler):
@@ -667,7 +667,7 @@ Jobstore baz:
         job = MagicMock(Job, id='foo')
         jobstore = MagicMock(BaseJobStore, _alias='bar',
                              add_job=MagicMock(side_effect=ConflictingIdError('foo') if job_exists else None))
-        scheduler._wakeup = MagicMock()
+        scheduler.wakeup = MagicMock()
         scheduler._dispatch_event = MagicMock()
         scheduler._jobstores = {'bar': jobstore}
 
@@ -684,9 +684,9 @@ Jobstore baz:
             assert not jobstore.update_job.called
 
         if wakeup:
-            scheduler._wakeup.assert_called_once_with()
+            scheduler.wakeup.assert_called_once_with()
         else:
-            assert not scheduler._wakeup.called
+            assert not scheduler.wakeup.called
 
         assert job._jobstore_alias == 'bar'
 

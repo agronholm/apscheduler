@@ -37,7 +37,7 @@ class TwistedScheduler(BaseScheduler):
 
     def start(self):
         super(TwistedScheduler, self).start()
-        self._wakeup()
+        self.wakeup()
 
     @run_in_reactor
     def shutdown(self, wait=True):
@@ -47,7 +47,7 @@ class TwistedScheduler(BaseScheduler):
     def _start_timer(self, wait_seconds):
         self._stop_timer()
         if wait_seconds is not None:
-            self._delayedcall = self._reactor.callLater(wait_seconds, self._wakeup)
+            self._delayedcall = self._reactor.callLater(wait_seconds, self.wakeup)
 
     def _stop_timer(self):
         if self._delayedcall and self._delayedcall.active():
@@ -55,7 +55,7 @@ class TwistedScheduler(BaseScheduler):
             del self._delayedcall
 
     @run_in_reactor
-    def _wakeup(self):
+    def wakeup(self):
         self._stop_timer()
         wait_seconds = self._process_jobs()
         self._start_timer(wait_seconds)

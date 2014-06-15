@@ -21,7 +21,7 @@ class QtScheduler(BaseScheduler):
 
     def start(self):
         super(QtScheduler, self).start()
-        self._wakeup()
+        self.wakeup()
 
     def shutdown(self, wait=True):
         super(QtScheduler, self).shutdown(wait)
@@ -38,7 +38,7 @@ class QtScheduler(BaseScheduler):
                 self._timer.stop()
             del self._timer
 
-    def _wakeup(self):
+    def wakeup(self):
         self._start_timer(0)
 
     def _process_jobs(self):

@@ -28,5 +28,5 @@ class BlockingScheduler(BaseScheduler):
             self._event.wait(wait_seconds or self.MAX_WAIT_TIME)
             self._event.clear()
 
-    def _wakeup(self):
+    def wakeup(self):
         self._event.set()
