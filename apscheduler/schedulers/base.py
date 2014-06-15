@@ -56,20 +56,25 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self._pending_jobs = []
         self.configure(gconfig, **options)
 
-    def configure(self, gconfig={}, **options):
+    def configure(self, gconfig={}, prefix='apscheduler.', **options):
         """
         Reconfigures the scheduler with the given options. Can only be done when the scheduler isn't running.
 
         :param dict gconfig: a "global" configuration dictionary whose values can be overridden by keyword arguments to
                              this method
+        :param str|unicode prefix: pick only those keys from ``gconfig`` that are prefixed with this string
+                                   (pass an empty string or ``None`` to use all keys)
         :raises SchedulerAlreadyRunningError: if the scheduler is already running
         """
 
         if self.running:
             raise SchedulerAlreadyRunningError
 
+        # If a non-empty prefix was given,
+        if prefix:
+            gconfig = dict((key[11:], value) for key, value in six.iteritems(gconfig) if key.startswith(prefix))
+
         # Create a structure from the dotted options (e.g. "a.b.c = d" -> {'a': {'b': {'c': 'd'}}})
-        gconfig = dict((key[11:], value) for key, value in six.iteritems(gconfig) if key.startswith('apscheduler.'))
         config = {}
         for key, value in six.iteritems(gconfig):
             parts = key.split('.', 1)
