@@ -21,6 +21,8 @@ class RedisJobStore(BaseJobStore):
     """
     Stores jobs in a Redis database. Any leftover keyword arguments are directly passed to redis's StrictRedis.
 
+    Plugin alias: ``redis``
+
     :param int db: the database number to store jobs in
     :param str jobs_key: key to store jobs in
     :param str run_times_key: key to store the jobs' run times in

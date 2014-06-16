@@ -94,6 +94,8 @@ If your workload involves CPU intensive operations, you should consider using
 :class:`~apscheduler.executors.pool.ProcessPoolExecutor` instead to make use of multiple CPU cores.
 You could even use both at once, adding the process pool executor as a secondary executor.
 
+You can find the plugin names of each job store and executor type in their respective API documentation pages.
+
 
 .. _scheduler-config:
 
@@ -165,10 +167,10 @@ Method 2::
     # The "apscheduler." prefix is hard coded
     scheduler = BackgroundScheduler({
         'apscheduler.jobstores.mongo': {
-             'class': 'apscheduler.jobstores.mongodb:MongoDBJobStore'
+             'type': 'mongodb'
         },
         'apscheduler.jobstores.default': {
-            'class': 'apscheduler.jobstores.mongodb:SQLAlchemyJobStore',
+            'type': 'sqlalchemy',
             'url': 'sqlite:///jobs.sqlite'
         },
         'apscheduler.executors.default': {
@@ -176,7 +178,7 @@ Method 2::
             'max_workers': '20'
         },
         'apscheduler.executors.processpool': {
-            'class': 'apscheduler.executors.pool:ProcessPoolExecutor',
+            'type': 'processpool',
             'max_workers': '5'
         },
         'apscheduler.job_defaults.coalesce': 'false',
@@ -189,17 +191,16 @@ Method 3::
     from pytz import utc
 
     from apscheduler.schedulers.background import BackgroundScheduler
-    from apscheduler.jobstores.mongodb import MongoDBJobStore
     from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-    from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
+    from apscheduler.executors.pool import ProcessPoolExecutor
 
 
     jobstores = {
-        'mongo': MongoDBJobStore(),
+        'mongo': {'type': 'mongodb'},
         'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')
     }
     executors = {
-        'default': ThreadPoolExecutor(max_workers=20),
+        'default': {'type': 'threadpool', 'max_workers': 20},
         'processpool': ProcessPoolExecutor(max_workers=5)
     }
     job_defaults = {

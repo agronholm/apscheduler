@@ -39,6 +39,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     _trigger_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
     _trigger_classes = {}
+    _executor_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.executors'))
+    _executor_classes = {}
+    _jobstore_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.jobstores'))
+    _jobstore_classes = {}
     _stopped = True
 
     #
@@ -158,11 +162,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     def running(self):
         return not self._stopped
 
-    def add_executor(self, executor, alias='default'):
+    def add_executor(self, executor, alias='default', **executor_opts):
         """
-        Adds an executor to this scheduler.
+        Adds an executor to this scheduler. Any extra keyword arguments will be passed to the executor plugin's
+        constructor, assuming that the first argument is the name of an executor plugin.
 
-        :param apscheduler.executors.base.BaseExecutor executor: the executor instance to be added
+        :param str|unicode|apscheduler.executors.base.BaseExecutor executor: either an executor instance or the name of
+            an executor plugin
         :param str|unicode alias: alias for the scheduler
         """
 
@@ -170,7 +176,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             if alias in self._executors:
                 raise KeyError('This scheduler already has an executor by the alias of "%s"' % alias)
 
-            self._executors[alias] = executor
+            if isinstance(executor, BaseExecutor):
+                self._executors[alias] = executor
+            elif isinstance(executor, six.string_types):
+                self._executors[alias] = executor = self._create_plugin_instance('executor', executor, executor_opts)
+            else:
+                raise TypeError('Expected an executor instance or a string, got %s instead' %
+                                executor.__class__.__name__)
 
             # Start the executor right away if the scheduler is running
             if self.running:
@@ -195,18 +207,26 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         self._dispatch_event(SchedulerEvent(EVENT_EXECUTOR_REMOVED, alias))
 
-    def add_jobstore(self, jobstore, alias='default'):
+    def add_jobstore(self, jobstore, alias='default', **jobstore_opts):
         """
-        Adds a job store to this scheduler.
+        Adds a job store to this scheduler. Any extra keyword arguments will be passed to the job store plugin's
+        constructor, assuming that the first argument is the name of a job store plugin.
 
-        :param apscheduler.jobstores.base.BaseJobStore jobstore: job store to be added
+        :param str|unicode|apscheduler.jobstores.base.BaseJobStore jobstore: job store to be added
         :param str|unicode alias: alias for the job store
         """
 
         with self._jobstores_lock:
             if alias in self._jobstores:
                 raise KeyError('This scheduler already has a job store by the alias of "%s"' % alias)
-            self._jobstores[alias] = jobstore
+
+            if isinstance(jobstore, BaseJobStore):
+                self._jobstores[alias] = jobstore
+            elif isinstance(jobstore, six.string_types):
+                self._jobstores[alias] = jobstore = self._create_plugin_instance('jobstore', jobstore, jobstore_opts)
+            else:
+                raise TypeError('Expected a job store instance or a string, got %s instead' %
+                                jobstore.__class__.__name__)
 
             # Start the job store right away if the scheduler is running
             if self.running:
@@ -563,9 +583,16 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             if isinstance(value, BaseExecutor):
                 self.add_executor(value, alias)
             elif isinstance(value, MutableMapping):
-                classname = value.pop('class')
-                cls = maybe_ref(classname)
-                executor = cls(**value)
+                executor_class = value.pop('class', None)
+                plugin = value.pop('type', None)
+                if plugin:
+                    executor = self._create_plugin_instance('executor', plugin, value)
+                elif executor_class:
+                    cls = maybe_ref(executor_class)
+                    executor = cls(**value)
+                else:
+                    raise ValueError('Cannot create executor "%s" -- either "type" or "class" must be defined' % alias)
+
                 self.add_executor(executor, alias)
             else:
                 raise TypeError("Expected executor instance or dict for executors['%s'], got %s instead" % (
@@ -577,9 +604,16 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             if isinstance(value, BaseJobStore):
                 self.add_jobstore(value, alias)
             elif isinstance(value, MutableMapping):
-                classname = value.pop('class')
-                cls = maybe_ref(classname)
-                jobstore = cls(**value)
+                jobstore_class = value.pop('class', None)
+                plugin = value.pop('type', None)
+                if plugin:
+                    jobstore = self._create_plugin_instance('jobstore', plugin, value)
+                elif jobstore_class:
+                    cls = maybe_ref(jobstore_class)
+                    jobstore = cls(**value)
+                else:
+                    raise ValueError('Cannot create job store "%s" -- either "type" or "class" must be defined' % alias)
+
                 self.add_jobstore(jobstore, alias)
             else:
                 raise TypeError("Expected job store instance or dict for jobstores['%s'], got %s instead" % (
@@ -696,6 +730,27 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         if wakeup:
             self.wakeup()
 
+    def _create_plugin_instance(self, type_, alias, constructor_kwargs):
+        """Creates an instance of the given plugin type, loading the plugin first if necessary."""
+
+        plugin_container, class_container, base_class = {
+            'trigger': (self._trigger_plugins, self._trigger_classes, BaseTrigger),
+            'jobstore': (self._jobstore_plugins, self._jobstore_classes, BaseJobStore),
+            'executor': (self._executor_plugins, self._executor_classes, BaseExecutor)
+        }[type_]
+
+        try:
+            plugin_cls = class_container[alias]
+        except KeyError:
+            if alias in plugin_container:
+                plugin_cls = class_container[alias] = plugin_container[alias].load()
+                if not issubclass(plugin_cls, base_class):
+                    raise TypeError('The {0} entry point does not point to a {0} class'.format(type_))
+            else:
+                raise LookupError('No {0} by the name "{1}" was found'.format(type_, alias))
+
+        return plugin_cls(**constructor_kwargs)
+
     def _create_trigger(self, trigger, trigger_args):
         if isinstance(trigger, BaseTrigger):
             return trigger
@@ -707,17 +762,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         # Use the scheduler's time zone if nothing else is specified
         trigger_args.setdefault('timezone', self.timezone)
 
-        try:
-            trigger_cls = self._trigger_classes[trigger]
-        except KeyError:
-            if trigger in self._trigger_plugins:
-                trigger_cls = self._trigger_classes[trigger] = self._trigger_plugins[trigger].load()
-                if not issubclass(trigger_cls, BaseTrigger):
-                    raise TypeError('The trigger entry point does not point to a trigger class')
-            else:
-                raise LookupError('No trigger by the name "%s" was found' % trigger)
-
-        return trigger_cls(**trigger_args)
+        # Instantiate the trigger class
+        return self._create_plugin_instance('trigger', trigger, trigger_args)
 
     def _create_lock(self):
         """Creates a reentrant lock object."""

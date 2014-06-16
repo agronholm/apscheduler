@@ -59,6 +59,20 @@ setup(
             'date = apscheduler.triggers.date:DateTrigger',
             'interval = apscheduler.triggers.interval:IntervalTrigger',
             'cron = apscheduler.triggers.cron:CronTrigger'
+        ],
+        'apscheduler.executors': [
+            'debug = apscheduler.executors.debug:DebugExecutor',
+            'threadpool = apscheduler.executors.pool:ThreadPoolExecutor',
+            'processpool = apscheduler.executors.pool:ProcessPoolExecutor',
+            'asyncio = apscheduler.executors.asyncio:AsyncIOExecutor',
+            'gevent = apscheduler.executors.gevent:GeventExecutor',
+            'twisted = apscheduler.executors.twisted:TwistedExecutor'
+        ],
+        'apscheduler.jobstores': [
+            'memory = apscheduler.jobstores.memory:MemoryJobStore',
+            'sqlalchemy = apscheduler.jobstores.sqlalchemy:SQLAlchemyJobStore',
+            'mongodb = apscheduler.jobstores.mongodb:MongoDBJobStore',
+            'redis = apscheduler.jobstores.redis:RedisJobStore'
         ]
     }
 )

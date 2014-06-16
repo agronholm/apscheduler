@@ -11,7 +11,11 @@ except ImportError:  # pragma: nocover
 
 
 class GeventExecutor(BaseExecutor):
-    """Runs jobs as greenlets."""
+    """
+    Runs jobs as greenlets.
+
+    Plugin alias: ``gevent``
+    """
 
     def _do_submit_job(self, job, run_times):
         def callback(greenlet):

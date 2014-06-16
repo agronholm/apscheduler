@@ -5,7 +5,11 @@ from apscheduler.executors.base import BaseExecutor, run_job
 
 
 class AsyncIOExecutor(BaseExecutor):
-    """Runs jobs in the default executor of the event loop."""
+    """
+    Runs jobs in the default executor of the event loop.
+
+    Plugin alias: ``asyncio``
+    """
 
     def start(self, scheduler, alias):
         super(AsyncIOExecutor, self).start(scheduler, alias)

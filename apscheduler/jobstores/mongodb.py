@@ -22,6 +22,8 @@ class MongoDBJobStore(BaseJobStore):
     Stores jobs in a MongoDB database. Any leftover keyword arguments are directly passed to pymongo's `MongoClient
     <http://api.mongodb.org/python/current/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient>`_.
 
+    Plugin alias: ``mongodb``
+
     :param str database: database to store jobs in
     :param str collection: collection to store jobs in
     :param client: a :class:`~pymongo.mongo_client.MongoClient` instance to use instead of providing connection

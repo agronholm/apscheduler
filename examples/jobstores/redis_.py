@@ -10,7 +10,6 @@ import sys
 import os
 
 from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.jobstores.redis import RedisJobStore
 
 
 def alarm(time):
@@ -19,11 +18,10 @@ def alarm(time):
 
 if __name__ == '__main__':
     scheduler = BlockingScheduler()
-    jobstore = RedisJobStore(jobs_key='example.jobs', run_times_key='example.run_times')
+    scheduler.add_jobstore('redis', jobs_key='example.jobs', run_times_key='example.run_times')
     if len(sys.argv) > 1 and sys.argv[1] == '--clear':
-        jobstore.remove_all_jobs()
+        scheduler.remove_all_jobs()
 
-    scheduler.add_jobstore(jobstore)
     alarm_time = datetime.now() + timedelta(seconds=10)
     scheduler.add_job(alarm, 'date', run_date=alarm_time, args=[datetime.now()])
     print('To clear the alarms, run this example with the --clear argument.')

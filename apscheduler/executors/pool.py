@@ -23,6 +23,8 @@ class ThreadPoolExecutor(BasePoolExecutor):
     """
     An executor that runs jobs in a concurrent.futures thread pool.
 
+    Plugin alias: ``threadpool``
+
     :param max_workers: the maximum number of spawned threads.
     """
 
@@ -34,6 +36,8 @@ class ThreadPoolExecutor(BasePoolExecutor):
 class ProcessPoolExecutor(BasePoolExecutor):
     """
     An executor that runs jobs in a concurrent.futures process pool.
+
+    Plugin alias: ``processpool``
 
     :param max_workers: the maximum number of spawned processes.
     """

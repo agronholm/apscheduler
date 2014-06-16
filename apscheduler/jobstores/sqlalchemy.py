@@ -20,6 +20,8 @@ class SQLAlchemyJobStore(BaseJobStore):
     """
     Stores jobs in a database table using SQLAlchemy. The table will be created if it doesn't exist in the database.
 
+    Plugin alias: ``sqlalchemy``
+
     :param str url: connection string (see `SQLAlchemy documentation
                     <http://docs.sqlalchemy.org/en/latest/core/engines.html?highlight=create_engine#database-urls>`_
                     on this)

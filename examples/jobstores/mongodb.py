@@ -10,7 +10,6 @@ import sys
 import os
 
 from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.jobstores.mongodb import MongoDBJobStore
 
 
 def alarm(time):
@@ -19,11 +18,10 @@ def alarm(time):
 
 if __name__ == '__main__':
     scheduler = BlockingScheduler()
-    jobstore = MongoDBJobStore(collection='example_jobs')
+    scheduler.add_jobstore('mongodb', collection='example_jobs')
     if len(sys.argv) > 1 and sys.argv[1] == '--clear':
-        jobstore.remove_all_jobs()
+        scheduler.remove_all_jobs()
 
-    scheduler.add_jobstore(jobstore)
     alarm_time = datetime.now() + timedelta(seconds=10)
     scheduler.add_job(alarm, 'date', run_date=alarm_time, args=[datetime.now()])
     print('To clear the alarms, run this example with the --clear argument.')

@@ -4,7 +4,11 @@ from apscheduler.executors.base import BaseExecutor, run_job
 
 
 class TwistedExecutor(BaseExecutor):
-    """Runs jobs in the reactor's thread pool."""
+    """
+    Runs jobs in the reactor's thread pool.
+
+    Plugin alias: ``twisted``
+    """
 
     def start(self, scheduler, alias):
         super(TwistedExecutor, self).start(scheduler, alias)

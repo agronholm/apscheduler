@@ -6,7 +6,6 @@ from datetime import datetime
 import os
 
 from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.executors.pool import ProcessPoolExecutor
 
 
 def tick():
@@ -15,7 +14,7 @@ def tick():
 
 if __name__ == '__main__':
     scheduler = BlockingScheduler()
-    scheduler.add_executor(ProcessPoolExecutor())
+    scheduler.add_executor('processpool')
     scheduler.add_job(tick, 'interval', seconds=3)
     print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
 

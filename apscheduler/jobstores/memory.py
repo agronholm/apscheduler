@@ -5,7 +5,11 @@ from apscheduler.util import datetime_to_utc_timestamp
 
 
 class MemoryJobStore(BaseJobStore):
-    """Stores jobs in an array in RAM. Provides no persistence support."""
+    """
+    Stores jobs in an array in RAM. Provides no persistence support.
+
+    Plugin alias: ``memory``
+    """
 
     def __init__(self):
         super(MemoryJobStore, self).__init__()

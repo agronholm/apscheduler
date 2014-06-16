@@ -3,7 +3,6 @@ import time
 import pytest
 
 from apscheduler.executors.base import MaxInstancesReachedError
-from apscheduler.executors.pool import BasePoolExecutor
 
 
 try:
@@ -22,13 +21,17 @@ def mock_scheduler():
 @pytest.fixture
 def threadpoolexecutor(request):
     from apscheduler.executors.pool import ThreadPoolExecutor
-    return ThreadPoolExecutor()
+    executor = ThreadPoolExecutor()
+    request.addfinalizer(executor.shutdown)
+    return executor
 
 
 @pytest.fixture
 def processpoolexecutor(request):
     from apscheduler.executors.pool import ProcessPoolExecutor
-    return ProcessPoolExecutor()
+    executor = ProcessPoolExecutor()
+    request.addfinalizer(executor.shutdown)
+    return executor
 
 
 @pytest.fixture(params=[threadpoolexecutor, processpoolexecutor], ids=['threadpool', 'processpool'])
