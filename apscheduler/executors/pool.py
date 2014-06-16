@@ -27,7 +27,7 @@ class ThreadPoolExecutor(BasePoolExecutor):
     """
 
     def __init__(self, max_workers=10):
-        pool = concurrent.futures.ThreadPoolExecutor(max_workers)
+        pool = concurrent.futures.ThreadPoolExecutor(int(max_workers))
         super(ThreadPoolExecutor, self).__init__(pool)
 
 
@@ -39,5 +39,5 @@ class ProcessPoolExecutor(BasePoolExecutor):
     """
 
     def __init__(self, max_workers=10):
-        pool = concurrent.futures.ProcessPoolExecutor(max_workers)
+        pool = concurrent.futures.ProcessPoolExecutor(int(max_workers))
         super(ProcessPoolExecutor, self).__init__(pool)
