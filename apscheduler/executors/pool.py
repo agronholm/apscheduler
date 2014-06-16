@@ -11,8 +11,14 @@ class BasePoolExecutor(BaseExecutor):
         self._pool = pool
 
     def _do_submit_job(self, job, run_times):
+        def callback(f):
+            exc = f.exception()
+            if exc:
+                self._run_job_error(job.id, exc)
+            else:
+                self._run_job_success(job.id, f.result())
+
         f = self._pool.submit(run_job, job, job._jobstore_alias, run_times, self._logger.name)
-        callback = lambda f: self._run_job_success(job.id, f.result())
         f.add_done_callback(callback)
 
     def shutdown(self, wait=True):

@@ -2,6 +2,7 @@ import time
 
 import pytest
 
+from apscheduler.events import EVENT_JOB_ERROR
 from apscheduler.executors.base import MaxInstancesReachedError
 
 
@@ -47,6 +48,10 @@ def wait_event():
     return 'test'
 
 
+def failure():
+    raise Exception('test failure')
+
+
 def test_max_instances(mock_scheduler, executor, create_job, freeze_time):
     """Tests that the maximum instance limit on a job is respected."""
 
@@ -61,3 +66,18 @@ def test_max_instances(mock_scheduler, executor, create_job, freeze_time):
     assert len(events) == 2
     assert events[0].retval == 'test'
     assert events[1].retval == 'test'
+
+
+def test_job_error(mock_scheduler, executor, create_job, freeze_time):
+    """Tests that a job error event is delivered to the scheduler if the job itself raises an exception."""
+
+    mock_scheduler._dispatch_event = MagicMock()
+    job = create_job(func=failure)
+    executor.submit_job(job, [freeze_time.current])
+    executor.shutdown()
+
+    assert mock_scheduler._dispatch_event.call_count == 1
+    event = mock_scheduler._dispatch_event.call_args[0][0]
+    assert event.code == EVENT_JOB_ERROR
+    assert str(event.exception) == 'test failure'
+    assert isinstance(event.traceback, str)

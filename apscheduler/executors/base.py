@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from datetime import datetime, timedelta
+from traceback import format_tb
 import logging
 import sys
 
@@ -77,13 +78,13 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
         for event in events:
             self._scheduler._dispatch_event(event)
 
-    def _run_job_error(self, job_id, exc_type, exc_value, traceback):
+    def _run_job_error(self, job_id, exc, traceback=None):
         """Called by the executor with the exception if there is an error calling `run_job`."""
 
         with self._lock:
             self._instances[job_id] -= 1
 
-        exc_info = (exc_type, exc_value, traceback)
+        exc_info = (exc.__class__, exc, traceback)
         self._logger.error('Error running job %s', job_id, exc_info=exc_info)
 
 
@@ -107,8 +108,9 @@ def run_job(job, jobstore_alias, run_times, logger_name):
             retval = job.func(*job.args, **job.kwargs)
         except:
             exc, tb = sys.exc_info()[1:]
+            formatted_tb = ''.join(format_tb(tb))
             events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time, exception=exc,
-                                            traceback=tb))
+                                            traceback=formatted_tb))
             logger.exception('Job "%s" raised an exception', job)
         else:
             events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time, retval=retval))

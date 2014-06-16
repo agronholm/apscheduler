@@ -62,7 +62,7 @@ class JobExecutionEvent(JobEvent):
     :ivar scheduled_run_time: the time when the job was scheduled to be run
     :ivar retval: the return value of the successfully executed job
     :ivar exception: the exception raised by the job
-    :ivar traceback: the traceback object associated with the exception
+    :ivar traceback: a formatted traceback for the exception
     """
 
     def __init__(self, code, job_id, jobstore, scheduled_run_time, retval=None, exception=None, traceback=None):
