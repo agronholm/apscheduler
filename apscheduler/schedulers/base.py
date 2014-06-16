@@ -170,11 +170,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param str|unicode|apscheduler.executors.base.BaseExecutor executor: either an executor instance or the name of
             an executor plugin
         :param str|unicode alias: alias for the scheduler
+        :raises ValueError: if there is already an executor by the given alias
         """
 
         with self._executors_lock:
             if alias in self._executors:
-                raise KeyError('This scheduler already has an executor by the alias of "%s"' % alias)
+                raise ValueError('This scheduler already has an executor by the alias of "%s"' % alias)
 
             if isinstance(executor, BaseExecutor):
                 self._executors[alias] = executor
@@ -214,11 +215,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         :param str|unicode|apscheduler.jobstores.base.BaseJobStore jobstore: job store to be added
         :param str|unicode alias: alias for the job store
+        :raises ValueError: if there is already a job store by the given alias
         """
 
         with self._jobstores_lock:
             if alias in self._jobstores:
-                raise KeyError('This scheduler already has a job store by the alias of "%s"' % alias)
+                raise ValueError('This scheduler already has a job store by the alias of "%s"' % alias)
 
             if isinstance(jobstore, BaseJobStore):
                 self._jobstores[alias] = jobstore

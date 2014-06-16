@@ -267,8 +267,8 @@ class TestBaseScheduler(object):
     def test_add_executor_already_exists(self, scheduler):
         executor = DebugExecutor()
         scheduler.add_executor(executor)
-        exc = pytest.raises(KeyError, scheduler.add_executor, executor)
-        assert exc.value.message == 'This scheduler already has an executor by the alias of "default"'
+        exc = pytest.raises(ValueError, scheduler.add_executor, executor)
+        assert str(exc.value) == 'This scheduler already has an executor by the alias of "default"'
 
     def test_remove_executor(self, scheduler):
         scheduler.add_executor(DebugExecutor(), 'foo')
@@ -308,8 +308,8 @@ class TestBaseScheduler(object):
     def test_add_jobstore_already_exists(self, scheduler):
         jobstore = MemoryJobStore()
         scheduler.add_jobstore(jobstore)
-        exc = pytest.raises(KeyError, scheduler.add_jobstore, jobstore)
-        assert exc.value.message == 'This scheduler already has a job store by the alias of "default"'
+        exc = pytest.raises(ValueError, scheduler.add_jobstore, jobstore)
+        assert str(exc.value) == 'This scheduler already has a job store by the alias of "default"'
 
     def test_remove_jobstore(self, scheduler):
         scheduler.add_jobstore(MemoryJobStore(), 'foo')
