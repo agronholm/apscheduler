@@ -4,6 +4,8 @@ import six
 
 
 class BaseTrigger(six.with_metaclass(ABCMeta)):
+    """Abstract base class that defines the interface that every trigger must implement."""
+
     @abstractmethod
     def get_next_fire_time(self, previous_fire_time, now):
         """

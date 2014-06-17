@@ -28,7 +28,7 @@ class TransientJobError(ValueError):
 
 
 class BaseJobStore(six.with_metaclass(ABCMeta)):
-    """Abstract base class that provides the interface needed by all job stores."""
+    """Abstract base class that defines the interface that every job store must implement."""
 
     _scheduler = None
     _alias = None

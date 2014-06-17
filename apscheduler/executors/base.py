@@ -18,7 +18,7 @@ class MaxInstancesReachedError(Exception):
 
 
 class BaseExecutor(six.with_metaclass(ABCMeta, object)):
-    """Base class of all executors."""
+    """Abstract base class that defines the interface that every executor must implement."""
 
     _scheduler = None
     _lock = None
