@@ -86,5 +86,6 @@ def create_job(job_defaults):
         job_kwargs.update(kwargs)
         job_kwargs['trigger'] = BlockingScheduler()._create_trigger(job_kwargs.pop('trigger'),
                                                                     job_kwargs.pop('trigger_args'))
+        job_kwargs.setdefault('next_run_time', None)
         return Job(**job_kwargs)
     return create

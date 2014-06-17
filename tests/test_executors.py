@@ -57,7 +57,7 @@ def test_max_instances(mock_scheduler, executor, create_job, freeze_time):
 
     events = []
     mock_scheduler._dispatch_event = lambda event: events.append(event)
-    job = create_job(func=wait_event, max_instances=2)
+    job = create_job(func=wait_event, max_instances=2, next_run_time=None)
     executor.submit_job(job, [freeze_time.current])
     executor.submit_job(job, [freeze_time.current])
 

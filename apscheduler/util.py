@@ -21,7 +21,18 @@ __all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_
            'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'get_callable_name', 'obj_to_ref',
            'ref_to_obj', 'maybe_ref', 'repr_escape', 'check_callable_args')
 
-undefined = object()  #: a unique object that only signifies that no value is defined
+
+class _Undefined(object):
+    def __nonzero__(self):
+        return False
+
+    def __bool__(self):
+        return False
+
+    def __repr__(self):
+        return '<undefined>'
+
+undefined = _Undefined()  #: a unique object that only signifies that no value is defined
 
 
 def asint(text):

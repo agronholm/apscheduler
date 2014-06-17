@@ -213,9 +213,6 @@ Method 3::
 
     scheduler.configure(jobstores=jobstores, executors=executors, job_defaults=job_defaults, timezone=utc)
 
-.. note:: If you add jobs before configuring the scheduler, any undefined values will be filled with the hardcoded
-          defaults.
-
 
 Starting the scheduler
 ----------------------

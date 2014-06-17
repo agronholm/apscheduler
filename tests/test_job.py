@@ -33,8 +33,6 @@ def test_constructor(job_id):
         assert job._jobstore_alias is None
 
         modify_kwargs = _modify.call_args[1]
-        assert modify_kwargs['next_run_time'] is None
-
         if job_id is None:
             assert len(modify_kwargs['id']) == 32
         else:

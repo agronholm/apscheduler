@@ -344,14 +344,13 @@ class TestBaseScheduler(object):
         func = lambda x, y: None
         scheduler._stopped = stopped
         scheduler._real_add_job = MagicMock()
-        scheduler._job_defaults = {'misfire_grace_time': 3, 'coalesce': False, 'max_instances': 6}
         job = scheduler.add_job(func, 'date', [1], {'y': 2}, 'my-id', 'dummy', run_date='2014-06-01 08:41:00')
 
         assert isinstance(job, Job)
         assert job.id == 'my-id'
-        assert job.misfire_grace_time == 3
-        assert job.coalesce is False
-        assert job.max_instances == 6
+        assert not hasattr(job, 'misfire_grace_time')
+        assert not hasattr(job, 'coalesce')
+        assert not hasattr(job, 'max_instances')
         assert len(scheduler._pending_jobs) == (1 if stopped else 0)
         assert scheduler._real_add_job.call_count == (0 if stopped else 1)
 
@@ -362,7 +361,8 @@ class TestBaseScheduler(object):
         decorator(func)
 
         scheduler.add_job.assert_called_once_with(func, 'date', [1], {'y': 2}, 'my-id', 'dummy', undefined, undefined,
-                                                  undefined, 'default', 'default', True, run_date='2014-06-01 08:41:00')
+                                                  undefined, undefined, 'default', 'default', True,
+                                                  run_date='2014-06-01 08:41:00')
 
     @pytest.mark.parametrize('pending', [True, False], ids=['pending job', 'scheduled job'])
     def test_modify_job(self, scheduler, pending):
@@ -664,10 +664,11 @@ Jobstore baz:
     @pytest.mark.parametrize('replace_existing', [True, False], ids=['replace', 'no replace'])
     @pytest.mark.parametrize('wakeup', [True, False], ids=['wakeup', 'no wakeup'])
     def test_real_add_job(self, scheduler, job_exists, replace_existing, wakeup):
-        job = MagicMock(Job, id='foo')
+        job = Job(scheduler, id='foo', func=lambda: None, args=(), kwargs={}, next_run_time=None)
         jobstore = MagicMock(BaseJobStore, _alias='bar',
                              add_job=MagicMock(side_effect=ConflictingIdError('foo') if job_exists else None))
         scheduler.wakeup = MagicMock()
+        scheduler._job_defaults = {'misfire_grace_time': 3, 'coalesce': False, 'max_instances': 6}
         scheduler._dispatch_event = MagicMock()
         scheduler._jobstores = {'bar': jobstore}
 
@@ -677,6 +678,12 @@ Jobstore baz:
             return
 
         scheduler._real_add_job(job, 'bar', replace_existing, wakeup)
+
+        # Check that the undefined values were replaced with scheduler defaults
+        assert job.misfire_grace_time == 3
+        assert job.coalesce is False
+        assert job.max_instances == 6
+        assert job.next_run_time is None
 
         if job_exists:
             jobstore.update_job.assert_called_once_with(job)

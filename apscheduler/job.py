@@ -33,7 +33,6 @@ class Job(object):
         super(Job, self).__init__()
         self._scheduler = scheduler
         self._jobstore_alias = None
-        kwargs.setdefault('next_run_time', None)
         self._modify(id=id or uuid4().hex, **kwargs)
 
     def modify(self, **changes):

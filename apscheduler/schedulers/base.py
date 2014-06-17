@@ -285,16 +285,17 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     del self._listeners[i]
 
     def add_job(self, func, trigger=None, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined,
-                coalesce=undefined, max_instances=undefined, jobstore='default', executor='default',
-                replace_existing=False, **trigger_args):
+                coalesce=undefined, max_instances=undefined, next_run_time=undefined, jobstore='default',
+                executor='default', replace_existing=False, **trigger_args):
         """
         add_job(func, trigger=None, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined, \
-            coalesce=undefined, max_instances=undefined, jobstore='default', executor='default', \
-            replace_existing=False, **trigger_args)
+            coalesce=undefined, max_instances=undefined, next_run_time=undefined, jobstore='default', \
+            executor='default', replace_existing=False, **trigger_args)
 
         Adds the given job to the job list and wakes up the scheduler if it's already running.
 
-        Any argument that defaults to ``undefined`` will use scheduler defaults if no value is provided.
+        Any option that defaults to ``undefined`` will be replaced with the corresponding default value when the job is
+        scheduled (which happens when the scheduler is started, or immediately if the scheduler is already running).
 
         The ``func`` argument can be given either as a callable object or a textual reference in the
         ``package.module:some.object`` format, where the first half (separated by ``:``) is an importable module and the
@@ -315,6 +316,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param bool coalesce: run once instead of many times if the scheduler determines that the job should be run more
                               than once in succession
         :param int max_instances: maximum number of concurrently running instances allowed for this job
+        :param datetime next_run_time: when to first run the job, regardless of the trigger (pass ``None`` to add the
+                                       job as paused)
         :param str|unicode jobstore: alias of the job store to store the job in
         :param str|unicode executor: alias of the executor to run the job with
         :param bool replace_existing: ``True`` to replace an existing job with the same ``id`` (but retain the
@@ -322,8 +325,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :rtype: Job
         """
 
-        # Assemble the final job arguments, substituting with default values where no other value is provided
-        default_replace = lambda key, value: value if value is not undefined else self._job_defaults.get(key)
         job_kwargs = {
             'trigger': self._create_trigger(trigger, trigger_args),
             'executor': executor,
@@ -332,10 +333,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             'kwargs': dict(kwargs) if kwargs is not None else {},
             'id': id,
             'name': name,
-            'misfire_grace_time': default_replace('misfire_grace_time', misfire_grace_time),
-            'coalesce': default_replace('coalesce', coalesce),
-            'max_instances': default_replace('max_instances', max_instances),
+            'misfire_grace_time': misfire_grace_time,
+            'coalesce': coalesce,
+            'max_instances': max_instances,
+            'next_run_time': next_run_time
         }
+        job_kwargs = dict((key, value) for key, value in six.iteritems(job_kwargs) if value is not undefined)
         job = Job(self, **job_kwargs)
 
         # Don't really add jobs to job stores before the scheduler is up and running
@@ -349,11 +352,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         return job
 
     def scheduled_job(self, trigger, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined,
-                      coalesce=undefined, max_instances=undefined, jobstore='default', executor='default',
-                      **trigger_args):
+                      coalesce=undefined, max_instances=undefined, next_run_time=undefined, jobstore='default',
+                      executor='default', **trigger_args):
         """
         scheduled_job(trigger, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined, \
-            coalesce=undefined, max_instances=undefined, jobstore='default', executor='default',**trigger_args)
+            coalesce=undefined, max_instances=undefined, next_run_time=undefined, jobstore='default', \
+            executor='default',**trigger_args)
 
         A decorator version of :meth:`add_job`, except that ``replace_existing`` is always ``True``.
 
@@ -362,8 +366,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
 
         def inner(func):
-            self.add_job(func, trigger, args, kwargs, id, name, misfire_grace_time, coalesce, max_instances, jobstore,
-                         executor, True, **trigger_args)
+            self.add_job(func, trigger, args, kwargs, id, name, misfire_grace_time, coalesce, max_instances,
+                         next_run_time, jobstore, executor, True, **trigger_args)
             return func
         return inner
 
@@ -705,9 +709,19 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param bool wakeup: ``True`` to wake up the scheduler after adding the job
         """
 
-        # Calculate the next run time
-        now = datetime.now(self.timezone)
-        job.next_run_time = job.trigger.get_next_fire_time(None, now)
+        # Fill in undefined values with defaults
+        replacements = {}
+        for key, value in six.iteritems(self._job_defaults):
+            if not hasattr(job, key):
+                replacements[key] = value
+
+        # Calculate the next run time if there is none defined
+        if not hasattr(job, 'next_run_time'):
+            now = datetime.now(self.timezone)
+            replacements['next_run_time'] = job.trigger.get_next_fire_time(None, now)
+
+        # Apply any replacements
+        job._modify(**replacements)
 
         # Add the job to the given job store
         store = self._lookup_jobstore(jobstore_alias)
