@@ -6,14 +6,13 @@ restarted, it will then run all the jobs it should have run while it was offline
 Among other things, APScheduler can be used as a cross-platform, application specific replacement to platform specific
 schedulers, such as the cron daemon or the Windows task scheduler. Please note, however, that APScheduler is **not** a
 daemon or service itself, nor does it come with any command line tools. It is primarily meant to be run inside existing
-applications. That said, there's nothing to stop you from using APScheduler to build a scheduler service or to run a
-dedicated process for APScheduler. In fact, several users have reportedly already done so and the
-:class:`~apscheduler.schedulers.blocking.BlockingScheduler` class was made specifically for that purpose.
+applications. That said, APScheduler does provide some building blocks for you to build a scheduler service or to run a
+dedicated scheduler process.
 
 APScheduler has three built-in scheduling systems you can use:
 
-* Cron-style scheduling
-* Interval-based execution (runs jobs on even intervals)
+* Cron-style scheduling (with optional start/end times)
+* Interval-based execution (runs jobs on even intervals, with optional start/end times)
 * One-off delayed execution (runs jobs once, on a set date/time)
 
 You can mix and match scheduling systems and the backends where the jobs are stored any way you like.
