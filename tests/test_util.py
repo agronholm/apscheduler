@@ -12,6 +12,11 @@ from apscheduler.util import (
     datetime_repr, repr_escape)
 from tests.conftest import minpython, maxpython
 
+try:
+    from unittest.mock import Mock
+except ImportError:
+    from mock import Mock
+
 
 class DummyClass(object):
     def meth(self):
@@ -77,6 +82,11 @@ class TestAstimezone(object):
     def test_bad_timezone_type(self):
         exc = pytest.raises(TypeError, astimezone, tzinfo())
         assert 'Only timezones from the pytz library are supported' in str(exc.value)
+
+    def test_bad_local_timezone(self):
+        zone = Mock(tzinfo, localize=None, normalize=None, zone='local')
+        exc = pytest.raises(ValueError, astimezone, zone)
+        assert 'Unable to determine the name of the local timezone' in str(exc.value)
 
     def test_bad_value(self):
         exc = pytest.raises(TypeError, astimezone, 4)

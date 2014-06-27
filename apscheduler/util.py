@@ -76,6 +76,8 @@ def astimezone(obj):
     if isinstance(obj, tzinfo):
         if not hasattr(obj, 'localize') or not hasattr(obj, 'normalize'):
             raise TypeError('Only timezones from the pytz library are supported')
+        if obj.zone == 'local':
+            raise ValueError('Unable to determine the name of the local timezone -- use an explicit timezone instead')
         return obj
     if obj is not None:
         raise TypeError('Expected tzinfo, got %s instead' % obj.__class__.__name__)
