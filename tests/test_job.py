@@ -192,7 +192,7 @@ def test_private_modify_bad_next_run_time(job):
     """Tests that passing a next_run_time of the wrong type raises a TypeError."""
 
     exc = pytest.raises(TypeError, job._modify, next_run_time=1)
-    assert str(exc.value) == 'next_run_time must be either None or a datetime instance'
+    assert str(exc.value) == 'Unsupported type for next_run_time: int'
 
 
 def test_private_modify_bad_argument(job):

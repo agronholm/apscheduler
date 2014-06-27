@@ -118,7 +118,7 @@ def convert_to_datetime(input, tz, arg_name):
         values = dict(values)
         datetime_ = datetime(**values)
     else:
-        raise TypeError('Unsupported input type: %s' % input.__class__.__name__)
+        raise TypeError('Unsupported type for %s: %s' % (arg_name, input.__class__.__name__))
 
     if datetime_.tzinfo is not None:
         return datetime_

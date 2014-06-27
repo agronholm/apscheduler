@@ -101,8 +101,8 @@ class TestConvertToDatetime(object):
         assert returned == expected
 
     def test_invalid_input_type(self, timezone):
-        exc = pytest.raises(TypeError, convert_to_datetime, 92123, timezone, None)
-        assert str(exc.value) == 'Unsupported input type: int'
+        exc = pytest.raises(TypeError, convert_to_datetime, 92123, timezone, 'foo')
+        assert str(exc.value) == 'Unsupported type for foo: int'
 
     def test_invalid_input_value(self, timezone):
         exc = pytest.raises(ValueError, convert_to_datetime, '19700-12-1', timezone, None)

@@ -1,11 +1,11 @@
 from collections import Iterable, Mapping
-from datetime import datetime
 from uuid import uuid4
 
 import six
 
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name, check_callable_args
+from apscheduler.util import ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name, check_callable_args, \
+    convert_to_datetime
 
 
 class Job(object):
@@ -95,8 +95,8 @@ class Job(object):
         """
         Computes the scheduled run times between ``next_run_time`` and ``now`` (inclusive).
 
-        :type now: datetime
-        :rtype: list[datetime]
+        :type now: datetime.datetime
+        :rtype: list[datetime.datetime]
         """
 
         run_times = []
@@ -189,9 +189,7 @@ class Job(object):
 
         if 'next_run_time' in changes:
             value = changes.pop('next_run_time')
-            if value and not isinstance(value, datetime):
-                raise TypeError('next_run_time must be either None or a datetime instance')
-            approved['next_run_time'] = value
+            approved['next_run_time'] = convert_to_datetime(value, self._scheduler.timezone, 'next_run_time')
 
         if changes:
             raise AttributeError('The following are not modifiable attributes of Job: %s' % ', '.join(changes))

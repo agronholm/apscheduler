@@ -17,7 +17,7 @@ from apscheduler.jobstores.base import ConflictingIdError, JobLookupError, BaseJ
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import maybe_ref, asbool, astimezone, timedelta_seconds, undefined, asint
+from apscheduler.util import asbool, asint, astimezone, maybe_ref, timedelta_seconds, undefined
 from apscheduler.events import (
     SchedulerEvent, JobEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOBSTORE_ADDED,
     EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_JOB_MODIFIED, EVENT_JOB_REMOVED, EVENT_JOB_ADDED, EVENT_EXECUTOR_ADDED,
@@ -378,7 +378,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param str|unicode job_id: the identifier of the job
         :param str|unicode jobstore: alias of the job store that contains the job
         """
-
         with self._jobstores_lock:
             job, jobstore = self._lookup_job(job_id, jobstore)
             job._modify(**changes)

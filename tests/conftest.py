@@ -79,9 +79,9 @@ def job_defaults(timezone):
 
 
 @pytest.fixture(scope='session')
-def create_job(job_defaults):
+def create_job(job_defaults, timezone):
     def create(**kwargs):
-        kwargs.setdefault('scheduler', Mock(BaseScheduler))
+        kwargs.setdefault('scheduler', Mock(BaseScheduler, timezone=timezone))
         job_kwargs = job_defaults.copy()
         job_kwargs.update(kwargs)
         job_kwargs['trigger'] = BlockingScheduler()._create_trigger(job_kwargs.pop('trigger'),

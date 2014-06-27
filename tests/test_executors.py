@@ -4,6 +4,7 @@ import pytest
 
 from apscheduler.events import EVENT_JOB_ERROR
 from apscheduler.executors.base import MaxInstancesReachedError
+from apscheduler.schedulers.base import BaseScheduler
 
 
 try:
@@ -13,8 +14,8 @@ except ImportError:
 
 
 @pytest.fixture
-def mock_scheduler():
-    scheduler_ = Mock([])
+def mock_scheduler(timezone):
+    scheduler_ = Mock(BaseScheduler, timezone=timezone)
     scheduler_._create_lock = MagicMock()
     return scheduler_
 
