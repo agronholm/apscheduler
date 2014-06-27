@@ -99,7 +99,7 @@ def run_job(job, jobstore_alias, run_times, logger_name):
             difference = datetime.now(utc) - run_time
             grace_time = timedelta(seconds=job.misfire_grace_time)
             if difference > grace_time:
-                events.append(JobExecutionEvent(EVENT_JOB_MISSED, job.id, job.jobstore, run_time))
+                events.append(JobExecutionEvent(EVENT_JOB_MISSED, job.id, jobstore_alias, run_time))
                 logger.warning('Run time of job "%s" was missed by %s', job, difference)
                 continue
 

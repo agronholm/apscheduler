@@ -1,8 +1,9 @@
 import time
+from datetime import datetime
 
 import pytest
 
-from apscheduler.events import EVENT_JOB_ERROR
+from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED, EVENT_JOB_EXECUTED
 from apscheduler.executors.base import MaxInstancesReachedError
 from apscheduler.schedulers.base import BaseScheduler
 
@@ -53,6 +54,10 @@ def failure():
     raise Exception('test failure')
 
 
+def success():
+    return 5
+
+
 def test_max_instances(mock_scheduler, executor, create_job, freeze_time):
     """Tests that the maximum instance limit on a job is respected."""
 
@@ -69,16 +74,29 @@ def test_max_instances(mock_scheduler, executor, create_job, freeze_time):
     assert events[1].retval == 'test'
 
 
-def test_job_error(mock_scheduler, executor, create_job, freeze_time):
-    """Tests that a job error event is delivered to the scheduler if the job itself raises an exception."""
+@pytest.mark.parametrize('event_code,func', [
+    (EVENT_JOB_EXECUTED, success),
+    (EVENT_JOB_MISSED, failure),
+    (EVENT_JOB_ERROR, failure)
+], ids=['executed', 'missed', 'error'])
+def test_submit_job(mock_scheduler, executor, create_job, freeze_time, timezone, event_code, func):
+    """Tests that an EVENT_JOB_EXECUTED event is delivered to the scheduler if the job was successfully executed."""
 
     mock_scheduler._dispatch_event = MagicMock()
-    job = create_job(func=failure)
-    executor.submit_job(job, [freeze_time.current])
+    job = create_job(func=func, id='foo')
+    job._jobstore_alias = 'test_jobstore'
+    run_time = timezone.localize(datetime(1970, 1, 1)) if event_code == EVENT_JOB_MISSED else freeze_time.current
+    executor.submit_job(job, [run_time])
     executor.shutdown()
 
     assert mock_scheduler._dispatch_event.call_count == 1
     event = mock_scheduler._dispatch_event.call_args[0][0]
-    assert event.code == EVENT_JOB_ERROR
-    assert str(event.exception) == 'test failure'
-    assert isinstance(event.traceback, str)
+    assert event.code == event_code
+    assert event.job_id == 'foo'
+    assert event.jobstore == 'test_jobstore'
+
+    if event_code == EVENT_JOB_EXECUTED:
+        assert event.retval == 5
+    elif event_code == EVENT_JOB_ERROR:
+        assert str(event.exception) == 'test failure'
+        assert isinstance(event.traceback, str)
