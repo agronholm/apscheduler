@@ -72,6 +72,7 @@ setup(
             'memory = apscheduler.jobstores.memory:MemoryJobStore',
             'sqlalchemy = apscheduler.jobstores.sqlalchemy:SQLAlchemyJobStore',
             'mongodb = apscheduler.jobstores.mongodb:MongoDBJobStore',
+            'rethinkdb = apscheduler.jobstores.rethinkdb:RethinkDBJobStore',
             'redis = apscheduler.jobstores.redis:RedisJobStore'
         ]
     }
