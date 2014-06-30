@@ -20,11 +20,11 @@ class RethinkDBJobStore(BaseJobStore):
     Stores jobs in a RethinkDB database. Any leftover keyword arguments are directly passed to rethink's
     `RethinkdbClient <http://www.rethinkdb.com/api/#connect>`_.
 
-    Plugin alias: ``rethink_db``
+    Plugin alias: ``rethinkdb``
 
     :param str database: database to store jobs in
     :param str collection: collection to store jobs in
-    :param client: a :class:`rethinkdb.net.Connectio` instance to use instead of providing connection
+    :param client: a :class:`rethinkdb.net.Connection` instance to use instead of providing connection
                    arguments
     :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the highest available
     """
@@ -53,13 +53,16 @@ class RethinkDBJobStore(BaseJobStore):
         if 'next_run_time' not in r.table(table).index_list().run(self.conn):
             r.table(table).index_create('next_run_time').run(self.conn)
 
+        self.r = r
         self.table = r.db(database).table(table)
 
     def lookup_job(self, job_id):
         if job_id:
-            document = (
-                self.table.get(job_id).pluck('job_state').run(self.conn)
+            document = list(
+                self.table.get_all(job_id).pluck('job_state').run(self.conn)
             )
+            if document:
+                document = document[0]
         else:
             document = None
 
@@ -67,7 +70,7 @@ class RethinkDBJobStore(BaseJobStore):
 
     def get_due_jobs(self, now):
         if now:
-            timestamp = r.epoch_time(datetime_to_utc_timestamp(now))
+            timestamp = datetime_to_utc_timestamp(now)
             search = (lambda x: x['next_run_time'] <= timestamp)
         else:
             search = None
@@ -75,14 +78,14 @@ class RethinkDBJobStore(BaseJobStore):
         return self._get_jobs(search)
 
     def get_next_run_time(self):
-        document = (
+        document = list(
             self.table
             .filter(
                 lambda x:
                 x['next_run_time'] != None
             )
             .order_by(r.asc('next_run_time'))
-            .map(lambda x: x['next_run_time'].to_epoch_time())
+            .map(lambda x: x['next_run_time'])
             .limit(1)
             .run(self.conn)
         )
@@ -97,8 +100,13 @@ class RethinkDBJobStore(BaseJobStore):
         return self._get_jobs()
 
     def add_job(self, job):
-        if job:
-            job_exist = self.table.get(job.id).run(self.conn)
+        if isinstance(job, Job):
+            if job.id:
+                job_exist = list(self.table.get_all(job.id).run(self.conn))
+                if job_exist:
+                    job_exist = job_exist[0]
+            else:
+                job_exist = None
         else:
             job_exist = None
 
@@ -112,17 +120,20 @@ class RethinkDBJobStore(BaseJobStore):
                 .encode("base64")
                 .strip()
             )
-            job_dict['next_run_time'] = r.epoch_time(
+            job_dict['next_run_time'] = (
                 datetime_to_utc_timestamp(job.next_run_time)
             )
-            self.table.insert(job_dict).run(self.conn)
+
+            results = self.table.insert(job_dict).run(self.conn)
+            if results['errors'] > 0:
+                raise ConflictingIdError(job.id)
         else:
-            raise ConflictingIdError(job.id)
+            raise ConflictingIdError(job)
 
     def update_job(self, job):
         document = {}
-        if job:
-            next_run_time = r.epoch_time(
+        if isinstance(job, Job):
+            next_run_time = (
                 datetime_to_utc_timestamp(job.next_run_time)
             )
             document['job_state'] = (
@@ -133,15 +144,21 @@ class RethinkDBJobStore(BaseJobStore):
                 .strip()
             )
             document['next_run_time'] = next_run_time
-            results = self.table.get(job.id).update(document).run(self.conn)
-            if results['skipped'] > 0:
-                raise JobLookupError(id)
+            results = self.table.get_all(job.id).update(document).run(self.conn)
+            skipped = False in map(lambda x: results[x] == 0, results.keys())
+            if results['skipped'] > 0 or results['errors'] > 0 or not skipped:
+                raise JobLookupError(job.id)
+        else:
+            raise JobLookupError(job.id)
 
-    def remove_job(self, job):
-        if job:
-            results = self.table.get(job.id).delete().run(self.conn)
-            if results['deleted'] == 0:
-                raise JobLookupError(id)
+    def remove_job(self, job_id):
+        if job_id:
+            results = self.table.get_all(job_id).delete().run(self.conn)
+            skipped = False in map(lambda x: results[x] == 0, results.keys())
+            if results['skipped'] > 0 or results['errors'] > 0 or not skipped:
+                raise JobLookupError(job_id)
+        else:
+            raise JobLookupError(job_id)
 
     def remove_all_jobs(self):
         self.table.delete().run(self.conn)
@@ -161,15 +178,15 @@ class RethinkDBJobStore(BaseJobStore):
         jobs = []
         failed_job_ids = []
         if conditions:
-            documents = (
+            documents = list(
                 self.table
                 .filter(conditions)
-                .pluck('id', 'job_state')
                 .order_by(r.asc('next_run_time'))
+                .pluck('id', 'job_state')
                 .run(self.conn)
             )
         else:
-            documents = (
+            documents = list(
                 self.table
                 .order_by(r.asc('next_run_time'))
                 .pluck('id', 'job_state')
@@ -186,7 +203,7 @@ class RethinkDBJobStore(BaseJobStore):
         if failed_job_ids:
             r.expr(failed_job_ids).for_each(
                 lambda job_id:
-                self.table.get(job_id).delete()
+                self.table.get_all(job_id).delete()
             ).run(self.conn)
 
         return jobs
