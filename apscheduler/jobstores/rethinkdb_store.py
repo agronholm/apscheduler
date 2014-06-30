@@ -65,9 +65,7 @@ class RethinkDBJobStore(JobStore):
         job_dict['next_run_time'] = r.epoch_time(
             float(job_dict['next_run_time'].strftime('%s'))
         )
-        print job_dict
         job_results = self.table.insert(job_dict).run(self.conn)
-        print job_results
         job.id = job_results['generated_keys'].pop()
         self.jobs.append(job)
 
