@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
-from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
+from apscheduler.util import maybe_ref, datetime_to_utc_timestamp
 from apscheduler.job import Job
 
 try:
@@ -17,8 +17,8 @@ except ImportError:  # pragma: nocover
 
 class RethinkDBJobStore(BaseJobStore):
     """
-    Stores jobs in a RethinkDB database. Any leftover keyword arguments are directly passed to pymongo's `RethinkdbClient
-    <http://www.rethinkdb.com/api/#connect>`_.
+    Stores jobs in a RethinkDB database. Any leftover keyword arguments are directly passed to rethink's
+    `RethinkdbClient <http://www.rethinkdb.com/api/#connect>`_.
 
     Plugin alias: ``rethinkdb``
 
@@ -44,13 +44,13 @@ class RethinkDBJobStore(BaseJobStore):
         else:
             self.conn = r.connect(db=database, **connect_args)
 
-        if not database in r.db_list().run(self.conn):
+        if database not in r.db_list().run(self.conn):
             r.db_create(database).run(self.conn)
 
-        if not table in r.table_list().run(self.conn):
+        if table not in r.table_list().run(self.conn):
             r.table_create(table).run(self.conn)
 
-        if not 'next_run_time' in r.table(table).index_list().run(self.conn):
+        if 'next_run_time' not in r.table(table).index_list().run(self.conn):
             r.table(table).index_create('next_run_time').run(self.conn)
 
         self.table = r.db(database).table(table)
@@ -86,7 +86,6 @@ class RethinkDBJobStore(BaseJobStore):
     def get_all_jobs(self):
         return self._get_jobs()
 
-
     def add_job(self, job):
         job_exist = self.table.get(job.id).run(self.conn)
         if not job_exist:
@@ -105,7 +104,6 @@ class RethinkDBJobStore(BaseJobStore):
             self.table.insert(job_dict).run(self.conn)
         else:
             raise ConflictingIdError(job.id)
-
 
     def update_job(self, job):
         document = {}
