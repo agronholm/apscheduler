@@ -18,7 +18,15 @@ def run_in_reactor(func):
 
 
 class TwistedScheduler(BaseScheduler):
-    """A scheduler that runs on a Twisted reactor."""
+    """
+    A scheduler that runs on a Twisted reactor.
+
+    Extra options:
+
+    =========== ========================================================
+    ``reactor`` Reactor instance to use (defaults to the global reactor)
+    =========== ========================================================
+    """
 
     _reactor = None
     _delayedcall = None
@@ -29,7 +37,7 @@ class TwistedScheduler(BaseScheduler):
 
     def start(self):
         super(TwistedScheduler, self).start()
-        self._wakeup()
+        self.wakeup()
 
     @run_in_reactor
     def shutdown(self, wait=True):
@@ -39,7 +47,7 @@ class TwistedScheduler(BaseScheduler):
     def _start_timer(self, wait_seconds):
         self._stop_timer()
         if wait_seconds is not None:
-            self._delayedcall = self._reactor.callLater(wait_seconds, self._wakeup)
+            self._delayedcall = self._reactor.callLater(wait_seconds, self.wakeup)
 
     def _stop_timer(self):
         if self._delayedcall and self._delayedcall.active():
@@ -47,7 +55,11 @@ class TwistedScheduler(BaseScheduler):
             del self._delayedcall
 
     @run_in_reactor
-    def _wakeup(self):
+    def wakeup(self):
         self._stop_timer()
         wait_seconds = self._process_jobs()
         self._start_timer(wait_seconds)
+
+    def _create_default_executor(self):
+        from apscheduler.executors.twisted import TwistedExecutor
+        return TwistedExecutor()

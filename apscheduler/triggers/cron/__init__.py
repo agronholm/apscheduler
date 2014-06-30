@@ -1,12 +1,33 @@
-from datetime import date, datetime
+from datetime import datetime, timedelta
 
-from six import iteritems
+from tzlocal import get_localzone
+import six
 
-from apscheduler.triggers.cron.fields import *
-from apscheduler.util import datetime_ceil, convert_to_datetime, datetime_repr
+from apscheduler.triggers.base import BaseTrigger
+from apscheduler.triggers.cron.fields import BaseField, WeekField, DayOfMonthField, DayOfWeekField, DEFAULT_VALUES
+from apscheduler.util import datetime_ceil, convert_to_datetime, datetime_repr, astimezone
 
 
-class CronTrigger(object):
+class CronTrigger(BaseTrigger):
+    """
+    Triggers when current time matches all specified time constraints, similarly to how the UNIX cron scheduler works.
+
+    :param int|str year: 4-digit year
+    :param int|str month: month (1-12)
+    :param int|str day: day of the (1-31)
+    :param int|str week: ISO week (1-53)
+    :param int|str day_of_week: number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun)
+    :param int|str hour: hour (0-23)
+    :param int|str minute: minute (0-59)
+    :param int|str second: second (0-59)
+    :param datetime|str start_date: earliest possible date/time to trigger on (inclusive)
+    :param datetime|str end_date: latest possible date/time to trigger on (inclusive)
+    :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
+                                         (defaults to scheduler timezone)
+
+    .. note:: The first weekday is always **monday**.
+    """
+
     FIELD_NAMES = ('year', 'month', 'day', 'week', 'day_of_week', 'hour', 'minute', 'second')
     FIELDS_MAP = {
         'year': BaseField,
@@ -19,26 +40,23 @@ class CronTrigger(object):
         'second': BaseField
     }
 
-    def __init__(self, defaults, year=None, month=None, day=None, week=None, day_of_week=None, hour=None, minute=None,
-                 second=None, start_date=None, timezone=None):
-        """
-        Triggers when current time matches all specified time constraints, emulating the UNIX cron scheduler.
+    __slots__ = 'timezone', 'start_date', 'end_date', 'fields'
 
-        :param year: year to run on
-        :param month: month to run on
-        :param day: day of month to run on
-        :param week: week of the year to run on
-        :param day_of_week: weekday to run on (0 = Monday)
-        :param hour: hour to run on
-        :param second: second to run on
-        :param start_date: earliest possible date/time to trigger on
-        :param timezone: time zone for ``start_date``
-        :type timezone: str or an instance of a :cls:`~datetime.tzinfo` subclass
-        """
-        self.timezone = timezone or defaults['timezone']
-        self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date') if start_date else None
+    def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None, minute=None,
+                 second=None, start_date=None, end_date=None, timezone=None):
+        if timezone:
+            self.timezone = astimezone(timezone)
+        elif start_date and start_date.tzinfo:
+            self.timezone = start_date.tzinfo
+        elif end_date and end_date.tzinfo:
+            self.timezone = end_date.tzinfo
+        else:
+            self.timezone = get_localzone()
 
-        values = dict((key, value) for (key, value) in iteritems(locals())
+        self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date')
+        self.end_date = convert_to_datetime(end_date, self.timezone, 'end_date')
+
+        values = dict((key, value) for (key, value) in six.iteritems(locals())
                       if key in self.FIELD_NAMES and value is not None)
         self.fields = []
         assign_defaults = False
@@ -64,12 +82,12 @@ class CronTrigger(object):
 
         :type dateval: datetime
         :type fieldnum: int
-        :type amount: int
-        :rtype: tuple
         :return: a tuple containing the new date, and the number of the field that was actually incremented
+        :rtype: tuple
         """
-        i = 0
+
         values = {}
+        i = 0
         while i < len(self.fields):
             field = self.fields[i]
             if not field.REAL:
@@ -96,7 +114,8 @@ class CronTrigger(object):
                     values[field.name] = value + 1
                     i += 1
 
-        return datetime(tzinfo=self.timezone, **values), fieldnum
+        difference = datetime(**values) - dateval.replace(tzinfo=None)
+        return self.timezone.normalize(dateval + difference), fieldnum
 
     def _set_field_value(self, dateval, fieldnum, new_value):
         values = {}
@@ -109,13 +128,17 @@ class CronTrigger(object):
                 else:
                     values[field.name] = new_value
 
-        return datetime(tzinfo=self.timezone, **values)
+        difference = datetime(**values) - dateval.replace(tzinfo=None)
+        return self.timezone.normalize(dateval + difference)
 
-    def get_next_fire_time(self, start_date):
-        if self.start_date:
-            start_date = max(start_date, self.start_date)
-        next_date = datetime_ceil(start_date)
+    def get_next_fire_time(self, previous_fire_time, now):
+        if previous_fire_time:
+            start_date = max(now, previous_fire_time + timedelta(microseconds=1))
+        else:
+            start_date = max(now, self.start_date) if self.start_date else now
+
         fieldnum = 0
+        next_date = datetime_ceil(start_date).astimezone(self.timezone)
         while 0 <= fieldnum < len(self.fields):
             field = self.fields[fieldnum]
             curr_value = field.get_value(next_date)
@@ -135,15 +158,19 @@ class CronTrigger(object):
                 # A valid value was found, no changes necessary
                 fieldnum += 1
 
+            # Return if the date has rolled past the end date
+            if self.end_date and next_date > self.end_date:
+                return None
+
         if fieldnum >= 0:
             return next_date
 
     def __str__(self):
-        options = ["%s='%s'" % (f.name, str(f)) for f in self.fields if not f.is_default]
+        options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
         return 'cron[%s]' % (', '.join(options))
 
     def __repr__(self):
-        options = ["%s='%s'" % (f.name, str(f)) for f in self.fields if not f.is_default]
+        options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
         if self.start_date:
             options.append("start_date='%s'" % datetime_repr(self.start_date))
         return '<%s (%s)>' % (self.__class__.__name__, ', '.join(options))

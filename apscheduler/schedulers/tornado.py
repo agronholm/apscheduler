@@ -19,14 +19,20 @@ def run_in_ioloop(func):
 
 
 class TornadoScheduler(BaseScheduler):
-    """A scheduler that runs on a Tornado IOLoop."""
+    """
+    A scheduler that runs on a Tornado IOLoop.
+
+    =========== ===============================================================
+    ``io_loop`` Tornado IOLoop instance to use (defaults to the global IO loop)
+    =========== ===============================================================
+    """
 
     _ioloop = None
     _timeout = None
 
     def start(self):
         super(TornadoScheduler, self).start()
-        self._wakeup()
+        self.wakeup()
 
     @run_in_ioloop
     def shutdown(self, wait=True):
@@ -40,7 +46,7 @@ class TornadoScheduler(BaseScheduler):
     def _start_timer(self, wait_seconds):
         self._stop_timer()
         if wait_seconds is not None:
-            self._timeout = self._ioloop.add_timeout(timedelta(seconds=wait_seconds), self._wakeup)
+            self._timeout = self._ioloop.add_timeout(timedelta(seconds=wait_seconds), self.wakeup)
 
     def _stop_timer(self):
         if self._timeout:
@@ -48,7 +54,7 @@ class TornadoScheduler(BaseScheduler):
             del self._timeout
 
     @run_in_ioloop
-    def _wakeup(self):
+    def wakeup(self):
         self._stop_timer()
         wait_seconds = self._process_jobs()
         self._start_timer(wait_seconds)

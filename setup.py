@@ -19,6 +19,10 @@ class PyTest(TestCommand):
         errno = pytest.main(self.test_args)
         sys.exit(errno)
 
+extra_requirements = []
+if sys.version_info < (3, 2):
+    extra_requirements.append('futures')
+
 here = os.path.dirname(__file__)
 readme_path = os.path.join(here, 'README.rst')
 readme = open(readme_path).read()
@@ -40,13 +44,14 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.2',
-        'Programming Language :: Python :: 3.3'
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4'
     ],
     keywords='scheduling cron',
     license='MIT',
     packages=find_packages(exclude=['tests']),
-    install_requires=['six', 'python-dateutil'],
-    tests_require=['pytest >= 2.5.1', 'pytest-cov'],
+    install_requires=['six', 'pytz', 'tzlocal'] + extra_requirements,
+    tests_require=['pytest >= 2.5.1'],
     cmdclass={'test': PyTest},
     zip_safe=False,
     entry_points={
@@ -54,6 +59,20 @@ setup(
             'date = apscheduler.triggers.date:DateTrigger',
             'interval = apscheduler.triggers.interval:IntervalTrigger',
             'cron = apscheduler.triggers.cron:CronTrigger'
+        ],
+        'apscheduler.executors': [
+            'debug = apscheduler.executors.debug:DebugExecutor',
+            'threadpool = apscheduler.executors.pool:ThreadPoolExecutor',
+            'processpool = apscheduler.executors.pool:ProcessPoolExecutor',
+            'asyncio = apscheduler.executors.asyncio:AsyncIOExecutor',
+            'gevent = apscheduler.executors.gevent:GeventExecutor',
+            'twisted = apscheduler.executors.twisted:TwistedExecutor'
+        ],
+        'apscheduler.jobstores': [
+            'memory = apscheduler.jobstores.memory:MemoryJobStore',
+            'sqlalchemy = apscheduler.jobstores.sqlalchemy:SQLAlchemyJobStore',
+            'mongodb = apscheduler.jobstores.mongodb:MongoDBJobStore',
+            'redis = apscheduler.jobstores.redis:RedisJobStore'
         ]
     }
 )

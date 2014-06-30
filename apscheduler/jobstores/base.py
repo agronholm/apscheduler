@@ -1,25 +1,125 @@
-"""
-Abstract base class that provides the interface needed by all job stores.
-Job store methods are also documented here.
-"""
+from abc import ABCMeta, abstractmethod
+import logging
+
+import six
 
 
-class JobStore(object):
-    def add_job(self, job):
-        """Adds the given job from this store."""
-        raise NotImplementedError
+class JobLookupError(KeyError):
+    """Raised when the job store cannot find a job for update or removal."""
 
-    def update_job(self, job):
-        """Persists the running state of the given job."""
-        raise NotImplementedError
+    def __init__(self, job_id):
+        super(JobLookupError, self).__init__(six.u('No job by the id of %s was found') % job_id)
 
-    def remove_job(self, job):
-        """Removes the given jobs from this store."""
-        raise NotImplementedError
 
-    def load_jobs(self):
-        """Loads jobs from this store into memory."""
-        raise NotImplementedError
+class ConflictingIdError(KeyError):
+    """Raised when the uniqueness of job IDs is being violated."""
 
-    def close(self):
+    def __init__(self, job_id):
+        super(ConflictingIdError, self).__init__(six.u('Job identifier (%s) conflicts with an existing job') % job_id)
+
+
+class TransientJobError(ValueError):
+    """Raised when an attempt to add transient (with no func_ref) job to a persistent job store is detected."""
+
+    def __init__(self, job_id):
+        super(TransientJobError, self).__init__(
+            six.u('Job (%s) cannot be added to this job store because a reference to the callable could not be '
+                  'determined.') % job_id)
+
+
+class BaseJobStore(six.with_metaclass(ABCMeta)):
+    """Abstract base class that defines the interface that every job store must implement."""
+
+    _scheduler = None
+    _alias = None
+    _logger = logging.getLogger('apscheduler.jobstores')
+
+    def start(self, scheduler, alias):
+        """
+        Called by the scheduler when the scheduler is being started or when the job store is being added to an already
+        running scheduler.
+
+        :param apscheduler.schedulers.base.BaseScheduler scheduler: the scheduler that is starting this job store
+        :param str|unicode alias: alias of this job store as it was assigned to the scheduler
+        """
+
+        self._scheduler = scheduler
+        self._alias = alias
+        self._logger = logging.getLogger('apscheduler.jobstores.%s' % alias)
+
+    def shutdown(self):
         """Frees any resources still bound to this job store."""
+
+    @abstractmethod
+    def lookup_job(self, job_id):
+        """
+        Returns a specific job, or ``None`` if it isn't found..
+
+        The job store is responsible for setting the ``scheduler`` and ``jobstore`` attributes of the returned job to
+        point to the scheduler and itself, respectively.
+
+        :param str|unicode job_id: identifier of the job
+        :rtype: Job
+        """
+
+    @abstractmethod
+    def get_due_jobs(self, now):
+        """
+        Returns the list of jobs that have ``next_run_time`` earlier or equal to ``now``, sorted by next run time
+
+        :param datetime.datetime now: the current (timezone aware) datetime
+        :rtype: list[Job]
+        """
+
+    @abstractmethod
+    def get_next_run_time(self):
+        """
+        Returns the earliest run time of all the jobs stored in this job store, or ``None`` if there are no active jobs.
+
+        :rtype: datetime.datetime
+        """
+
+    @abstractmethod
+    def get_all_jobs(self):
+        """
+        Returns a list of all contained jobs (sorted by next run time).
+
+        The job store is responsible for setting the ``scheduler`` and ``jobstore`` attributes of the returned jobs to
+        point to the scheduler and itself, respectively.
+
+        :rtype: list[Job]
+        """
+
+    @abstractmethod
+    def add_job(self, job):
+        """
+        Adds the given job to this store.
+
+        :param Job job: the job to add
+        :raises ConflictingIdError: if there is another job in this store with the same ID
+        """
+
+    @abstractmethod
+    def update_job(self, job):
+        """
+        Replaces the job in the store with the given newer version.
+
+        :param Job job: the job to update
+        :raises JobLookupError: if the job does not exist
+        """
+
+    @abstractmethod
+    def remove_job(self, job_id):
+        """
+        Removes the given job from this store.
+
+        :param str|unicode job_id: identifier of the job
+        :raises JobLookupError: if the job does not exist
+        """
+
+    @abstractmethod
+    def remove_all_jobs(self):
+        """Removes all jobs from this store."""
+
+    def __repr__(self):
+        return '<%s>' % self.__class__.__name__

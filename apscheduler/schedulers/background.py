@@ -7,7 +7,18 @@ from apscheduler.util import asbool
 
 
 class BackgroundScheduler(BlockingScheduler):
-    """A scheduler that runs in the background using a separate thread."""
+    """
+    A scheduler that runs in the background using a separate thread
+    (:meth:`~apscheduler.schedulers.base.BaseScheduler.start` will return immediately).
+
+    Extra options:
+
+    ========== ============================================================================================
+    ``daemon`` Set the ``daemon`` option in the background thread (defaults to ``True``,
+               see `the documentation <https://docs.python.org/3.4/library/threading.html#thread-objects>`_
+               for further details)
+    ========== ============================================================================================
+    """
 
     _thread = None
 

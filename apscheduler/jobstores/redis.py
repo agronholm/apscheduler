@@ -1,12 +1,9 @@
-"""
-Stores jobs in a Redis database.
-"""
 from __future__ import absolute_import
-from uuid import uuid4
-from datetime import datetime
-import logging
 
-from apscheduler.jobstores.base import JobStore
+import six
+
+from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
+from apscheduler.util import datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
 try:
@@ -19,74 +16,123 @@ try:
 except ImportError:  # pragma: nocover
     raise ImportError('RedisJobStore requires redis installed')
 
-try:
-    long = long
-except NameError:
-    long = int
 
-logger = logging.getLogger(__name__)
+class RedisJobStore(BaseJobStore):
+    """
+    Stores jobs in a Redis database. Any leftover keyword arguments are directly passed to redis's StrictRedis.
 
+    Plugin alias: ``redis``
 
-class RedisJobStore(JobStore):
-    def __init__(self, db=0, key_prefix='jobs.',
+    :param int db: the database number to store jobs in
+    :param str jobs_key: key to store jobs in
+    :param str run_times_key: key to store the jobs' run times in
+    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the highest available
+    """
+
+    def __init__(self, db=0, jobs_key='apscheduler.jobs', run_times_key='apscheduler.run_times',
                  pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
-        self.jobs = []
-        self.pickle_protocol = pickle_protocol
-        self.key_prefix = key_prefix
+        super(RedisJobStore, self).__init__()
 
         if db is None:
             raise ValueError('The "db" parameter must not be empty')
-        if not key_prefix:
-            raise ValueError('The "key_prefix" parameter must not be empty')
+        if not jobs_key:
+            raise ValueError('The "jobs_key" parameter must not be empty')
+        if not run_times_key:
+            raise ValueError('The "run_times_key" parameter must not be empty')
 
-        self.redis = StrictRedis(db=db, **connect_args)
+        self.pickle_protocol = pickle_protocol
+        self.jobs_key = jobs_key
+        self.run_times_key = run_times_key
+        self.redis = StrictRedis(db=int(db), **connect_args)
+
+    def lookup_job(self, job_id):
+        job_state = self.redis.hget(self.jobs_key, job_id)
+        return self._reconstitute_job(job_state) if job_state else None
+
+    def get_due_jobs(self, now):
+        timestamp = datetime_to_utc_timestamp(now)
+        job_ids = self.redis.zrangebyscore(self.run_times_key, 0, timestamp)
+        if job_ids:
+            job_states = self.redis.hmget(self.jobs_key, *job_ids)
+            return self._reconstitute_jobs(six.moves.zip(job_ids, job_states))
+        return []
+
+    def get_next_run_time(self):
+        next_run_time = self.redis.zrange(self.run_times_key, 0, 0, withscores=True)
+        if next_run_time:
+            return utc_timestamp_to_datetime(next_run_time[0][1])
+
+    def get_all_jobs(self):
+        job_states = self.redis.hgetall(self.jobs_key)
+        jobs = self._reconstitute_jobs(six.iteritems(job_states))
+        return sorted(jobs, key=lambda job: job.next_run_time)
 
     def add_job(self, job):
-        job.id = str(uuid4())
-        job_state = job.__getstate__()
-        job_dict = {
-            'job_state': pickle.dumps(job_state, self.pickle_protocol),
-            'runs': '0',
-            'next_run_time': job_state.pop('next_run_time').isoformat()}
-        self.redis.hmset(self.key_prefix + job.id, job_dict)
-        self.jobs.append(job)
+        if self.redis.hexists(self.jobs_key, job.id):
+            raise ConflictingIdError(job.id)
 
-    def remove_job(self, job):
-        self.redis.delete(self.key_prefix + job.id)
-        self.jobs.remove(job)
-
-    def load_jobs(self):
-        jobs = []
-        keys = self.redis.keys(self.key_prefix + '*')
-        pipeline = self.redis.pipeline()
-        for key in keys:
-            pipeline.hgetall(key)
-        results = pipeline.execute()
-
-        for job_dict in results:
-            job_state = {}
-            try:
-                job = Job.__new__(Job)
-                job_state = pickle.loads(job_dict['job_state'.encode()])
-                job_state['runs'] = long(job_dict['runs'.encode()])
-                dateval = job_dict['next_run_time'.encode()].decode()
-                job_state['next_run_time'] = datetime.strptime(dateval, '%Y-%m-%dT%H:%M:%S')
-                job.__setstate__(job_state)
-                jobs.append(job)
-            except Exception:
-                job_name = job_state.get('name', '(unknown)')
-                logger.exception('Unable to restore job "%s"', job_name)
-        self.jobs = jobs
+        with self.redis.pipeline() as pipe:
+            pipe.multi()
+            pipe.hset(self.jobs_key, job.id, pickle.dumps(job.__getstate__(), self.pickle_protocol))
+            pipe.zadd(self.run_times_key, datetime_to_utc_timestamp(job.next_run_time), job.id)
+            pipe.execute()
 
     def update_job(self, job):
-        attrs = {
-            'next_run_time': job.next_run_time.isoformat(),
-            'runs': job.runs
-        }
-        self.redis.hmset(self.key_prefix + job.id, attrs)
+        if not self.redis.hexists(self.jobs_key, job.id):
+            raise JobLookupError(job.id)
 
-    def close(self):
+        with self.redis.pipeline() as pipe:
+            pipe.hset(self.jobs_key, job.id, pickle.dumps(job.__getstate__(), self.pickle_protocol))
+            if job.next_run_time:
+                pipe.zadd(self.run_times_key, datetime_to_utc_timestamp(job.next_run_time), job.id)
+            else:
+                pipe.zrem(self.run_times_key, job.id)
+            pipe.execute()
+
+    def remove_job(self, job_id):
+        if not self.redis.hexists(self.jobs_key, job_id):
+            raise JobLookupError(job_id)
+
+        with self.redis.pipeline() as pipe:
+            pipe.hdel(self.jobs_key, job_id)
+            pipe.zrem(self.run_times_key, job_id)
+            pipe.execute()
+
+    def remove_all_jobs(self):
+        with self.redis.pipeline() as pipe:
+            pipe.delete(self.jobs_key)
+            pipe.delete(self.run_times_key)
+            pipe.execute()
+
+    def shutdown(self):
         self.redis.connection_pool.disconnect()
+
+    def _reconstitute_job(self, job_state):
+        job_state = pickle.loads(job_state)
+        job = Job.__new__(Job)
+        job.__setstate__(job_state)
+        job._scheduler = self._scheduler
+        job._jobstore_alias = self._alias
+        return job
+
+    def _reconstitute_jobs(self, job_states):
+        jobs = []
+        failed_job_ids = []
+        for job_id, job_state in job_states:
+            try:
+                jobs.append(self._reconstitute_job(job_state))
+            except:
+                self._logger.exception('Unable to restore job "%s" -- removing it', job_id)
+                failed_job_ids.append(job_id)
+
+        # Remove all the jobs we failed to restore
+        if failed_job_ids:
+            with self.redis.pipeline() as pipe:
+                pipe.hdel(self.jobs_key, *failed_job_ids)
+                pipe.zrem(self.run_times_key, *failed_job_ids)
+                pipe.execute()
+
+        return jobs
 
     def __repr__(self):
         return '<%s>' % self.__class__.__name__

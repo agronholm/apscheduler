@@ -1,16 +1,21 @@
 # coding: utf-8
 from datetime import date, datetime, timedelta, tzinfo
-import time
-import os
-import shelve
+from functools import partial
 
-from dateutil.tz import tzoffset, gettz
 import pytest
+import pytz
+import six
 
-from apscheduler.util import *
-from tests.conftest import minpython
+from apscheduler.util import (
+    asint, asbool, astimezone, convert_to_datetime, datetime_to_utc_timestamp, utc_timestamp_to_datetime,
+    timedelta_seconds, datetime_ceil, get_callable_name, obj_to_ref, ref_to_obj, maybe_ref, check_callable_args,
+    datetime_repr, repr_escape)
+from tests.conftest import minpython, maxpython
 
-local_tz = tzoffset('DUMMYTZ', 3600)
+try:
+    from unittest.mock import Mock
+except ImportError:
+    from mock import Mock
 
 
 class DummyClass(object):
@@ -34,98 +39,103 @@ class DummyClass(object):
             pass
 
 
-def test_asint_invalid_1():
-    pytest.raises(ValueError, asint, '5s')
+class TestAsint(object):
+    @pytest.mark.parametrize('value', ['5s', 'shplse'], ids=['digit first', 'text'])
+    def test_invalid_value(self, value):
+        pytest.raises(ValueError, asint, value)
+
+    def test_number(self):
+        assert asint('539') == 539
+
+    def test_none(self):
+        assert asint(None) is None
 
 
-def test_asint_invalid_2():
-    pytest.raises(ValueError, asint, 'shplse')
+class TestAsbool(object):
+    @pytest.mark.parametrize('value', [' True', 'true ', 'Yes', ' yes ', '1  ', True],
+                             ids=['capital true', 'lowercase true', 'capital yes', 'lowercase yes', 'one', 'True'])
+    def test_true(self, value):
+        assert asbool(value) is True
+
+    @pytest.mark.parametrize('value', [' False', 'false ', 'No', ' no ', '0  ', False],
+                             ids=['capital', 'lowercase false', 'capital no', 'lowercase no', 'zero', 'False'])
+    def test_false(self, value):
+        assert asbool(value) is False
+
+    def test_bad_value(self):
+        pytest.raises(ValueError, asbool, 'yep')
 
 
-def test_asint_number():
-    assert asint('539') == 539
+class TestAstimezone(object):
+    def test_str(self):
+        value = astimezone('Europe/Helsinki')
+        assert isinstance(value, tzinfo)
+
+    def test_tz(self):
+        tz = pytz.timezone('Europe/Helsinki')
+        value = astimezone(tz)
+        assert tz is value
+
+    def test_none(self):
+        assert astimezone(None) is None
+
+    def test_bad_timezone_type(self):
+        exc = pytest.raises(TypeError, astimezone, tzinfo())
+        assert 'Only timezones from the pytz library are supported' in str(exc.value)
+
+    def test_bad_local_timezone(self):
+        zone = Mock(tzinfo, localize=None, normalize=None, zone='local')
+        exc = pytest.raises(ValueError, astimezone, zone)
+        assert 'Unable to determine the name of the local timezone' in str(exc.value)
+
+    def test_bad_value(self):
+        exc = pytest.raises(TypeError, astimezone, 4)
+        assert 'Expected tzinfo, got int instead' in str(exc.value)
 
 
-def test_asint_none():
-    assert asint(None) is None
+class TestConvertToDatetime(object):
+    @pytest.mark.parametrize('input,expected', [
+        (None, None),
+        (date(2009, 8, 1), datetime(2009, 8, 1)),
+        (datetime(2009, 8, 1, 5, 6, 12), datetime(2009, 8, 1, 5, 6, 12)),
+        ('2009-8-1', datetime(2009, 8, 1)),
+        ('2009-8-1 5:16:12', datetime(2009, 8, 1, 5, 16, 12)),
+        (pytz.FixedOffset(-60).localize(datetime(2009, 8, 1)), pytz.FixedOffset(-60).localize(datetime(2009, 8, 1)))
+    ], ids=['None', 'date', 'datetime', 'date as text', 'datetime as text', 'existing tzinfo'])
+    def test_date(self, timezone, input, expected):
+        returned = convert_to_datetime(input, timezone, None)
+        if expected is not None:
+            assert isinstance(returned, datetime)
+            expected = timezone.localize(expected) if not expected.tzinfo else expected
+
+        assert returned == expected
+
+    def test_invalid_input_type(self, timezone):
+        exc = pytest.raises(TypeError, convert_to_datetime, 92123, timezone, 'foo')
+        assert str(exc.value) == 'Unsupported type for foo: int'
+
+    def test_invalid_input_value(self, timezone):
+        exc = pytest.raises(ValueError, convert_to_datetime, '19700-12-1', timezone, None)
+        assert str(exc.value) == 'Invalid date string'
+
+    def test_missing_timezone(self):
+        exc = pytest.raises(ValueError, convert_to_datetime, '2009-8-1', None, 'argname')
+        assert str(exc.value) == 'The "tz" argument must be specified if argname has no timezone information'
+
+    def test_text_timezone(self):
+        returned = convert_to_datetime('2009-8-1', 'UTC', None)
+        assert returned == datetime(2009, 8, 1, tzinfo=pytz.utc)
+
+    def test_bad_timezone(self):
+        exc = pytest.raises(TypeError, convert_to_datetime, '2009-8-1', tzinfo(), None)
+        assert str(exc.value) == 'Only pytz timezones are supported (need the localize() and normalize() methods)'
 
 
-def test_asbool_true():
-    for val in (' True', 'true ', 'Yes', ' yes ', '1  '):
-        assert asbool(val) is True
-    assert asbool(True) is True
-
-
-def test_asbool_false():
-    for val in (' False', 'false ', 'No', ' no ', '0  '):
-        assert asbool(val) is False
-    assert asbool(False) is False
-
-
-def test_asbool_fail():
-    pytest.raises(ValueError, asbool, 'yep')
-
-
-def test_astimezone_str():
-    value = astimezone('Europe/Helsinki')
-    assert isinstance(value, tzinfo)
-
-
-def test_astimezone_tz():
-    tz = gettz('Europe/Helsinki')
-    value = astimezone(tz)
-    assert tz is value
-
-
-def test_astimezone_none():
-    assert astimezone(None) is None
-
-
-def test_astimezone_fail():
-    pytest.raises(TypeError, astimezone, 4)
-
-
-def test_convert_datetime_date():
-    dateval = date(2009, 8, 1)
-    datetimeval = convert_to_datetime(dateval, local_tz, None)
-    correct_datetime = datetime(2009, 8, 1)
-    assert isinstance(datetimeval, datetime)
-    assert datetimeval == correct_datetime.replace(tzinfo=local_tz)
-
-
-def test_convert_datetime_passthrough():
-    datetimeval = datetime(2009, 8, 1, 5, 6, 12)
-    convertedval = convert_to_datetime(datetimeval, local_tz, None)
-    assert convertedval == datetimeval.replace(tzinfo=local_tz)
-
-
-def test_convert_datetime_text1():
-    convertedval = convert_to_datetime('2009-8-1', local_tz, None)
-    assert convertedval == datetime(2009, 8, 1, tzinfo=local_tz)
-
-
-def test_convert_datetime_text2():
-    convertedval = convert_to_datetime('2009-8-1 5:16:12', local_tz, None)
-    assert convertedval == datetime(2009, 8, 1, 5, 16, 12, tzinfo=local_tz)
-
-
-def test_datestring_parse_datetime_micro():
-    convertedval = convert_to_datetime('2009-8-1 5:16:12.843821', local_tz, None)
-    assert convertedval == datetime(2009, 8, 1, 5, 16, 12, 843821, tzinfo=local_tz)
-
-
-def test_existing_tzinfo():
-    alter_tz = tzoffset('ALTERNATE', -3600)
-    dateval = datetime(2009, 8, 1, tzinfo=alter_tz)
-    assert convert_to_datetime(dateval, local_tz, None) == dateval
-
-
-def test_convert_datetime_invalid():
-    pytest.raises(TypeError, convert_to_datetime, 995302092123, local_tz, None)
-
-
-def test_convert_datetime_invalid_str():
-    pytest.raises(ValueError, convert_to_datetime, '19700-12-1', local_tz, None)
+def test_datetime_to_utc_timestamp(timezone):
+    dt = timezone.localize(datetime(2014, 3, 12, 5, 40, 13, 254012))
+    timestamp = datetime_to_utc_timestamp(dt)
+    dt2 = utc_timestamp_to_datetime(timestamp)
+    assert dt2 == dt
 
 
 def test_timedelta_seconds():
@@ -134,93 +144,144 @@ def test_timedelta_seconds():
     assert seconds == 150
 
 
-def test_time_difference_positive():
-    earlier = datetime(2008, 9, 1, second=3)
-    later = datetime(2008, 9, 1, second=49)
-    assert time_difference(later, earlier) == 46
+@pytest.mark.parametrize('input,expected', [
+    (datetime(2009, 4, 7, 2, 10, 16, 4000), datetime(2009, 4, 7, 2, 10, 17)),
+    (datetime(2009, 4, 7, 2, 10, 16), datetime(2009, 4, 7, 2, 10, 16))
+], ids=['milliseconds', 'exact'])
+def test_datetime_ceil(input, expected):
+    assert datetime_ceil(input) == expected
 
 
-def test_time_difference_negative():
-    earlier = datetime(2009, 4, 7, second=7)
-    later = datetime(2009, 4, 7, second=56)
-    assert time_difference(earlier, later) == -49
+@pytest.mark.parametrize('input,expected', [
+    (None, 'None'),
+    (pytz.timezone('Europe/Helsinki').localize(datetime(2014, 5, 30, 7, 12, 20)), '2014-05-30 07:12:20 EEST')
+], ids=['None', 'datetime+tzinfo'])
+def test_datetime_repr(input, expected):
+    assert datetime_repr(input) == expected
 
 
-class TestDSTTimeDifference(object):
-    @pytest.fixture(scope='class', autouse=True)
-    def timezone(self, request):
-        def finish():
-            del os.environ['TZ']
-            time.tzset()
+class TestGetCallableName(object):
+    @pytest.mark.parametrize('input,expected', [
+        (asint, 'asint'),
+        (DummyClass.staticmeth, 'staticmeth'),
+        (DummyClass.classmeth, 'DummyClass.classmeth'),
+        (DummyClass.meth, 'meth'),
+        (DummyClass().meth, 'DummyClass.meth'),
+        (DummyClass, 'DummyClass'),
+        (DummyClass(), 'DummyClass')
+    ], ids=['function', 'static method', 'class method', 'unbounded method', 'bounded method', 'class', 'instance'])
+    def test_inputs(self, input, expected):
+        assert get_callable_name(input) == expected
 
-        if hasattr(time, 'tzset'):
-            os.environ['TZ'] = 'Europe/Helsinki'
-            time.tzset()
-            request.addfinalizer(finish)
-
-    def test_time_difference_daylight_1(self):
-        earlier = datetime(2010, 3, 28, 2)
-        later = datetime(2010, 3, 28, 4)
-        assert time_difference(later, earlier) == 3600
-
-    def test_time_difference_daylight_2(self):
-        earlier = datetime(2010, 10, 31, 2)
-        later = datetime(2010, 10, 31, 5)
-        assert time_difference(later, earlier) == 14400
+    def test_bad_input(self):
+        pytest.raises(TypeError, get_callable_name, object())
 
 
-def test_datetime_ceil_round():
-    dateval = datetime(2009, 4, 7, 2, 10, 16, 4000)
-    correct_answer = datetime(2009, 4, 7, 2, 10, 17)
-    assert datetime_ceil(dateval) == correct_answer
+class TestObjToRef(object):
+    @pytest.mark.parametrize('input', [DummyClass.meth, DummyClass.staticmeth, partial(DummyClass.meth)],
+                             ids=['bound method', 'static method', 'partial/bound method'])
+    def test_no_ref_found(self, input):
+        exc = pytest.raises(ValueError, obj_to_ref, input)
+        assert 'Cannot determine the reference to ' in str(exc.value)
+
+    @pytest.mark.parametrize('input,expected', [
+        (DummyClass.classmeth, 'tests.test_util:DummyClass.classmeth'),
+        (timedelta, 'datetime:timedelta'),
+    ], ids=['class method', 'timedelta'])
+    def test_valid_refs(self, input, expected):
+        assert obj_to_ref(input) == expected
+
+    @minpython(3, 3)
+    def test_inner_class_method(self):
+        """Tests that a reference to a class method of an inner class can be discovered."""
+
+        assert obj_to_ref(DummyClass.InnerDummyClass.innerclassmeth) == \
+            'tests.test_util:DummyClass.InnerDummyClass.innerclassmeth'
 
 
-def test_datetime_ceil_exact():
-    dateval = datetime(2009, 4, 7, 2, 10, 16)
-    correct_answer = datetime(2009, 4, 7, 2, 10, 16)
-    assert datetime_ceil(dateval) == correct_answer
+class TestRefToObj(object):
+    def test_valid_ref(self):
+        assert ref_to_obj('datetime:timedelta') == timedelta
+
+    @pytest.mark.parametrize('input,error', [
+        (object(), TypeError),
+        ('module', ValueError),
+        ('module:blah', LookupError)
+    ], ids=['raw object', 'module', 'module attribute'])
+    def test_lookup_error(self, input, error):
+        pytest.raises(error, ref_to_obj, input)
 
 
-def test_combine_opts():
-    global_opts = {'someprefix.opt1': '123',
-                   'opt2': '456',
-                   'someprefix.opt3': '789'}
-    local_opts = {'opt3': 'abc'}
-    combined = combine_opts(global_opts, 'someprefix.', local_opts)
-    assert combined == dict(opt1='123', opt3='abc')
+@pytest.mark.parametrize('input,expected', [
+    ('datetime:timedelta', timedelta),
+    (timedelta, timedelta)
+], ids=['textref', 'direct'])
+def test_maybe_ref(input, expected):
+    assert maybe_ref(input) == expected
 
 
-def test_callable_name():
-    assert get_callable_name(test_callable_name) == 'test_callable_name'
-    assert get_callable_name(DummyClass.staticmeth) == 'staticmeth'
-    assert get_callable_name(DummyClass.classmeth) == 'DummyClass.classmeth'
-    assert get_callable_name(DummyClass.meth) == 'meth'
-    assert get_callable_name(DummyClass().meth) == 'DummyClass.meth'
-    assert get_callable_name(DummyClass) == 'DummyClass'
-    assert get_callable_name(DummyClass()) == 'DummyClass'
-    pytest.raises(TypeError, get_callable_name, object())
+@pytest.mark.parametrize('input,expected', [
+    (b'T\xc3\xa9st'.decode('utf-8'), 'T\\xe9st' if six.PY2 else 'Tést'),
+    (1, 1)
+])
+@maxpython(3)
+def test_repr_escape_py2(input, expected):
+    assert repr_escape(input) == expected
 
 
-def test_obj_to_ref():
-    pytest.raises(ValueError, obj_to_ref, DummyClass.meth)
-    pytest.raises(ValueError, obj_to_ref, DummyClass.staticmeth)
-    assert obj_to_ref(DummyClass.classmeth) == 'tests.test_util:DummyClass.classmeth'
-    assert obj_to_ref(shelve.open) == 'shelve:open'
+class TestCheckCallableArgs(object):
+    @pytest.fixture(params=[True, False], ids=['signature', 'getargspec'])
+    def use_signature(self, request, monkeypatch):
+        if not request.param:
+            monkeypatch.setattr('apscheduler.util.signature', None)
 
+    def test_invalid_callable_args(self, use_signature):
+        """Tests that attempting to create a job with an invalid number of arguments raises an exception."""
 
-@minpython(3, 3)
-def test_inner_obj_to_ref():
-    assert obj_to_ref(DummyClass.InnerDummyClass.innerclassmeth) == \
-        'tests.test_util:DummyClass.InnerDummyClass.innerclassmeth'
+        exc = pytest.raises(ValueError, check_callable_args, lambda x: None, [1, 2], {})
+        assert str(exc.value) == ('The list of positional arguments is longer than the target callable can handle '
+                                  '(allowed: 1, given in args: 2)')
 
+    def test_invalid_callable_kwargs(self, use_signature):
+        """Tests that attempting to schedule a job with unmatched keyword arguments raises an exception."""
 
-def test_ref_to_obj():
-    assert ref_to_obj('shelve:open') == shelve.open
-    pytest.raises(TypeError, ref_to_obj, object())
-    pytest.raises(ValueError, ref_to_obj, 'module')
-    pytest.raises(LookupError, ref_to_obj, 'module:blah')
+        exc = pytest.raises(ValueError, check_callable_args, lambda x: None, [], {'x': 0, 'y': 1})
+        assert str(exc.value) == 'The target callable does not accept the following keyword arguments: y'
 
+    def test_missing_callable_args(self, use_signature):
+        """Tests that attempting to schedule a job with missing arguments raises an exception."""
 
-def test_maybe_ref():
-    assert maybe_ref('shelve:open') == shelve.open
-    assert maybe_ref(shelve.open) == shelve.open
+        exc = pytest.raises(ValueError, check_callable_args, lambda x, y, z: None, [1], {'y': 0})
+        assert str(exc.value) == 'The following arguments have not been supplied: z'
+
+    def test_conflicting_callable_args(self, use_signature):
+        """
+        Tests that attempting to schedule a job where the combination of args and kwargs are in conflict raises an
+        exception.
+        """
+
+        exc = pytest.raises(ValueError, check_callable_args, lambda x, y: None, [1, 2], {'y': 1})
+        assert str(exc.value) == 'The following arguments are supplied in both args and kwargs: y'
+
+    def test_signature_positional_only(self):
+        """Tests that a function where signature() fails is accepted."""
+
+        check_callable_args(object().__setattr__, ('blah', 1), {})
+
+    @minpython(3, 4)
+    def test_positional_only_args(self):
+        """Tests that an attempt to use keyword arguments for positional-only arguments raises an exception."""
+
+        exc = pytest.raises(ValueError, check_callable_args, object.__setattr__, ['blah'], {'value': 1})
+        assert str(exc.value) == 'The following arguments cannot be given as keyword arguments: value'
+
+    @minpython(3)
+    def test_unfulfilled_kwargs(self):
+        """
+        Tests that attempting to schedule a job where not all keyword-only arguments are fulfilled raises an
+        exception.
+        """
+
+        func = eval("lambda x, *, y, z=1: None")
+        exc = pytest.raises(ValueError, check_callable_args, func, [1], {})
+        assert str(exc.value) == 'The following keyword-only arguments have not been supplied in kwargs: y'

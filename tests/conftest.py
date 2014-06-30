@@ -1,99 +1,91 @@
-from warnings import filterwarnings, resetwarnings
-from tempfile import NamedTemporaryFile
+# coding: utf-8
+from datetime import datetime
 import sys
-import os
 
 import pytest
+import pytz
 
-from apscheduler.jobstores.memory import MemoryJobStore
-from apscheduler.jobstores.shelve import ShelveJobStore
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from apscheduler.jobstores.mongodb import MongoDBJobStore
-from apscheduler.jobstores.redis import RedisJobStore
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.job import Job
+from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 
-@pytest.fixture
-def memjobstore(request):
-    return MemoryJobStore()
-
-
-@pytest.fixture
-def shelvejobstore(request):
-    def finish():
-        store.close()
-        if os.path.exists(store.path):
-            os.remove(store.path)
-
-    filterwarnings('ignore', category=RuntimeWarning)
-    f = NamedTemporaryFile(prefix='apscheduler_')
-    f.close()
-    resetwarnings()
-    store = ShelveJobStore(f.name)
-    request.addfinalizer(finish)
-    return store
-
-
-@pytest.fixture
-def sqlalchemyjobstore(request):
-    def finish():
-        store.close()
-        os.remove('tempdb.sqlite')
-
-    if not SQLAlchemyJobStore:
-        pytest.skip('SQLAlchemyJobStore missing')
-
-    store = SQLAlchemyJobStore(url='sqlite:///tempdb.sqlite')
-    request.addfinalizer(finish)
-    return store
-
-
-@pytest.fixture
-def mongodbjobstore(request):
-    def finish():
-        connection = store.collection.database.connection
-        connection.drop_database(store.collection.database.name)
-        store.close()
-
-    if not MongoDBJobStore:
-        pytest.skip('MongoDBJobStore missing')
-
-    store = MongoDBJobStore(database='apscheduler_unittest')
-    request.addfinalizer(finish)
-    return store
-
-
-@pytest.fixture
-def redisjobstore(request):
-    def finish():
-        store.redis.flushdb()
-        store.close()
-
-    if not RedisJobStore:
-        pytest.skip('RedisJobStore missing')
-
-    store = RedisJobStore()
-    request.addfinalizer(finish)
-    return store
-
-
-@pytest.fixture
-def jobstore(request):
-    return request.param(request)
+try:
+    from unittest.mock import Mock
+except ImportError:
+    from mock import Mock
 
 
 def minpython(*version):
     version_str = '.'.join([str(num) for num in version])
 
     def outer(func):
-        dec = pytest.mark.skipif(sys.version_info < version,
-                                 reason='This test requires at least Python %s' % version_str)
+        dec = pytest.mark.skipif(sys.version_info < version, reason='Requires Python >= %s' % version_str)
         return dec(func)
     return outer
 
 
-all_jobstores = [memjobstore, shelvejobstore, sqlalchemyjobstore, mongodbjobstore, redisjobstore]
-all_jobstores_ids = ['memory', 'shelve', 'sqlalchemy', 'mongodb', 'redis']
-persistent_jobstores = [shelvejobstore, sqlalchemyjobstore, mongodbjobstore, redisjobstore]
-persistent_jobstores_ids = ['shelve', 'sqlalchemy', 'mongodb', 'redis']
+def maxpython(*version):
+    version_str = '.'.join([str(num) for num in version])
+
+    def outer(func):
+        dec = pytest.mark.skipif(sys.version_info >= version, reason='Requires Python < %s' % version_str)
+        return dec(func)
+    return outer
+
+
+@pytest.fixture(scope='session')
+def timezone():
+    return pytz.timezone('Europe/Berlin')
+
+
+@pytest.fixture
+def freeze_time(monkeypatch, timezone):
+    class TimeFreezer:
+        def __init__(self, initial):
+            self.current = initial
+            self.increment = None
+
+        def get(self, tzinfo=None):
+            now = self.current.astimezone(tzinfo) if tzinfo else self.current.replace(tzinfo=None)
+            if self.increment:
+                self.current += self.increment
+            return now
+
+        def set(self, new_time):
+            self.current = new_time
+
+        def next(self,):
+            return self.current + self.increment
+
+        def set_increment(self, delta):
+            self.increment = delta
+
+    freezer = TimeFreezer(timezone.localize(datetime(2011, 4, 3, 18, 40)))
+    fake_datetime = Mock(datetime, now=freezer.get)
+    monkeypatch.setattr('apscheduler.schedulers.base.datetime', fake_datetime)
+    monkeypatch.setattr('apscheduler.executors.base.datetime', fake_datetime)
+    monkeypatch.setattr('apscheduler.triggers.interval.datetime', fake_datetime)
+    monkeypatch.setattr('apscheduler.triggers.date.datetime', fake_datetime)
+    return freezer
+
+
+@pytest.fixture(scope='session')
+def job_defaults(timezone):
+    run_date = timezone.localize(datetime(2011, 4, 3, 18, 40))
+    return {'trigger': 'date', 'trigger_args': {'run_date': run_date, 'timezone': timezone}, 'executor': 'default',
+            'args': (), 'kwargs': {}, 'id': b't\xc3\xa9st\xc3\xafd'.decode('utf-8'), 'misfire_grace_time': 1,
+            'coalesce': False, 'name': b'n\xc3\xa4m\xc3\xa9'.decode('utf-8'), 'max_instances': 1}
+
+
+@pytest.fixture(scope='session')
+def create_job(job_defaults, timezone):
+    def create(**kwargs):
+        kwargs.setdefault('scheduler', Mock(BaseScheduler, timezone=timezone))
+        job_kwargs = job_defaults.copy()
+        job_kwargs.update(kwargs)
+        job_kwargs['trigger'] = BlockingScheduler()._create_trigger(job_kwargs.pop('trigger'),
+                                                                    job_kwargs.pop('trigger_args'))
+        job_kwargs.setdefault('next_run_time', None)
+        return Job(**job_kwargs)
+    return create

@@ -2,8 +2,9 @@ from datetime import datetime
 
 import pytest
 
-from apscheduler.triggers.cron.expressions import *
-from apscheduler.triggers.cron.fields import *
+from apscheduler.triggers.cron.fields import DayOfMonthField, BaseField, DayOfWeekField
+from apscheduler.triggers.cron.expressions import (
+    AllExpression, RangeExpression, WeekdayPositionExpression, WeekdayRangeExpression, LastDayOfMonthExpression)
 
 
 def test_all_expression():

@@ -1,16 +1,38 @@
-"""
-This module contains several handy functions primarily meant for internal use.
-"""
+"""This module contains several handy functions primarily meant for internal use."""
 
-from datetime import date, datetime, timedelta, tzinfo
-from time import mktime
+from __future__ import division
+from datetime import date, datetime, time, timedelta, tzinfo
+from inspect import isfunction, ismethod, getargspec
+from calendar import timegm
 import re
 
-from dateutil.tz import gettz
-from six import string_types
+from pytz import timezone, utc
+import six
 
-__all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'timedelta_seconds', 'time_difference',
-           'datetime_ceil', 'combine_opts', 'get_callable_name', 'obj_to_ref', 'ref_to_obj', 'maybe_ref')
+try:
+    from inspect import signature
+except ImportError:  # pragma: nocover
+    try:
+        from funcsigs import signature
+    except ImportError:
+        signature = None
+
+__all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
+           'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'get_callable_name', 'obj_to_ref',
+           'ref_to_obj', 'maybe_ref', 'repr_escape', 'check_callable_args')
+
+
+class _Undefined(object):
+    def __nonzero__(self):
+        return False
+
+    def __bool__(self):
+        return False
+
+    def __repr__(self):
+        return '<undefined>'
+
+undefined = _Undefined()  #: a unique object that only signifies that no value is defined
 
 
 def asint(text):
@@ -20,6 +42,7 @@ def asint(text):
     :type text: str
     :rtype: int
     """
+
     if text is not None:
         return int(text)
 
@@ -30,6 +53,7 @@ def asbool(obj):
 
     :rtype: bool
     """
+
     if isinstance(obj, str):
         obj = obj.strip().lower()
         if obj in ('true', 'yes', 'on', 'y', 't', '1'):
@@ -44,12 +68,16 @@ def astimezone(obj):
     """
     Interprets an object as a timezone.
 
-    :rtype: :class:`~datetime.tzinfo`
+    :rtype: tzinfo
     """
 
-    if isinstance(obj, string_types):
-        return gettz(obj)
+    if isinstance(obj, six.string_types):
+        return timezone(obj)
     if isinstance(obj, tzinfo):
+        if not hasattr(obj, 'localize') or not hasattr(obj, 'normalize'):
+            raise TypeError('Only timezones from the pytz library are supported')
+        if obj.zone == 'local':
+            raise ValueError('Unable to determine the name of the local timezone -- use an explicit timezone instead')
         return obj
     if obj is not None:
         raise TypeError('Expected tzinfo, got %s instead' % obj.__class__.__name__)
@@ -61,7 +89,7 @@ _DATE_REGEX = re.compile(
     r'(?:\.(?P<microsecond>\d{1,6}))?)?')
 
 
-def convert_to_datetime(input, timezone, arg_name):
+def convert_to_datetime(input, tz, arg_name):
     """
     Converts the given object to a timezone aware datetime object.
     If a timezone aware datetime object is passed, it is returned unmodified.
@@ -72,13 +100,19 @@ def convert_to_datetime(input, timezone, arg_name):
     date with time (Y-m-d H:M:S) or with date+time with microseconds
     (Y-m-d H:M:S.micro).
 
+    :param str|datetime input: the datetime or string to convert to a timezone aware datetime
+    :param datetime.tzinfo tz: timezone to interpret ``input`` in
+    :param str arg_name: the name of the argument (used in an error message)
     :rtype: datetime
     """
-    if isinstance(input, datetime):
+
+    if input is None:
+        return
+    elif isinstance(input, datetime):
         datetime_ = input
     elif isinstance(input, date):
-        datetime_ = datetime.fromordinal(input.toordinal())
-    elif isinstance(input, string_types):
+        datetime_ = datetime.combine(input, time())
+    elif isinstance(input, six.string_types):
         m = _DATE_REGEX.match(input)
         if not m:
             raise ValueError('Invalid date string')
@@ -86,16 +120,29 @@ def convert_to_datetime(input, timezone, arg_name):
         values = dict(values)
         datetime_ = datetime(**values)
     else:
-        raise TypeError('Unsupported input type: %s' % type(input))
+        raise TypeError('Unsupported type for %s: %s' % (arg_name, input.__class__.__name__))
 
     if datetime_.tzinfo is not None:
         return datetime_
-    if timezone is None:
-        raise ValueError('The "timezone" argument must be specified if %s has no timezone information' % arg_name)
-    if isinstance(timezone, string_types):
-        timezone = gettz(timezone)
+    if tz is None:
+        raise ValueError('The "tz" argument must be specified if %s has no timezone information' % arg_name)
+    if isinstance(tz, six.string_types):
+        tz = timezone(tz)
 
-    return datetime_.replace(tzinfo=timezone)
+    try:
+        return tz.localize(datetime_, is_dst=None)
+    except AttributeError:
+        raise TypeError('Only pytz timezones are supported (need the localize() and normalize() methods)')
+
+
+def datetime_to_utc_timestamp(timeval):
+    if timeval is not None:
+        return timegm(timeval.utctimetuple()) + timeval.microsecond / 1000000
+
+
+def utc_timestamp_to_datetime(timestamp):
+    if timestamp is not None:
+        return datetime.fromtimestamp(timestamp, utc)
 
 
 def timedelta_seconds(delta):
@@ -105,24 +152,9 @@ def timedelta_seconds(delta):
     :type delta: timedelta
     :rtype: float
     """
+
     return delta.days * 24 * 60 * 60 + delta.seconds + \
         delta.microseconds / 1000000.0
-
-
-def time_difference(date1, date2):
-    """
-    Returns the time difference in seconds between the given two datetime objects.
-    The difference is calculated as: date1 - date2.
-
-    :param date1: the later datetime
-    :type date1: datetime
-    :param date2: the earlier datetime
-    :type date2: datetime
-    :rtype: float
-    """
-    later = mktime(date1.timetuple()) + date1.microsecond / 1000000.0
-    earlier = mktime(date2.timetuple()) + date2.microsecond / 1000000.0
-    return later - earlier
 
 
 def datetime_ceil(dateval):
@@ -131,9 +163,9 @@ def datetime_ceil(dateval):
 
     :type dateval: datetime
     """
+
     if dateval.microsecond > 0:
-        return dateval + timedelta(seconds=1,
-                                   microseconds=-dateval.microsecond)
+        return dateval + timedelta(seconds=1, microseconds=-dateval.microsecond)
     return dateval
 
 
@@ -141,30 +173,13 @@ def datetime_repr(dateval):
     return dateval.strftime('%Y-%m-%d %H:%M:%S %Z') if dateval else 'None'
 
 
-def combine_opts(global_config, prefix, local_config={}):
-    """
-    Returns a subdictionary from keys and values of  ``global_config`` where the key starts with the given prefix,
-    combined with options from local_config. The keys in the subdictionary have the prefix removed.
-
-    :type global_config: dict
-    :type prefix: str
-    :type local_config: dict
-    :rtype: dict
-    """
-    prefixlen = len(prefix)
-    subconf = {}
-    for key, value in global_config.items():
-        if key.startswith(prefix):
-            key = key[prefixlen:]
-            subconf[key] = value
-    subconf.update(local_config)
-    return subconf
-
-
 def get_callable_name(func):
     """
     Returns the best available display name for the given function/callable.
+
+    :rtype: str
     """
+
     f_self = getattr(func, '__self__', None) or getattr(func, 'im_self', None)
 
     if f_self and hasattr(func, '__name__'):
@@ -188,9 +203,12 @@ def get_callable_name(func):
 def obj_to_ref(obj):
     """
     Returns the path to the given object.
+
+    :rtype: str
     """
-    ref = '%s:%s' % (obj.__module__, get_callable_name(obj))
+
     try:
+        ref = '%s:%s' % (obj.__module__, get_callable_name(obj))
         obj2 = ref_to_obj(ref)
         if obj != obj2:
             raise ValueError
@@ -203,10 +221,13 @@ def obj_to_ref(obj):
 def ref_to_obj(ref):
     """
     Returns the object pointed to by ``ref``.
+
+    :type ref: str
     """
-    if not isinstance(ref, string_types):
+
+    if not isinstance(ref, six.string_types):
         raise TypeError('References must be strings')
-    if not ':' in ref:
+    if ':' not in ref:
         raise ValueError('Invalid reference')
 
     modulename, rest = ref.split(':', 1)
@@ -228,6 +249,117 @@ def maybe_ref(ref):
     Returns the object that the given reference points to, if it is indeed a reference.
     If it is not a reference, the object is returned as-is.
     """
+
     if not isinstance(ref, str):
         return ref
     return ref_to_obj(ref)
+
+
+if six.PY2:
+    def repr_escape(string):
+        if isinstance(string, six.text_type):
+            return string.encode('ascii', 'backslashreplace')
+        return string
+else:
+    repr_escape = lambda string: string
+
+
+def check_callable_args(func, args, kwargs):
+    """
+    Ensures that the given callable can be called with the given arguments.
+
+    :type args: tuple
+    :type kwargs: dict
+    """
+
+    pos_kwargs_conflicts = []  # parameters that have a match in both args and kwargs
+    positional_only_kwargs = []  # positional-only parameters that have a match in kwargs
+    unsatisfied_args = []  # parameters in signature that don't have a match in args or kwargs
+    unsatisfied_kwargs = []  # keyword-only arguments that don't have a match in kwargs
+    unmatched_args = list(args)  # args that didn't match any of the parameters in the signature
+    unmatched_kwargs = list(kwargs)  # kwargs that didn't match any of the parameters in the signature
+    has_varargs = has_var_kwargs = False  # indicates if the signature defines *args and **kwargs respectively
+
+    if signature:
+        try:
+            sig = signature(func)
+        except ValueError:
+            return  # signature() doesn't work against every kind of callable
+
+        for param in six.itervalues(sig.parameters):
+            if param.kind == param.POSITIONAL_OR_KEYWORD:
+                if param.name in unmatched_kwargs and unmatched_args:
+                    pos_kwargs_conflicts.append(param.name)
+                elif unmatched_args:
+                    del unmatched_args[0]
+                elif param.name in unmatched_kwargs:
+                    unmatched_kwargs.remove(param.name)
+                elif param.default is param.empty:
+                    unsatisfied_args.append(param.name)
+            elif param.kind == param.POSITIONAL_ONLY:
+                if unmatched_args:
+                    del unmatched_args[0]
+                elif param.name in unmatched_kwargs:
+                    unmatched_kwargs.remove(param.name)
+                    positional_only_kwargs.append(param.name)
+                elif param.default is param.empty:
+                    unsatisfied_args.append(param.name)
+            elif param.kind == param.KEYWORD_ONLY:
+                if param.name in unmatched_kwargs:
+                    unmatched_kwargs.remove(param.name)
+                elif param.default is param.empty:
+                    unsatisfied_kwargs.append(param.name)
+            elif param.kind == param.VAR_POSITIONAL:
+                has_varargs = True
+            elif param.kind == param.VAR_KEYWORD:
+                has_var_kwargs = True
+    else:
+        if not isfunction(func) and not ismethod(func) and hasattr(func, '__call__'):
+            func = func.__call__
+
+        try:
+            argspec = getargspec(func)
+        except TypeError:
+            return  # getargspec() doesn't work certain callables
+
+        argspec_args = argspec.args if not ismethod(func) else argspec.args[1:]
+        has_varargs = bool(argspec.varargs)
+        has_var_kwargs = bool(argspec.keywords)
+        for arg, default in six.moves.zip_longest(argspec_args, argspec.defaults or (), fillvalue=undefined):
+            if arg in unmatched_kwargs and unmatched_args:
+                pos_kwargs_conflicts.append(arg)
+            elif unmatched_args:
+                del unmatched_args[0]
+            elif arg in unmatched_kwargs:
+                unmatched_kwargs.remove(arg)
+            elif default is undefined:
+                unsatisfied_args.append(arg)
+
+    # Make sure there are no conflicts between args and kwargs
+    if pos_kwargs_conflicts:
+        raise ValueError('The following arguments are supplied in both args and kwargs: %s' %
+                         ', '.join(pos_kwargs_conflicts))
+
+    # Check if keyword arguments are being fed to positional-only parameters
+    if positional_only_kwargs:
+        raise ValueError('The following arguments cannot be given as keyword arguments: %s' %
+                         ', '.join(positional_only_kwargs))
+
+    # Check that the number of positional arguments minus the number of matched kwargs matches the argspec
+    if unsatisfied_args:
+        raise ValueError('The following arguments have not been supplied: %s' % ', '.join(unsatisfied_args))
+
+    # Check that all keyword-only arguments have been supplied
+    if unsatisfied_kwargs:
+        raise ValueError('The following keyword-only arguments have not been supplied in kwargs: %s' %
+                         ', '.join(unsatisfied_kwargs))
+
+    # Check that the callable can accept the given number of positional arguments
+    if not has_varargs and unmatched_args:
+        raise ValueError('The list of positional arguments is longer than the target callable can handle '
+                         '(allowed: %d, given in args: %d)' % (len(args) - len(unmatched_args), len(args)))
+
+    # Check that the callable can accept the given keyword arguments
+    if not has_var_kwargs and unmatched_kwargs:
+        raise ValueError('The target callable does not accept the following keyword arguments: %s' %
+                         ', '.join(unmatched_kwargs))

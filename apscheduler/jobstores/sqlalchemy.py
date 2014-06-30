@@ -1,89 +1,136 @@
-"""
-Stores jobs in a database table using SQLAlchemy.
-"""
 from __future__ import absolute_import
-import pickle
-import logging
 
-import sqlalchemy
-
-from apscheduler.jobstores.base import JobStore
+from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
+from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
 try:
-    from sqlalchemy import *
+    import cPickle as pickle
+except ImportError:  # pragma: nocover
+    import pickle
+
+try:
+    from sqlalchemy import create_engine, Table, Column, MetaData, Unicode, BigInteger, LargeBinary, select
+    from sqlalchemy.exc import IntegrityError
 except ImportError:  # pragma: nocover
     raise ImportError('SQLAlchemyJobStore requires SQLAlchemy installed')
 
-logger = logging.getLogger(__name__)
 
+class SQLAlchemyJobStore(BaseJobStore):
+    """
+    Stores jobs in a database table using SQLAlchemy. The table will be created if it doesn't exist in the database.
 
-class SQLAlchemyJobStore(JobStore):
+    Plugin alias: ``sqlalchemy``
+
+    :param str url: connection string (see `SQLAlchemy documentation
+                    <http://docs.sqlalchemy.org/en/latest/core/engines.html?highlight=create_engine#database-urls>`_
+                    on this)
+    :param engine: an SQLAlchemy Engine to use instead of creating a new one based on ``url``
+    :param str tablename: name of the table to store jobs in
+    :param metadata: a :class:`~sqlalchemy.MetaData` instance to use instead of creating a new one
+    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the highest available
+    """
+
     def __init__(self, url=None, engine=None, tablename='apscheduler_jobs', metadata=None,
                  pickle_protocol=pickle.HIGHEST_PROTOCOL):
-        self.jobs = []
+        super(SQLAlchemyJobStore, self).__init__()
         self.pickle_protocol = pickle_protocol
+        metadata = maybe_ref(metadata) or MetaData()
 
         if engine:
-            self.engine = engine
+            self.engine = maybe_ref(engine)
         elif url:
             self.engine = create_engine(url)
         else:
             raise ValueError('Need either "engine" or "url" defined')
 
-        if sqlalchemy.__version__ < '0.7':
-            pickle_coltype = PickleType(pickle_protocol, mutable=False)
-        else:
-            pickle_coltype = PickleType(pickle_protocol)
         self.jobs_t = Table(
-            tablename, metadata or MetaData(),
-            Column('id', Integer, Sequence(tablename + '_id_seq', optional=True), primary_key=True),
-            Column('trigger', pickle_coltype, nullable=False),
-            Column('func_ref', String(1024), nullable=False),
-            Column('args', pickle_coltype, nullable=False),
-            Column('kwargs', pickle_coltype, nullable=False),
-            Column('name', Unicode(1024)),
-            Column('misfire_grace_time', Integer, nullable=False),
-            Column('coalesce', Boolean, nullable=False),
-            Column('max_runs', Integer),
-            Column('max_instances', Integer),
-            Column('next_run_time', DateTime, nullable=False),
-            Column('runs', BigInteger))
+            tablename, metadata,
+            Column('id', Unicode(1024, _warn_on_bytestring=False), primary_key=True),
+            Column('next_run_time', BigInteger, index=True),
+            Column('job_state', LargeBinary, nullable=False)
+        )
 
         self.jobs_t.create(self.engine, True)
 
+    def lookup_job(self, job_id):
+        selectable = select([self.jobs_t.c.job_state]).where(self.jobs_t.c.id == job_id)
+        job_state = self.engine.execute(selectable).scalar()
+        return self._reconstitute_job(job_state) if job_state else None
+
+    def get_due_jobs(self, now):
+        timestamp = datetime_to_utc_timestamp(now)
+        return self._get_jobs(self.jobs_t.c.next_run_time <= timestamp)
+
+    def get_next_run_time(self):
+        selectable = select([self.jobs_t.c.next_run_time]).where(self.jobs_t.c.next_run_time != None).\
+            order_by(self.jobs_t.c.next_run_time).limit(1)
+        next_run_time = self.engine.execute(selectable).scalar()
+        return utc_timestamp_to_datetime(next_run_time)
+
+    def get_all_jobs(self):
+        return self._get_jobs()
+
     def add_job(self, job):
-        job_dict = job.__getstate__()
-        result = self.engine.execute(self.jobs_t.insert().values(**job_dict))
-        job.id = result.inserted_primary_key[0]
-        self.jobs.append(job)
-
-    def remove_job(self, job):
-        delete = self.jobs_t.delete().where(self.jobs_t.c.id == job.id)
-        self.engine.execute(delete)
-        self.jobs.remove(job)
-
-    def load_jobs(self):
-        jobs = []
-        for row in self.engine.execute(select([self.jobs_t])):
-            try:
-                job = Job.__new__(Job)
-                job_dict = dict(row.items())
-                job.__setstate__(job_dict)
-                jobs.append(job)
-            except Exception:
-                job_name = job_dict.get('name', '(unknown)')
-                logger.exception('Unable to restore job "%s"', job_name)
-        self.jobs = jobs
+        insert = self.jobs_t.insert().values(**{
+            'id': job.id,
+            'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
+            'job_state': pickle.dumps(job.__getstate__(), self.pickle_protocol)
+        })
+        try:
+            self.engine.execute(insert)
+        except IntegrityError:
+            raise ConflictingIdError(job.id)
 
     def update_job(self, job):
-        job_dict = job.__getstate__()
-        update = self.jobs_t.update().where(self.jobs_t.c.id == job.id).\
-            values(next_run_time=job_dict['next_run_time'], runs=job_dict['runs'])
-        self.engine.execute(update)
+        update = self.jobs_t.update().values(**{
+            'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
+            'job_state': pickle.dumps(job.__getstate__(), self.pickle_protocol)
+        }).where(self.jobs_t.c.id == job.id)
+        result = self.engine.execute(update)
+        if result.rowcount == 0:
+            raise JobLookupError(id)
 
-    def close(self):
+    def remove_job(self, job_id):
+        delete = self.jobs_t.delete().where(self.jobs_t.c.id == job_id)
+        result = self.engine.execute(delete)
+        if result.rowcount == 0:
+            raise JobLookupError(job_id)
+
+    def remove_all_jobs(self):
+        delete = self.jobs_t.delete()
+        self.engine.execute(delete)
+
+    def shutdown(self):
         self.engine.dispose()
+
+    def _reconstitute_job(self, job_state):
+        job_state = pickle.loads(job_state)
+        job_state['jobstore'] = self
+        job = Job.__new__(Job)
+        job.__setstate__(job_state)
+        job._scheduler = self._scheduler
+        job._jobstore_alias = self._alias
+        return job
+
+    def _get_jobs(self, *conditions):
+        jobs = []
+        selectable = select([self.jobs_t.c.id, self.jobs_t.c.job_state]).order_by(self.jobs_t.c.next_run_time)
+        selectable = selectable.where(*conditions) if conditions else selectable
+        failed_job_ids = set()
+        for row in self.engine.execute(selectable):
+            try:
+                jobs.append(self._reconstitute_job(row.job_state))
+            except:
+                self._logger.exception('Unable to restore job "%s" -- removing it', row.id)
+                failed_job_ids.add(row.id)
+
+        # Remove all the jobs we failed to restore
+        if failed_job_ids:
+            delete = self.jobs_t.delete().where(self.jobs_t.c.id.in_(failed_job_ids))
+            self.engine.execute(delete)
+
+        return jobs
 
     def __repr__(self):
         return '<%s (url=%s)>' % (self.__class__.__name__, self.engine.url)

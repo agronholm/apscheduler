@@ -1,38 +1,49 @@
-"""
-This module is the main part of the library. It houses the Scheduler class and related exceptions.
-"""
+from __future__ import print_function
 from abc import ABCMeta, abstractmethod
-from threading import Lock
-from datetime import datetime, timedelta
+from collections import MutableMapping
+from threading import RLock
+from datetime import datetime
 from logging import getLogger
-from collections import Mapping, Iterable
-from inspect import ismethod, isfunction
-import os
 import sys
 
 from pkg_resources import iter_entry_points
-from dateutil.tz import tzlocal
-from six import u, itervalues, iteritems
+from tzlocal import get_localzone
 import six
 
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
-from apscheduler.util import *
+from apscheduler.executors.base import MaxInstancesReachedError, BaseExecutor
+from apscheduler.executors.pool import ThreadPoolExecutor
+from apscheduler.jobstores.base import ConflictingIdError, JobLookupError, BaseJobStore
 from apscheduler.jobstores.memory import MemoryJobStore
-from apscheduler.job import Job, MaxInstancesReachedError
-from apscheduler.events import *
-from apscheduler.threadpool import ThreadPool
-
-try:
-    from inspect import getfullargspec as getargspec
-except ImportError:
-    from inspect import getargspec
+from apscheduler.job import Job
+from apscheduler.triggers.base import BaseTrigger
+from apscheduler.util import asbool, asint, astimezone, maybe_ref, timedelta_seconds, undefined
+from apscheduler.events import (
+    SchedulerEvent, JobEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOBSTORE_ADDED,
+    EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_JOB_MODIFIED, EVENT_JOB_REMOVED, EVENT_JOB_ADDED, EVENT_EXECUTOR_ADDED,
+    EVENT_EXECUTOR_REMOVED, EVENT_ALL_JOBS_REMOVED)
 
 
 class BaseScheduler(six.with_metaclass(ABCMeta)):
-    """Base class for all schedulers."""
+    """
+    Abstract base class for all schedulers. Takes the following keyword arguments:
 
+    :param str|logging.Logger logger: logger to use for the scheduler's logging (defaults to apscheduler.scheduler)
+    :param str|datetime.tzinfo timezone: the default time zone (defaults to the local timezone)
+    :param dict job_defaults: default values for newly added jobs
+    :param dict jobstores: a dictionary of job store alias -> job store instance or configuration dict
+    :param dict executors: a dictionary of executor alias -> executor instance or configuration dict
+
+    .. seealso:: :ref:`scheduler-config`
+    """
+
+    _trigger_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
+    _trigger_classes = {}
+    _executor_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.executors'))
+    _executor_classes = {}
+    _jobstore_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.jobstores'))
+    _jobstore_classes = {}
     _stopped = True
-    _plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
 
     #
     # Public API
@@ -40,326 +51,646 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     def __init__(self, gconfig={}, **options):
         super(BaseScheduler, self).__init__()
+        self._executors = {}
+        self._executors_lock = self._create_lock()
         self._jobstores = {}
         self._jobstores_lock = self._create_lock()
         self._listeners = []
         self._listeners_lock = self._create_lock()
         self._pending_jobs = []
-        self._triggers = {}
         self.configure(gconfig, **options)
 
-    def configure(self, gconfig={}, **options):
+    def configure(self, gconfig={}, prefix='apscheduler.', **options):
         """
         Reconfigures the scheduler with the given options. Can only be done when the scheduler isn't running.
+
+        :param dict gconfig: a "global" configuration dictionary whose values can be overridden by keyword arguments to
+                             this method
+        :param str|unicode prefix: pick only those keys from ``gconfig`` that are prefixed with this string
+                                   (pass an empty string or ``None`` to use all keys)
+        :raises SchedulerAlreadyRunningError: if the scheduler is already running
         """
+
         if self.running:
             raise SchedulerAlreadyRunningError
 
-        config = combine_opts(gconfig, 'apscheduler.', options)
+        # If a non-empty prefix was given,
+        if prefix:
+            gconfig = dict((key[11:], value) for key, value in six.iteritems(gconfig) if key.startswith(prefix))
+
+        # Create a structure from the dotted options (e.g. "a.b.c = d" -> {'a': {'b': {'c': 'd'}}})
+        config = {}
+        for key, value in six.iteritems(gconfig):
+            parts = key.split('.', 1)
+            parent = config
+            key = parts.pop(0)
+            while parts:
+                parent = parent.setdefault(key, {})
+                key = parts.pop(0)
+            parent[key] = value
+
+        # Override any options with explicit keyword arguments
+        config.update(options)
         self._configure(config)
 
     @abstractmethod
     def start(self):
-        """Starts the scheduler. The details of this process depend on the implementation."""
+        """
+        Starts the scheduler. The details of this process depend on the implementation.
+
+        :raises SchedulerAlreadyRunningError: if the scheduler is already running
+        """
 
         if self.running:
             raise SchedulerAlreadyRunningError
 
-        # Create a RAMJobStore as the default if there is no default job store
-        if not 'default' in self._jobstores:
-            self.add_jobstore(MemoryJobStore(), 'default', True)
+        with self._executors_lock:
+            # Create a default executor if nothing else is configured
+            if 'default' not in self._executors:
+                self.add_executor(self._create_default_executor(), 'default')
 
-        # Schedule all pending jobs
-        for job, jobstore in self._pending_jobs:
-            self._real_add_job(job, jobstore, False)
-        del self._pending_jobs[:]
+            # Start all the executors
+            for alias, executor in six.iteritems(self._executors):
+                executor.start(self, alias)
+
+        with self._jobstores_lock:
+            # Create a default job store if nothing else is configured
+            if 'default' not in self._jobstores:
+                self.add_jobstore(self._create_default_jobstore(), 'default')
+
+            # Start all the job stores
+            for alias, store in six.iteritems(self._executors):
+                store.start(self, alias)
+
+            # Schedule all pending jobs
+            for job, jobstore_alias, replace_existing in self._pending_jobs:
+                self._real_add_job(job, jobstore_alias, replace_existing, False)
+            del self._pending_jobs[:]
 
         self._stopped = False
-        self.logger.info('Scheduler started')
+        self._logger.info('Scheduler started')
 
         # Notify listeners that the scheduler has been started
-        self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_START))
+        self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_START))
 
     @abstractmethod
     def shutdown(self, wait=True):
         """
         Shuts down the scheduler. Does not interrupt any currently running jobs.
 
-        :param wait: ``True`` to wait until all currently executing jobs have finished
+        :param bool wait: ``True`` to wait until all currently executing jobs have finished
+        :raises SchedulerNotRunningError: if the scheduler has not been started yet
         """
+
         if not self.running:
             raise SchedulerNotRunningError
 
         self._stopped = True
 
-        # Shut down the thread pool
-        self._threadpool.shutdown(wait)
+        # Shut down all executors
+        for executor in six.itervalues(self._executors):
+            executor.shutdown(wait)
 
-        # Close all job stores
-        for jobstore in itervalues(self._jobstores):
-            jobstore.close()
+        # Shut down all job stores
+        for jobstore in six.itervalues(self._jobstores):
+            jobstore.shutdown()
 
-        self.logger.info('Scheduler has been shut down')
-        self._notify_listeners(SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN))
+        self._logger.info('Scheduler has been shut down')
+        self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN))
 
     @property
     def running(self):
         return not self._stopped
 
-    def add_jobstore(self, jobstore, alias, quiet=False):
+    def add_executor(self, executor, alias='default', **executor_opts):
         """
-        Adds a job store to this scheduler.
+        Adds an executor to this scheduler. Any extra keyword arguments will be passed to the executor plugin's
+        constructor, assuming that the first argument is the name of an executor plugin.
 
-        :param jobstore: job store to be added
-        :param alias: alias for the job store
-        :param quiet: True to suppress scheduler thread wakeup
-        :type jobstore: instance of :class:`~apscheduler.jobstores.base.JobStore`
-        :type alias: str
+        :param str|unicode|apscheduler.executors.base.BaseExecutor executor: either an executor instance or the name of
+            an executor plugin
+        :param str|unicode alias: alias for the scheduler
+        :raises ValueError: if there is already an executor by the given alias
         """
+
+        with self._executors_lock:
+            if alias in self._executors:
+                raise ValueError('This scheduler already has an executor by the alias of "%s"' % alias)
+
+            if isinstance(executor, BaseExecutor):
+                self._executors[alias] = executor
+            elif isinstance(executor, six.string_types):
+                self._executors[alias] = executor = self._create_plugin_instance('executor', executor, executor_opts)
+            else:
+                raise TypeError('Expected an executor instance or a string, got %s instead' %
+                                executor.__class__.__name__)
+
+            # Start the executor right away if the scheduler is running
+            if self.running:
+                executor.start(self)
+
+        self._dispatch_event(SchedulerEvent(EVENT_EXECUTOR_ADDED, alias))
+
+    def remove_executor(self, alias, shutdown=True):
+        """
+        Removes the executor by the given alias from this scheduler.
+
+        :param str|unicode alias: alias of the executor
+        :param bool shutdown: ``True`` to shut down the executor after removing it
+        """
+
+        with self._jobstores_lock:
+            executor = self._lookup_executor(alias)
+            del self._executors[alias]
+
+        if shutdown:
+            executor.shutdown()
+
+        self._dispatch_event(SchedulerEvent(EVENT_EXECUTOR_REMOVED, alias))
+
+    def add_jobstore(self, jobstore, alias='default', **jobstore_opts):
+        """
+        Adds a job store to this scheduler. Any extra keyword arguments will be passed to the job store plugin's
+        constructor, assuming that the first argument is the name of a job store plugin.
+
+        :param str|unicode|apscheduler.jobstores.base.BaseJobStore jobstore: job store to be added
+        :param str|unicode alias: alias for the job store
+        :raises ValueError: if there is already a job store by the given alias
+        """
+
         with self._jobstores_lock:
             if alias in self._jobstores:
-                raise KeyError('Alias "%s" is already in use' % alias)
-            self._jobstores[alias] = jobstore
-            jobstore.load_jobs()
+                raise ValueError('This scheduler already has a job store by the alias of "%s"' % alias)
+
+            if isinstance(jobstore, BaseJobStore):
+                self._jobstores[alias] = jobstore
+            elif isinstance(jobstore, six.string_types):
+                self._jobstores[alias] = jobstore = self._create_plugin_instance('jobstore', jobstore, jobstore_opts)
+            else:
+                raise TypeError('Expected a job store instance or a string, got %s instead' %
+                                jobstore.__class__.__name__)
+
+            # Start the job store right away if the scheduler is running
+            if self.running:
+                jobstore.start(self, alias)
 
         # Notify listeners that a new job store has been added
-        self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_ADDED, alias))
+        self._dispatch_event(SchedulerEvent(EVENT_JOBSTORE_ADDED, alias))
 
         # Notify the scheduler so it can scan the new job store for jobs
-        if not quiet and self.running:
-            self._wakeup()
+        if self.running:
+            self.wakeup()
 
-    def remove_jobstore(self, alias, close=True):
+    def remove_jobstore(self, alias, shutdown=True):
         """
         Removes the job store by the given alias from this scheduler.
 
-        :param close: ``True`` to close the job store after removing it
-        :type alias: str
+        :param str|unicode alias: alias of the job store
+        :param bool shutdown: ``True`` to shut down the job store after removing it
         """
+
         with self._jobstores_lock:
-            jobstore = self._jobstores.pop(alias)
-            if not jobstore:
-                raise KeyError('No such job store: %s' % alias)
+            jobstore = self._lookup_jobstore(alias)
+            del self._jobstores[alias]
 
-        # Close the job store if requested
-        if close:
-            jobstore.close()
+        if shutdown:
+            jobstore.shutdown()
 
-        # Notify listeners that a job store has been removed
-        self._notify_listeners(JobStoreEvent(EVENT_JOBSTORE_REMOVED, alias))
+        self._dispatch_event(SchedulerEvent(EVENT_JOBSTORE_REMOVED, alias))
 
     def add_listener(self, callback, mask=EVENT_ALL):
         """
+        add_listener(callback, mask=EVENT_ALL)
+
         Adds a listener for scheduler events. When a matching event occurs, ``callback`` is executed with the event
         object as its sole argument. If the ``mask`` parameter is not provided, the callback will receive events of all
         types.
 
         :param callback: any callable that takes one argument
-        :param mask: bitmask that indicates which events should be listened to
+        :param int mask: bitmask that indicates which events should be listened to
+
+        .. seealso:: :mod:`apscheduler.events`
+        .. seealso:: :ref:`scheduler-events`
         """
+
         with self._listeners_lock:
             self._listeners.append((callback, mask))
 
     def remove_listener(self, callback):
-        """
-        Removes a previously added event listener.
-        """
+        """Removes a previously added event listener."""
+
         with self._listeners_lock:
             for i, (cb, _) in enumerate(self._listeners):
                 if callback == cb:
                     del self._listeners[i]
 
-    def add_job(self, func, trigger, trigger_args=(), args=None, kwargs=None, misfire_grace_time=None, coalesce=None,
-                name=None, max_runs=None, max_instances=1, jobstore='default'):
+    def add_job(self, func, trigger=None, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined,
+                coalesce=undefined, max_instances=undefined, next_run_time=undefined, jobstore='default',
+                executor='default', replace_existing=False, **trigger_args):
         """
-        Adds the given job to the job list and notifies the scheduler thread.
+        add_job(func, trigger=None, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined, \
+            coalesce=undefined, max_instances=undefined, next_run_time=undefined, jobstore='default', \
+            executor='default', replace_existing=False, **trigger_args)
+
+        Adds the given job to the job list and wakes up the scheduler if it's already running.
+
+        Any option that defaults to ``undefined`` will be replaced with the corresponding default value when the job is
+        scheduled (which happens when the scheduler is started, or immediately if the scheduler is already running).
 
         The ``func`` argument can be given either as a callable object or a textual reference in the
         ``package.module:some.object`` format, where the first half (separated by ``:``) is an importable module and the
         second half is a reference to the callable object, relative to the module.
 
         The ``trigger`` argument can either be:
+          #. the alias name of the trigger (e.g. ``date``, ``interval`` or ``cron``), in which case any extra keyword
+             arguments to this method are passed on to the trigger's constructor
+          #. an instance of a trigger class
 
-        # the plugin name of the trigger (e.g. "cron"), in which case you should provide ``trigger_args`` as well
-        # an instance of the trigger
-
-        :param trigger: trigger that determines when ``func`` is called
-        :param trigger_args: arguments given to the constructor of the trigger class
         :param func: callable (or a textual reference to one) to run at the given time
-        :param args: list of positional arguments to call func with
-        :param kwargs: dict of keyword arguments to call func with
-        :param jobstore: alias of the job store to store the job in
-        :param name: name of the job
-        :param misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
-        :param coalesce: run once instead of many times if the scheduler determines that the job should be run more than
-                         once in succession
-        :param max_runs: maximum number of times this job is allowed to be triggered
-        :param max_instances: maximum number of concurrently running instances allowed for this job
-        :rtype: :class:`~apscheduler.job.Job`
+        :param str|apscheduler.triggers.base.BaseTrigger trigger: trigger that determines when ``func`` is called
+        :param list|tuple args: list of positional arguments to call func with
+        :param dict kwargs: dict of keyword arguments to call func with
+        :param str|unicode id: explicit identifier for the job (for modifying it later)
+        :param str|unicode name: textual description of the job
+        :param int misfire_grace_time: seconds after the designated run time that the job is still allowed to be run
+        :param bool coalesce: run once instead of many times if the scheduler determines that the job should be run more
+                              than once in succession
+        :param int max_instances: maximum number of concurrently running instances allowed for this job
+        :param datetime next_run_time: when to first run the job, regardless of the trigger (pass ``None`` to add the
+                                       job as paused)
+        :param str|unicode jobstore: alias of the job store to store the job in
+        :param str|unicode executor: alias of the executor to run the job with
+        :param bool replace_existing: ``True`` to replace an existing job with the same ``id`` (but retain the
+                                      number of runs from the existing one)
+        :rtype: Job
         """
-        # Argument sanity checking
-        if args is not None and (not isinstance(args, Iterable) and not isinstance(args, str)):
-            raise TypeError('args must be an iterable')
-        if kwargs is not None and not isinstance(kwargs, Mapping):
-            raise TypeError('kwargs must be a dict-like object')
-        if misfire_grace_time is not None and misfire_grace_time <= 0:
-            raise ValueError('misfire_grace_time must be a positive value')
-        if max_runs is not None and max_runs <= 0:
-            raise ValueError('max_runs must be a positive value')
-        if max_instances <= 0:
-            raise ValueError('max_instances must be a positive value')
 
-        # If trigger is a string, resolve it to a class, possibly by loading an entry point if necessary
-        if isinstance(trigger, str):
-            try:
-                trigger_cls = self._triggers[trigger]
-            except KeyError:
-                if trigger in self._plugins:
-                    trigger_cls = self._triggers[trigger] = self._plugins[trigger].load()
-                    if not callable(getattr(trigger_cls, 'get_next_fire_time')):
-                        raise TypeError('The trigger entry point does not point to a trigger class')
-                else:
-                    raise KeyError('No trigger by the name "%s" was found' % trigger)
-
-            if isinstance(trigger_args, Mapping):
-                trigger = trigger_cls(self.trigger_defaults, **trigger_args)
-            elif isinstance(trigger_args, Iterable):
-                trigger = trigger_cls(self.trigger_defaults, *trigger_args)
-            else:
-                raise ValueError('trigger_args must either be a dict-like object or an iterable')
-        elif not callable(getattr(trigger, 'get_next_fire_time')):
-            raise TypeError('Expected a trigger instance, got %s instead' % trigger.__class__.__name__)
-
-        # Replace with scheduler level defaults if values are missing
-        if misfire_grace_time is None:
-            misfire_grace_time = self.misfire_grace_time
-        if coalesce is None:
-            coalesce = self.coalesce
-
-        args = tuple(args) if args is not None else ()
-        kwargs = dict(kwargs) if kwargs is not None else {}
-        job = Job(trigger, func, args, kwargs, misfire_grace_time, coalesce, name, max_runs, max_instances)
-
-        # Make sure the callable can handle the given arguments
-        self._check_callable_args(job.func, args, kwargs)
-
-        # Ensure that dead-on-arrival jobs are never added
-        if job.compute_next_run_time(self._current_time()) is None:
-            raise ValueError('Not adding job since it would never be run')
+        job_kwargs = {
+            'trigger': self._create_trigger(trigger, trigger_args),
+            'executor': executor,
+            'func': func,
+            'args': tuple(args) if args is not None else (),
+            'kwargs': dict(kwargs) if kwargs is not None else {},
+            'id': id,
+            'name': name,
+            'misfire_grace_time': misfire_grace_time,
+            'coalesce': coalesce,
+            'max_instances': max_instances,
+            'next_run_time': next_run_time
+        }
+        job_kwargs = dict((key, value) for key, value in six.iteritems(job_kwargs) if value is not undefined)
+        job = Job(self, **job_kwargs)
 
         # Don't really add jobs to job stores before the scheduler is up and running
-        if not self.running:
-            self._pending_jobs.append((job, jobstore))
-            self.logger.info('Adding job tentatively -- it will be properly scheduled when the scheduler starts')
-        else:
-            self._real_add_job(job, jobstore, True)
+        with self._jobstores_lock:
+            if not self.running:
+                self._pending_jobs.append((job, jobstore, replace_existing))
+                self._logger.info('Adding job tentatively -- it will be properly scheduled when the scheduler starts')
+            else:
+                self._real_add_job(job, jobstore, replace_existing, True)
 
         return job
 
-    def scheduled_job(self, trigger, trigger_args=(), args=None, kwargs=None, jobstore='default',
-                      misfire_grace_time=None, coalesce=None, name=None, max_runs=None, max_instances=1):
-        """A decorator version of :meth:`add_job`."""
+    def scheduled_job(self, trigger, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined,
+                      coalesce=undefined, max_instances=undefined, next_run_time=undefined, jobstore='default',
+                      executor='default', **trigger_args):
+        """
+        scheduled_job(trigger, args=None, kwargs=None, id=None, name=None, misfire_grace_time=undefined, \
+            coalesce=undefined, max_instances=undefined, next_run_time=undefined, jobstore='default', \
+            executor='default',**trigger_args)
+
+        A decorator version of :meth:`add_job`, except that ``replace_existing`` is always ``True``.
+
+        .. important:: The ``id`` argument must be given if scheduling a job in a persistent job store. The scheduler
+           cannot, however, enforce this requirement.
+        """
+
         def inner(func):
-            func.job = self.add_job(func, trigger, trigger_args, args, kwargs, misfire_grace_time, coalesce,
-                                    name, max_runs, max_instances, jobstore)
+            self.add_job(func, trigger, args, kwargs, id, name, misfire_grace_time, coalesce, max_instances,
+                         next_run_time, jobstore, executor, True, **trigger_args)
             return func
         return inner
 
-    def get_jobs(self):
+    def modify_job(self, job_id, jobstore=None, **changes):
         """
-        Returns a list of all scheduled jobs.
+        Modifies the properties of a single job. Modifications are passed to this method as extra keyword arguments.
 
-        :return: list of :class:`~apscheduler.job.Job` objects
+        :param str|unicode job_id: the identifier of the job
+        :param str|unicode jobstore: alias of the job store that contains the job
         """
+        with self._jobstores_lock:
+            job, jobstore = self._lookup_job(job_id, jobstore)
+            job._modify(**changes)
+            if jobstore:
+                self._lookup_jobstore(jobstore).update_job(job)
+
+        self._dispatch_event(JobEvent(EVENT_JOB_MODIFIED, job_id, jobstore))
+
+        # Wake up the scheduler since the job's next run time may have been changed
+        self.wakeup()
+
+    def reschedule_job(self, job_id, jobstore=None, trigger=None, **trigger_args):
+        """
+        Constructs a new trigger for a job and updates its next run time.
+        Extra keyword arguments are passed directly to the trigger's constructor.
+
+        :param str|unicode job_id: the identifier of the job
+        :param str|unicode jobstore: alias of the job store that contains the job
+        :param trigger: alias of the trigger type or a trigger instance
+        """
+
+        trigger = self._create_trigger(trigger, trigger_args)
+        now = datetime.now(self.timezone)
+        next_run_time = trigger.get_next_fire_time(None, now)
+        self.modify_job(job_id, jobstore, trigger=trigger, next_run_time=next_run_time)
+
+    def pause_job(self, job_id, jobstore=None):
+        """
+        Causes the given job not to be executed until it is explicitly resumed.
+
+        :param str|unicode job_id: the identifier of the job
+        :param str|unicode jobstore: alias of the job store that contains the job
+        """
+
+        self.modify_job(job_id, jobstore, next_run_time=None)
+
+    def resume_job(self, job_id, jobstore=None):
+        """
+        Resumes the schedule of the given job, or removes the job if its schedule is finished.
+
+        :param str|unicode job_id: the identifier of the job
+        :param str|unicode jobstore: alias of the job store that contains the job
+        """
+
+        with self._jobstores_lock:
+            job, jobstore = self._lookup_job(job_id, jobstore)
+            now = datetime.now(self.timezone)
+            next_run_time = job.trigger.get_next_fire_time(None, now)
+            if next_run_time:
+                self.modify_job(job_id, jobstore, next_run_time=next_run_time)
+            else:
+                self.remove_job(job.id, jobstore)
+
+    def get_jobs(self, jobstore=None, pending=None):
+        """
+        Returns a list of pending jobs (if the scheduler hasn't been started yet) and scheduled jobs, either from a
+        specific job store or from all of them.
+
+        :param str|unicode jobstore: alias of the job store
+        :param bool pending: ``False`` to leave out pending jobs (jobs that are waiting for the scheduler start to be
+                             added to their respective job stores), ``True`` to only include pending jobs, anything else
+                             to return both
+        :rtype: list[Job]
+        """
+
         with self._jobstores_lock:
             jobs = []
-            for jobstore in itervalues(self._jobstores):
-                jobs.extend(jobstore.jobs)
+
+            if pending is not False:
+                for job, alias, replace_existing in self._pending_jobs:
+                    if jobstore is None or alias == jobstore:
+                        jobs.append(job)
+
+            if pending is not True:
+                for alias, store in six.iteritems(self._jobstores):
+                    if jobstore is None or alias == jobstore:
+                        jobs.extend(store.get_all_jobs())
+
             return jobs
 
-    def unschedule_job(self, job):
+    def get_job(self, job_id, jobstore=None):
+        """
+        Returns the Job that matches the given ``job_id``.
+
+        :param str|unicode job_id: the identifier of the job
+        :param str|unicode jobstore: alias of the job store that most likely contains the job
+        :return: the Job by the given ID, or ``None`` if it wasn't found
+        :rtype: Job
+        """
+
+        with self._jobstores_lock:
+            try:
+                return self._lookup_job(job_id, jobstore)[0]
+            except JobLookupError:
+                return
+
+    def remove_job(self, job_id, jobstore=None):
         """
         Removes a job, preventing it from being run any more.
+
+        :param str|unicode job_id: the identifier of the job
+        :param str|unicode jobstore: alias of the job store that contains the job
+        :raises JobLookupError: if the job was not found
         """
+
         with self._jobstores_lock:
-            for alias, jobstore in iteritems(self._jobstores):
-                if job in list(jobstore.jobs):
-                    self._remove_job(job, alias, jobstore)
-                    return
+            # Check if the job is among the pending jobs
+            for i, (job, jobstore_alias, replace_existing) in enumerate(self._pending_jobs):
+                if job.id == job_id:
+                    del self._pending_jobs[i]
+                    jobstore = jobstore_alias
+                    break
+            else:
+                # Otherwise, try to remove it from each store until it succeeds or we run out of stores to check
+                for alias, store in six.iteritems(self._jobstores):
+                    if jobstore in (None, alias):
+                        try:
+                            store.remove_job(job_id)
+                        except JobLookupError:
+                            continue
 
-        raise KeyError('Job "%s" is not scheduled in any job store' % job)
+                        jobstore = alias
+                        break
 
-    def unschedule_func(self, func):
+        if jobstore is None:
+            raise JobLookupError(job_id)
+
+        # Notify listeners that a job has been removed
+        event = JobEvent(EVENT_JOB_REMOVED, job_id, jobstore)
+        self._dispatch_event(event)
+
+        self._logger.info('Removed job %s', job_id)
+
+    def remove_all_jobs(self, jobstore=None):
         """
-        Removes all jobs that would execute the given function.
+        Removes all jobs from the specified job store, or all job stores if none is given.
+
+        :param str|unicode jobstore: alias of the job store
         """
-        found = False
+
         with self._jobstores_lock:
-            for alias, jobstore in iteritems(self._jobstores):
-                for job in list(jobstore.jobs):
-                    if job.func == func:
-                        self._remove_job(job, alias, jobstore)
-                        found = True
+            if jobstore:
+                self._pending_jobs = [pending for pending in self._pending_jobs if pending[1] != jobstore]
+            else:
+                self._pending_jobs = []
 
-        if not found:
-            raise KeyError('The given function is not scheduled in this scheduler')
+            for alias, store in six.iteritems(self._jobstores):
+                if jobstore in (None, alias):
+                    store.remove_all_jobs()
 
-    def print_jobs(self, out=None):
+        self._dispatch_event(SchedulerEvent(EVENT_ALL_JOBS_REMOVED, jobstore))
+
+    def print_jobs(self, jobstore=None, out=None):
         """
-        Prints out a textual listing of all jobs currently scheduled on this
-        scheduler.
+        print_jobs(jobstore=None, out=sys.stdout)
 
-        :param out: a file-like object to print to (defaults to **sys.stdout** if nothing is given)
+        Prints out a textual listing of all jobs currently scheduled on either all job stores or just a specific one.
+
+        :param str|unicode jobstore: alias of the job store, ``None`` to list jobs from all stores
+        :param file out: a file-like object to print to (defaults to **sys.stdout** if nothing is given)
         """
+
         out = out or sys.stdout
-        job_strs = []
         with self._jobstores_lock:
-            for alias, jobstore in iteritems(self._jobstores):
-                job_strs.append(u('Jobstore %s:') % alias)
-                if jobstore.jobs:
-                    for job in jobstore.jobs:
-                        job_strs.append('    %s' % job)
-                else:
-                    job_strs.append('    No scheduled jobs')
+            if self._pending_jobs:
+                print(six.u('Pending jobs:'), file=out)
+                for job, jobstore_alias, replace_existing in self._pending_jobs:
+                    if jobstore in (None, jobstore_alias):
+                        print(six.u('    %s') % job, file=out)
 
-        out.write(os.linesep.join(job_strs) + os.linesep)
+            for alias, store in six.iteritems(self._jobstores):
+                if jobstore in (None, alias):
+                    print(six.u('Jobstore %s:') % alias, file=out)
+                    jobs = store.get_all_jobs()
+                    if jobs:
+                        for job in jobs:
+                            print(six.u('    %s') % job, file=out)
+                    else:
+                        print(six.u('    No scheduled jobs'), file=out)
+
+    @abstractmethod
+    def wakeup(self):
+        """
+        Notifies the scheduler that there may be jobs due for execution.
+        Triggers :meth:`_process_jobs` to be run in an implementation specific manner.
+        """
 
     #
-    # Protected API
+    # Private API
     #
 
     def _configure(self, config):
         # Set general options
-        self.logger = maybe_ref(config.pop('logger', None)) or getLogger('apscheduler')
-        self.misfire_grace_time = int(config.pop('misfire_grace_time', 1))
-        self.coalesce = asbool(config.pop('coalesce', True))
-        self.timezone = astimezone(config.pop('timezone', None)) or tzlocal()
+        self._logger = maybe_ref(config.pop('logger', None)) or getLogger('apscheduler.scheduler')
+        self.timezone = astimezone(config.pop('timezone', None)) or get_localzone()
 
-        # Set trigger defaults
-        self.trigger_defaults = {'timezone': self.timezone}
+        # Set the job defaults
+        job_defaults = config.get('job_defaults', {})
+        self._job_defaults = {
+            'misfire_grace_time': asint(job_defaults.get('misfire_grace_time', 1)),
+            'coalesce': asbool(job_defaults.get('coalesce', True)),
+            'max_instances': asint(job_defaults.get('max_instances', 1))
+        }
 
-        # Configure the thread pool
-        if 'threadpool' in config:
-            self._threadpool = maybe_ref(config['threadpool'])
-        else:
-            threadpool_opts = combine_opts(config, 'threadpool.')
-            self._threadpool = ThreadPool(**threadpool_opts)
+        # Configure executors
+        self._executors.clear()
+        for alias, value in six.iteritems(config.get('executors', {})):
+            if isinstance(value, BaseExecutor):
+                self.add_executor(value, alias)
+            elif isinstance(value, MutableMapping):
+                executor_class = value.pop('class', None)
+                plugin = value.pop('type', None)
+                if plugin:
+                    executor = self._create_plugin_instance('executor', plugin, value)
+                elif executor_class:
+                    cls = maybe_ref(executor_class)
+                    executor = cls(**value)
+                else:
+                    raise ValueError('Cannot create executor "%s" -- either "type" or "class" must be defined' % alias)
+
+                self.add_executor(executor, alias)
+            else:
+                raise TypeError("Expected executor instance or dict for executors['%s'], got %s instead" % (
+                    alias, value.__class__.__name__))
 
         # Configure job stores
-        jobstore_opts = combine_opts(config, 'jobstore.')
-        jobstores = {}
-        for key, value in jobstore_opts.items():
-            store_name, option = key.split('.', 1)
-            opts_dict = jobstores.setdefault(store_name, {})
-            opts_dict[option] = value
+        self._jobstores.clear()
+        for alias, value in six.iteritems(config.get('jobstores', {})):
+            if isinstance(value, BaseJobStore):
+                self.add_jobstore(value, alias)
+            elif isinstance(value, MutableMapping):
+                jobstore_class = value.pop('class', None)
+                plugin = value.pop('type', None)
+                if plugin:
+                    jobstore = self._create_plugin_instance('jobstore', plugin, value)
+                elif jobstore_class:
+                    cls = maybe_ref(jobstore_class)
+                    jobstore = cls(**value)
+                else:
+                    raise ValueError('Cannot create job store "%s" -- either "type" or "class" must be defined' % alias)
 
-        for alias, opts in jobstores.items():
-            classname = opts.pop('class')
-            cls = maybe_ref(classname)
-            jobstore = cls(**opts)
-            self.add_jobstore(jobstore, alias, True)
+                self.add_jobstore(jobstore, alias)
+            else:
+                raise TypeError("Expected job store instance or dict for jobstores['%s'], got %s instead" % (
+                    alias, value.__class__.__name__))
 
-    def _notify_listeners(self, event):
+    def _create_default_executor(self):
+        """Creates a default executor store, specific to the particular scheduler type."""
+
+        return ThreadPoolExecutor()
+
+    def _create_default_jobstore(self):
+        """Creates a default job store, specific to the particular scheduler type."""
+
+        return MemoryJobStore()
+
+    def _lookup_executor(self, alias):
+        """
+        Returns the executor instance by the given name from the list of executors that were added to this scheduler.
+
+        :type alias: str
+        :raises KeyError: if no executor by the given alias is not found
+        """
+
+        try:
+            return self._executors[alias]
+        except KeyError:
+            raise KeyError('No such executor: %s' % alias)
+
+    def _lookup_jobstore(self, alias):
+        """
+        Returns the job store instance by the given name from the list of job stores that were added to this scheduler.
+
+        :type alias: str
+        :raises KeyError: if no job store by the given alias is not found
+        """
+
+        try:
+            return self._jobstores[alias]
+        except KeyError:
+            raise KeyError('No such job store: %s' % alias)
+
+    def _lookup_job(self, job_id, jobstore_alias):
+        """
+        Finds a job by its ID.
+
+        :type job_id: str
+        :param str jobstore_alias: alias of a job store to look in
+        :return tuple[Job, str]: a tuple of job, jobstore alias (jobstore alias is None in case of a pending job)
+        :raises JobLookupError: if no job by the given ID is found.
+        """
+
+        # Check if the job is among the pending jobs
+        for job, alias, replace_existing in self._pending_jobs:
+            if job.id == job_id:
+                return job, None
+
+        # Look in all job stores
+        for alias, store in six.iteritems(self._jobstores):
+            if jobstore_alias in (None, alias):
+                job = store.lookup_job(job_id)
+                if job is not None:
+                    return job, alias
+
+        raise JobLookupError(job_id)
+
+    def _dispatch_event(self, event):
+        """
+        Dispatches the given event to interested listeners.
+
+        :param SchedulerEvent event: the event to send
+        """
+
         with self._listeners_lock:
             listeners = tuple(self._listeners)
 
@@ -368,176 +699,146 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 try:
                     cb(event)
                 except:
-                    self.logger.exception('Error notifying listener')
+                    self._logger.exception('Error notifying listener')
 
-    def _real_add_job(self, job, jobstore, wakeup):
-        # Recalculate the next run time
-        job.compute_next_run_time(self._current_time())
+    def _real_add_job(self, job, jobstore_alias, replace_existing, wakeup):
+        """
+        :param Job job: the job to add
+        :param bool replace_existing: ``True`` to use update_job() in case the job already exists in the store
+        :param bool wakeup: ``True`` to wake up the scheduler after adding the job
+        """
+
+        # Fill in undefined values with defaults
+        replacements = {}
+        for key, value in six.iteritems(self._job_defaults):
+            if not hasattr(job, key):
+                replacements[key] = value
+
+        # Calculate the next run time if there is none defined
+        if not hasattr(job, 'next_run_time'):
+            now = datetime.now(self.timezone)
+            replacements['next_run_time'] = job.trigger.get_next_fire_time(None, now)
+
+        # Apply any replacements
+        job._modify(**replacements)
 
         # Add the job to the given job store
-        store = self._jobstores.get(jobstore)
-        if not store:
-            raise KeyError('No such job store: %s' % jobstore)
-        store.add_job(job)
+        store = self._lookup_jobstore(jobstore_alias)
+        try:
+            store.add_job(job)
+        except ConflictingIdError:
+            if replace_existing:
+                store.update_job(job)
+            else:
+                raise
+
+        # Mark the job as no longer pending
+        job._jobstore_alias = jobstore_alias
 
         # Notify listeners that a new job has been added
-        event = JobStoreEvent(EVENT_JOBSTORE_JOB_ADDED, jobstore, job)
-        self._notify_listeners(event)
+        event = JobEvent(EVENT_JOB_ADDED, job.id, jobstore_alias)
+        self._dispatch_event(event)
 
-        self.logger.info('Added job "%s" to job store "%s"', job, jobstore)
+        self._logger.info('Added job "%s" to job store "%s"', job.name, jobstore_alias)
 
         # Notify the scheduler about the new job
         if wakeup:
-            self._wakeup()
+            self.wakeup()
 
-    def _remove_job(self, job, alias, jobstore):
-        jobstore.remove_job(job)
+    def _create_plugin_instance(self, type_, alias, constructor_kwargs):
+        """Creates an instance of the given plugin type, loading the plugin first if necessary."""
 
-        # Notify listeners that a job has been removed
-        event = JobStoreEvent(EVENT_JOBSTORE_JOB_REMOVED, alias, job)
-        self._notify_listeners(event)
+        plugin_container, class_container, base_class = {
+            'trigger': (self._trigger_plugins, self._trigger_classes, BaseTrigger),
+            'jobstore': (self._jobstore_plugins, self._jobstore_classes, BaseJobStore),
+            'executor': (self._executor_plugins, self._executor_classes, BaseExecutor)
+        }[type_]
 
-        self.logger.info('Removed job "%s"', job)
+        try:
+            plugin_cls = class_container[alias]
+        except KeyError:
+            if alias in plugin_container:
+                plugin_cls = class_container[alias] = plugin_container[alias].load()
+                if not issubclass(plugin_cls, base_class):
+                    raise TypeError('The {0} entry point does not point to a {0} class'.format(type_))
+            else:
+                raise LookupError('No {0} by the name "{1}" was found'.format(type_, alias))
 
-    @staticmethod
-    def _check_callable_args(func, args, kwargs):
-        """Ensures that the given callable can be called with the given arguments."""
+        return plugin_cls(**constructor_kwargs)
 
-        if not isfunction(func) and not ismethod(func) and hasattr(func, '__call__'):
-            func = func.__call__
-        argspec = getargspec(func)
-        argspec_args = argspec.args[1:] if ismethod(func) else argspec.args
-        varkw = getattr(argspec, 'varkw', None) or getattr(argspec, 'keywords', None)
-        kwargs_set = frozenset(kwargs)
-        mandatory_args = frozenset(argspec_args[:-len(argspec.defaults)] if argspec.defaults else argspec_args)
-        mandatory_args_matches = frozenset(argspec_args[:len(args)])
-        mandatory_kwargs_matches = set(kwargs).intersection(mandatory_args)
-        kwonly_args = frozenset(getattr(argspec, 'kwonlyargs', []))
-        kwonly_defaults = frozenset(getattr(argspec, 'kwonlydefaults', None) or ())
+    def _create_trigger(self, trigger, trigger_args):
+        if isinstance(trigger, BaseTrigger):
+            return trigger
+        elif trigger is None:
+            trigger = 'date'
+        elif not isinstance(trigger, six.string_types):
+            raise TypeError('Expected a trigger instance or string, got %s instead' % trigger.__class__.__name__)
 
-        # Make sure there are no conflicts between args and kwargs
-        pos_kwargs_conflicts = mandatory_args_matches.intersection(mandatory_kwargs_matches)
-        if pos_kwargs_conflicts:
-            raise ValueError('The following arguments are supplied in both args and kwargs: %s' %
-                             ', '.join(pos_kwargs_conflicts))
+        # Use the scheduler's time zone if nothing else is specified
+        trigger_args.setdefault('timezone', self.timezone)
 
-        # Check that the number of positional arguments minus the number of matched kwargs matches the argspec
-        missing_args = mandatory_args - mandatory_args_matches.union(mandatory_kwargs_matches)
-        if missing_args:
-            raise ValueError('The following arguments are not supplied: %s' % ', '.join(missing_args))
-
-        # Check that the callable can accept the given number of positional arguments
-        if not argspec.varargs and len(args) > len(argspec_args):
-            raise ValueError('The list of positional arguments is longer than the target callable can handle '
-                             '(allowed: %d, given in args: %d)' % (len(argspec_args), len(args)))
-
-        # Check that the callable can accept the given keyword arguments
-        if not varkw:
-            unmatched_kwargs = kwargs_set - frozenset(argspec_args).union(kwonly_args)
-            if unmatched_kwargs:
-                raise ValueError('The target callable does not accept the following keyword arguments: %s' %
-                                 ', '.join(unmatched_kwargs))
-
-        # Check that all keyword-only arguments have been supplied
-        unmatched_kwargs = kwonly_args - kwargs_set - kwonly_defaults
-        if unmatched_kwargs:
-            raise ValueError('The following keyword-only arguments have not been supplied in kwargs: %s' %
-                             ', '.join(unmatched_kwargs))
-
-    @abstractmethod
-    def _wakeup(self):
-        """Triggers :meth:`_process_jobs` to be run in an implementation specific manner."""
+        # Instantiate the trigger class
+        return self._create_plugin_instance('trigger', trigger, trigger_args)
 
     def _create_lock(self):
-        return Lock()
+        """Creates a reentrant lock object."""
 
-    def _current_time(self):
-        return datetime.now(self.timezone)
-
-    def _run_job(self, job, run_times):
-        """Acts as a harness that runs the actual job code in the thread pool."""
-
-        for run_time in run_times:
-            # See if the job missed its run time window, and handle possible
-            # misfires accordingly
-            difference = self._current_time() - run_time
-            grace_time = timedelta(seconds=job.misfire_grace_time)
-            if difference > grace_time:
-                # Notify listeners about a missed run
-                event = JobEvent(EVENT_JOB_MISSED, job, run_time)
-                self._notify_listeners(event)
-                self.logger.warning('Run time of job "%s" was missed by %s', job, difference)
-            else:
-                try:
-                    job.add_instance()
-                except MaxInstancesReachedError:
-                    event = JobEvent(EVENT_JOB_MISSED, job, run_time)
-                    self._notify_listeners(event)
-                    self.logger.warning(
-                        'Execution of job "%s" skipped: maximum number of running instances reached (%d)', job,
-                        job.max_instances)
-                    break
-
-                self.logger.info('Running job "%s" (scheduled at %s)', job, run_time)
-
-                try:
-                    retval = job.func(*job.args, **job.kwargs)
-                except:
-                    # Notify listeners about the exception
-                    exc, tb = sys.exc_info()[1:]
-                    event = JobEvent(EVENT_JOB_ERROR, job, run_time, exception=exc, traceback=tb)
-                    self._notify_listeners(event)
-
-                    self.logger.exception('Job "%s" raised an exception', job)
-                else:
-                    # Notify listeners about successful execution
-                    event = JobEvent(EVENT_JOB_EXECUTED, job, run_time, retval=retval)
-                    self._notify_listeners(event)
-
-                    self.logger.info('Job "%s" executed successfully', job)
-
-                job.remove_instance()
-
-                # If coalescing is enabled, don't attempt any further runs
-                if job.coalesce:
-                    break
+        return RLock()
 
     def _process_jobs(self):
-        """Iterates through jobs in every jobstore, starts jobs that are due and figures out how long to wait for
-        the next round.
+        """
+        Iterates through jobs in every jobstore, starts jobs that are due and figures out how long to wait for the next
+        round.
         """
 
-        self.logger.debug('Looking for jobs to run')
-        now = self._current_time()
+        self._logger.debug('Looking for jobs to run')
+        now = datetime.now(self.timezone)
         next_wakeup_time = None
 
         with self._jobstores_lock:
-            for alias, jobstore in iteritems(self._jobstores):
-                for job in tuple(jobstore.jobs):
-                    run_times = job.get_run_times(now)
+            for jobstore_alias, jobstore in six.iteritems(self._jobstores):
+                for job in jobstore.get_due_jobs(now):
+                    # Look up the job's executor
+                    try:
+                        executor = self._lookup_executor(job.executor)
+                    except:
+                        self._logger.error(
+                            'Executor lookup ("%s") failed for job "%s" -- removing it from the job store',
+                            job.executor, job)
+                        self.remove_job(job.id, jobstore_alias)
+                        continue
+
+                    run_times = job._get_run_times(now)
+                    run_times = run_times[-1:] if run_times and job.coalesce else run_times
                     if run_times:
-                        self._threadpool.submit(self._run_job, job, run_times)
+                        try:
+                            executor.submit_job(job, run_times)
+                        except MaxInstancesReachedError:
+                            self._logger.warning(
+                                'Execution of job "%s" skipped: maximum number of running instances reached (%d)',
+                                job, job.max_instances)
+                        except:
+                            self._logger.exception('Error submitting job "%s" to executor "%s"', job, job.executor)
 
-                        # Increase the job's run count
-                        job.runs += 1 if job.coalesce else len(run_times)
-
-                        # Update the job, but don't keep finished jobs around
-                        if job.compute_next_run_time(now + timedelta(microseconds=1)):
+                        # Update the job if it has a next execution time. Otherwise remove it from the job store.
+                        job_next_run = job.trigger.get_next_fire_time(run_times[-1], now)
+                        if job_next_run:
+                            job._modify(next_run_time=job_next_run)
                             jobstore.update_job(job)
                         else:
-                            self._remove_job(job, alias, jobstore)
+                            self.remove_job(job.id, jobstore_alias)
 
-                    if not next_wakeup_time:
-                        next_wakeup_time = job.next_run_time
-                    elif job.next_run_time:
-                        next_wakeup_time = min(next_wakeup_time, job.next_run_time)
+                # Set a new next wakeup time if there isn't one yet or the jobstore has an even earlier one
+                jobstore_next_run_time = jobstore.get_next_run_time()
+                if jobstore_next_run_time and (next_wakeup_time is None or jobstore_next_run_time < next_wakeup_time):
+                    next_wakeup_time = jobstore_next_run_time
 
         # Determine the delay until this method should be called again
         if next_wakeup_time is not None:
-            wait_seconds = time_difference(next_wakeup_time, now)
-            self.logger.debug('Next wakeup is due at %s (in %f seconds)', next_wakeup_time, wait_seconds)
+            wait_seconds = max(timedelta_seconds(next_wakeup_time - now), 0)
+            self._logger.debug('Next wakeup is due at %s (in %f seconds)', next_wakeup_time, wait_seconds)
         else:
             wait_seconds = None
-            self.logger.debug('No jobs; waiting until a job is added')
+            self._logger.debug('No jobs; waiting until a job is added')
 
         return wait_seconds
