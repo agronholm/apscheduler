@@ -1,5 +1,5 @@
 """
-Stores jobs in a MongoDB database.
+Stores jobs in a RethinkDB database.
 """
 import logging
 
