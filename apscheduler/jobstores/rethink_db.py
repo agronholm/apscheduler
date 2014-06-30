@@ -56,14 +56,22 @@ class RethinkDBJobStore(BaseJobStore):
         self.table = r.db(database).table(table)
 
     def lookup_job(self, job_id):
-        document = (
-            self.table.get(job_id).pluck('job_state').run(self.conn)
-        )
+        if job_id:
+            document = (
+                self.table.get(job_id).pluck('job_state').run(self.conn)
+            )
+        else:
+            document = None
+
         return self._reconstitute_job(document['job_state']) if document else None
 
     def get_due_jobs(self, now):
-        timestamp = r.epoch_time(datetime_to_utc_timestamp(now))
-        search = (lambda x: x['next_run_time'] <= timestamp)
+        if now:
+            timestamp = r.epoch_time(datetime_to_utc_timestamp(now))
+            search = (lambda x: x['next_run_time'] <= timestamp)
+        else:
+            search = None
+
         return self._get_jobs(search)
 
     def get_next_run_time(self):
@@ -73,8 +81,8 @@ class RethinkDBJobStore(BaseJobStore):
                 lambda x:
                 x['next_run_time'] != None
             )
-            .map(lambda x: x['next_run_time'].to_epoch_time())
             .order_by(r.asc('next_run_time'))
+            .map(lambda x: x['next_run_time'].to_epoch_time())
             .limit(1)
             .run(self.conn)
         )
@@ -89,7 +97,11 @@ class RethinkDBJobStore(BaseJobStore):
         return self._get_jobs()
 
     def add_job(self, job):
-        job_exist = self.table.get(job.id).run(self.conn)
+        if job:
+            job_exist = self.table.get(job.id).run(self.conn)
+        else:
+            job_exist = None
+
         if not job_exist:
             job_dict = {}
             job_dict['id'] = job.id
@@ -109,25 +121,27 @@ class RethinkDBJobStore(BaseJobStore):
 
     def update_job(self, job):
         document = {}
-        next_run_time = r.epoch_time(
-            datetime_to_utc_timestamp(job.next_run_time)
-        )
-        document['job_state'] = (
-            pickle
-            .dumps(job.__getstate__(), self.pickle_protocol)
-            .encode("zip")
-            .encode("base64")
-            .strip()
-        )
-        document['next_run_time'] = next_run_time
-        results = self.table.get(job.id).update(document).run(self.conn)
-        if results['skipped'] > 0:
-            raise JobLookupError(id)
+        if job:
+            next_run_time = r.epoch_time(
+                datetime_to_utc_timestamp(job.next_run_time)
+            )
+            document['job_state'] = (
+                pickle
+                .dumps(job.__getstate__(), self.pickle_protocol)
+                .encode("zip")
+                .encode("base64")
+                .strip()
+            )
+            document['next_run_time'] = next_run_time
+            results = self.table.get(job.id).update(document).run(self.conn)
+            if results['skipped'] > 0:
+                raise JobLookupError(id)
 
     def remove_job(self, job):
-        results = self.table.get(job.id).delete().run(self.conn)
-        if results['deleted'] == 0:
-            raise JobLookupError(id)
+        if job:
+            results = self.table.get(job.id).delete().run(self.conn)
+            if results['deleted'] == 0:
+                raise JobLookupError(id)
 
     def remove_all_jobs(self):
         self.table.delete().run(self.conn)
