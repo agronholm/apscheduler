@@ -99,7 +99,7 @@ class RethinkDBJobStore(BaseJobStore):
                 .strip()
             )
             job_dict['next_run_time'] = r.epoch_time(
-                float(job_dict['next_run_time'].strftime('%s'))
+                datetime_to_utc_timestamp(job.next_run_time)
             )
             self.table.insert(job_dict).run(self.conn)
         else:
@@ -108,7 +108,7 @@ class RethinkDBJobStore(BaseJobStore):
     def update_job(self, job):
         document = {}
         next_run_time = r.epoch_time(
-            float(job.next_run_time.strftime('%s'))
+            datetime_to_utc_timestamp(job.next_run_time)
         )
         document['job_state'] = (
             pickle
