@@ -50,7 +50,7 @@ setup(
     keywords='scheduling cron',
     license='MIT',
     packages=find_packages(exclude=['tests']),
-    install_requires=['six', 'pytz', 'tzlocal'] + extra_requirements,
+    install_requires=['six >= 1.4.0', 'pytz', 'tzlocal'] + extra_requirements,
     tests_require=['pytest >= 2.5.1'],
     cmdclass={'test': PyTest},
     zip_safe=False,
