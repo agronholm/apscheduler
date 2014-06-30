@@ -40,7 +40,7 @@ class RethinkDBJobStore(BaseJobStore):
             raise ValueError('The "table" parameter must not be empty')
 
         if client:
-            self.conn = client
+            self.conn = maybe_ref(client)
         else:
             self.conn = r.connect(db=database, **connect_args)
 

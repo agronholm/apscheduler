@@ -38,6 +38,19 @@ def sqlalchemyjobstore(request):
 
 
 @pytest.fixture
+def rethinkdbjobstore(request):
+    def finish():
+        conn = store.conn
+        store.r.db_drop(store.database).run(conn)
+        store.shutdown()
+
+    rethinkdb = pytest.importorskip('apscheduler.jobstores.rethinkdb')
+    store = rethinkdb.RethinkDBJobStore(database='apscheduler_unittest')
+    request.addfinalizer(finish)
+    return store
+
+
+@pytest.fixture
 def mongodbjobstore(request):
     def finish():
         connection = store.collection.database.connection
