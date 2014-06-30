@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
-from apscheduler.util import maybe_ref, datetime_to_utc_timestamp
+from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
 try:
@@ -20,7 +20,7 @@ class RethinkDBJobStore(BaseJobStore):
     Stores jobs in a RethinkDB database. Any leftover keyword arguments are directly passed to rethink's
     `RethinkdbClient <http://www.rethinkdb.com/api/#connect>`_.
 
-    Plugin alias: ``rethinkdb``
+    Plugin alias: ``rethink_db``
 
     :param str database: database to store jobs in
     :param str collection: collection to store jobs in
@@ -56,7 +56,9 @@ class RethinkDBJobStore(BaseJobStore):
         self.table = r.db(database).table(table)
 
     def lookup_job(self, job_id):
-        document = self.table.get(job_id).pluck('job_state').run(self.conn)
+        document = (
+            self.table.get(job_id).pluck('job_state').run(self.conn)
+        )
         return self._reconstitute_job(document['job_state']) if document else None
 
     def get_due_jobs(self, now):
@@ -71,13 +73,13 @@ class RethinkDBJobStore(BaseJobStore):
                 lambda x:
                 x['next_run_time'] != None
             )
-            .pluck('next_run_time')
+            .map(lambda x: x['next_run_time'].to_epoch_time())
             .order_by(r.asc('next_run_time'))
             .limit(1)
             .run(self.conn)
         )
         if document:
-            document = document[0]['next_run_time']
+            document = utc_timestamp_to_datetime(document[0])
         else:
             document = None
 
@@ -155,8 +157,8 @@ class RethinkDBJobStore(BaseJobStore):
         else:
             documents = (
                 self.table
-                .pluck('id', 'job_state')
                 .order_by(r.asc('next_run_time'))
+                .pluck('id', 'job_state')
                 .run(self.conn)
             )
         for document in documents:
