@@ -180,15 +180,19 @@ class RethinkDBJobStore(BaseJobStore):
         if conditions:
             documents = list(
                 self.table
+                .filter(
+                    lambda x:
+                    x['next_run_time'] != None
+                )
                 .filter(conditions)
-                .order_by(r.asc('next_run_time'))
+                .order_by(r.asc('next_run_time'), 'id')
                 .pluck('id', 'job_state')
                 .run(self.conn)
             )
         else:
             documents = list(
                 self.table
-                .order_by(r.asc('next_run_time'))
+                .order_by(r.asc('next_run_time'), 'id')
                 .pluck('id', 'job_state')
                 .run(self.conn)
             )
