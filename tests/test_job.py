@@ -41,27 +41,27 @@ def test_constructor(job_id):
 
 def test_modify(job):
     job.modify(bah=1, foo='x')
-    assert job._scheduler.modify_job.called_once_with(job.id, bah=1, foo='x')
+    job._scheduler.modify_job.assert_called_once_with(job.id, None, bah=1, foo='x')
 
 
 def test_reschedule(job):
     job.reschedule('trigger', bah=1, foo='x')
-    assert job._scheduler.reschedule_job.called_once_with(job.id, 'trigger', bah=1, foo='x')
+    job._scheduler.reschedule_job.assert_called_once_with(job.id, None, 'trigger', bah=1, foo='x')
 
 
 def test_pause(job):
     job.pause()
-    assert job._scheduler.pause_job.called_once_with(job.id)
+    job._scheduler.pause_job.assert_called_once_with(job.id, None)
 
 
 def test_resume(job):
     job.resume()
-    assert job._scheduler.resume_job.called_once_with(job.id)
+    job._scheduler.resume_job.assert_called_once_with(job.id, None)
 
 
 def test_remove(job):
     job.remove()
-    assert job._scheduler.remove_job.called_once_with(job.id)
+    job._scheduler.remove_job.assert_called_once_with(job.id, None)
 
 
 def test_pending(job):

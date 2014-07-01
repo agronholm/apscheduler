@@ -74,14 +74,15 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         if self.running:
             raise SchedulerAlreadyRunningError
 
-        # If a non-empty prefix was given,
+        # If a non-empty prefix was given, strip it from the keys in the global configuration dict
         if prefix:
-            gconfig = dict((key[11:], value) for key, value in six.iteritems(gconfig) if key.startswith(prefix))
+            prefixlen = len(prefix)
+            gconfig = dict((key[prefixlen:], value) for key, value in six.iteritems(gconfig) if key.startswith(prefix))
 
         # Create a structure from the dotted options (e.g. "a.b.c = d" -> {'a': {'b': {'c': 'd'}}})
         config = {}
         for key, value in six.iteritems(gconfig):
-            parts = key.split('.', 1)
+            parts = key.split('.')
             parent = config
             key = parts.pop(0)
             while parts:
@@ -119,7 +120,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 self.add_jobstore(self._create_default_jobstore(), 'default')
 
             # Start all the job stores
-            for alias, store in six.iteritems(self._executors):
+            for alias, store in six.iteritems(self._jobstores):
                 store.start(self, alias)
 
             # Schedule all pending jobs

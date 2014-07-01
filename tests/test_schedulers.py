@@ -128,7 +128,7 @@ class TestBaseScheduler(object):
             options = {'bar': 'baz', 'xyz': 123}
             DummyScheduler(gconfig, **options)
 
-        assert configure.called_once_with(gconfig, **options)
+        configure.assert_called_once_with(gconfig, **options)
 
     @pytest.mark.parametrize('gconfig', [
         {
@@ -150,17 +150,17 @@ class TestBaseScheduler(object):
         {
             'apscheduler.timezone': 'UTC',
             'apscheduler.job_defaults': {
-                'apscheduler.misfire_grace_time': 5,
-                'apscheduler.coalesce': False,
-                'apscheduler.max_instances': '9',
+                'misfire_grace_time': '5',
+                'coalesce': 'false',
+                'max_instances': '9',
             },
             'apscheduler.executors': {
-                'apscheduler.default': {'class': '%s:DummyExecutor' % __name__, 'arg1': '3', 'arg2': 'a'},
-                'apscheduler.alter': {'class': '%s:DummyExecutor' % __name__, 'arg': 'true'}
+                'default': {'class': '%s:DummyExecutor' % __name__, 'arg1': '3', 'arg2': 'a'},
+                'alter': {'class': '%s:DummyExecutor' % __name__, 'arg': 'true'}
             },
             'apscheduler.jobstores': {
-                'apscheduler.default': {'class': '%s:DummyJobStore' % __name__, 'arg1': '3', 'arg2': 'a'},
-                'apscheduler.bar': {'class': '%s:DummyJobStore' % __name__, 'arg': 'false'}
+                'default': {'class': '%s:DummyJobStore' % __name__, 'arg1': '3', 'arg2': 'a'},
+                'bar': {'class': '%s:DummyJobStore' % __name__, 'arg': 'false'}
             }
         }
     ], ids=['ini-style', 'yaml-style'])
@@ -168,11 +168,11 @@ class TestBaseScheduler(object):
         scheduler._configure = MagicMock()
         scheduler.configure(gconfig, timezone='Other timezone')
 
-        assert scheduler._configure.called_once_with({
+        scheduler._configure.assert_called_once_with({
             'timezone': 'Other timezone',
             'job_defaults': {
-                'misfire_grace_time': 5,
-                'coalesce': False,
+                'misfire_grace_time': '5',
+                'coalesce': 'false',
                 'max_instances': '9',
             },
             'executors': {
@@ -198,10 +198,10 @@ class TestBaseScheduler(object):
         scheduler._dispatch_event = MagicMock()
         scheduler.start()
 
-        assert scheduler._executors['exec1'].start.called_once_with(scheduler, 'exec1')
-        assert scheduler._executors['exec2'].start.called_once_with(scheduler, 'exec2')
-        assert scheduler._jobstores['store1'].start.called_once_with(scheduler, 'store1')
-        assert scheduler._jobstores['store2'].start.called_once_with(scheduler, 'store2')
+        scheduler._executors['exec1'].start.assert_called_once_with(scheduler, 'exec1')
+        scheduler._executors['exec2'].start.assert_called_once_with(scheduler, 'exec2')
+        scheduler._jobstores['store1'].start.assert_called_once_with(scheduler, 'store1')
+        scheduler._jobstores['store2'].start.assert_called_once_with(scheduler, 'store2')
         assert len(scheduler._executors) == 3
         assert len(scheduler._jobstores) == 3
         assert 'default' in scheduler._executors
