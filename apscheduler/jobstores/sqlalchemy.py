@@ -44,9 +44,10 @@ class SQLAlchemyJobStore(BaseJobStore):
         else:
             raise ValueError('Need either "engine" or "url" defined')
 
+        # 767 = max key length in MySQL for InnoDB tables
         self.jobs_t = Table(
             tablename, metadata,
-            Column('id', Unicode(1024, _warn_on_bytestring=False), primary_key=True),
+            Column('id', Unicode(767, _warn_on_bytestring=False), primary_key=True),
             Column('next_run_time', BigInteger, index=True),
             Column('job_state', LargeBinary, nullable=False)
         )
