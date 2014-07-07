@@ -136,11 +136,25 @@ def convert_to_datetime(input, tz, arg_name):
 
 
 def datetime_to_utc_timestamp(timeval):
+    """
+    Converts a datetime instance to a timestamp.
+
+    :type timeval: datetime
+    :rtype: float
+    """
+
     if timeval is not None:
         return timegm(timeval.utctimetuple()) + timeval.microsecond / 1000000
 
 
 def utc_timestamp_to_datetime(timestamp):
+    """
+    Converts the given timestamp to a datetime instance.
+
+    :type timestamp: float
+    :rtype: datetime
+    """
+
     if timestamp is not None:
         return datetime.fromtimestamp(timestamp, utc)
 

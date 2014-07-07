@@ -65,7 +65,8 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
     @abstractmethod
     def get_due_jobs(self, now):
         """
-        Returns the list of jobs that have ``next_run_time`` earlier or equal to ``now``, sorted by next run time
+        Returns the list of jobs that have ``next_run_time`` earlier or equal to ``now``.
+        The returned jobs must be sorted by next run time (ascending).
 
         :param datetime.datetime now: the current (timezone aware) datetime
         :rtype: list[Job]
@@ -82,7 +83,8 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
     @abstractmethod
     def get_all_jobs(self):
         """
-        Returns a list of all contained jobs (sorted by next run time).
+        Returns a list of all jobs in this job store. The returned jobs should be sorted by next run time (ascending).
+        Paused jobs (next_run_time == None) should be sorted last.
 
         The job store is responsible for setting the ``scheduler`` and ``jobstore`` attributes of the returned jobs to
         point to the scheduler and itself, respectively.
