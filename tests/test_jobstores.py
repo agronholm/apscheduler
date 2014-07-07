@@ -114,6 +114,14 @@ def test_get_pending_jobs(jobstore, create_add_job, timezone):
     assert jobs == []
 
 
+def test_get_pending_jobs_subsecond_difference(jobstore, create_add_job, timezone):
+    job1 = create_add_job(jobstore, dummy_job, datetime(2014, 7, 7, 0, 0, 0, 401))
+    job2 = create_add_job(jobstore, dummy_job2, datetime(2014, 7, 7, 0, 0, 0, 402))
+    job3 = create_add_job(jobstore, dummy_job3, datetime(2014, 7, 7, 0, 0, 0, 400))
+    jobs = jobstore.get_due_jobs(timezone.localize(datetime(2014, 7, 7, 1)))
+    assert jobs == [job3, job1, job2]
+
+
 def test_get_next_run_time(jobstore, create_add_job, timezone):
     create_add_job(jobstore, dummy_job, datetime(2016, 5, 3))
     create_add_job(jobstore, dummy_job2, datetime(2014, 2, 26))

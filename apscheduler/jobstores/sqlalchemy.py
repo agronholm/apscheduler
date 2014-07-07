@@ -10,7 +10,7 @@ except ImportError:  # pragma: nocover
     import pickle
 
 try:
-    from sqlalchemy import create_engine, Table, Column, MetaData, Unicode, BigInteger, LargeBinary, select
+    from sqlalchemy import create_engine, Table, Column, MetaData, Unicode, Float, LargeBinary, select
     from sqlalchemy.exc import IntegrityError
 except ImportError:  # pragma: nocover
     raise ImportError('SQLAlchemyJobStore requires SQLAlchemy installed')
@@ -44,11 +44,11 @@ class SQLAlchemyJobStore(BaseJobStore):
         else:
             raise ValueError('Need either "engine" or "url" defined')
 
-        # 767 = max key length in MySQL for InnoDB tables
+        # 767 = max key length in MySQL for InnoDB tables, 25 = precision that translates to an 8-byte float
         self.jobs_t = Table(
             tablename, metadata,
             Column('id', Unicode(767, _warn_on_bytestring=False), primary_key=True),
-            Column('next_run_time', BigInteger, index=True),
+            Column('next_run_time', Float(25), index=True),
             Column('job_state', LargeBinary, nullable=False)
         )
 
