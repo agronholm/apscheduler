@@ -1,5 +1,5 @@
-version_info = (3, 0, 0, 'rc1')
-version = '3.0.0'
-release = '3.0.0rc1'
+version_info = (3, 1, 0, 'dev')
+version = '3.1.0'
+release = '3.1.0.dev1'
 
 __version__ = release  # PEP 396
