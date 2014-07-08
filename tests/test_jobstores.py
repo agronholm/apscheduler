@@ -38,6 +38,20 @@ def sqlalchemyjobstore(request):
 
 
 @pytest.fixture
+def rethinkdbjobstore(request):
+    def finish():
+        conn = store.conn
+        r = store.r
+        r.db_drop('apscheduler_unittest').run(conn)
+        store.shutdown()
+
+    rethinkdb = pytest.importorskip('apscheduler.jobstores.rethinkdb')
+    store = rethinkdb.RethinkDBJobStore(database='apscheduler_unittest')
+    request.addfinalizer(finish)
+    return store
+
+
+@pytest.fixture
 def mongodbjobstore(request):
     def finish():
         connection = store.collection.database.connection
@@ -62,13 +76,13 @@ def redisjobstore(request):
     return store
 
 
-@pytest.fixture(params=[memjobstore, sqlalchemyjobstore, mongodbjobstore, redisjobstore],
-                ids=['memory', 'sqlalchemy', 'mongodb', 'redis'])
+@pytest.fixture(params=[memjobstore, sqlalchemyjobstore, mongodbjobstore, redisjobstore, rethinkdbjobstore],
+                ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb'])
 def jobstore(request):
     return request.param(request)
 
 
-@pytest.fixture(params=[sqlalchemyjobstore, mongodbjobstore, redisjobstore], ids=['sqlalchemy', 'mongodb', 'redis'])
+@pytest.fixture(params=[sqlalchemyjobstore, mongodbjobstore, redisjobstore, rethinkdbjobstore], ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb'])
 def persistent_jobstore(request):
     return request.param(request)
 
