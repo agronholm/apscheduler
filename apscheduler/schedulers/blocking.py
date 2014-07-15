@@ -25,7 +25,7 @@ class BlockingScheduler(BaseScheduler):
     def _main_loop(self):
         while self.running:
             wait_seconds = self._process_jobs()
-            self._event.wait(wait_seconds or self.MAX_WAIT_TIME)
+            self._event.wait(wait_seconds if wait_seconds is not None else self.MAX_WAIT_TIME)
             self._event.clear()
 
     def wakeup(self):
