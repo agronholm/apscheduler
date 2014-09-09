@@ -201,7 +201,8 @@ class TestObjToRef(object):
 
 class TestRefToObj(object):
     def test_valid_ref(self):
-        assert ref_to_obj('datetime:timedelta') == timedelta
+        from logging.handlers import RotatingFileHandler
+        assert ref_to_obj('logging.handlers:RotatingFileHandler') is RotatingFileHandler
 
     @pytest.mark.parametrize('input,error', [
         (object(), TypeError),
