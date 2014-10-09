@@ -194,20 +194,26 @@ def get_callable_name(func):
     :rtype: str
     """
 
+    # the easy case (on Python 3.3+)
+    if hasattr(func, '__qualname__'):
+        return func.__qualname__
+
+    # class methods, bound and unbound methods
     f_self = getattr(func, '__self__', None) or getattr(func, 'im_self', None)
-
     if f_self and hasattr(func, '__name__'):
-        if isinstance(f_self, type):
-            # class method
-            clsname = getattr(f_self, '__qualname__', None) or f_self.__name__
-            return '%s.%s' % (clsname, func.__name__)
-        # bound method
-        return '%s.%s' % (f_self.__class__.__name__, func.__name__)
+        f_class = f_self if isinstance(f_self, type) else f_self.__class__
+    else:
+        f_class = getattr(func, 'im_class', None)
 
+    if f_class and hasattr(func, '__name__'):
+        return '%s.%s' % (f_class.__name__, func.__name__)
+
+    # class or class instance
     if hasattr(func, '__call__'):
+        # class
         if hasattr(func, '__name__'):
-            # function, unbound method or a class with a __call__ method
             return func.__name__
+
         # instance of a class with a __call__ method
         return func.__class__.__name__
 
