@@ -5,6 +5,7 @@ from functools import partial
 import pytest
 import pytz
 import six
+import sys
 
 from apscheduler.util import (
     asint, asbool, astimezone, convert_to_datetime, datetime_to_utc_timestamp, utc_timestamp_to_datetime,
@@ -163,9 +164,9 @@ def test_datetime_repr(input, expected):
 class TestGetCallableName(object):
     @pytest.mark.parametrize('input,expected', [
         (asint, 'asint'),
-        (DummyClass.staticmeth, 'staticmeth'),
+        (DummyClass.staticmeth, 'DummyClass.staticmeth' if hasattr(DummyClass, '__qualname__') else 'staticmeth'),
         (DummyClass.classmeth, 'DummyClass.classmeth'),
-        (DummyClass.meth, 'meth'),
+        (DummyClass.meth, 'meth' if sys.version_info[:2] == (3, 2) else 'DummyClass.meth'),
         (DummyClass().meth, 'DummyClass.meth'),
         (DummyClass, 'DummyClass'),
         (DummyClass(), 'DummyClass')
@@ -178,25 +179,26 @@ class TestGetCallableName(object):
 
 
 class TestObjToRef(object):
-    @pytest.mark.parametrize('input', [DummyClass.meth, DummyClass.staticmeth, partial(DummyClass.meth)],
-                             ids=['bound method', 'static method', 'partial/bound method'])
+    @pytest.mark.parametrize('input', [partial(DummyClass.meth)], ids=['partial/bound method'])
     def test_no_ref_found(self, input):
         exc = pytest.raises(ValueError, obj_to_ref, input)
         assert 'Cannot determine the reference to ' in str(exc.value)
 
     @pytest.mark.parametrize('input,expected', [
+        pytest.mark.skipif(sys.version_info[:2] == (3, 2), reason="Unbound methods can't be resolved on Python 3.2")(
+            (DummyClass.meth, 'tests.test_util:DummyClass.meth')
+        ),
         (DummyClass.classmeth, 'tests.test_util:DummyClass.classmeth'),
+        pytest.mark.skipif(sys.version_info < (3, 3), reason="Requires __qualname__ (Python 3.3+)")(
+            (DummyClass.InnerDummyClass.innerclassmeth, 'tests.test_util:DummyClass.InnerDummyClass.innerclassmeth')
+        ),
+        pytest.mark.skipif(sys.version_info < (3, 3), reason="Requires __qualname__ (Python 3.3+)")(
+            (DummyClass.staticmeth, 'tests.test_util:DummyClass.staticmeth')
+        ),
         (timedelta, 'datetime:timedelta'),
-    ], ids=['class method', 'timedelta'])
+    ], ids=['unbound method', 'class method', 'inner class method', 'static method', 'timedelta'])
     def test_valid_refs(self, input, expected):
         assert obj_to_ref(input) == expected
-
-    @minpython(3, 3)
-    def test_inner_class_method(self):
-        """Tests that a reference to a class method of an inner class can be discovered."""
-
-        assert obj_to_ref(DummyClass.InnerDummyClass.innerclassmeth) == \
-            'tests.test_util:DummyClass.InnerDummyClass.innerclassmeth'
 
 
 class TestRefToObj(object):
