@@ -198,6 +198,12 @@ class Job(object):
             setattr(self, key, value)
 
     def __getstate__(self):
+        # Don't allow this Job to be serialized if the function reference could not be determined
+        if not self.func_ref:
+            raise ValueError('This Job cannot be serialized since the reference to its callable (%r) could not be '
+                             'determined. Consider giving a textual reference (module:function name) instead.' %
+                             (self.func,))
+
         return {
             'version': 1,
             'id': self.id,
