@@ -243,6 +243,11 @@ class TestIntervalTrigger(object):
         now = trigger.start_date + timedelta(microseconds=1000)
         assert trigger.get_next_fire_time(None, now) == trigger.start_date + trigger.interval
 
+    def test_no_start_date(self, timezone):
+        trigger = IntervalTrigger(seconds=2, timezone=timezone)
+        now = datetime.now(timezone)
+        assert (trigger.get_next_fire_time(None, now) - now) <= timedelta(seconds=2)
+
     def test_different_tz(self, trigger, timezone):
         alter_tz = pytz.FixedOffset(-60)
         start_date = alter_tz.localize(datetime(2009, 8, 3, 22, second=2, microsecond=1000))
