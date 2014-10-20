@@ -20,7 +20,7 @@ class AsyncIOExecutor(BaseExecutor):
             try:
                 events = f.result()
             except:
-                self._run_job_error(job.id, *sys.exc_info())
+                self._run_job_error(job.id, *sys.exc_info()[1:])
             else:
                 self._run_job_success(job.id, events)
 

@@ -1,5 +1,7 @@
-import time
 from datetime import datetime
+from threading import Event
+from types import TracebackType
+import time
 
 import pytest
 
@@ -21,25 +23,15 @@ def mock_scheduler(timezone):
     return scheduler_
 
 
-@pytest.fixture
-def threadpoolexecutor(request):
-    from apscheduler.executors.pool import ThreadPoolExecutor
-    executor = ThreadPoolExecutor()
-    request.addfinalizer(executor.shutdown)
-    return executor
-
-
-@pytest.fixture
-def processpoolexecutor(request):
-    from apscheduler.executors.pool import ProcessPoolExecutor
-    executor = ProcessPoolExecutor()
-    request.addfinalizer(executor.shutdown)
-    return executor
-
-
-@pytest.fixture(params=[threadpoolexecutor, processpoolexecutor], ids=['threadpool', 'processpool'])
+@pytest.fixture(params=['threadpool', 'processpool'])
 def executor(request, mock_scheduler):
-    executor_ = request.param(request)
+    if request.param == 'threadpool':
+        from apscheduler.executors.pool import ThreadPoolExecutor
+        executor_ = ThreadPoolExecutor()
+    else:
+        from apscheduler.executors.pool import ProcessPoolExecutor
+        executor_ = ProcessPoolExecutor()
+
     executor_.start(mock_scheduler, 'dummy')
     request.addfinalizer(executor_.shutdown)
     return executor_
@@ -100,3 +92,34 @@ def test_submit_job(mock_scheduler, executor, create_job, freeze_time, timezone,
     elif event_code == EVENT_JOB_ERROR:
         assert str(event.exception) == 'test failure'
         assert isinstance(event.traceback, str)
+
+
+class FauxJob(object):
+    id = 'abc'
+    max_instances = 1
+    _jobstore_alias = 'foo'
+
+
+def dummy_run_job(job, jobstore_alias, run_times, logger_name):
+    raise Exception('dummy')
+
+
+def test_run_job_error(monkeypatch, executor):
+    """Tests that _run_job_error is properly called if an exception is raised in run_job()"""
+
+    def run_job_error(job_id, exc, traceback):
+        assert job_id == 'abc'
+        exc_traceback[:] = [exc, traceback]
+        event.set()
+
+    event = Event()
+    exc_traceback = [None, None]
+    monkeypatch.setattr('apscheduler.executors.base.run_job', dummy_run_job)
+    monkeypatch.setattr('apscheduler.executors.pool.run_job', dummy_run_job)
+    monkeypatch.setattr(executor, '_run_job_error', run_job_error)
+    executor.submit_job(FauxJob(), [])
+
+    event.wait(2)
+    assert str(exc_traceback[0]) == "dummy"
+    if exc_traceback[1] is not None:
+        assert isinstance(exc_traceback[1], TracebackType)

@@ -12,9 +12,10 @@ class BasePoolExecutor(BaseExecutor):
 
     def _do_submit_job(self, job, run_times):
         def callback(f):
-            exc = f.exception()
+            exc, tb = (f.exception_info() if hasattr(f, 'exception_info') else
+                       (f.exception(), getattr(f.exception(), '__traceback__', None)))
             if exc:
-                self._run_job_error(job.id, exc)
+                self._run_job_error(job.id, exc, tb)
             else:
                 self._run_job_success(job.id, f.result())
 
