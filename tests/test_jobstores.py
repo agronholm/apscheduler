@@ -82,7 +82,8 @@ def jobstore(request):
     return request.param(request)
 
 
-@pytest.fixture(params=[sqlalchemyjobstore, mongodbjobstore, redisjobstore, rethinkdbjobstore], ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb'])
+@pytest.fixture(params=[sqlalchemyjobstore, mongodbjobstore, redisjobstore, rethinkdbjobstore],
+                ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb'])
 def persistent_jobstore(request):
     return request.param(request)
 
