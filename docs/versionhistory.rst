@@ -10,6 +10,22 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Added RethinkDB job store (contributed by Allen Sanabria)
 
 
+3.0.1
+-----
+
+* A wider variety of target callables can now be scheduled so that the jobs are still serializable
+  (static methods on Python 3.3+, unbound methods on all except Python 3.2)
+
+* Attempting to serialize a non-serializable Job now raises a helpful exception during serialization.
+  Thanks to Jeremy Morgan for pointing this out.
+
+* Fixed table creation with SQLAlchemyJobStore on MySQL/InnoDB
+
+* Fixed start date getting set too far in the future with a timezone different from the local one
+
+* Fixed _run_job_error() being called with the incorrect number of arguments in most executors
+
+
 3.0.0
 -----
 
