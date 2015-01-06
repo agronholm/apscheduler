@@ -10,6 +10,12 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Added RethinkDB job store (contributed by Allen Sanabria)
 
 
+3.0.2
+-----
+
+* Fixed ValueError when the target callable has a default keyword argument that wasn't overridden
+
+
 3.0.1
 -----
 

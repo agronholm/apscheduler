@@ -257,6 +257,12 @@ class TestCheckCallableArgs(object):
         exc = pytest.raises(ValueError, check_callable_args, lambda x, y, z: None, [1], {'y': 0})
         assert str(exc.value) == 'The following arguments have not been supplied: z'
 
+    def test_default_args(self, use_signature):
+        """Tests that default values for arguments are properly taken into account."""
+
+        exc = pytest.raises(ValueError, check_callable_args, lambda x, y, z=1: None, [1], {})
+        assert str(exc.value) == 'The following arguments have not been supplied: y'
+
     def test_conflicting_callable_args(self, use_signature):
         """
         Tests that attempting to schedule a job where the combination of args and kwargs are in conflict raises an
