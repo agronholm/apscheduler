@@ -5,6 +5,12 @@ To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
 
+3.0.2
+-----
+
+* Fixed ValueError when the target callable has a default keyword argument that wasn't overridden
+
+
 3.0.1
 -----
 

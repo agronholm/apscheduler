@@ -343,16 +343,17 @@ def check_callable_args(func, args, kwargs):
             return  # getargspec() doesn't work certain callables
 
         argspec_args = argspec.args if not ismethod(func) else argspec.args[1:]
+        arg_defaults = dict(zip(reversed(argspec_args), argspec.defaults or ()))
         has_varargs = bool(argspec.varargs)
         has_var_kwargs = bool(argspec.keywords)
-        for arg, default in six.moves.zip_longest(argspec_args, argspec.defaults or (), fillvalue=undefined):
+        for arg in argspec_args:
             if arg in unmatched_kwargs and unmatched_args:
                 pos_kwargs_conflicts.append(arg)
             elif unmatched_args:
                 del unmatched_args[0]
             elif arg in unmatched_kwargs:
                 unmatched_kwargs.remove(arg)
-            elif default is undefined:
+            elif arg not in arg_defaults:
                 unsatisfied_args.append(arg)
 
     # Make sure there are no conflicts between args and kwargs
