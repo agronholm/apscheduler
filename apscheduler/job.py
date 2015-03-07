@@ -4,8 +4,8 @@ from uuid import uuid4
 import six
 
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name, check_callable_args, \
-    convert_to_datetime
+from apscheduler.util import (ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name,
+                              check_callable_args, convert_to_datetime)
 
 
 class Job(object):
@@ -24,6 +24,10 @@ class Job(object):
     :var int misfire_grace_time: the time (in seconds) how much this job's execution is allowed to be late
     :var int max_instances: the maximum number of concurrently executing instances allowed for this job
     :var datetime.datetime next_run_time: the next scheduled run time of this job
+
+    .. note::
+        The ``misfire_grace_time`` has some non-obvious effects on job execution.
+        See the :ref:`missed-job-executions` section in the documentation for an in-depth explanation.
     """
 
     __slots__ = ('_scheduler', '_jobstore_alias', 'id', 'trigger', 'executor', 'func', 'func_ref', 'args', 'kwargs',

@@ -357,6 +357,8 @@ considered a misfire. It is possible to set the maximum number of instances for 
 let run concurrently, by using the ``max_instances`` keyword argument when adding the job.
 
 
+.. _missed-job-executions:
+
 Missed job executions and coalescing
 ------------------------------------
 
@@ -370,6 +372,12 @@ This can lead into the job being executed several times in succession.
 If this behavior is undesirable for your particular use case, it is possible to use `coalescing` to roll all these
 missed executions into one. In other words, if coalescing is enabled for the job and the scheduler sees one or more
 queued executions for the job, it will only trigger it once. No misfire events will be sent for the "bypassed" runs.
+
+.. note::
+    If the execution of a job is delayed due to no threads or processes being available in the pool, the executor may
+    skip it due to it being run too late (compared to its originally designated run time).
+    If this is likely to happen in your application, you may want to either increase the number of threads/processes in
+    the executor, or adjust the ``misfire_grace_time`` setting to a higher value.
 
 
 .. _scheduler-events:
