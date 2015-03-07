@@ -200,7 +200,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param bool shutdown: ``True`` to shut down the executor after removing it
         """
 
-        with self._jobstores_lock:
+        with self._executors_lock:
             executor = self._lookup_executor(alias)
             del self._executors[alias]
 
