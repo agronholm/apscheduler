@@ -245,8 +245,12 @@ class Job(object):
         return '<Job (id=%s name=%s)>' % (repr_escape(self.id), repr_escape(self.name))
 
     def __str__(self):
-        return '%s (trigger: %s, next run at: %s)' % (repr_escape(self.name), repr_escape(str(self.trigger)),
-                                                      datetime_repr(self.next_run_time))
+        return repr_escape(self.__unicode__())
 
     def __unicode__(self):
-        return six.u('%s (trigger: %s, next run at: %s)') % (self.name, self.trigger, datetime_repr(self.next_run_time))
+        if hasattr(self, 'next_run_time'):
+            status = 'next run at: ' + datetime_repr(self.next_run_time) if self.next_run_time else 'paused'
+        else:
+            status = 'pending'
+
+        return six.u('%s (trigger: %s, %s)') % (self.name, self.trigger, status)

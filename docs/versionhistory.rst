@@ -14,6 +14,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Fixed exception when loading all jobs from the redis job store when there are paused jobs in it
 
+* Fixed AttributeError when printing a job list when there were pending jobs
+
 
 3.0.1
 -----
