@@ -21,6 +21,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Fixed AttributeError when printing a job list when there were pending jobs
 
+* Added setuptools as an explicit requirement in install requirements
+
 
 3.0.1
 -----
