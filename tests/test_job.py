@@ -7,7 +7,6 @@ import six
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.triggers.date import DateTrigger
-from tests.conftest import maxpython
 
 try:
     from unittest.mock import MagicMock, patch
