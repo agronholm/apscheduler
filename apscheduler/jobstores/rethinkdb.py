@@ -97,7 +97,9 @@ class RethinkDBJobStore(BaseJobStore):
         return document
 
     def get_all_jobs(self):
-        return self._get_jobs()
+        jobs = self._get_jobs()
+        self._fix_paused_jobs_sorting(jobs)
+        return jobs
 
     def add_job(self, job):
         if isinstance(job, Job):
