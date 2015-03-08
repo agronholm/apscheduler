@@ -75,10 +75,10 @@ def persistent_jobstore(request):
 
 @pytest.fixture
 def create_add_job(timezone, create_job):
-    def create(jobstore, func=dummy_job, run_date=datetime(2999, 1, 1), id=None, **kwargs):
+    def create(jobstore, func=dummy_job, run_date=datetime(2999, 1, 1), id=None, paused=False, **kwargs):
         run_date = timezone.localize(run_date)
         job = create_job(func=func, trigger='date', trigger_args={'run_date': run_date}, id=id, **kwargs)
-        job.next_run_time = job.trigger.get_next_fire_time(None, run_date)
+        job.next_run_time = None if paused else job.trigger.get_next_fire_time(None, run_date)
         if jobstore:
             jobstore.add_job(job)
         return job
@@ -99,14 +99,16 @@ def test_lookup_nonexistent_job(jobstore):
 def test_get_all_jobs(jobstore, create_add_job):
     job1 = create_add_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_add_job(jobstore, dummy_job2, datetime(2013, 8, 14))
+    job3 = create_add_job(jobstore, dummy_job2, datetime(2013, 7, 11), paused=True)
     jobs = jobstore.get_all_jobs()
-    assert jobs == [job2, job1]
+    assert jobs == [job2, job1, job3]
 
 
 def test_get_pending_jobs(jobstore, create_add_job, timezone):
     create_add_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_add_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     job3 = create_add_job(jobstore, dummy_job3, datetime(2013, 8, 14))
+    create_add_job(jobstore, dummy_job3, datetime(2013, 7, 11), paused=True)
     jobs = jobstore.get_due_jobs(timezone.localize(datetime(2014, 2, 27)))
     assert jobs == [job3, job2]
 
@@ -126,6 +128,7 @@ def test_get_next_run_time(jobstore, create_add_job, timezone):
     create_add_job(jobstore, dummy_job, datetime(2016, 5, 3))
     create_add_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     create_add_job(jobstore, dummy_job3, datetime(2013, 8, 14))
+    create_add_job(jobstore, dummy_job3, datetime(2013, 7, 11), paused=True)
     assert jobstore.get_next_run_time() == timezone.localize(datetime(2013, 8, 14))
 
 

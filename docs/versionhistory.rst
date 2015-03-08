@@ -10,6 +10,10 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Fixed ValueError when the target callable has a default keyword argument that wasn't overridden
 
+* Fixed wrong job sort order in some job stores
+
+* Fixed exception when loading all jobs from the redis job store when there are paused jobs in it
+
 
 3.0.1
 -----

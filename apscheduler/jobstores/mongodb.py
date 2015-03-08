@@ -64,7 +64,9 @@ class MongoDBJobStore(BaseJobStore):
         return utc_timestamp_to_datetime(document['next_run_time']) if document else None
 
     def get_all_jobs(self):
-        return self._get_jobs({})
+        jobs = self._get_jobs({})
+        self._fix_paused_jobs_sorting(jobs)
+        return jobs
 
     def add_job(self, job):
         try:

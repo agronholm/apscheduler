@@ -50,6 +50,15 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
     def shutdown(self):
         """Frees any resources still bound to this job store."""
 
+    def _fix_paused_jobs_sorting(self, jobs):
+        for i, job in enumerate(jobs):
+            if job.next_run_time is not None:
+                if i > 0:
+                    paused_jobs = jobs[:i]
+                    del jobs[:i]
+                    jobs.extend(paused_jobs)
+                break
+
     @abstractmethod
     def lookup_job(self, job_id):
         """

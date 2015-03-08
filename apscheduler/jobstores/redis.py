@@ -1,5 +1,7 @@
 from __future__ import absolute_import
+from datetime import datetime
 
+from pytz import utc
 import six
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
@@ -65,7 +67,8 @@ class RedisJobStore(BaseJobStore):
     def get_all_jobs(self):
         job_states = self.redis.hgetall(self.jobs_key)
         jobs = self._reconstitute_jobs(six.iteritems(job_states))
-        return sorted(jobs, key=lambda job: job.next_run_time)
+        paused_sort_key = datetime(9999, 12, 31, tzinfo=utc)
+        return sorted(jobs, key=lambda job: job.next_run_time or paused_sort_key)
 
     def add_job(self, job):
         if self.redis.hexists(self.jobs_key, job.id):
@@ -74,7 +77,8 @@ class RedisJobStore(BaseJobStore):
         with self.redis.pipeline() as pipe:
             pipe.multi()
             pipe.hset(self.jobs_key, job.id, pickle.dumps(job.__getstate__(), self.pickle_protocol))
-            pipe.zadd(self.run_times_key, datetime_to_utc_timestamp(job.next_run_time), job.id)
+            if job.next_run_time:
+                pipe.zadd(self.run_times_key, datetime_to_utc_timestamp(job.next_run_time), job.id)
             pipe.execute()
 
     def update_job(self, job):
