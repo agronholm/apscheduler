@@ -77,7 +77,10 @@ def astimezone(obj):
         if not hasattr(obj, 'localize') or not hasattr(obj, 'normalize'):
             raise TypeError('Only timezones from the pytz library are supported')
         if obj.zone == 'local':
-            raise ValueError('Unable to determine the name of the local timezone -- use an explicit timezone instead')
+            raise ValueError('Unable to determine the name of the local timezone -- you must explicitly specify the '
+                             'name of the local timezone. Please refrain from using timezones like EST to prevent '
+                             'problems with daylight saving time. Instead, use a locale based timezone name '
+                             '(such as Europe/Helsinki).')
         return obj
     if obj is not None:
         raise TypeError('Expected tzinfo, got %s instead' % obj.__class__.__name__)
