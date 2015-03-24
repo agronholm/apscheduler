@@ -78,7 +78,7 @@ Examples
 
 ::
 
-    from apscheduler.scheduler import BlockingScheduler
+    from apscheduler.schedulers.blocking import BlockingScheduler
 
 
     def job_function():

@@ -29,7 +29,7 @@ Examples
 
     from datetime import date
 
-    from apscheduler.scheduler import BlockingScheduler
+    from apscheduler.schedulers.blocking import BlockingScheduler
 
 
     sched = BlockingScheduler()
