@@ -49,7 +49,7 @@ Examples
 You can use ``start_date`` and ``end_date`` to limit the total time in which the schedule runs::
 
     # The same as before, but starts on 2010-10-10 at 9:30 and stops on 2014-06-15 at 11:00
-    sched.add_job(job_function, 'interval', hours=2, start_date='2010-10-10 09:30', end_date='2014-06-15 11:00)
+    sched.add_job(job_function, 'interval', hours=2, start_date='2010-10-10 09:30:00', end_date='2014-06-15 11:00:00)
 
 
 The :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job` decorator works nicely too::
