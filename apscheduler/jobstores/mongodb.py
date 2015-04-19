@@ -42,12 +42,12 @@ class MongoDBJobStore(BaseJobStore):
             raise ValueError('The "collection" parameter must not be empty')
 
         if client:
-            self.connection = maybe_ref(client)
+            self.client = maybe_ref(client)
         else:
             connect_args.setdefault('w', 1)
-            self.connection = MongoClient(**connect_args)
+            self.client = MongoClient(**connect_args)
 
-        self.collection = self.connection[database][collection]
+        self.collection = self.client[database][collection]
         self.collection.ensure_index('next_run_time', sparse=True)
 
     def lookup_job(self, job_id):
@@ -59,7 +59,7 @@ class MongoDBJobStore(BaseJobStore):
         return self._get_jobs({'next_run_time': {'$lte': timestamp}})
 
     def get_next_run_time(self):
-        document = self.collection.find_one({'next_run_time': {'$ne': None}}, fields=['next_run_time'],
+        document = self.collection.find_one({'next_run_time': {'$ne': None}}, projection=['next_run_time'],
                                             sort=[('next_run_time', ASCENDING)])
         return utc_timestamp_to_datetime(document['next_run_time']) if document else None
 
@@ -96,7 +96,7 @@ class MongoDBJobStore(BaseJobStore):
         self.collection.remove()
 
     def shutdown(self):
-        self.connection.disconnect()
+        self.client.close()
 
     def _reconstitute_job(self, job_state):
         job_state = pickle.loads(job_state)
@@ -123,4 +123,4 @@ class MongoDBJobStore(BaseJobStore):
         return jobs
 
     def __repr__(self):
-        return '<%s (client=%s)>' % (self.__class__.__name__, self.connection)
+        return '<%s (client=%s)>' % (self.__class__.__name__, self.client)

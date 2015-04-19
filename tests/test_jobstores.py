@@ -40,8 +40,7 @@ def sqlalchemyjobstore(request):
 @pytest.fixture
 def mongodbjobstore(request):
     def finish():
-        connection = store.collection.database.connection
-        connection.drop_database(store.collection.database.name)
+        store.client.drop_database(store.collection.database.name)
         store.shutdown()
 
     mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
@@ -289,7 +288,7 @@ def test_mongodb_client_ref():
     try:
         mongodb.MongoDBJobStore(client='%s:mongodb_client' % __name__)
     finally:
-        mongodb_client.disconnect()
+        mongodb_client.close()
         del mongodb_client
 
 
