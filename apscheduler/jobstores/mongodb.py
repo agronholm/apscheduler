@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+import warnings
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
@@ -49,6 +50,11 @@ class MongoDBJobStore(BaseJobStore):
 
         self.collection = self.client[database][collection]
         self.collection.ensure_index('next_run_time', sparse=True)
+
+    @property
+    def connection(self):
+        warnings.warn('The "connection" member is deprecated -- use "client" instead', DeprecationWarning)
+        return self.client
 
     def lookup_job(self, job_id):
         document = self.collection.find_one(job_id, ['job_state'])
