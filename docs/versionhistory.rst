@@ -10,6 +10,12 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Added RethinkDB job store (contributed by Allen Sanabria)
 
 
+3.0.3
+-----
+
+* Fixed compatibility with pymongo 3.0
+
+
 3.0.2
 -----
 
