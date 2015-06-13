@@ -52,6 +52,10 @@ setup(
     packages=find_packages(exclude=['tests']),
     install_requires=['setuptools >= 0.7', 'six >= 1.4.0', 'pytz', 'tzlocal'] + extra_requirements,
     tests_require=['pytest >= 2.5.1'],
+    extras_require={
+        ':python_version == "2.6"': ['futures'],
+        ':python_version == "2.7"': ['futures']
+    },
     cmdclass={'test': PyTest},
     zip_safe=False,
     entry_points={
