@@ -41,8 +41,7 @@ def sqlalchemyjobstore(request):
 def rethinkdbjobstore(request):
     def finish():
         conn = store.conn
-        r = store.r
-        r.db_drop('apscheduler_unittest').run(conn)
+        rethinkdb.r.db_drop('apscheduler_unittest').run(conn)
         store.shutdown()
 
     rethinkdb = pytest.importorskip('apscheduler.jobstores.rethinkdb')
