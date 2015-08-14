@@ -188,7 +188,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
             # Start the executor right away if the scheduler is running
             if self.running:
-                executor.start(self)
+                executor.start(self, alias)
 
         self._dispatch_event(SchedulerEvent(EVENT_EXECUTOR_ADDED, alias))
 
