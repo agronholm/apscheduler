@@ -261,9 +261,10 @@ class TestBaseScheduler(object):
 
         assert scheduler._executors == {'default': executor}
         if not stopped:
-            executor.start.assert_called_once_with(scheduler)
+            executor.start.assert_called_once_with(scheduler, 'default')
         else:
             assert executor.start.call_count == 0
+
 
     def test_add_executor_already_exists(self, scheduler):
         executor = DebugExecutor()
