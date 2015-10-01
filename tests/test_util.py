@@ -226,7 +226,7 @@ def test_maybe_ref(input, expected):
 @pytest.mark.parametrize('input,expected', [
     (b'T\xc3\xa9st'.decode('utf-8'), 'T\\xe9st' if six.PY2 else 'Tést'),
     (1, 1)
-])
+], ids=['string', 'int'])
 @maxpython(3)
 def test_repr_escape_py2(input, expected):
     assert repr_escape(input) == expected
