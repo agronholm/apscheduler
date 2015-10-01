@@ -10,6 +10,12 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Added RethinkDB job store (contributed by Allen Sanabria)
 
 
+3.0.4
+-----
+
+* Fixed memory leak in the base executor class (contributed by Stefan Nordhausen)
+
+
 3.0.3
 -----
 

@@ -74,6 +74,8 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
 
         with self._lock:
             self._instances[job_id] -= 1
+            if self._instances[job_id] == 0:
+                del self._instances[job_id]
 
         for event in events:
             self._scheduler._dispatch_event(event)
@@ -83,6 +85,8 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
 
         with self._lock:
             self._instances[job_id] -= 1
+            if self._instances[job_id] == 0:
+                del self._instances[job_id]
 
         exc_info = (exc.__class__, exc, traceback)
         self._logger.error('Error running job %s', job_id, exc_info=exc_info)
