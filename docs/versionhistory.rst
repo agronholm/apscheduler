@@ -5,6 +5,12 @@ To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
 
+3.0.4
+-----
+
+* Fixed memory leak in the base executor class (contributed by Stefan Nordhausen)
+
+
 3.0.3
 -----
 
