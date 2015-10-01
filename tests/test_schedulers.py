@@ -207,7 +207,7 @@ class TestBaseScheduler(object):
         assert 'default' in scheduler._executors
         assert 'default' in scheduler._jobstores
 
-        scheduler._real_add_job.assert_called_once(job, 'store1', False)
+        scheduler._real_add_job.assert_called_once_with(job, 'store1', False, False)
         assert scheduler._pending_jobs == []
 
         assert scheduler._dispatch_event.call_count == 3
@@ -380,7 +380,7 @@ class TestBaseScheduler(object):
 
         job._modify.assert_called_once_with(misfire_grace_time=5, max_instances=2, next_run_time=datetime(2014, 10, 17))
         if not pending:
-            jobstore.update_job.assert_called_once(job)
+            jobstore.update_job.assert_called_once_with(job)
 
         assert scheduler._dispatch_event.call_count == 1
         event = scheduler._dispatch_event.call_args[0][0]
