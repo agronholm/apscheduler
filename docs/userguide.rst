@@ -65,7 +65,7 @@ Here's a quick guide for choosing a scheduler:
 * :class:`~apscheduler.schedulers.blocking.BlockingScheduler`:
   use when the scheduler is the only thing running in your process
 * :class:`~apscheduler.schedulers.background.BackgroundScheduler`:
-  use then you're not using any of the frameworks below, and want the scheduler to run in the background inside your
+  use when you're not using any of the frameworks below, and want the scheduler to run in the background inside your
   application
 * :class:`~apscheduler.schedulers.asyncio.AsyncIOScheduler`:
   use if your application uses the asyncio module
