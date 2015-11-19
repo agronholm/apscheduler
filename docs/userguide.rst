@@ -47,7 +47,7 @@ middlemen for saving, loading, updating and searching jobs in the backend. Job s
 schedulers.
 
 *Executors* are what handle the running of the jobs. They do this typically by submitting the designated callable in a
-job to a thread or process pool. When the job is done, the executor notifies the scheduler which them emits an
+job to a thread or process pool. When the job is done, the executor notifies the scheduler which then emits an
 appropriate event.
 
 *Schedulers* are what bind the rest together. You typically have only one scheduler running in your application.
