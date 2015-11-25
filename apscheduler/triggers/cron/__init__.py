@@ -133,9 +133,9 @@ class CronTrigger(BaseTrigger):
 
     def get_next_fire_time(self, previous_fire_time, now):
         if previous_fire_time:
-            start_date = max(now, previous_fire_time + timedelta(microseconds=1))
+            start_date = min(now, previous_fire_time + timedelta(microseconds=1))
         else:
-            start_date = max(now, self.start_date) if self.start_date else now
+            start_date = min(now, self.start_date) if self.start_date else now
 
         fieldnum = 0
         next_date = datetime_ceil(start_date).astimezone(self.timezone)
