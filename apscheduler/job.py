@@ -129,7 +129,7 @@ class Job(object):
             args = changes.pop('args') if 'args' in changes else self.args
             kwargs = changes.pop('kwargs') if 'kwargs' in changes else self.kwargs
 
-            if isinstance(func, str):
+            if isinstance(func, six.string_types):
                 func_ref = func
                 func = ref_to_obj(func)
             elif callable(func):
