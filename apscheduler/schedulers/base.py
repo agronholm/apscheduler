@@ -832,7 +832,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 # Set a new next wakeup time if there isn't one yet or the jobstore has an even earlier one
                 jobstore_next_run_time = jobstore.get_next_run_time()
                 if jobstore_next_run_time and (next_wakeup_time is None or jobstore_next_run_time < next_wakeup_time):
-                    next_wakeup_time = jobstore_next_run_time
+                    next_wakeup_time = jobstore_next_run_time.astimezone(self.timezone)
 
         # Determine the delay until this method should be called again
         if next_wakeup_time is not None:

@@ -10,6 +10,13 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Added RethinkDB job store (contributed by Allen Sanabria)
 
 
+3.0.5
+-----
+
+* Fixed debug logging displaying the next wakeup time in the UTC timezone instead of the
+  scheduler's configured timezone
+
+
 3.0.4
 -----
 
