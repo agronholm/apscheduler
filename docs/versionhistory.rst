@@ -5,6 +5,13 @@ To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
 
+3.0.5
+-----
+
+* Fixed debug logging displaying the next wakeup time in the UTC timezone instead of the
+  scheduler's configured timezone
+
+
 3.0.4
 -----
 
