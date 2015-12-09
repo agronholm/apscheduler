@@ -67,7 +67,7 @@ class RangeExpression(AllExpression):
         maxval = field.get_max(date)
 
         # Apply range limits
-        minval = max(minval, self.first)
+        minval = min(maxval, max(minval, self.first))
         if self.last is not None:
             maxval = min(maxval, self.last)
         start = max(start, minval)
