@@ -1,0 +1,28 @@
+sudo: required
+
+language: python
+
+services:
+  - mongodb
+  - redis
+  - docker
+
+python:
+  - "2.6"
+  - "2.7"
+  - "3.3"
+  - "3.4"
+  - "3.5"
+  - "pypy"
+  - "pypy3"
+
+before_install:
+  - docker pull rethinkdb:latest
+  - docker run -d -p 127.0.0.1:28015:28015 rethinkdb
+
+install: pip install tox-travis
+
+script: tox
+
+notifications:
+  irc: "chat.freenode.net#apscheduler"
