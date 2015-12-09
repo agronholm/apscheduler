@@ -251,7 +251,7 @@ def test_repr_sqlalchemyjobstore(sqlalchemyjobstore):
 
 
 def test_repr_mongodbjobstore(mongodbjobstore):
-    assert repr(mongodbjobstore) == "<MongoDBJobStore (client=MongoClient('localhost', 27017))>"
+    assert repr(mongodbjobstore).startswith("<MongoDBJobStore (client=MongoClient(")
 
 
 def test_repr_redisjobstore(redisjobstore):
