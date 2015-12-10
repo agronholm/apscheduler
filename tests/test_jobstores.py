@@ -1,5 +1,4 @@
 from datetime import datetime
-import os
 
 import pytest
 
@@ -25,13 +24,14 @@ def memjobstore():
 
 
 @pytest.yield_fixture
-def sqlalchemyjobstore():
+def sqlalchemyjobstore(tmpdir):
+    db_path = tmpdir.join('apscheduler_unittest.sqlite')
     sqlalchemy = pytest.importorskip('apscheduler.jobstores.sqlalchemy')
-    store = sqlalchemy.SQLAlchemyJobStore(url='sqlite:///apscheduler_unittest.sqlite')
+    store = sqlalchemy.SQLAlchemyJobStore(url='sqlite:///%s' % db_path)
     store.start(None, 'sqlalchemy')
     yield store
     store.shutdown()
-    os.remove('apscheduler_unittest.sqlite')
+    db_path.remove()
 
 
 @pytest.yield_fixture
@@ -253,7 +253,7 @@ def test_repr_memjobstore(memjobstore):
 
 
 def test_repr_sqlalchemyjobstore(sqlalchemyjobstore):
-    assert repr(sqlalchemyjobstore) == '<SQLAlchemyJobStore (url=sqlite:///apscheduler_unittest.sqlite)>'
+    assert repr(sqlalchemyjobstore).startswith('<SQLAlchemyJobStore (url=')
 
 
 def test_repr_mongodbjobstore(mongodbjobstore):
