@@ -2,7 +2,6 @@
 
 from __future__ import division
 from datetime import date, datetime, time, timedelta, tzinfo
-from inspect import isfunction, ismethod, getargspec
 from calendar import timegm
 import re
 
@@ -12,10 +11,7 @@ import six
 try:
     from inspect import signature
 except ImportError:  # pragma: nocover
-    try:
-        from funcsigs import signature
-    except ImportError:
-        signature = None
+    from funcsigs import signature
 
 __all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
            'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'get_callable_name', 'obj_to_ref',
@@ -303,61 +299,38 @@ def check_callable_args(func, args, kwargs):
     unmatched_kwargs = list(kwargs)  # kwargs that didn't match any of the parameters in the signature
     has_varargs = has_var_kwargs = False  # indicates if the signature defines *args and **kwargs respectively
 
-    if signature:
-        try:
-            sig = signature(func)
-        except ValueError:
-            return  # signature() doesn't work against every kind of callable
+    try:
+        sig = signature(func)
+    except ValueError:
+        return  # signature() doesn't work against every kind of callable
 
-        for param in six.itervalues(sig.parameters):
-            if param.kind == param.POSITIONAL_OR_KEYWORD:
-                if param.name in unmatched_kwargs and unmatched_args:
-                    pos_kwargs_conflicts.append(param.name)
-                elif unmatched_args:
-                    del unmatched_args[0]
-                elif param.name in unmatched_kwargs:
-                    unmatched_kwargs.remove(param.name)
-                elif param.default is param.empty:
-                    unsatisfied_args.append(param.name)
-            elif param.kind == param.POSITIONAL_ONLY:
-                if unmatched_args:
-                    del unmatched_args[0]
-                elif param.name in unmatched_kwargs:
-                    unmatched_kwargs.remove(param.name)
-                    positional_only_kwargs.append(param.name)
-                elif param.default is param.empty:
-                    unsatisfied_args.append(param.name)
-            elif param.kind == param.KEYWORD_ONLY:
-                if param.name in unmatched_kwargs:
-                    unmatched_kwargs.remove(param.name)
-                elif param.default is param.empty:
-                    unsatisfied_kwargs.append(param.name)
-            elif param.kind == param.VAR_POSITIONAL:
-                has_varargs = True
-            elif param.kind == param.VAR_KEYWORD:
-                has_var_kwargs = True
-    else:
-        if not isfunction(func) and not ismethod(func) and hasattr(func, '__call__'):
-            func = func.__call__
-
-        try:
-            argspec = getargspec(func)
-        except TypeError:
-            return  # getargspec() doesn't work certain callables
-
-        argspec_args = argspec.args if not ismethod(func) else argspec.args[1:]
-        arg_defaults = dict(zip(reversed(argspec_args), argspec.defaults or ()))
-        has_varargs = bool(argspec.varargs)
-        has_var_kwargs = bool(argspec.keywords)
-        for arg in argspec_args:
-            if arg in unmatched_kwargs and unmatched_args:
-                pos_kwargs_conflicts.append(arg)
+    for param in six.itervalues(sig.parameters):
+        if param.kind == param.POSITIONAL_OR_KEYWORD:
+            if param.name in unmatched_kwargs and unmatched_args:
+                pos_kwargs_conflicts.append(param.name)
             elif unmatched_args:
                 del unmatched_args[0]
-            elif arg in unmatched_kwargs:
-                unmatched_kwargs.remove(arg)
-            elif arg not in arg_defaults:
-                unsatisfied_args.append(arg)
+            elif param.name in unmatched_kwargs:
+                unmatched_kwargs.remove(param.name)
+            elif param.default is param.empty:
+                unsatisfied_args.append(param.name)
+        elif param.kind == param.POSITIONAL_ONLY:
+            if unmatched_args:
+                del unmatched_args[0]
+            elif param.name in unmatched_kwargs:
+                unmatched_kwargs.remove(param.name)
+                positional_only_kwargs.append(param.name)
+            elif param.default is param.empty:
+                unsatisfied_args.append(param.name)
+        elif param.kind == param.KEYWORD_ONLY:
+            if param.name in unmatched_kwargs:
+                unmatched_kwargs.remove(param.name)
+            elif param.default is param.empty:
+                unsatisfied_kwargs.append(param.name)
+        elif param.kind == param.VAR_POSITIONAL:
+            has_varargs = True
+        elif param.kind == param.VAR_KEYWORD:
+            has_var_kwargs = True
 
     # Make sure there are no conflicts between args and kwargs
     if pos_kwargs_conflicts:

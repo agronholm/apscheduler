@@ -233,37 +233,32 @@ def test_repr_escape_py2(input, expected):
 
 
 class TestCheckCallableArgs(object):
-    @pytest.fixture(params=[True, False], ids=['signature', 'getargspec'])
-    def use_signature(self, request, monkeypatch):
-        if not request.param:
-            monkeypatch.setattr('apscheduler.util.signature', None)
-
-    def test_invalid_callable_args(self, use_signature):
+    def test_invalid_callable_args(self):
         """Tests that attempting to create a job with an invalid number of arguments raises an exception."""
 
         exc = pytest.raises(ValueError, check_callable_args, lambda x: None, [1, 2], {})
         assert str(exc.value) == ('The list of positional arguments is longer than the target callable can handle '
                                   '(allowed: 1, given in args: 2)')
 
-    def test_invalid_callable_kwargs(self, use_signature):
+    def test_invalid_callable_kwargs(self):
         """Tests that attempting to schedule a job with unmatched keyword arguments raises an exception."""
 
         exc = pytest.raises(ValueError, check_callable_args, lambda x: None, [], {'x': 0, 'y': 1})
         assert str(exc.value) == 'The target callable does not accept the following keyword arguments: y'
 
-    def test_missing_callable_args(self, use_signature):
+    def test_missing_callable_args(self):
         """Tests that attempting to schedule a job with missing arguments raises an exception."""
 
         exc = pytest.raises(ValueError, check_callable_args, lambda x, y, z: None, [1], {'y': 0})
         assert str(exc.value) == 'The following arguments have not been supplied: z'
 
-    def test_default_args(self, use_signature):
+    def test_default_args(self):
         """Tests that default values for arguments are properly taken into account."""
 
         exc = pytest.raises(ValueError, check_callable_args, lambda x, y, z=1: None, [1], {})
         assert str(exc.value) == 'The following arguments have not been supplied: y'
 
-    def test_conflicting_callable_args(self, use_signature):
+    def test_conflicting_callable_args(self):
         """
         Tests that attempting to schedule a job where the combination of args and kwargs are in conflict raises an
         exception.
