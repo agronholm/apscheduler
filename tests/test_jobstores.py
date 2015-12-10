@@ -19,71 +19,63 @@ def dummy_job3():
     pass
 
 
-@pytest.fixture
-def memjobstore(request):
-    return MemoryJobStore()
+@pytest.yield_fixture
+def memjobstore():
+    yield MemoryJobStore()
 
 
-@pytest.fixture
-def sqlalchemyjobstore(request):
-    def finish():
-        store.shutdown()
-        if os.path.exists('apscheduler_unittest.sqlite'):
-            os.remove('apscheduler_unittest.sqlite')
-
+@pytest.yield_fixture
+def sqlalchemyjobstore():
     sqlalchemy = pytest.importorskip('apscheduler.jobstores.sqlalchemy')
     store = sqlalchemy.SQLAlchemyJobStore(url='sqlite:///apscheduler_unittest.sqlite')
-    request.addfinalizer(finish)
-    return store
+    store.start(None, 'sqlalchemy')
+    yield store
+    store.shutdown()
+    os.remove('apscheduler_unittest.sqlite')
 
 
-@pytest.fixture
-def rethinkdbjobstore(request):
-    def finish():
-        conn = store.conn
-        rethinkdb.r.db_drop('apscheduler_unittest').run(conn)
-        store.shutdown()
-
+@pytest.yield_fixture
+def rethinkdbjobstore():
     rethinkdb = pytest.importorskip('apscheduler.jobstores.rethinkdb')
     store = rethinkdb.RethinkDBJobStore(database='apscheduler_unittest')
-    request.addfinalizer(finish)
-    return store
+    store.start(None, 'rethinkdb')
+    yield store
+    rethinkdb.r.db_drop('apscheduler_unittest').run(store.conn)
+    store.shutdown()
 
 
-@pytest.fixture
-def mongodbjobstore(request):
-    def finish():
-        store.client.drop_database(store.collection.database.name)
-        store.shutdown()
-
+@pytest.yield_fixture
+def mongodbjobstore():
     mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
     store = mongodb.MongoDBJobStore(database='apscheduler_unittest')
-    request.addfinalizer(finish)
-    return store
+    store.start(None, 'mongodb')
+    yield store
+    store.client.drop_database(store.collection.database.name)
+    store.shutdown()
 
 
-@pytest.fixture
-def redisjobstore(request):
-    def finish():
-        store.remove_all_jobs()
-        store.shutdown()
-
+@pytest.yield_fixture
+def redisjobstore():
     redis = pytest.importorskip('apscheduler.jobstores.redis')
     store = redis.RedisJobStore()
-    request.addfinalizer(finish)
-    return store
+    store.start(None, 'redis')
+    yield store
+    store.remove_all_jobs()
+    store.shutdown()
 
 
-@pytest.fixture(params=[memjobstore, sqlalchemyjobstore, mongodbjobstore, redisjobstore, rethinkdbjobstore],
-                ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb'])
+@pytest.fixture(params=[
+    'memjobstore', 'sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore', 'rethinkdbjobstore'
+], ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb'])
 def jobstore(request):
-    return request.param(request)
+    return request.getfuncargvalue(request.param)
 
 
-@pytest.fixture(params=[sqlalchemyjobstore, mongodbjobstore, redisjobstore, rethinkdbjobstore],
-                ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb'])
+@pytest.fixture(params=[
+    'sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore', 'rethinkdbjobstore'
+], ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb'])
 def persistent_jobstore(request):
-    return request.param(request)
+    return request.getfuncargvalue(request.param)
 
 
 @pytest.fixture

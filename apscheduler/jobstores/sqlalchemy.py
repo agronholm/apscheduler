@@ -52,6 +52,8 @@ class SQLAlchemyJobStore(BaseJobStore):
             Column('job_state', LargeBinary, nullable=False)
         )
 
+    def start(self, scheduler, alias):
+        super(SQLAlchemyJobStore, self).start(scheduler, alias)
         self.jobs_t.create(self.engine, True)
 
     def lookup_job(self, job_id):

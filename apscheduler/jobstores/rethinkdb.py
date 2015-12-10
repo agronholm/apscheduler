@@ -32,28 +32,37 @@ class RethinkDBJobStore(BaseJobStore):
     def __init__(self, database='apscheduler', table='jobs', client=None,
                  pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
         super(RethinkDBJobStore, self).__init__()
-        self.pickle_protocol = pickle_protocol
 
         if not database:
             raise ValueError('The "database" parameter must not be empty')
         if not table:
             raise ValueError('The "table" parameter must not be empty')
 
-        if client:
-            self.conn = maybe_ref(client)
+        self.database = database
+        self.table = table
+        self.client = client
+        self.pickle_protocol = pickle_protocol
+        self.connect_args = connect_args
+        self.conn = None
+
+    def start(self, scheduler, alias):
+        super(RethinkDBJobStore, self).start(scheduler, alias)
+
+        if self.client:
+            self.conn = maybe_ref(self.client)
         else:
-            self.conn = r.connect(db=database, **connect_args)
+            self.conn = r.connect(db=self.database, **self.connect_args)
 
-        if database not in r.db_list().run(self.conn):
-            r.db_create(database).run(self.conn)
+        if self.database not in r.db_list().run(self.conn):
+            r.db_create(self.database).run(self.conn)
 
-        if table not in r.table_list().run(self.conn):
-            r.table_create(table).run(self.conn)
+        if self.table not in r.table_list().run(self.conn):
+            r.table_create(self.table).run(self.conn)
 
-        if 'next_run_time' not in r.table(table).index_list().run(self.conn):
-            r.table(table).index_create('next_run_time').run(self.conn)
+        if 'next_run_time' not in r.table(self.table).index_list().run(self.conn):
+            r.table(self.table).index_create('next_run_time').run(self.conn)
 
-        self.table = r.db(database).table(table)
+        self.table = r.db(self.database).table(self.table)
 
     def lookup_job(self, job_id):
         results = list(self.table.get_all(job_id).pluck('job_state').run(self.conn))

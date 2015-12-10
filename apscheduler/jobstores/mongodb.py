@@ -49,6 +49,9 @@ class MongoDBJobStore(BaseJobStore):
             self.client = MongoClient(**connect_args)
 
         self.collection = self.client[database][collection]
+
+    def start(self, scheduler, alias):
+        super(MongoDBJobStore, self).start(scheduler, alias)
         self.collection.ensure_index('next_run_time', sparse=True)
 
     @property
