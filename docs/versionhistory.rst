@@ -4,12 +4,18 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
-
 3.0.5
 -----
 
+* Fixed cron trigger always coalescing missed run times into a single run time
+  (contributed by monklof)
+
+* Fixed infinite loop in the cron trigger when an out-of-bounds value was given in an expression
+
 * Fixed debug logging displaying the next wakeup time in the UTC timezone instead of the
   scheduler's configured timezone
+
+* Allowed unicode function references in Python 2
 
 
 3.0.4
