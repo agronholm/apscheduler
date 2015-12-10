@@ -257,4 +257,4 @@ class Job(object):
         else:
             status = 'pending'
 
-        return six.u('%s (trigger: %s, %s)') % (self.name, self.trigger, status)
+        return u'%s (trigger: %s, %s)' % (self.name, self.trigger, status)

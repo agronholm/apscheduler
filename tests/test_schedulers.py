@@ -518,11 +518,11 @@ class TestBaseScheduler(object):
     def test_print_jobs(self, scheduler, jobstore):
         outfile = StringIO()
         bar_job = MagicMock(Job)
-        bar_job.__str__ = bar_job.__unicode__ = MagicMock(return_value=six.u('bar job 1'))
+        bar_job.__str__ = bar_job.__unicode__ = MagicMock(return_value=u'bar job 1')
         pending_bar_job = MagicMock(Job)
-        pending_bar_job.__str__ = pending_bar_job.__unicode__ = MagicMock(return_value=six.u('pending bar job 1'))
+        pending_bar_job.__str__ = pending_bar_job.__unicode__ = MagicMock(return_value=u'pending bar job 1')
         pending_baz_job = MagicMock(Job)
-        pending_baz_job.__str__ = pending_baz_job.__unicode__ = MagicMock(return_value=six.u('pending baz job 1'))
+        pending_baz_job.__str__ = pending_baz_job.__unicode__ = MagicMock(return_value=u'pending baz job 1')
         scheduler._jobstores = OrderedDict([
             ('bar', MagicMock(BaseJobStore, get_all_jobs=lambda: [bar_job])),
             ('baz', MagicMock(BaseJobStore, get_all_jobs=lambda: []))

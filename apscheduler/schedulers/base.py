@@ -544,20 +544,20 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         out = out or sys.stdout
         with self._jobstores_lock:
             if self._pending_jobs:
-                print(six.u('Pending jobs:'), file=out)
+                print(u'Pending jobs:', file=out)
                 for job, jobstore_alias, replace_existing in self._pending_jobs:
                     if jobstore in (None, jobstore_alias):
-                        print(six.u('    %s') % job, file=out)
+                        print(u'    %s' % job, file=out)
 
             for alias, store in six.iteritems(self._jobstores):
                 if jobstore in (None, alias):
-                    print(six.u('Jobstore %s:') % alias, file=out)
+                    print(u'Jobstore %s:' % alias, file=out)
                     jobs = store.get_all_jobs()
                     if jobs:
                         for job in jobs:
-                            print(six.u('    %s') % job, file=out)
+                            print(u'    %s' % job, file=out)
                     else:
-                        print(six.u('    No scheduled jobs'), file=out)
+                        print(u'    No scheduled jobs', file=out)
 
     @abstractmethod
     def wakeup(self):
