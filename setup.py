@@ -23,19 +23,22 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4'
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5'
     ],
     keywords='scheduling cron',
     license='MIT',
     packages=find_packages(exclude=['tests']),
-    install_requires=['setuptools >= 0.7', 'six >= 1.4.0', 'pytz', 'tzlocal'],
-    tests_require=['pytest >= 2.5.1'],
+    install_requires=[
+        'setuptools >= 0.7',
+        'six >= 1.4.0',
+        'pytz',
+        'tzlocal'
+    ],
     extras_require={
-        ':python_version == "2.6"': ['futures'],
         ':python_version == "2.7"': ['futures']
     },
     zip_safe=False,
