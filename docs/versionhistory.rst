@@ -9,12 +9,23 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added RethinkDB job store (contributed by Allen Sanabria)
 
+* Removed official support for CPython 2.6 and 3.2 (they may still work however)
+
+* Moved the connection logic in database backed job stores to the ``start()`` method
+
 
 3.0.5
 -----
 
+* Fixed cron trigger always coalescing missed run times into a single run time
+  (contributed by monklof)
+
+* Fixed infinite loop in the cron trigger when an out-of-bounds value was given in an expression
+
 * Fixed debug logging displaying the next wakeup time in the UTC timezone instead of the
   scheduler's configured timezone
+
+* Allowed unicode function references in Python 2
 
 
 3.0.4
