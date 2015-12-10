@@ -4,10 +4,14 @@ second intervals.
 """
 
 from datetime import datetime
-import asyncio
 import os
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+try:
+    import asyncio
+except ImportError:
+    import trollius as asyncio
 
 
 def tick():
