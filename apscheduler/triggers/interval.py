@@ -9,8 +9,8 @@ from apscheduler.util import convert_to_datetime, timedelta_seconds, datetime_re
 
 class IntervalTrigger(BaseTrigger):
     """
-    Triggers on specified intervals, starting on ``start_date`` if specified, ``datetime.now()`` + interval
-    otherwise.
+    Triggers on specified intervals, starting on ``start_date`` if specified, ``datetime.now()`` +
+    interval otherwise.
 
     :param int weeks: number of weeks to wait
     :param int days: number of days to wait
@@ -24,8 +24,10 @@ class IntervalTrigger(BaseTrigger):
 
     __slots__ = 'timezone', 'start_date', 'end_date', 'interval'
 
-    def __init__(self, weeks=0, days=0, hours=0, minutes=0, seconds=0, start_date=None, end_date=None, timezone=None):
-        self.interval = timedelta(weeks=weeks, days=days, hours=hours, minutes=minutes, seconds=seconds)
+    def __init__(self, weeks=0, days=0, hours=0, minutes=0, seconds=0, start_date=None,
+                 end_date=None, timezone=None):
+        self.interval = timedelta(weeks=weeks, days=days, hours=hours, minutes=minutes,
+                                  seconds=seconds)
         self.interval_length = timedelta_seconds(self.interval)
         if self.interval_length == 0:
             self.interval = timedelta(seconds=1)

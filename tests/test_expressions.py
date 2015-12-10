@@ -4,7 +4,8 @@ import pytest
 
 from apscheduler.triggers.cron.fields import DayOfMonthField, BaseField, DayOfWeekField
 from apscheduler.triggers.cron.expressions import (
-    AllExpression, RangeExpression, WeekdayPositionExpression, WeekdayRangeExpression, LastDayOfMonthExpression)
+    AllExpression, RangeExpression, WeekdayPositionExpression, WeekdayRangeExpression,
+    LastDayOfMonthExpression)
 
 
 def test_all_expression():

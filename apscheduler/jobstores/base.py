@@ -15,16 +15,20 @@ class ConflictingIdError(KeyError):
     """Raised when the uniqueness of job IDs is being violated."""
 
     def __init__(self, job_id):
-        super(ConflictingIdError, self).__init__(u'Job identifier (%s) conflicts with an existing job' % job_id)
+        super(ConflictingIdError, self).__init__(
+            u'Job identifier (%s) conflicts with an existing job' % job_id)
 
 
 class TransientJobError(ValueError):
-    """Raised when an attempt to add transient (with no func_ref) job to a persistent job store is detected."""
+    """
+    Raised when an attempt to add transient (with no func_ref) job to a persistent job store is
+    detected.
+    """
 
     def __init__(self, job_id):
         super(TransientJobError, self).__init__(
-            u'Job (%s) cannot be added to this job store because a reference to the callable could not be '
-            'determined.' % job_id)
+            u'Job (%s) cannot be added to this job store because a reference to the callable '
+            u'could not be determined.' % job_id)
 
 
 class BaseJobStore(six.with_metaclass(ABCMeta)):
@@ -36,10 +40,11 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
 
     def start(self, scheduler, alias):
         """
-        Called by the scheduler when the scheduler is being started or when the job store is being added to an already
-        running scheduler.
+        Called by the scheduler when the scheduler is being started or when the job store is being
+        added to an already running scheduler.
 
-        :param apscheduler.schedulers.base.BaseScheduler scheduler: the scheduler that is starting this job store
+        :param apscheduler.schedulers.base.BaseScheduler scheduler: the scheduler that is starting
+            this job store
         :param str|unicode alias: alias of this job store as it was assigned to the scheduler
         """
 
@@ -64,8 +69,8 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         """
         Returns a specific job, or ``None`` if it isn't found..
 
-        The job store is responsible for setting the ``scheduler`` and ``jobstore`` attributes of the returned job to
-        point to the scheduler and itself, respectively.
+        The job store is responsible for setting the ``scheduler`` and ``jobstore`` attributes of
+        the returned job to point to the scheduler and itself, respectively.
 
         :param str|unicode job_id: identifier of the job
         :rtype: Job
@@ -84,7 +89,8 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
     @abstractmethod
     def get_next_run_time(self):
         """
-        Returns the earliest run time of all the jobs stored in this job store, or ``None`` if there are no active jobs.
+        Returns the earliest run time of all the jobs stored in this job store, or ``None`` if
+        there are no active jobs.
 
         :rtype: datetime.datetime
         """
@@ -92,11 +98,12 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
     @abstractmethod
     def get_all_jobs(self):
         """
-        Returns a list of all jobs in this job store. The returned jobs should be sorted by next run time (ascending).
+        Returns a list of all jobs in this job store.
+        The returned jobs should be sorted by next run time (ascending).
         Paused jobs (next_run_time == None) should be sorted last.
 
-        The job store is responsible for setting the ``scheduler`` and ``jobstore`` attributes of the returned jobs to
-        point to the scheduler and itself, respectively.
+        The job store is responsible for setting the ``scheduler`` and ``jobstore`` attributes of
+        the returned jobs to point to the scheduler and itself, respectively.
 
         :rtype: list[Job]
         """

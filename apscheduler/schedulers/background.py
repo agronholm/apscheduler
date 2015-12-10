@@ -13,11 +13,12 @@ class BackgroundScheduler(BlockingScheduler):
 
     Extra options:
 
-    ========== ============================================================================================
-    ``daemon`` Set the ``daemon`` option in the background thread (defaults to ``True``,
-               see `the documentation <https://docs.python.org/3.4/library/threading.html#thread-objects>`_
+    ========== =============================================================================
+    ``daemon`` Set the ``daemon`` option in the background thread (defaults to ``True``, see
+               `the documentation
+               <https://docs.python.org/3.4/library/threading.html#thread-objects>`_
                for further details)
-    ========== ============================================================================================
+    ========== =============================================================================
     """
 
     _thread = None

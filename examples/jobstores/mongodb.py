@@ -1,8 +1,8 @@
 """
 This example demonstrates the use of the MongoDB job store.
 On each run, it adds a new alarm that fires after ten seconds.
-You can exit the program, restart it and observe that any previous alarms that have not fired yet are still active.
-Running the example with the --clear switch will remove any existing alarms.
+You can exit the program, restart it and observe that any previous alarms that have not fired yet
+are still active. Running the example with the --clear switch will remove any existing alarms.
 """
 
 from datetime import datetime, timedelta

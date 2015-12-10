@@ -21,14 +21,16 @@ except ImportError:  # pragma: nocover
 
 class RedisJobStore(BaseJobStore):
     """
-    Stores jobs in a Redis database. Any leftover keyword arguments are directly passed to redis's StrictRedis.
+    Stores jobs in a Redis database. Any leftover keyword arguments are directly passed to redis's
+    :class:`~redis.StrictRedis`.
 
     Plugin alias: ``redis``
 
     :param int db: the database number to store jobs in
     :param str jobs_key: key to store jobs in
     :param str run_times_key: key to store the jobs' run times in
-    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the highest available
+    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the
+        highest available
     """
 
     def __init__(self, db=0, jobs_key='apscheduler.jobs', run_times_key='apscheduler.run_times',
@@ -76,7 +78,8 @@ class RedisJobStore(BaseJobStore):
 
         with self.redis.pipeline() as pipe:
             pipe.multi()
-            pipe.hset(self.jobs_key, job.id, pickle.dumps(job.__getstate__(), self.pickle_protocol))
+            pipe.hset(self.jobs_key, job.id, pickle.dumps(job.__getstate__(),
+                                                          self.pickle_protocol))
             if job.next_run_time:
                 pipe.zadd(self.run_times_key, datetime_to_utc_timestamp(job.next_run_time), job.id)
             pipe.execute()
@@ -86,7 +89,8 @@ class RedisJobStore(BaseJobStore):
             raise JobLookupError(job.id)
 
         with self.redis.pipeline() as pipe:
-            pipe.hset(self.jobs_key, job.id, pickle.dumps(job.__getstate__(), self.pickle_protocol))
+            pipe.hset(self.jobs_key, job.id, pickle.dumps(job.__getstate__(),
+                                                          self.pickle_protocol))
             if job.next_run_time:
                 pipe.zadd(self.run_times_key, datetime_to_utc_timestamp(job.next_run_time), job.id)
             else:

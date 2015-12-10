@@ -1,14 +1,12 @@
-"""
-This module contains the expressions applicable for CronTrigger's fields.
-"""
+"""This module contains the expressions applicable for CronTrigger's fields."""
 
 from calendar import monthrange
 import re
 
 from apscheduler.util import asint
 
-__all__ = ('AllExpression', 'RangeExpression', 'WeekdayRangeExpression', 'WeekdayPositionExpression',
-           'LastDayOfMonthExpression')
+__all__ = ('AllExpression', 'RangeExpression', 'WeekdayRangeExpression',
+           'WeekdayPositionExpression', 'LastDayOfMonthExpression')
 
 
 WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
@@ -133,7 +131,8 @@ class WeekdayRangeExpression(RangeExpression):
 
 class WeekdayPositionExpression(AllExpression):
     options = ['1st', '2nd', '3rd', '4th', '5th', 'last']
-    value_re = re.compile(r'(?P<option_name>%s) +(?P<weekday_name>(?:\d+|\w+))' % '|'.join(options), re.IGNORECASE)
+    value_re = re.compile(r'(?P<option_name>%s) +(?P<weekday_name>(?:\d+|\w+))' %
+                          '|'.join(options), re.IGNORECASE)
 
     def __init__(self, option_name, weekday_name):
         try:
@@ -147,8 +146,7 @@ class WeekdayPositionExpression(AllExpression):
             raise ValueError('Invalid weekday name "%s"' % weekday_name)
 
     def get_next_value(self, date, field):
-        # Figure out the weekday of the month's first day and the number
-        # of days in that month
+        # Figure out the weekday of the month's first day and the number of days in that month
         first_day_wday, last_day = monthrange(date.year, date.month)
 
         # Calculate which day of the month is the first of the target weekdays
@@ -169,7 +167,8 @@ class WeekdayPositionExpression(AllExpression):
         return '%s %s' % (self.options[self.option_num], WEEKDAYS[self.weekday])
 
     def __repr__(self):
-        return "%s('%s', '%s')" % (self.__class__.__name__, self.options[self.option_num], WEEKDAYS[self.weekday])
+        return "%s('%s', '%s')" % (self.__class__.__name__, self.options[self.option_num],
+                                   WEEKDAYS[self.weekday])
 
 
 class LastDayOfMonthExpression(AllExpression):

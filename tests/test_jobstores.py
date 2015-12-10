@@ -80,9 +80,11 @@ def persistent_jobstore(request):
 
 @pytest.fixture
 def create_add_job(timezone, create_job):
-    def create(jobstore, func=dummy_job, run_date=datetime(2999, 1, 1), id=None, paused=False, **kwargs):
+    def create(jobstore, func=dummy_job, run_date=datetime(2999, 1, 1), id=None, paused=False,
+               **kwargs):
         run_date = timezone.localize(run_date)
-        job = create_job(func=func, trigger='date', trigger_args={'run_date': run_date}, id=id, **kwargs)
+        job = create_job(func=func, trigger='date', trigger_args={'run_date': run_date}, id=id,
+                         **kwargs)
         job.next_run_time = None if paused else job.trigger.get_next_fire_time(None, run_date)
         if jobstore:
             jobstore.add_job(job)
@@ -139,13 +141,15 @@ def test_get_next_run_time(jobstore, create_add_job, timezone):
 
 def test_add_job_conflicting_id(jobstore, create_add_job):
     create_add_job(jobstore, dummy_job, datetime(2016, 5, 3), id='blah')
-    pytest.raises(ConflictingIdError, create_add_job, jobstore, dummy_job2, datetime(2014, 2, 26), id='blah')
+    pytest.raises(ConflictingIdError, create_add_job, jobstore, dummy_job2, datetime(2014, 2, 26),
+                  id='blah')
 
 
 def test_update_job(jobstore, create_add_job, timezone):
     job1 = create_add_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_add_job(jobstore, dummy_job2, datetime(2014, 2, 26))
-    replacement = create_add_job(None, dummy_job, datetime(2016, 5, 4), id=job1.id, max_instances=6)
+    replacement = create_add_job(None, dummy_job, datetime(2016, 5, 4), id=job1.id,
+                                 max_instances=6)
     assert replacement.max_instances == 6
     jobstore.update_job(replacement)
 
@@ -175,11 +179,12 @@ def test_update_job_next_runtime(jobstore, create_add_job, next_run_time, timezo
 @pytest.mark.parametrize('index', [0, 1, 2], ids=['first', 'middle', 'last'])
 def test_update_job_clear_next_runtime(jobstore, create_add_job, next_run_time, timezone, index):
     """
-    Tests that update_job() maintains the proper ordering of the jobs, even when their next run times are initially the
-    same.
-    """
+    Tests that update_job() maintains the proper ordering of the jobs,
+    even when their next run times are initially the same.
 
-    jobs = [create_add_job(jobstore, dummy_job, datetime(2014, 2, 26), 'job%d' % i) for i in range(3)]
+    """
+    jobs = [create_add_job(jobstore, dummy_job, datetime(2014, 2, 26), 'job%d' % i) for
+            i in range(3)]
     jobs[index].next_run_time = timezone.localize(next_run_time) if next_run_time else None
     jobstore.update_job(jobs[index])
     due_date = timezone.localize(datetime(2014, 2, 27))

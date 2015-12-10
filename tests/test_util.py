@@ -8,9 +8,9 @@ import six
 import sys
 
 from apscheduler.util import (
-    asint, asbool, astimezone, convert_to_datetime, datetime_to_utc_timestamp, utc_timestamp_to_datetime,
-    timedelta_seconds, datetime_ceil, get_callable_name, obj_to_ref, ref_to_obj, maybe_ref, check_callable_args,
-    datetime_repr, repr_escape)
+    asint, asbool, astimezone, convert_to_datetime, datetime_to_utc_timestamp,
+    utc_timestamp_to_datetime, timedelta_seconds, datetime_ceil, get_callable_name, obj_to_ref,
+    ref_to_obj, maybe_ref, check_callable_args, datetime_repr, repr_escape)
 from tests.conftest import minpython, maxpython
 
 try:
@@ -53,13 +53,17 @@ class TestAsint(object):
 
 
 class TestAsbool(object):
-    @pytest.mark.parametrize('value', [' True', 'true ', 'Yes', ' yes ', '1  ', True],
-                             ids=['capital true', 'lowercase true', 'capital yes', 'lowercase yes', 'one', 'True'])
+    @pytest.mark.parametrize(
+        'value',
+        [' True', 'true ', 'Yes', ' yes ', '1  ', True],
+        ids=['capital true', 'lowercase true', 'capital yes', 'lowercase yes', 'one', 'True'])
     def test_true(self, value):
         assert asbool(value) is True
 
-    @pytest.mark.parametrize('value', [' False', 'false ', 'No', ' no ', '0  ', False],
-                             ids=['capital', 'lowercase false', 'capital no', 'lowercase no', 'zero', 'False'])
+    @pytest.mark.parametrize(
+        'value',
+        [' False', 'false ', 'No', ' no ', '0  ', False],
+        ids=['capital', 'lowercase false', 'capital no', 'lowercase no', 'zero', 'False'])
     def test_false(self, value):
         assert asbool(value) is False
 
@@ -101,7 +105,8 @@ class TestConvertToDatetime(object):
         (datetime(2009, 8, 1, 5, 6, 12), datetime(2009, 8, 1, 5, 6, 12)),
         ('2009-8-1', datetime(2009, 8, 1)),
         ('2009-8-1 5:16:12', datetime(2009, 8, 1, 5, 16, 12)),
-        (pytz.FixedOffset(-60).localize(datetime(2009, 8, 1)), pytz.FixedOffset(-60).localize(datetime(2009, 8, 1)))
+        (pytz.FixedOffset(-60).localize(datetime(2009, 8, 1)),
+         pytz.FixedOffset(-60).localize(datetime(2009, 8, 1)))
     ], ids=['None', 'date', 'datetime', 'date as text', 'datetime as text', 'existing tzinfo'])
     def test_date(self, timezone, input, expected):
         returned = convert_to_datetime(input, timezone, None)
@@ -121,7 +126,8 @@ class TestConvertToDatetime(object):
 
     def test_missing_timezone(self):
         exc = pytest.raises(ValueError, convert_to_datetime, '2009-8-1', None, 'argname')
-        assert str(exc.value) == 'The "tz" argument must be specified if argname has no timezone information'
+        assert str(exc.value) == ('The "tz" argument must be specified if argname has no timezone '
+                                  'information')
 
     def test_text_timezone(self):
         returned = convert_to_datetime('2009-8-1', 'UTC', None)
@@ -129,7 +135,8 @@ class TestConvertToDatetime(object):
 
     def test_bad_timezone(self):
         exc = pytest.raises(TypeError, convert_to_datetime, '2009-8-1', tzinfo(), None)
-        assert str(exc.value) == 'Only pytz timezones are supported (need the localize() and normalize() methods)'
+        assert str(exc.value) == ('Only pytz timezones are supported (need the localize() and '
+                                  'normalize() methods)')
 
 
 def test_datetime_to_utc_timestamp(timezone):
@@ -155,7 +162,8 @@ def test_datetime_ceil(input, expected):
 
 @pytest.mark.parametrize('input,expected', [
     (None, 'None'),
-    (pytz.timezone('Europe/Helsinki').localize(datetime(2014, 5, 30, 7, 12, 20)), '2014-05-30 07:12:20 EEST')
+    (pytz.timezone('Europe/Helsinki').localize(datetime(2014, 5, 30, 7, 12, 20)),
+     '2014-05-30 07:12:20 EEST')
 ], ids=['None', 'datetime+tzinfo'])
 def test_datetime_repr(input, expected):
     assert datetime_repr(input) == expected
@@ -164,13 +172,15 @@ def test_datetime_repr(input, expected):
 class TestGetCallableName(object):
     @pytest.mark.parametrize('input,expected', [
         (asint, 'asint'),
-        (DummyClass.staticmeth, 'DummyClass.staticmeth' if hasattr(DummyClass, '__qualname__') else 'staticmeth'),
+        (DummyClass.staticmeth, 'DummyClass.staticmeth' if
+         hasattr(DummyClass, '__qualname__') else 'staticmeth'),
         (DummyClass.classmeth, 'DummyClass.classmeth'),
         (DummyClass.meth, 'meth' if sys.version_info[:2] == (3, 2) else 'DummyClass.meth'),
         (DummyClass().meth, 'DummyClass.meth'),
         (DummyClass, 'DummyClass'),
         (DummyClass(), 'DummyClass')
-    ], ids=['function', 'static method', 'class method', 'unbounded method', 'bounded method', 'class', 'instance'])
+    ], ids=['function', 'static method', 'class method', 'unbounded method', 'bounded method',
+            'class', 'instance'])
     def test_inputs(self, input, expected):
         assert get_callable_name(input) == expected
 
@@ -185,14 +195,18 @@ class TestObjToRef(object):
         assert 'Cannot determine the reference to ' in str(exc.value)
 
     @pytest.mark.parametrize('input,expected', [
-        pytest.mark.skipif(sys.version_info[:2] == (3, 2), reason="Unbound methods can't be resolved on Python 3.2")(
+        pytest.mark.skipif(sys.version_info[:2] == (3, 2),
+                           reason="Unbound methods can't be resolved on Python 3.2")(
             (DummyClass.meth, 'tests.test_util:DummyClass.meth')
         ),
         (DummyClass.classmeth, 'tests.test_util:DummyClass.classmeth'),
-        pytest.mark.skipif(sys.version_info < (3, 3), reason="Requires __qualname__ (Python 3.3+)")(
-            (DummyClass.InnerDummyClass.innerclassmeth, 'tests.test_util:DummyClass.InnerDummyClass.innerclassmeth')
+        pytest.mark.skipif(sys.version_info < (3, 3),
+                           reason="Requires __qualname__ (Python 3.3+)")(
+            (DummyClass.InnerDummyClass.innerclassmeth,
+             'tests.test_util:DummyClass.InnerDummyClass.innerclassmeth')
         ),
-        pytest.mark.skipif(sys.version_info < (3, 3), reason="Requires __qualname__ (Python 3.3+)")(
+        pytest.mark.skipif(sys.version_info < (3, 3),
+                           reason="Requires __qualname__ (Python 3.3+)")(
             (DummyClass.staticmeth, 'tests.test_util:DummyClass.staticmeth')
         ),
         (timedelta, 'datetime:timedelta'),
@@ -234,58 +248,69 @@ def test_repr_escape_py2(input, expected):
 
 class TestCheckCallableArgs(object):
     def test_invalid_callable_args(self):
-        """Tests that attempting to create a job with an invalid number of arguments raises an exception."""
+        """
+        Tests that attempting to create a job with an invalid number of arguments raises an
+        exception.
 
+        """
         exc = pytest.raises(ValueError, check_callable_args, lambda x: None, [1, 2], {})
-        assert str(exc.value) == ('The list of positional arguments is longer than the target callable can handle '
-                                  '(allowed: 1, given in args: 2)')
+        assert str(exc.value) == (
+            'The list of positional arguments is longer than the target callable can handle '
+            '(allowed: 1, given in args: 2)')
 
     def test_invalid_callable_kwargs(self):
-        """Tests that attempting to schedule a job with unmatched keyword arguments raises an exception."""
+        """
+        Tests that attempting to schedule a job with unmatched keyword arguments raises an
+        exception.
 
+        """
         exc = pytest.raises(ValueError, check_callable_args, lambda x: None, [], {'x': 0, 'y': 1})
-        assert str(exc.value) == 'The target callable does not accept the following keyword arguments: y'
+        assert str(exc.value) == ('The target callable does not accept the following keyword '
+                                  'arguments: y')
 
     def test_missing_callable_args(self):
         """Tests that attempting to schedule a job with missing arguments raises an exception."""
-
         exc = pytest.raises(ValueError, check_callable_args, lambda x, y, z: None, [1], {'y': 0})
         assert str(exc.value) == 'The following arguments have not been supplied: z'
 
     def test_default_args(self):
         """Tests that default values for arguments are properly taken into account."""
-
         exc = pytest.raises(ValueError, check_callable_args, lambda x, y, z=1: None, [1], {})
         assert str(exc.value) == 'The following arguments have not been supplied: y'
 
     def test_conflicting_callable_args(self):
         """
-        Tests that attempting to schedule a job where the combination of args and kwargs are in conflict raises an
-        exception.
-        """
+        Tests that attempting to schedule a job where the combination of args and kwargs are in
+        conflict raises an exception.
 
+        """
         exc = pytest.raises(ValueError, check_callable_args, lambda x, y: None, [1, 2], {'y': 1})
         assert str(exc.value) == 'The following arguments are supplied in both args and kwargs: y'
 
     def test_signature_positional_only(self):
         """Tests that a function where signature() fails is accepted."""
-
         check_callable_args(object().__setattr__, ('blah', 1), {})
 
     @minpython(3, 4)
     def test_positional_only_args(self):
-        """Tests that an attempt to use keyword arguments for positional-only arguments raises an exception."""
+        """
+        Tests that an attempt to use keyword arguments for positional-only arguments raises an
+        exception.
 
-        exc = pytest.raises(ValueError, check_callable_args, object.__setattr__, ['blah'], {'value': 1})
-        assert str(exc.value) == 'The following arguments cannot be given as keyword arguments: value'
+        """
+        exc = pytest.raises(ValueError, check_callable_args, object.__setattr__, ['blah'],
+                            {'value': 1})
+        assert str(exc.value) == ('The following arguments cannot be given as keyword arguments: '
+                                  'value')
 
     @minpython(3)
     def test_unfulfilled_kwargs(self):
         """
-        Tests that attempting to schedule a job where not all keyword-only arguments are fulfilled raises an
-        exception.
-        """
+        Tests that attempting to schedule a job where not all keyword-only arguments are fulfilled
+        raises an exception.
 
+        """
         func = eval("lambda x, *, y, z=1: None")
         exc = pytest.raises(ValueError, check_callable_args, func, [1], {})
-        assert str(exc.value) == 'The following keyword-only arguments have not been supplied in kwargs: y'
+        assert str(exc.value) == ('The following keyword-only arguments have not been supplied in '
+                                  'kwargs: y')

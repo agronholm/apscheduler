@@ -24,5 +24,6 @@ class AsyncIOExecutor(BaseExecutor):
             else:
                 self._run_job_success(job.id, events)
 
-        f = self._eventloop.run_in_executor(None, run_job, job, job._jobstore_alias, run_times, self._logger.name)
+        f = self._eventloop.run_in_executor(None, run_job, job, job._jobstore_alias, run_times,
+                                            self._logger.name)
         f.add_done_callback(callback)

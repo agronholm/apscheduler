@@ -20,7 +20,8 @@ def minpython(*version):
     version_str = '.'.join([str(num) for num in version])
 
     def outer(func):
-        dec = pytest.mark.skipif(sys.version_info < version, reason='Requires Python >= %s' % version_str)
+        dec = pytest.mark.skipif(sys.version_info < version,
+                                 reason='Requires Python >= %s' % version_str)
         return dec(func)
     return outer
 
@@ -29,7 +30,8 @@ def maxpython(*version):
     version_str = '.'.join([str(num) for num in version])
 
     def outer(func):
-        dec = pytest.mark.skipif(sys.version_info >= version, reason='Requires Python < %s' % version_str)
+        dec = pytest.mark.skipif(sys.version_info >= version,
+                                 reason='Requires Python < %s' % version_str)
         return dec(func)
     return outer
 
@@ -73,8 +75,9 @@ def freeze_time(monkeypatch, timezone):
 @pytest.fixture(scope='session')
 def job_defaults(timezone):
     run_date = timezone.localize(datetime(2011, 4, 3, 18, 40))
-    return {'trigger': 'date', 'trigger_args': {'run_date': run_date, 'timezone': timezone}, 'executor': 'default',
-            'args': (), 'kwargs': {}, 'id': b't\xc3\xa9st\xc3\xafd'.decode('utf-8'), 'misfire_grace_time': 1,
+    return {'trigger': 'date', 'trigger_args': {'run_date': run_date, 'timezone': timezone},
+            'executor': 'default', 'args': (), 'kwargs': {},
+            'id': b't\xc3\xa9st\xc3\xafd'.decode('utf-8'), 'misfire_grace_time': 1,
             'coalesce': False, 'name': b'n\xc3\xa4m\xc3\xa9'.decode('utf-8'), 'max_instances': 1}
 
 

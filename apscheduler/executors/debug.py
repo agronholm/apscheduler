@@ -5,7 +5,8 @@ from apscheduler.executors.base import BaseExecutor, run_job
 
 class DebugExecutor(BaseExecutor):
     """
-    A special executor that executes the target callable directly instead of deferring it to a thread or process.
+    A special executor that executes the target callable directly instead of deferring it to a
+    thread or process.
 
     Plugin alias: ``debug``
     """

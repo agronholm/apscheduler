@@ -10,25 +10,29 @@ except ImportError:  # pragma: nocover
     import pickle
 
 try:
-    from sqlalchemy import create_engine, Table, Column, MetaData, Unicode, Float, LargeBinary, select
+    from sqlalchemy import (
+        create_engine, Table, Column, MetaData, Unicode, Float, LargeBinary, select)
     from sqlalchemy.exc import IntegrityError
+    from sqlalchemy.sql.expression import null
 except ImportError:  # pragma: nocover
     raise ImportError('SQLAlchemyJobStore requires SQLAlchemy installed')
 
 
 class SQLAlchemyJobStore(BaseJobStore):
     """
-    Stores jobs in a database table using SQLAlchemy. The table will be created if it doesn't exist in the database.
+    Stores jobs in a database table using SQLAlchemy.
+    The table will be created if it doesn't exist in the database.
 
     Plugin alias: ``sqlalchemy``
 
     :param str url: connection string (see `SQLAlchemy documentation
-                    <http://docs.sqlalchemy.org/en/latest/core/engines.html?highlight=create_engine#database-urls>`_
-                    on this)
+        <http://docs.sqlalchemy.org/en/latest/core/engines.html?highlight=create_engine#database-urls>`_
+        on this)
     :param engine: an SQLAlchemy Engine to use instead of creating a new one based on ``url``
     :param str tablename: name of the table to store jobs in
     :param metadata: a :class:`~sqlalchemy.MetaData` instance to use instead of creating a new one
-    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the highest available
+    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the
+        highest available
     """
 
     def __init__(self, url=None, engine=None, tablename='apscheduler_jobs', metadata=None,
@@ -44,7 +48,8 @@ class SQLAlchemyJobStore(BaseJobStore):
         else:
             raise ValueError('Need either "engine" or "url" defined')
 
-        # 191 = max key length in MySQL for InnoDB/utf8mb4 tables, 25 = precision that translates to an 8-byte float
+        # 191 = max key length in MySQL for InnoDB/utf8mb4 tables,
+        # 25 = precision that translates to an 8-byte float
         self.jobs_t = Table(
             tablename, metadata,
             Column('id', Unicode(191, _warn_on_bytestring=False), primary_key=True),
@@ -66,7 +71,8 @@ class SQLAlchemyJobStore(BaseJobStore):
         return self._get_jobs(self.jobs_t.c.next_run_time <= timestamp)
 
     def get_next_run_time(self):
-        selectable = select([self.jobs_t.c.next_run_time]).where(self.jobs_t.c.next_run_time != None).\
+        selectable = select([self.jobs_t.c.next_run_time]).\
+            where(self.jobs_t.c.next_run_time != null()).\
             order_by(self.jobs_t.c.next_run_time).limit(1)
         next_run_time = self.engine.execute(selectable).scalar()
         return utc_timestamp_to_datetime(next_run_time)
@@ -120,7 +126,8 @@ class SQLAlchemyJobStore(BaseJobStore):
 
     def _get_jobs(self, *conditions):
         jobs = []
-        selectable = select([self.jobs_t.c.id, self.jobs_t.c.job_state]).order_by(self.jobs_t.c.next_run_time)
+        selectable = select([self.jobs_t.c.id, self.jobs_t.c.job_state]).\
+            order_by(self.jobs_t.c.next_run_time)
         selectable = selectable.where(*conditions) if conditions else selectable
         failed_job_ids = set()
         for row in self.engine.execute(selectable):

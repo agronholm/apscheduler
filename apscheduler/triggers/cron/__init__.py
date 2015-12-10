@@ -4,13 +4,15 @@ from tzlocal import get_localzone
 import six
 
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.triggers.cron.fields import BaseField, WeekField, DayOfMonthField, DayOfWeekField, DEFAULT_VALUES
+from apscheduler.triggers.cron.fields import (
+    BaseField, WeekField, DayOfMonthField, DayOfWeekField, DEFAULT_VALUES)
 from apscheduler.util import datetime_ceil, convert_to_datetime, datetime_repr, astimezone
 
 
 class CronTrigger(BaseTrigger):
     """
-    Triggers when current time matches all specified time constraints, similarly to how the UNIX cron scheduler works.
+    Triggers when current time matches all specified time constraints,
+    similarly to how the UNIX cron scheduler works.
 
     :param int|str year: 4-digit year
     :param int|str month: month (1-12)
@@ -22,8 +24,8 @@ class CronTrigger(BaseTrigger):
     :param int|str second: second (0-59)
     :param datetime|str start_date: earliest possible date/time to trigger on (inclusive)
     :param datetime|str end_date: latest possible date/time to trigger on (inclusive)
-    :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
-                                         (defaults to scheduler timezone)
+    :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations (defaults
+        to scheduler timezone)
 
     .. note:: The first weekday is always **monday**.
     """
@@ -42,8 +44,8 @@ class CronTrigger(BaseTrigger):
 
     __slots__ = 'timezone', 'start_date', 'end_date', 'fields'
 
-    def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None, minute=None,
-                 second=None, start_date=None, end_date=None, timezone=None):
+    def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None,
+                 minute=None, second=None, start_date=None, end_date=None, timezone=None):
         if timezone:
             self.timezone = astimezone(timezone)
         elif start_date and start_date.tzinfo:
@@ -78,11 +80,13 @@ class CronTrigger(BaseTrigger):
 
     def _increment_field_value(self, dateval, fieldnum):
         """
-        Increments the designated field and resets all less significant fields to their minimum values.
+        Increments the designated field and resets all less significant fields to their minimum
+        values.
 
         :type dateval: datetime
         :type fieldnum: int
-        :return: a tuple containing the new date, and the number of the field that was actually incremented
+        :return: a tuple containing the new date, and the number of the field that was actually
+            incremented
         :rtype: tuple
         """
 

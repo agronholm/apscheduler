@@ -1,5 +1,6 @@
 """
-Demonstrates how to use the Qt compatible scheduler to schedule a job that executes on 3 second intervals.
+Demonstrates how to use the Qt compatible scheduler to schedule a job that executes on 3 second
+intervals.
 """
 
 from datetime import datetime
@@ -23,7 +24,10 @@ def tick():
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    signal.signal(signal.SIGINT, lambda *args: QApplication.quit())  # This enables processing of Ctrl+C keypresses
+
+    # This enables processing of Ctrl+C keypresses
+    signal.signal(signal.SIGINT, lambda *args: QApplication.quit())
+
     label = QLabel('The timer text will appear here in a moment!')
     label.setWindowTitle('QtScheduler example')
     label.setFixedSize(280, 50)

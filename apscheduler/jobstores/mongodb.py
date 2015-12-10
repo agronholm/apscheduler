@@ -20,16 +20,18 @@ except ImportError:  # pragma: nocover
 
 class MongoDBJobStore(BaseJobStore):
     """
-    Stores jobs in a MongoDB database. Any leftover keyword arguments are directly passed to pymongo's `MongoClient
+    Stores jobs in a MongoDB database. Any leftover keyword arguments are directly passed to
+    pymongo's `MongoClient
     <http://api.mongodb.org/python/current/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient>`_.
 
     Plugin alias: ``mongodb``
 
     :param str database: database to store jobs in
     :param str collection: collection to store jobs in
-    :param client: a :class:`~pymongo.mongo_client.MongoClient` instance to use instead of providing connection
-                   arguments
-    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the highest available
+    :param client: a :class:`~pymongo.mongo_client.MongoClient` instance to use instead of
+        providing connection arguments
+    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the
+        highest available
     """
 
     def __init__(self, database='apscheduler', collection='jobs', client=None,
@@ -56,7 +58,8 @@ class MongoDBJobStore(BaseJobStore):
 
     @property
     def connection(self):
-        warnings.warn('The "connection" member is deprecated -- use "client" instead', DeprecationWarning)
+        warnings.warn('The "connection" member is deprecated -- use "client" instead',
+                      DeprecationWarning)
         return self.client
 
     def lookup_job(self, job_id):
@@ -68,7 +71,8 @@ class MongoDBJobStore(BaseJobStore):
         return self._get_jobs({'next_run_time': {'$lte': timestamp}})
 
     def get_next_run_time(self):
-        document = self.collection.find_one({'next_run_time': {'$ne': None}}, projection=['next_run_time'],
+        document = self.collection.find_one({'next_run_time': {'$ne': None}},
+                                            projection=['next_run_time'],
                                             sort=[('next_run_time', ASCENDING)])
         return utc_timestamp_to_datetime(document['next_run_time']) if document else None
 
@@ -118,11 +122,13 @@ class MongoDBJobStore(BaseJobStore):
     def _get_jobs(self, conditions):
         jobs = []
         failed_job_ids = []
-        for document in self.collection.find(conditions, ['_id', 'job_state'], sort=[('next_run_time', ASCENDING)]):
+        for document in self.collection.find(conditions, ['_id', 'job_state'],
+                                             sort=[('next_run_time', ASCENDING)]):
             try:
                 jobs.append(self._reconstitute_job(document['job_state']))
             except:
-                self._logger.exception('Unable to restore job "%s" -- removing it', document['_id'])
+                self._logger.exception('Unable to restore job "%s" -- removing it',
+                                       document['_id'])
                 failed_job_ids.append(document['_id'])
 
         # Remove all the jobs we failed to restore

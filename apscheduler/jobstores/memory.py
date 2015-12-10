@@ -13,7 +13,8 @@ class MemoryJobStore(BaseJobStore):
 
     def __init__(self):
         super(MemoryJobStore, self).__init__()
-        self._jobs = []  # list of (job, timestamp), sorted by next_run_time and job id (ascending)
+        # list of (job, timestamp), sorted by next_run_time and job id (ascending)
+        self._jobs = []
         self._jobs_index = {}  # id -> (job, timestamp) lookup table
 
     def lookup_job(self, job_id):
@@ -80,13 +81,13 @@ class MemoryJobStore(BaseJobStore):
 
     def _get_job_index(self, timestamp, job_id):
         """
-        Returns the index of the given job, or if it's not found, the index where the job should be inserted based on
-        the given timestamp.
+        Returns the index of the given job, or if it's not found, the index where the job should be
+        inserted based on the given timestamp.
 
         :type timestamp: int
         :type job_id: str
-        """
 
+        """
         lo, hi = 0, len(self._jobs)
         timestamp = float('inf') if timestamp is None else timestamp
         while lo < hi:

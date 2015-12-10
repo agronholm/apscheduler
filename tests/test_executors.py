@@ -52,7 +52,6 @@ def success():
 
 def test_max_instances(mock_scheduler, executor, create_job, freeze_time):
     """Tests that the maximum instance limit on a job is respected."""
-
     events = []
     mock_scheduler._dispatch_event = lambda event: events.append(event)
     job = create_job(func=wait_event, max_instances=2, next_run_time=None)
@@ -72,12 +71,16 @@ def test_max_instances(mock_scheduler, executor, create_job, freeze_time):
     (EVENT_JOB_ERROR, failure)
 ], ids=['executed', 'missed', 'error'])
 def test_submit_job(mock_scheduler, executor, create_job, freeze_time, timezone, event_code, func):
-    """Tests that an EVENT_JOB_EXECUTED event is delivered to the scheduler if the job was successfully executed."""
+    """
+    Tests that an EVENT_JOB_EXECUTED event is delivered to the scheduler if the job was
+    successfully executed.
 
+    """
     mock_scheduler._dispatch_event = MagicMock()
     job = create_job(func=func, id='foo')
     job._jobstore_alias = 'test_jobstore'
-    run_time = timezone.localize(datetime(1970, 1, 1)) if event_code == EVENT_JOB_MISSED else freeze_time.current
+    run_time = (timezone.localize(datetime(1970, 1, 1)) if event_code == EVENT_JOB_MISSED else
+                freeze_time.current)
     executor.submit_job(job, [run_time])
     executor.shutdown()
 
@@ -106,7 +109,6 @@ def dummy_run_job(job, jobstore_alias, run_times, logger_name):
 
 def test_run_job_error(monkeypatch, executor):
     """Tests that _run_job_error is properly called if an exception is raised in run_job()"""
-
     def run_job_error(job_id, exc, traceback):
         assert job_id == 'abc'
         exc_traceback[:] = [exc, traceback]

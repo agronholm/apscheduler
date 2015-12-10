@@ -1,5 +1,6 @@
 """
-Demonstrates how to use the Tornado compatible scheduler to schedule a job that executes on 3 second intervals.
+Demonstrates how to use the Tornado compatible scheduler to schedule a job that executes on 3
+second intervals.
 """
 
 from datetime import datetime

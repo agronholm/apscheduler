@@ -1,5 +1,6 @@
 """
-Demonstrates how to use the background scheduler to schedule a job that executes on 3 second intervals.
+Demonstrates how to use the background scheduler to schedule a job that executes on 3 second
+intervals.
 """
 
 from datetime import datetime
@@ -24,4 +25,5 @@ if __name__ == '__main__':
         while True:
             time.sleep(2)
     except (KeyboardInterrupt, SystemExit):
-        scheduler.shutdown()  # Not strictly necessary if daemonic mode is enabled but should be done if possible
+        # Not strictly necessary if daemonic mode is enabled but should be done if possible
+        scheduler.shutdown()

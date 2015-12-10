@@ -17,16 +17,17 @@ except ImportError:  # pragma: nocover
 
 class RethinkDBJobStore(BaseJobStore):
     """
-    Stores jobs in a RethinkDB database. Any leftover keyword arguments are directly passed to rethink's
-    `RethinkdbClient <http://www.rethinkdb.com/api/#connect>`_.
+    Stores jobs in a RethinkDB database. Any leftover keyword arguments are directly passed to
+    rethinkdb's `RethinkdbClient <http://www.rethinkdb.com/api/#connect>`_.
 
     Plugin alias: ``rethinkdb``
 
     :param str database: database to store jobs in
     :param str collection: collection to store jobs in
-    :param client: a :class:`rethinkdb.net.Connection` instance to use instead of providing connection
-                   arguments
-    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the highest available
+    :param client: a :class:`rethinkdb.net.Connection` instance to use instead of providing
+        connection arguments
+    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the
+        highest available
     """
 
     def __init__(self, database='apscheduler', table='jobs', client=None,
@@ -74,7 +75,7 @@ class RethinkDBJobStore(BaseJobStore):
     def get_next_run_time(self):
         results = list(
             self.table
-            .filter(r.row['next_run_time'] != None)
+            .filter(r.row['next_run_time'] != None)  # flake8: noqa
             .order_by(r.asc('next_run_time'))
             .map(lambda x: x['next_run_time'])
             .limit(1)
@@ -129,7 +130,8 @@ class RethinkDBJobStore(BaseJobStore):
     def _get_jobs(self, predicate=None):
         jobs = []
         failed_job_ids = []
-        query = self.table.filter(r.row['next_run_time'] != None).filter(predicate) if predicate else self.table
+        query = (self.table.filter(r.row['next_run_time'] != None).filter(predicate) if
+                 predicate else self.table)
         query = query.order_by('next_run_time', 'id').pluck('id', 'job_state')
 
         for document in query.run(self.conn):
@@ -141,7 +143,8 @@ class RethinkDBJobStore(BaseJobStore):
 
         # Remove all the jobs we failed to restore
         if failed_job_ids:
-            r.expr(failed_job_ids).for_each(lambda job_id: self.table.get_all(job_id).delete()).run(self.conn)
+            r.expr(failed_job_ids).for_each(
+                lambda job_id: self.table.get_all(job_id).delete()).run(self.conn)
 
         return jobs
 

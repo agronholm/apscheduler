@@ -26,4 +26,5 @@ class GeventExecutor(BaseExecutor):
             else:
                 self._run_job_success(job.id, events)
 
-        gevent.spawn(run_job, job, job._jobstore_alias, run_times, self._logger.name).link(callback)
+        gevent.spawn(run_job, job, job._jobstore_alias, run_times, self._logger.name).\
+            link(callback)

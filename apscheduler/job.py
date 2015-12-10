@@ -4,8 +4,9 @@ from uuid import uuid4
 import six
 
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import (ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name,
-                              check_callable_args, convert_to_datetime)
+from apscheduler.util import (
+    ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name, check_callable_args,
+    convert_to_datetime)
 
 
 class Job(object):
@@ -21,17 +22,20 @@ class Job(object):
     :var bool coalesce: whether to only run the job once when several run times are due
     :var trigger: the trigger object that controls the schedule of this job
     :var str executor: the name of the executor that will run this job
-    :var int misfire_grace_time: the time (in seconds) how much this job's execution is allowed to be late
-    :var int max_instances: the maximum number of concurrently executing instances allowed for this job
+    :var int misfire_grace_time: the time (in seconds) how much this job's execution is allowed to
+        be late
+    :var int max_instances: the maximum number of concurrently executing instances allowed for this
+        job
     :var datetime.datetime next_run_time: the next scheduled run time of this job
 
     .. note::
-        The ``misfire_grace_time`` has some non-obvious effects on job execution.
-        See the :ref:`missed-job-executions` section in the documentation for an in-depth explanation.
+        The ``misfire_grace_time`` has some non-obvious effects on job execution. See the
+        :ref:`missed-job-executions` section in the documentation for an in-depth explanation.
     """
 
-    __slots__ = ('_scheduler', '_jobstore_alias', 'id', 'trigger', 'executor', 'func', 'func_ref', 'args', 'kwargs',
-                 'name', 'misfire_grace_time', 'coalesce', 'max_instances', 'next_run_time')
+    __slots__ = ('_scheduler', '_jobstore_alias', 'id', 'trigger', 'executor', 'func', 'func_ref',
+                 'args', 'kwargs', 'name', 'misfire_grace_time', 'coalesce', 'max_instances',
+                 'next_run_time')
 
     def __init__(self, scheduler, id=None, **kwargs):
         super(Job, self).__init__()
@@ -42,11 +46,12 @@ class Job(object):
     def modify(self, **changes):
         """
         Makes the given changes to this job and saves it in the associated job store.
+
         Accepted keyword arguments are the same as the variables on this class.
 
         .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.modify_job`
-        """
 
+        """
         self._scheduler.modify_job(self.id, self._jobstore_alias, **changes)
 
     def reschedule(self, trigger, **trigger_args):
@@ -54,8 +59,8 @@ class Job(object):
         Shortcut for switching the trigger on this job.
 
         .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.reschedule_job`
-        """
 
+        """
         self._scheduler.reschedule_job(self.id, self._jobstore_alias, trigger, **trigger_args)
 
     def pause(self):
@@ -63,8 +68,8 @@ class Job(object):
         Temporarily suspend the execution of this job.
 
         .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.pause_job`
-        """
 
+        """
         self._scheduler.pause_job(self.id, self._jobstore_alias)
 
     def resume(self):
@@ -72,8 +77,8 @@ class Job(object):
         Resume the schedule of this job if previously paused.
 
         .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.resume_job`
-        """
 
+        """
         self._scheduler.resume_job(self.id, self._jobstore_alias)
 
     def remove(self):
@@ -81,14 +86,17 @@ class Job(object):
         Unschedules this job and removes it from its associated job store.
 
         .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.remove_job`
-        """
 
+        """
         self._scheduler.remove_job(self.id, self._jobstore_alias)
 
     @property
     def pending(self):
-        """Returns ``True`` if the referenced job is still waiting to be added to its designated job store."""
+        """
+        Returns ``True`` if the referenced job is still waiting to be added to its designated job
+        store.
 
+        """
         return self._jobstore_alias is None
 
     #
@@ -101,8 +109,8 @@ class Job(object):
 
         :type now: datetime.datetime
         :rtype: list[datetime.datetime]
-        """
 
+        """
         run_times = []
         next_run_time = self.next_run_time
         while next_run_time and next_run_time <= now:
@@ -112,8 +120,11 @@ class Job(object):
         return run_times
 
     def _modify(self, **changes):
-        """Validates the changes to the Job and makes the modifications if and only if all of them validate."""
+        """
+        Validates the changes to the Job and makes the modifications if and only if all of them
+        validate.
 
+        """
         approved = {}
 
         if 'id' in changes:
@@ -181,7 +192,8 @@ class Job(object):
         if 'trigger' in changes:
             trigger = changes.pop('trigger')
             if not isinstance(trigger, BaseTrigger):
-                raise TypeError('Expected a trigger instance, got %s instead' % trigger.__class__.__name__)
+                raise TypeError('Expected a trigger instance, got %s instead' %
+                                trigger.__class__.__name__)
 
             approved['trigger'] = trigger
 
@@ -193,10 +205,12 @@ class Job(object):
 
         if 'next_run_time' in changes:
             value = changes.pop('next_run_time')
-            approved['next_run_time'] = convert_to_datetime(value, self._scheduler.timezone, 'next_run_time')
+            approved['next_run_time'] = convert_to_datetime(value, self._scheduler.timezone,
+                                                            'next_run_time')
 
         if changes:
-            raise AttributeError('The following are not modifiable attributes of Job: %s' % ', '.join(changes))
+            raise AttributeError('The following are not modifiable attributes of Job: %s' %
+                                 ', '.join(changes))
 
         for key, value in six.iteritems(approved):
             setattr(self, key, value)
@@ -204,9 +218,10 @@ class Job(object):
     def __getstate__(self):
         # Don't allow this Job to be serialized if the function reference could not be determined
         if not self.func_ref:
-            raise ValueError('This Job cannot be serialized since the reference to its callable (%r) could not be '
-                             'determined. Consider giving a textual reference (module:function name) instead.' %
-                             (self.func,))
+            raise ValueError(
+                'This Job cannot be serialized since the reference to its callable (%r) could not '
+                'be determined. Consider giving a textual reference (module:function name) '
+                'instead.' % (self.func,))
 
         return {
             'version': 1,
@@ -225,7 +240,8 @@ class Job(object):
 
     def __setstate__(self, state):
         if state.get('version', 1) > 1:
-            raise ValueError('Job has version %s, but only version 1 can be handled' % state['version'])
+            raise ValueError('Job has version %s, but only version 1 can be handled' %
+                             state['version'])
 
         self.id = state['id']
         self.func_ref = state['func']
@@ -253,7 +269,8 @@ class Job(object):
 
     def __unicode__(self):
         if hasattr(self, 'next_run_time'):
-            status = 'next run at: ' + datetime_repr(self.next_run_time) if self.next_run_time else 'paused'
+            status = ('next run at: ' + datetime_repr(self.next_run_time) if
+                      self.next_run_time else 'paused')
         else:
             status = 'pending'
 
