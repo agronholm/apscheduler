@@ -18,7 +18,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 -----
 
 * Fixed cron trigger always coalescing missed run times into a single run time
-  (contributed by monklof)
+  (contributed by Chao Liu)
 
 * Fixed infinite loop in the cron trigger when an out-of-bounds value was given in an expression
 
