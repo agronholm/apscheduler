@@ -162,13 +162,14 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         self._stopped = True
 
-        # Shut down all executors
-        for executor in six.itervalues(self._executors):
-            executor.shutdown(wait)
+        with self._jobstores_lock, self._executors_lock:
+            # Shut down all executors
+            for executor in six.itervalues(self._executors):
+                executor.shutdown(wait)
 
-        # Shut down all job stores
-        for jobstore in six.itervalues(self._jobstores):
-            jobstore.shutdown()
+            # Shut down all job stores
+            for jobstore in six.itervalues(self._jobstores):
+                jobstore.shutdown()
 
         self._logger.info('Scheduler has been shut down')
         self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN))

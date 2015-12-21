@@ -13,6 +13,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Moved the connection logic in database backed job stores to the ``start()`` method
 
+* Fixed rare race condition on scheduler ``shutdown()``
+
 
 3.0.5
 -----
