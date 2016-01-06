@@ -22,7 +22,7 @@ class IntervalTrigger(BaseTrigger):
     :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
     """
 
-    __slots__ = 'timezone', 'start_date', 'end_date', 'interval'
+    __slots__ = 'timezone', 'start_date', 'end_date', 'interval', 'interval_length'
 
     def __init__(self, weeks=0, days=0, hours=0, minutes=0, seconds=0, start_date=None,
                  end_date=None, timezone=None):
