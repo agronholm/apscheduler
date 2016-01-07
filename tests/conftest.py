@@ -9,7 +9,6 @@ from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-
 try:
     from unittest.mock import Mock
 except ImportError:

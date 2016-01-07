@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from collections import OrderedDict
 from threading import Thread
 import logging
 
@@ -31,20 +32,6 @@ try:
     from unittest.mock import MagicMock, patch
 except ImportError:
     from mock import MagicMock, patch
-
-
-class OrderedDict(object):
-    def __init__(self, items):
-        self._items = items
-        self._items_dict = dict(items)
-
-    def items(self):
-        return iter(self._items)
-
-    def __getitem__(self, key):
-        return self._items_dict[key]
-
-    iteritems = items
 
 
 class DummyScheduler(BaseScheduler):

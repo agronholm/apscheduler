@@ -9,7 +9,6 @@ from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED, EVENT_JOB_EXEC
 from apscheduler.executors.base import MaxInstancesReachedError
 from apscheduler.schedulers.base import BaseScheduler
 
-
 try:
     from unittest.mock import Mock, MagicMock
 except ImportError:
