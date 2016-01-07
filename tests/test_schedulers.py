@@ -865,14 +865,11 @@ class SchedulerImplementationTestBase(object):
     def executor(self, scheduler):
         scheduler.add_executor(DebugExecutor())
 
-    @pytest.fixture
+    @pytest.yield_fixture
     def start_scheduler(self, request, scheduler):
-        def cleanup():
-            if scheduler.running:
-                scheduler.shutdown()
-
-        request.addfinalizer(cleanup)
-        return scheduler.start
+        yield scheduler.start
+        if scheduler.running:
+            scheduler.shutdown()
 
     @pytest.fixture
     def eventqueue(self, scheduler):
@@ -935,16 +932,14 @@ class TestBlockingScheduler(SchedulerImplementationTestBase):
         scheduler._event.clear.side_effect = StopIteration()
         return scheduler
 
-    @pytest.fixture
+    @pytest.yield_fixture
     def start_scheduler(self, request, scheduler):
-        def cleanup():
-            if scheduler.running:
-                scheduler.shutdown()
-            thread.join()
-
-        request.addfinalizer(cleanup)
         thread = Thread(target=scheduler.start)
-        return thread.start
+        yield thread.start
+
+        if scheduler.running:
+            scheduler.shutdown()
+        thread.join()
 
     @pytest.mark.parametrize('wait_seconds,expected_wait', [[0, 0], [None, 4294967], [728, 728]],
                              ids=['zero', 'none', 'positive'])
@@ -978,18 +973,16 @@ class TestAsyncIOScheduler(SchedulerImplementationTestBase):
         asyncio = pytest.importorskip('apscheduler.schedulers.asyncio')
         return asyncio.AsyncIOScheduler(event_loop=event_loop)
 
-    @pytest.fixture
+    @pytest.yield_fixture
     def start_scheduler(self, request, event_loop, scheduler):
-        def cleanup():
-            if scheduler.running:
-                event_loop.call_soon_threadsafe(scheduler.shutdown)
-            event_loop.call_soon_threadsafe(event_loop.stop)
-            thread.join()
-
         event_loop.call_soon_threadsafe(scheduler.start)
-        request.addfinalizer(cleanup)
         thread = Thread(target=event_loop.run_forever)
-        return thread.start
+        yield thread.start
+
+        if scheduler.running:
+            event_loop.call_soon_threadsafe(scheduler.shutdown)
+        event_loop.call_soon_threadsafe(event_loop.stop)
+        thread.join()
 
 
 class TestGeventScheduler(SchedulerImplementationTestBase):
@@ -1022,18 +1015,16 @@ class TestTornadoScheduler(SchedulerImplementationTestBase):
         tornado = pytest.importorskip('apscheduler.schedulers.tornado')
         return tornado.TornadoScheduler(io_loop=io_loop)
 
-    @pytest.fixture
+    @pytest.yield_fixture
     def start_scheduler(self, request, io_loop, scheduler):
-        def cleanup():
-            if scheduler.running:
-                io_loop.add_callback(scheduler.shutdown)
-            io_loop.add_callback(io_loop.stop)
-            thread.join()
-
         io_loop.add_callback(scheduler.start)
-        request.addfinalizer(cleanup)
         thread = Thread(target=io_loop.start)
-        return thread.start
+        yield thread.start
+
+        if scheduler.running:
+            io_loop.add_callback(scheduler.shutdown)
+        io_loop.add_callback(io_loop.stop)
+        thread.join()
 
 
 class TestTwistedScheduler(SchedulerImplementationTestBase):
@@ -1047,18 +1038,16 @@ class TestTwistedScheduler(SchedulerImplementationTestBase):
         twisted = pytest.importorskip('apscheduler.schedulers.twisted')
         return twisted.TwistedScheduler(reactor=reactor)
 
-    @pytest.fixture
+    @pytest.yield_fixture
     def start_scheduler(self, request, reactor, scheduler):
-        def cleanup():
-            if scheduler.running:
-                reactor.callFromThread(scheduler.shutdown)
-            reactor.callFromThread(reactor.stop)
-            thread.join()
-
         reactor.callFromThread(scheduler.start)
-        request.addfinalizer(cleanup)
         thread = Thread(target=reactor.run, args=(False,))
-        return thread.start
+        yield thread.start
+
+        if scheduler.running:
+            reactor.callFromThread(scheduler.shutdown)
+        reactor.callFromThread(reactor.stop)
+        thread.join()
 
 
 @pytest.mark.skip

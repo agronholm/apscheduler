@@ -23,7 +23,7 @@ def mock_scheduler(timezone):
     return scheduler_
 
 
-@pytest.fixture(params=['threadpool', 'processpool'])
+@pytest.yield_fixture(params=['threadpool', 'processpool'])
 def executor(request, mock_scheduler):
     if request.param == 'threadpool':
         from apscheduler.executors.pool import ThreadPoolExecutor
@@ -33,8 +33,8 @@ def executor(request, mock_scheduler):
         executor_ = ProcessPoolExecutor()
 
     executor_.start(mock_scheduler, 'dummy')
-    request.addfinalizer(executor_.shutdown)
-    return executor_
+    yield executor_
+    executor_.shutdown()
 
 
 def wait_event():
