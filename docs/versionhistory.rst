@@ -9,11 +9,14 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added RethinkDB job store (contributed by Allen Sanabria)
 
-* Removed official support for CPython 2.6 and 3.2 (they may still work however)
+* Dropped official support for CPython 2.6 and 3.2 (3.2 may still work however)
 
 * Moved the connection logic in database backed job stores to the ``start()`` method
 
 * Fixed rare race condition on scheduler ``shutdown()``
+
+* Added method chaining to the ``modify_job()``, ``reschedule_job()``, ``pause_job()`` and
+   ``resume_job()`` methods in ``BaseScheduler`` and the corresponding methods in the ``Job`` class
 
 
 3.0.5

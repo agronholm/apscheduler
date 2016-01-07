@@ -421,6 +421,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         :param str|unicode job_id: the identifier of the job
         :param str|unicode jobstore: alias of the job store that contains the job
+        :return Job: the relevant job instance
 
         """
         with self._jobstores_lock:
@@ -434,6 +435,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         # Wake up the scheduler since the job's next run time may have been changed
         self.wakeup()
 
+        return job
+
     def reschedule_job(self, job_id, jobstore=None, trigger=None, **trigger_args):
         """
         Constructs a new trigger for a job and updates its next run time.
@@ -443,12 +446,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param str|unicode job_id: the identifier of the job
         :param str|unicode jobstore: alias of the job store that contains the job
         :param trigger: alias of the trigger type or a trigger instance
+        :return Job: the relevant job instance
 
         """
         trigger = self._create_trigger(trigger, trigger_args)
         now = datetime.now(self.timezone)
         next_run_time = trigger.get_next_fire_time(None, now)
-        self.modify_job(job_id, jobstore, trigger=trigger, next_run_time=next_run_time)
+        return self.modify_job(job_id, jobstore, trigger=trigger, next_run_time=next_run_time)
 
     def pause_job(self, job_id, jobstore=None):
         """
@@ -456,9 +460,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         :param str|unicode job_id: the identifier of the job
         :param str|unicode jobstore: alias of the job store that contains the job
+        :return Job: the relevant job instance
 
         """
-        self.modify_job(job_id, jobstore, next_run_time=None)
+        return self.modify_job(job_id, jobstore, next_run_time=None)
 
     def resume_job(self, job_id, jobstore=None):
         """
@@ -466,6 +471,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         :param str|unicode job_id: the identifier of the job
         :param str|unicode jobstore: alias of the job store that contains the job
+        :return Job|None: the relevant job instance if the job was rescheduled, or ``None`` if no
+            next run time could be calculated and the job was removed
 
         """
         with self._jobstores_lock:
@@ -473,7 +480,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             now = datetime.now(self.timezone)
             next_run_time = job.trigger.get_next_fire_time(None, now)
             if next_run_time:
-                self.modify_job(job_id, jobstore, next_run_time=next_run_time)
+                return self.modify_job(job_id, jobstore, next_run_time=next_run_time)
             else:
                 self.remove_job(job.id, jobstore)
 

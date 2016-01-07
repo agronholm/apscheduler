@@ -51,8 +51,11 @@ class Job(object):
 
         .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.modify_job`
 
+        :return Job: this job instance
+
         """
         self._scheduler.modify_job(self.id, self._jobstore_alias, **changes)
+        return self
 
     def reschedule(self, trigger, **trigger_args):
         """
@@ -60,8 +63,11 @@ class Job(object):
 
         .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.reschedule_job`
 
+        :return Job: this job instance
+
         """
         self._scheduler.reschedule_job(self.id, self._jobstore_alias, trigger, **trigger_args)
+        return self
 
     def pause(self):
         """
@@ -69,8 +75,11 @@ class Job(object):
 
         .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.pause_job`
 
+        :return Job: this job instance
+
         """
         self._scheduler.pause_job(self.id, self._jobstore_alias)
+        return self
 
     def resume(self):
         """
@@ -78,8 +87,11 @@ class Job(object):
 
         .. seealso:: :meth:`~apscheduler.schedulers.base.BaseScheduler.resume_job`
 
+        :return Job: this job instance
+
         """
         self._scheduler.resume_job(self.id, self._jobstore_alias)
+        return self
 
     def remove(self):
         """
