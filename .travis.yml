@@ -16,13 +16,20 @@ python:
   - "pypy"
   - "pypy3"
 
+matrix:
+  allow_failures:
+    - python: pypy
+    - python: pypy3
+
 before_install:
   - docker pull rethinkdb:latest
   - docker run -d -p 127.0.0.1:28015:28015 rethinkdb
 
-install: pip install tox-travis
+install: pip install tox-travis coveralls
 
 script: tox
+
+after_success: coveralls
 
 notifications:
   irc: "chat.freenode.net#apscheduler"
