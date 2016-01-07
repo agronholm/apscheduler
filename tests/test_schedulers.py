@@ -1,6 +1,6 @@
-from logging import StreamHandler, getLogger, INFO
 from datetime import datetime, timedelta
 from threading import Thread
+import logging
 
 from pytz import utc
 import pytest
@@ -110,17 +110,6 @@ def scheduler(monkeypatch, timezone):
     monkeypatch.setattr('apscheduler.schedulers.base.get_localzone',
                         MagicMock(return_value=timezone))
     return DummyScheduler()
-
-
-@pytest.fixture
-def logstream(request):
-    stream = StringIO()
-    loghandler = StreamHandler(stream)
-    loghandler.setLevel(INFO)
-    logger = getLogger('apscheduler')
-    logger.addHandler(loghandler)
-    request.addfinalizer(lambda: logger.removeHandler(loghandler))
-    return stream
 
 
 class TestBaseScheduler(object):
@@ -803,35 +792,41 @@ class TestProcessJobs(object):
         scheduler._executors['default'] = executor
         return executor
 
-    def test_nonexistent_executor(self, scheduler, jobstore, logstream):
+    def test_nonexistent_executor(self, scheduler, jobstore, caplog):
         """
         Tests that an error is logged and the job is removed from its job store if its executor is
         not found.
 
         """
+        caplog.set_level(logging.ERROR)
         assert scheduler._process_jobs() is None
         jobstore.remove_job.assert_called_once_with(999)
-        assert logstream.getvalue() == \
+        assert len(caplog.records) == 1
+        assert caplog.records[0].message == \
             'Executor lookup ("default") failed for job "job 999" -- removing it from the job ' \
-            'store\n'
+            'store'
 
-    def test_max_instances_reached(self, scheduler, job, jobstore, executor, logstream):
+    def test_max_instances_reached(self, scheduler, job, jobstore, executor, caplog):
         """Tests that a warning is logged when the maximum instances of a job is reached."""
+        caplog.set_level(logging.WARNING)
         executor.submit_job = MagicMock(side_effect=MaxInstancesReachedError(job))
 
         assert scheduler._process_jobs() is None
-        assert logstream.getvalue() == \
-            'Execution of job "job 999" skipped: maximum number of running instances reached (1)\n'
+        assert len(caplog.records) == 1
+        assert caplog.records[0].message == \
+            'Execution of job "job 999" skipped: maximum number of running instances reached (1)'
 
-    def test_executor_error(self, scheduler, job, jobstore, executor, logstream):
+    def test_executor_error(self, scheduler, job, jobstore, executor, caplog):
         """Tests that if any exception is raised in executor.submit(), it is logged."""
+        caplog.set_level(logging.ERROR)
         executor.submit_job = MagicMock(side_effect=Exception('test message'))
 
         assert scheduler._process_jobs() is None
-        assert 'test message' in logstream.getvalue()
-        assert 'Error submitting job "job 999" to executor "default"' in logstream.getvalue()
+        assert len(caplog.records) == 1
+        assert 'test message' in caplog.records[0].exc_text
+        assert 'Error submitting job "job 999" to executor "default"' in caplog.records[0].message
 
-    def test_job_update(self, scheduler, job, jobstore, executor, logstream, freeze_time):
+    def test_job_update(self, scheduler, job, jobstore, executor, freeze_time):
         """
         Tests that the job is updated in its job store with the next run time from the trigger.
 
