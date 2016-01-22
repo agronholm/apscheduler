@@ -9,7 +9,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added RethinkDB job store (contributed by Allen Sanabria)
 
-* Dropped official support for CPython 2.6 and 3.2 (3.2 may still work however)
+* Dropped official support for CPython 2.6 and 3.2 and PyPy3
 
 * Moved the connection logic in database backed job stores to the ``start()`` method
 

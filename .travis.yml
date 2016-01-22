@@ -14,12 +14,10 @@ python:
   - "3.4"
   - "3.5"
   - "pypy"
-  - "pypy3"
 
 matrix:
   allow_failures:
     - python: pypy
-    - python: pypy3
 
 before_install:
   - docker pull rethinkdb:latest
