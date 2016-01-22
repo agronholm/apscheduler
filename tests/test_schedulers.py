@@ -309,21 +309,29 @@ class TestBaseScheduler(object):
     @pytest.mark.parametrize('event', [EVENT_ALL, EVENT_JOBSTORE_ADDED],
                              ids=['default', 'explicit value'])
     def test_add_listener(self, scheduler, event):
-        listener = lambda event: None
+        def listener(event):
+            pass
+
         args = (event,) if event != EVENT_ALL else ()
         scheduler.add_listener(listener, *args)
         assert scheduler._listeners == [(listener, event)]
 
     def test_remove_listener(self, scheduler):
-        func = lambda: None
-        func2 = lambda: None
+        def func():
+            pass
+
+        def func2():
+            pass
+
         scheduler._listeners = [(func, EVENT_ALL), (func2, EVENT_JOBSTORE_ADDED)]
         scheduler.remove_listener(func)
         assert scheduler._listeners == [(func2, EVENT_JOBSTORE_ADDED)]
 
     @pytest.mark.parametrize('stopped', [True, False], ids=['stopped=True', 'stopped=False'])
     def test_add_job(self, scheduler, stopped, timezone):
-        func = lambda x, y: None
+        def func(x, y):
+            pass
+
         scheduler._stopped = stopped
         scheduler._real_add_job = MagicMock()
         job = scheduler.add_job(func, 'date', [1], {'y': 2}, 'my-id', 'dummy',
@@ -340,7 +348,9 @@ class TestBaseScheduler(object):
         assert scheduler._real_add_job.call_count == (0 if stopped else 1)
 
     def test_scheduled_job(self, scheduler):
-        func = lambda x, y: None
+        def func(x, y):
+            pass
+
         scheduler.add_job = MagicMock()
         decorator = scheduler.scheduled_job('date', [1], {'y': 2}, 'my-id', 'dummy',
                                             run_date='2014-06-01 08:41:00')
