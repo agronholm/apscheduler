@@ -4,11 +4,33 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.1.0
+-----
+
+* Added RethinkDB job store (contributed by Allen Sanabria)
+
+* Dropped official support for CPython 2.6 and 3.2 and PyPy3
+
+* Moved the connection logic in database backed job stores to the ``start()`` method
+
+* Fixed rare race condition on scheduler ``shutdown()``
+
+* Added method chaining to the ``modify_job()``, ``reschedule_job()``, ``pause_job()`` and
+   ``resume_job()`` methods in ``BaseScheduler`` and the corresponding methods in the ``Job`` class
+
+
+3.0.6
+-----
+
+* Fixed bug in the cron trigger that produced off-by-1-hour datetimes when crossing the daylight
+  saving threshold (thanks to Tim Strazny for reporting)
+
+
 3.0.5
 -----
 
 * Fixed cron trigger always coalescing missed run times into a single run time
-  (contributed by monklof)
+  (contributed by Chao Liu)
 
 * Fixed infinite loop in the cron trigger when an out-of-bounds value was given in an expression
 
