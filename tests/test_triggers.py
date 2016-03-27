@@ -296,15 +296,15 @@ class TestIntervalTrigger(object):
 
         """
         eastern = pytz.timezone('US/Eastern')
-        start_date = datetime(2013, 6, 1)  # Start within EDT
+        start_date = datetime(2013, 3, 1)  # Start within EDT
         trigger = IntervalTrigger(hours=1, start_date=start_date, timezone=eastern)
 
-        datetime_edt = eastern.localize(datetime(2013, 11, 3, 1, 5), is_dst=True)
-        correct_next_date = eastern.normalize(datetime_edt + timedelta(minutes=55))
+        datetime_edt = eastern.localize(datetime(2013, 3, 10, 1, 5), is_dst=False)
+        correct_next_date = eastern.localize(datetime(2013, 3, 10, 3), is_dst=True)
         assert str(trigger.get_next_fire_time(None, datetime_edt)) == str(correct_next_date)
 
-        datetime_est = eastern.localize(datetime(2013, 11, 3, 1, 5), is_dst=False)
-        correct_next_date = eastern.normalize(datetime_est + timedelta(minutes=55))
+        datetime_est = eastern.localize(datetime(2013, 11, 3, 1, 5), is_dst=True)
+        correct_next_date = eastern.localize(datetime(2013, 11, 3, 1), is_dst=False)
         assert str(trigger.get_next_fire_time(None, datetime_est)) == str(correct_next_date)
 
     def test_repr(self, trigger):
