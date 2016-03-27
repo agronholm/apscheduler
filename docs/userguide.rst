@@ -56,8 +56,8 @@ scheduler provides the proper interface to handle all those. Configuring the job
 the scheduler, as is adding, modifying and removing jobs.
 
 
-Choosing the right scheduler, job stores and executors
-------------------------------------------------------
+Choosing the right scheduler, job store(s), executor(s) and trigger(s)
+----------------------------------------------------------------------
 
 Your choice of scheduler depends mostly on your programming environment and what you'll be using APScheduler for.
 Here's a quick guide for choosing a scheduler:
@@ -94,7 +94,19 @@ If your workload involves CPU intensive operations, you should consider using
 :class:`~apscheduler.executors.pool.ProcessPoolExecutor` instead to make use of multiple CPU cores.
 You could even use both at once, adding the process pool executor as a secondary executor.
 
-You can find the plugin names of each job store and executor type in their respective API documentation pages.
+When you schedule a job, you need to choose a _trigger_ for it. The trigger determines the logic by
+which the dates/times are calculated when the job will be run. APScheduler comes with three
+built-in trigger types:
+
+* :mod:`~apscheduler.triggers.date`:
+  use when you want to run the job just once at a certain point of time
+* :mod:`~apscheduler.triggers.interval`:
+  use when you want to run the job at fixed intervals of time
+* :mod:`~apscheduler.triggers.cron`:
+  use when you want to run the job periodically at certain time(s) of day
+
+You can find the plugin names of each job store, executor and trigger type on their respective API
+documentation pages.
 
 
 .. _scheduler-config:
