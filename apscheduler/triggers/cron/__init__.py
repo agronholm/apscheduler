@@ -132,8 +132,7 @@ class CronTrigger(BaseTrigger):
                 else:
                     values[field.name] = new_value
 
-        difference = datetime(**values) - dateval.replace(tzinfo=None)
-        return self.timezone.normalize(dateval + difference)
+        return self.timezone.localize(datetime(**values))
 
     def get_next_fire_time(self, previous_fire_time, now):
         if previous_fire_time:

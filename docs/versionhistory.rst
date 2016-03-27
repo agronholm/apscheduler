@@ -19,6 +19,13 @@ APScheduler, see the :doc:`migration section <migration>`.
    ``resume_job()`` methods in ``BaseScheduler`` and the corresponding methods in the ``Job`` class
 
 
+3.0.6
+-----
+
+* Fixed bug in the cron trigger that produced off-by-1-hour datetimes when crossing the daylight
+  saving threshold (thanks to Tim Strazny for reporting)
+
+
 3.0.5
 -----
 

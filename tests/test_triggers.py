@@ -172,23 +172,24 @@ class TestCronTrigger(object):
         correct_next_date = timezone.localize(datetime(2009, 4, 8))
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
-    def test_dst_change(self):
+    @pytest.mark.parametrize('trigger_args, start_date, start_date_dst, correct_next_date', [
+        ({'hour': 8}, datetime(2013, 3, 9, 12), False, datetime(2013, 3, 10, 8)),
+        ({'hour': 8}, datetime(2013, 11, 2, 12), True, datetime(2013, 11, 3, 8)),
+        ({'minute': '*/30'}, datetime(2013, 3, 10, 1, 35), False, datetime(2013, 3, 10, 3)),
+        ({'minute': '*/30'}, datetime(2013, 11, 3, 1, 35), True, datetime(2013, 11, 3, 1))
+    ], ids=['absolute_spring', 'absolute_autumn', 'interval_spring', 'interval_autumn'])
+    def test_dst_change(self, trigger_args, start_date, start_date_dst, correct_next_date):
         """
         Making sure that CronTrigger works correctly when crossing the DST switch threshold.
         Note that you should explicitly compare datetimes as strings to avoid the internal datetime
         comparison which would test for equality in the UTC timezone.
 
         """
-        eastern = pytz.timezone('US/Eastern')
-        trigger = CronTrigger(minute='*/30', timezone=eastern)
-
-        datetime_edt = eastern.localize(datetime(2013, 11, 3, 1, 5), is_dst=True)
-        correct_next_date = eastern.localize(datetime(2013, 11, 3, 1, 30), is_dst=True)
-        assert str(trigger.get_next_fire_time(None, datetime_edt)) == str(correct_next_date)
-
-        datetime_edt = eastern.localize(datetime(2013, 11, 3, 1, 35), is_dst=True)
-        correct_next_date = eastern.localize(datetime(2013, 11, 3, 1), is_dst=False)
-        assert str(trigger.get_next_fire_time(None, datetime_edt)) == str(correct_next_date)
+        timezone = pytz.timezone('US/Eastern')
+        trigger = CronTrigger(timezone=timezone, **trigger_args)
+        start_date = timezone.localize(start_date, is_dst=start_date_dst)
+        correct_next_date = timezone.localize(correct_next_date, is_dst=not start_date_dst)
+        assert str(trigger.get_next_fire_time(None, start_date)) == str(correct_next_date)
 
     def test_timezone_change(self, timezone):
         """
@@ -230,7 +231,7 @@ class TestDateTrigger(object):
 
         """
         eastern = pytz.timezone('US/Eastern')
-        run_date = eastern.localize(datetime(2013, 11, 3, 1, 5), is_dst=is_dst)
+        run_date = eastern.localize(datetime(2013, 10, 3, 1, 5), is_dst=is_dst)
 
         fire_date = eastern.normalize(run_date + timedelta(minutes=55))
         trigger = DateTrigger(run_date=fire_date, timezone=eastern)
