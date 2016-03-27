@@ -44,14 +44,13 @@ Documentation can be found `here <http://readthedocs.org/docs/apscheduler/en/lat
 Source
 ------
 
-The source can be browsed at `Bitbucket <http://bitbucket.org/agronholm/apscheduler/src/>`_.
+The source can be browsed at `Github <https://github.com/agronholm/apscheduler>`_.
 
 
 Reporting bugs
 --------------
 
-A `bug tracker <https://bitbucket.org/agronholm/apscheduler/issues?status-new&status-open>`_
-is provided by bitbucket.org.
+A `bug tracker <https://github.com/agronholm/apscheduler/issues>`_ is provided by Github.
 
 
 Getting help

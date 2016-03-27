@@ -25,4 +25,4 @@ QtScheduler lets you integrate APScheduler with your `PySide <https://en.wikiped
      - PySide or PyQt
    * - Example
      - ``examples/schedulers/qt.py``
-       (`view online <https://bitbucket.org/agronholm/apscheduler/src/master/examples/schedulers/qt.py>`_).
+       (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/qt.py>`_).

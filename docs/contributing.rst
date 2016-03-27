@@ -9,14 +9,14 @@ changes accepted. This is to maintain the high quality of the code base.
 Contribution Process
 ====================
 
-1. Fork the project on BitBucket
+1. Fork the project on Github
 2. Clone the fork to your local machine
 3. Make the changes to the project
 4. Run the test suite with tox (if you changed any code)
 5. Repeat steps 3-4 until the test suite passes
 6. Commit if you haven't already
-7. Push the changes to your BitBucket fork
-8. Make a pull request on BitBucket
+7. Push the changes to your Github fork
+8. Make a pull request on Github
 
 There is no need to update the change log -- this will be done prior to the next release at the latest.
 Should the test suite fail even before your changes (which should be rare), make sure you're at least not adding to the

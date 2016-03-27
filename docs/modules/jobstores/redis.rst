@@ -22,4 +22,4 @@ RedisJobStore stores jobs in a `redis <http://redis.io/>`_ database.
      - `redis <https://pypi.python.org/pypi/redis/>`_
    * - Example
      - ``examples/jobstores/redis_.py``
-       (`view online <https://bitbucket.org/agronholm/apscheduler/src/master/examples/jobstores/redis_.py>`_).
+       (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/jobstores/redis_.py>`_).

@@ -27,4 +27,4 @@ BlockingScheduler can be useful if you want to use APScheduler as a standalone s
      - none
    * - Example
      - ``examples/schedulers/blocking.py``
-       (`view online <https://bitbucket.org/agronholm/apscheduler/src/master/examples/schedulers/blocking.py>`_).
+       (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/blocking.py>`_).

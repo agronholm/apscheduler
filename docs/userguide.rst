@@ -24,7 +24,7 @@ Code examples
 
 The source distribution contains the :file:`examples` directory where you can find many working examples for using
 APScheduler in different ways. The examples can also be
-`browsed online <https://bitbucket.org/agronholm/apscheduler/src/master/examples/?at=master>`_.
+`browsed online <https://github.com/agronholm/apscheduler/tree/master/examples/?at=master>`_.
 
 
 Basic concepts
