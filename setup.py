@@ -17,7 +17,7 @@ setup(
     long_description=readme,
     author='Alex Gronholm',
     author_email='apscheduler@nextday.fi',
-    url='http://pypi.python.org/pypi/APScheduler/',
+    url='https://github.com/agronholm/apscheduler',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',

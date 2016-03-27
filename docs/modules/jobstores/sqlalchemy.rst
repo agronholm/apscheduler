@@ -25,4 +25,4 @@ connection URL.
      - `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy/>`_ (+ the backend specific driver package)
    * - Example
      - ``examples/jobstores/sqlalchemy_.py``
-       (`view online <https://bitbucket.org/agronholm/apscheduler/src/master/examples/jobstores/sqlalchemy_.py>`_).
+       (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/jobstores/sqlalchemy_.py>`_).

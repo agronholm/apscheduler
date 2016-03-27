@@ -22,4 +22,4 @@ MongoDBJobStore stores jobs in a `MongoDB <http://www.mongodb.com/>`_ database.
      - `pymongo <https://pypi.python.org/pypi/pymongo/>`_
    * - Example
      - ``examples/jobstores/mongodb.py``
-       (`view online <https://bitbucket.org/agronholm/apscheduler/src/master/examples/jobstores/mongodb.py>`_).
+       (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/jobstores/mongodb.py>`_).
