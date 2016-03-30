@@ -4,8 +4,9 @@ from uuid import uuid4
 import six
 
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name, check_callable_args, \
-    convert_to_datetime
+from apscheduler.util import (
+    ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name, check_callable_args,
+    convert_to_datetime)
 
 
 class Job(object):

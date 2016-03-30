@@ -121,7 +121,9 @@ def test_private_modify_func_ref(job):
 def test_private_modify_unreachable_func(job):
     """Tests that func_ref remains None if no reference to the target callable can be found."""
 
-    func = lambda: None
+    def func():
+        pass
+
     job._modify(func=func)
     assert job.func is func
     assert job.func_ref is None

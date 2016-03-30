@@ -281,7 +281,8 @@ if six.PY2:
             return string.encode('ascii', 'backslashreplace')
         return string
 else:
-    repr_escape = lambda string: string
+    def repr_escape(string):
+        return string
 
 
 def check_callable_args(func, args, kwargs):
