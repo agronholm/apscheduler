@@ -16,7 +16,7 @@ setup(
     },
     description='In-process task scheduler with Cron-like capabilities',
     long_description=readme,
-    author='Alex Gronholm',
+    author=u'Alex Grönholm',
     author_email='apscheduler@nextday.fi',
     url='https://github.com/agronholm/apscheduler',
     classifiers=[
