@@ -18,6 +18,11 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Added method chaining to the ``modify_job()``, ``reschedule_job()``, ``pause_job()`` and
    ``resume_job()`` methods in ``BaseScheduler`` and the corresponding methods in the ``Job`` class
 
+* Added the EVENT_JOB_SUBMITTED event that indicates a job has been submitted to its executor.
+
+* Added the EVENT_JOB_MAX_INSTANCES event that indicates a job's execution was skipped due to its
+  maximum number of concurrently running instances being reached
+
 
 3.0.6
 -----

@@ -13,6 +13,10 @@ API
     :members:
     :show-inheritance:
 
+.. autoclass:: JobSubmissionEvent
+    :members:
+    :show-inheritance:
+
 .. autoclass:: JobExecutionEvent
     :members:
     :show-inheritance:
@@ -59,6 +63,13 @@ The following event codes are numeric constants importable from :mod:`apschedule
   * - EVENT_JOB_MODIFIED
     - A job was modified from outside the scheduler
     - :class:`JobEvent`
+  * - EVENT_JOB_SUBMITTED
+    - A job was submitted to its executor to be run
+    - :class:`JobSubmissionEvent`
+  * - EVENT_JOB_MAX_INSTANCES
+    - A job being submitted to its executor was not accepted by the executor because the job has
+      already reached its maximum concurrently executing instances
+    - :class:`JobSubmissionEvent`
   * - EVENT_JOB_EXECUTED
     - A job was executed successfully
     - :class:`JobExecutionEvent`

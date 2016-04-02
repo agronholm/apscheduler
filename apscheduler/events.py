@@ -18,9 +18,12 @@ EVENT_JOB_MODIFIED = 512
 EVENT_JOB_EXECUTED = 1024
 EVENT_JOB_ERROR = 2048
 EVENT_JOB_MISSED = 4096
+EVENT_JOB_SUBMITTED = 8192
+EVENT_JOB_MAX_INSTANCES = 16384
 EVENT_ALL = (EVENT_SCHEDULER_START | EVENT_SCHEDULER_SHUTDOWN | EVENT_JOBSTORE_ADDED |
              EVENT_JOBSTORE_REMOVED | EVENT_JOB_ADDED | EVENT_JOB_REMOVED | EVENT_JOB_MODIFIED |
-             EVENT_JOB_EXECUTED | EVENT_JOB_ERROR | EVENT_JOB_MISSED)
+             EVENT_JOB_EXECUTED | EVENT_JOB_ERROR | EVENT_JOB_MISSED | EVENT_JOB_SUBMITTED |
+             EVENT_JOB_MAX_INSTANCES)
 
 
 class SchedulerEvent(object):
@@ -56,9 +59,21 @@ class JobEvent(SchedulerEvent):
         self.jobstore = jobstore
 
 
+class JobSubmissionEvent(JobEvent):
+    """
+    An event that concerns the submission of a job to its executor.
+
+    :ivar scheduled_run_times: a list of datetimes when the job was intended to run
+    """
+
+    def __init__(self, code, job_id, jobstore, scheduled_run_times):
+        super(JobSubmissionEvent, self).__init__(code, job_id, jobstore)
+        self.scheduled_run_times = scheduled_run_times
+
+
 class JobExecutionEvent(JobEvent):
     """
-    An event that concerns the execution of individual jobs.
+    An event that concerns the running of a job within its executor.
 
     :ivar scheduled_run_time: the time when the job was scheduled to be run
     :ivar retval: the return value of the successfully executed job
