@@ -1,6 +1,0 @@
-include README.rst
-include LICENSE.txt
-include tox.ini
-recursive-include tests *.py
-recursive-include examples *.py
-recursive-include docs *.rst *.py

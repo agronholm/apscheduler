@@ -9,12 +9,6 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added RethinkDB job store (contributed by Allen Sanabria)
 
-* Dropped official support for CPython 2.6 and 3.2 and PyPy3
-
-* Moved the connection logic in database backed job stores to the ``start()`` method
-
-* Fixed rare race condition on scheduler ``shutdown()``
-
 * Added method chaining to the ``modify_job()``, ``reschedule_job()``, ``pause_job()`` and
    ``resume_job()`` methods in ``BaseScheduler`` and the corresponding methods in the ``Job`` class
 
@@ -24,6 +18,18 @@ APScheduler, see the :doc:`migration section <migration>`.
   maximum number of concurrently running instances being reached
 
 * Added the time zone to the  repr() output of ``CronTrigger`` and ``IntervalTrigger``
+
+* Fixed rare race condition on scheduler ``shutdown()``
+
+* Dropped official support for CPython 2.6 and 3.2 and PyPy3
+
+* Moved the connection logic in database backed job stores to the ``start()`` method
+
+* Migrated to setuptools_scm for versioning
+
+* Deprecated the various version related variables in the ``apscheduler`` module
+  (``apscheduler.version_info``, ``apscheduler.version``, ``apscheduler.release``,
+  ``apscheduler.__version__``)
 
 
 3.0.6

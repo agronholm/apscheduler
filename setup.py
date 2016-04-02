@@ -3,8 +3,6 @@ import os.path
 
 from setuptools import setup, find_packages
 
-import apscheduler
-
 
 here = os.path.dirname(__file__)
 readme_path = os.path.join(here, 'README.rst')
@@ -12,7 +10,10 @@ readme = open(readme_path).read()
 
 setup(
     name='APScheduler',
-    version=apscheduler.release,
+    use_scm_version={
+        'version_scheme': 'post-release',
+        'local_scheme': 'dirty-tag'
+    },
     description='In-process task scheduler with Cron-like capabilities',
     long_description=readme,
     author='Alex Gronholm',
@@ -32,6 +33,9 @@ setup(
     keywords='scheduling cron',
     license='MIT',
     packages=find_packages(exclude=['tests']),
+    setup_requires=[
+        'setuptools_scm'
+    ],
     install_requires=[
         'setuptools >= 0.7',
         'six >= 1.4.0',
