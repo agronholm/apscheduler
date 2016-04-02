@@ -63,5 +63,5 @@ class IntervalTrigger(BaseTrigger):
         return 'interval[%s]' % str(self.interval)
 
     def __repr__(self):
-        return "<%s (interval=%r, start_date='%s')>" % (self.__class__.__name__, self.interval,
-                                                        datetime_repr(self.start_date))
+        return "<%s (interval=%r, start_date='%s', timezone='%s')>" % (
+            self.__class__.__name__, self.interval, datetime_repr(self.start_date), self.timezone)

@@ -23,6 +23,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Added the EVENT_JOB_MAX_INSTANCES event that indicates a job's execution was skipped due to its
   maximum number of concurrently running instances being reached
 
+* Added the time zone to the  repr() output of ``CronTrigger`` and ``IntervalTrigger``
+
 
 3.0.6
 -----

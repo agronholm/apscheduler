@@ -176,4 +176,5 @@ class CronTrigger(BaseTrigger):
         options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
         if self.start_date:
             options.append("start_date='%s'" % datetime_repr(self.start_date))
-        return '<%s (%s)>' % (self.__class__.__name__, ', '.join(options))
+        return "<%s (%s, timezone='%s')>" % (
+            self.__class__.__name__, ', '.join(options), self.timezone)
