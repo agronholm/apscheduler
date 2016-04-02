@@ -34,6 +34,13 @@ APScheduler also integrates with several common Python frameworks, like:
 
 .. [#f1] The cutoff period for this is also configurable.
 
+.. image:: https://travis-ci.org/agronholm/apscheduler.svg?branch=master
+  :target: https://travis-ci.org/agronholm/apscheduler
+  :alt: Build Status
+.. image:: https://coveralls.io/repos/github/agronholm/apscheduler/badge.svg?branch=master
+  :target: https://coveralls.io/github/agronholm/apscheduler?branch=master
+  :alt: Code Coverage
+
 
 Documentation
 -------------
