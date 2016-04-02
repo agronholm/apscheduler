@@ -13,10 +13,6 @@ python:
   - "3.5"
   - "pypy"
 
-matrix:
-  allow_failures:
-    - python: pypy
-
 before_install:
   - docker pull mongo:latest
   - docker pull rethinkdb:latest
