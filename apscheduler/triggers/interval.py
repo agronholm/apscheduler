@@ -1,7 +1,6 @@
 from datetime import timedelta, datetime
 from math import ceil
 
-import six
 from tzlocal import get_localzone
 
 from apscheduler.triggers.base import BaseTrigger
