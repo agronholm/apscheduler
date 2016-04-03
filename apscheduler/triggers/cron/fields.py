@@ -67,6 +67,9 @@ class BaseField(object):
 
         raise ValueError('Unrecognized expression "%s" for field "%s"' % (expr, self.name))
 
+    def __eq__(self, other):
+        return isinstance(self, self.__class__) and self.expressions == other.expressions
+
     def __str__(self):
         expr_strings = (str(e) for e in self.expressions)
         return ','.join(expr_strings)

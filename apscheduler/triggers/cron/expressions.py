@@ -35,6 +35,9 @@ class AllExpression(object):
         if next <= maxval:
             return next
 
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.step == other.step
+
     def __str__(self):
         if self.step:
             return '*/%d' % self.step
@@ -78,6 +81,10 @@ class RangeExpression(AllExpression):
 
         if next <= maxval:
             return next
+
+        def __eq__(self, other):
+            return (isinstance(other, self.__class__) and self.first == other.first and
+                    self.last == other.last)
 
     def __str__(self):
         if self.last != self.first and self.last is not None:
@@ -162,6 +169,10 @@ class WeekdayPositionExpression(AllExpression):
 
         if target_day <= last_day and target_day >= date.day:
             return target_day
+
+    def __eq__(self, other):
+        return (super(WeekdayPositionExpression, self).__eq__(other) and
+                self.option_num == other.option_num and self.weekday == other.weekday)
 
     def __str__(self):
         return '%s %s' % (self.options[self.option_num], WEEKDAYS[self.weekday])

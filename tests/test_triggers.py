@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+import pickle
+from datetime import datetime, timedelta, date
 
 import pytest
 import pytz
@@ -213,6 +214,17 @@ class TestCronTrigger(object):
         correct_next_date = est.localize(datetime(2009, 9, 26, 11, 20))
         assert str(trigger.get_next_fire_time(None, start_date)) == str(correct_next_date)
 
+    def test_pickle(self, timezone):
+        """Test that the trigger is pickleable."""
+
+        trigger = CronTrigger(year=2016, month='5-6', day='20-28', hour=7, minute=25, second='*',
+                              timezone=timezone)
+        data = pickle.dumps(trigger, 2)
+        trigger2 = pickle.loads(data)
+
+        for attr in CronTrigger.__slots__:
+            assert getattr(trigger2, attr) == getattr(trigger, attr)
+
 
 class TestDateTrigger(object):
     @pytest.mark.parametrize('run_date,alter_tz,previous,now,expected', [
@@ -253,6 +265,14 @@ class TestDateTrigger(object):
     def test_str(self, timezone):
         trigger = DateTrigger(datetime(2009, 7, 6), timezone)
         assert str(trigger) == "date[2009-07-06 00:00:00 CEST]"
+
+    def test_pickle(self, timezone):
+        """Test that the trigger is pickleable."""
+
+        trigger = DateTrigger(date(2016, 4, 3), timezone=timezone)
+        data = pickle.dumps(trigger, 2)
+        trigger2 = pickle.loads(data)
+        assert trigger2.run_date == trigger.run_date
 
 
 class TestIntervalTrigger(object):
@@ -324,3 +344,14 @@ class TestIntervalTrigger(object):
 
     def test_str(self, trigger):
         assert str(trigger) == "interval[0:00:01]"
+
+    def test_pickle(self, timezone):
+        """Test that the trigger is pickleable."""
+
+        trigger = IntervalTrigger(weeks=2, days=6, minutes=13, seconds=2,
+                                  start_date=date(2016, 4, 3), timezone=timezone)
+        data = pickle.dumps(trigger, 2)
+        trigger2 = pickle.loads(data)
+
+        for attr in IntervalTrigger.__slots__:
+            assert getattr(trigger2, attr) == getattr(trigger, attr)
