@@ -4,6 +4,12 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.1.1
+-----
+
+* Fixed pickling problems with persistent jobs when upgrading from 3.0.x
+
+
 3.1.0
 -----
 

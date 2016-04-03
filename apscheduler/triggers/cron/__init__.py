@@ -168,6 +168,30 @@ class CronTrigger(BaseTrigger):
         if fieldnum >= 0:
             return next_date
 
+    def __getstate__(self):
+        return {
+            'version': 1,
+            'timezone': self.timezone,
+            'start_date': self.start_date,
+            'end_date': self.end_date,
+            'fields': self.fields
+        }
+
+    def __setstate__(self, state):
+        # This is for compatibility with APScheduler 3.0.x
+        if isinstance(state, tuple):
+            state = state[1]
+
+        if state.get('version', 1) > 1:
+            raise ValueError(
+                'Got serialized data for version %s of %s, but only version 1 can be handled' %
+                (state['version'], self.__class__.__name__))
+
+        self.timezone = state['timezone']
+        self.start_date = state['start_date']
+        self.end_date = state['end_date']
+        self.fields = state['fields']
+
     def __str__(self):
         options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
         return 'cron[%s]' % (', '.join(options))

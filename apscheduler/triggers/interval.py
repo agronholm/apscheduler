@@ -1,6 +1,7 @@
 from datetime import timedelta, datetime
 from math import ceil
 
+import six
 from tzlocal import get_localzone
 
 from apscheduler.triggers.base import BaseTrigger
@@ -58,6 +59,31 @@ class IntervalTrigger(BaseTrigger):
 
         if not self.end_date or next_fire_time <= self.end_date:
             return self.timezone.normalize(next_fire_time)
+
+    def __getstate__(self):
+        return {
+            'version': 1,
+            'timezone': self.timezone,
+            'start_date': self.start_date,
+            'end_date': self.end_date,
+            'interval': self.interval
+        }
+
+    def __setstate__(self, state):
+        # This is for compatibility with APScheduler 3.0.x
+        if isinstance(state, tuple):
+            state = state[1]
+
+        if state.get('version', 1) > 1:
+            raise ValueError(
+                'Got serialized data for version %s of %s, but only version 1 can be handled' %
+                (state['version'], self.__class__.__name__))
+
+        self.timezone = state['timezone']
+        self.start_date = state['start_date']
+        self.end_date = state['end_date']
+        self.interval = state['interval']
+        self.interval_length = timedelta_seconds(self.interval)
 
     def __str__(self):
         return 'interval[%s]' % str(self.interval)

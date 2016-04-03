@@ -23,6 +23,24 @@ class DateTrigger(BaseTrigger):
     def get_next_fire_time(self, previous_fire_time, now):
         return self.run_date if previous_fire_time is None else None
 
+    def __getstate__(self):
+        return {
+            'version': 1,
+            'run_date': self.run_date
+        }
+
+    def __setstate__(self, state):
+        # This is for compatibility with APScheduler 3.0.x
+        if isinstance(state, tuple):
+            state = state[1]
+
+        if state.get('version', 1) > 1:
+            raise ValueError(
+                'Got serialized data for version %s of %s, but only version 1 can be handled' %
+                (state['version'], self.__class__.__name__))
+
+        self.run_date = state['run_date']
+
     def __str__(self):
         return 'date[%s]' % datetime_repr(self.run_date)
 
