@@ -9,6 +9,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Fixed pickling problems with persistent jobs when upgrading from 3.0.x
 
+* Fixed AttributeError when importing apscheduler with setuptools < 11.0
+
 
 3.1.0
 -----
