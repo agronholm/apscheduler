@@ -1,12 +1,13 @@
 .project
 .pydevproject
 .idea/
-docs/_build/
+.coverage
+.cache/
+.tox/
 *.egg-info/
 *.pyc
 dist/
-.tox/
+docs/_build/
 build/
-.coverage
-.cache/
+virtualenv/
 example.sqlite
