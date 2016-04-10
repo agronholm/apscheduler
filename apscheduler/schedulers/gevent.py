@@ -16,14 +16,14 @@ class GeventScheduler(BlockingScheduler):
 
     _greenlet = None
 
-    def start(self):
+    def start(self, *args, **kwargs):
         self._event = Event()
-        BaseScheduler.start(self)
+        BaseScheduler.start(self, *args, **kwargs)
         self._greenlet = gevent.spawn(self._main_loop)
         return self._greenlet
 
-    def shutdown(self, wait=True):
-        super(GeventScheduler, self).shutdown(wait)
+    def shutdown(self, *args, **kwargs):
+        super(GeventScheduler, self).shutdown(*args, **kwargs)
         self._greenlet.join()
         del self._greenlet
 

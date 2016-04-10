@@ -4,12 +4,17 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
-3.1.1
+3.2.0
 -----
+
+* Added the ability to pause and unpause the scheduler
 
 * Fixed pickling problems with persistent jobs when upgrading from 3.0.x
 
 * Fixed AttributeError when importing apscheduler with setuptools < 11.0
+
+* Fixed some events missing from ``apscheduler.events.__all__`` and
+  ``apscheduler.events.EVENTS_ALL``
 
 
 3.1.0

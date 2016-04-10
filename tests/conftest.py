@@ -35,9 +35,12 @@ def maxpython(*version):
     return outer
 
 
-@pytest.fixture(scope='session')
-def timezone():
-    return pytz.timezone('Europe/Berlin')
+@pytest.fixture
+def timezone(monkeypatch):
+    tz = pytz.timezone('Europe/Berlin')
+    monkeypatch.setattr('apscheduler.schedulers.base.get_localzone',
+                        Mock(return_value=tz))
+    return tz
 
 
 @pytest.fixture
@@ -71,7 +74,7 @@ def freeze_time(monkeypatch, timezone):
     return freezer
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture
 def job_defaults(timezone):
     run_date = timezone.localize(datetime(2011, 4, 3, 18, 40))
     return {'trigger': 'date', 'trigger_args': {'run_date': run_date, 'timezone': timezone},
@@ -80,7 +83,7 @@ def job_defaults(timezone):
             'coalesce': False, 'name': b'n\xc3\xa4m\xc3\xa9'.decode('utf-8'), 'max_instances': 1}
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture
 def create_job(job_defaults, timezone):
     def create(**kwargs):
         kwargs.setdefault('scheduler', Mock(BaseScheduler, timezone=timezone))

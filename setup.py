@@ -40,10 +40,11 @@ setup(
         'setuptools >= 11',
         'six >= 1.4.0',
         'pytz',
-        'tzlocal >= 1.2'
+        'tzlocal >= 1.2',
     ],
     extras_require={
-        ':python_version == "2.7"': ['futures', 'funcsigs']
+        ':python_version == "2.7"': ['futures', 'funcsigs', 'enum34 >= 1.1.2'],
+        ':python_version == "3.3"': ['enum34 >= 1.1.2']
     },
     zip_safe=False,
     entry_points={
