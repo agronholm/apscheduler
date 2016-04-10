@@ -35,10 +35,6 @@ class AsyncIOScheduler(BaseScheduler):
     _eventloop = None
     _timeout = None
 
-    def start(self):
-        super(AsyncIOScheduler, self).start()
-        self.wakeup()
-
     @run_in_event_loop
     def shutdown(self, wait=True):
         super(AsyncIOScheduler, self).shutdown(wait)

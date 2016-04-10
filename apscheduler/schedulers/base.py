@@ -105,7 +105,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         config.update(options)
         self._configure(config)
 
-    @abstractmethod
     def start(self):
         """
         Starts the scheduler.
@@ -146,6 +145,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Notify listeners that the scheduler has been started
         self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_START))
+
+        self.wakeup()
 
     @abstractmethod
     def shutdown(self, wait=True):

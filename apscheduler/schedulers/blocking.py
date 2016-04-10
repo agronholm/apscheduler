@@ -15,8 +15,8 @@ class BlockingScheduler(BaseScheduler):
     _event = None
 
     def start(self):
-        super(BlockingScheduler, self).start()
         self._event = Event()
+        super(BlockingScheduler, self).start()
         self._main_loop()
 
     def shutdown(self, wait=True):
@@ -24,10 +24,11 @@ class BlockingScheduler(BaseScheduler):
         self._event.set()
 
     def _main_loop(self):
+        wait_seconds = self.MAX_WAIT_TIME
         while self.running:
-            wait_seconds = self._process_jobs()
             self._event.wait(wait_seconds if wait_seconds is not None else self.MAX_WAIT_TIME)
             self._event.clear()
+            wait_seconds = self._process_jobs()
 
     def wakeup(self):
         self._event.set()

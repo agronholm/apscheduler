@@ -19,10 +19,6 @@ class QtScheduler(BaseScheduler):
 
     _timer = None
 
-    def start(self):
-        super(QtScheduler, self).start()
-        self.wakeup()
-
     def shutdown(self, wait=True):
         super(QtScheduler, self).shutdown(wait)
         self._stop_timer()

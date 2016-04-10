@@ -17,8 +17,8 @@ class GeventScheduler(BlockingScheduler):
     _greenlet = None
 
     def start(self):
-        BaseScheduler.start(self)
         self._event = Event()
+        BaseScheduler.start(self)
         self._greenlet = gevent.spawn(self._main_loop)
         return self._greenlet
 

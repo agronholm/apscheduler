@@ -943,12 +943,6 @@ class TestBlockingScheduler(SchedulerImplementationTestBase):
         from apscheduler.schedulers.blocking import BlockingScheduler
         return BlockingScheduler()
 
-    @pytest.fixture
-    def mock_event_scheduler(self, scheduler):
-        scheduler._event = MagicMock()
-        scheduler._event.clear.side_effect = StopIteration()
-        return scheduler
-
     @pytest.yield_fixture
     def start_scheduler(self, request, scheduler):
         thread = Thread(target=scheduler.start)
@@ -957,19 +951,6 @@ class TestBlockingScheduler(SchedulerImplementationTestBase):
         if scheduler.running:
             scheduler.shutdown()
         thread.join()
-
-    @pytest.mark.parametrize('wait_seconds,expected_wait', [[0, 0], [None, 4294967], [728, 728]],
-                             ids=['zero', 'none', 'positive'])
-    def test_main_loop_wait_seconds_zero(self, mock_event_scheduler, wait_seconds, expected_wait):
-        """Tests that _main_loop() correctly handles the condition where `wait_seconds` is 0."""
-        mock_event_scheduler._process_jobs = MagicMock(return_value=wait_seconds)
-        mock_event_scheduler._stopped = False
-        try:  # We need this to break out of the infinite while loop
-            mock_event_scheduler._main_loop()
-        except StopIteration:
-            pass
-
-        mock_event_scheduler._event.wait.assert_called_with(expected_wait)
 
 
 class TestBackgroundScheduler(SchedulerImplementationTestBase):

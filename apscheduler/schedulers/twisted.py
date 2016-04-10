@@ -35,10 +35,6 @@ class TwistedScheduler(BaseScheduler):
         self._reactor = maybe_ref(config.pop('reactor', default_reactor))
         super(TwistedScheduler, self)._configure(config)
 
-    def start(self):
-        super(TwistedScheduler, self).start()
-        self.wakeup()
-
     @run_in_reactor
     def shutdown(self, wait=True):
         super(TwistedScheduler, self).shutdown(wait)
