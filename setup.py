@@ -37,7 +37,7 @@ setup(
         'setuptools_scm'
     ],
     install_requires=[
-        'setuptools >= 11',
+        'setuptools >= 0.7',
         'six >= 1.4.0',
         'pytz',
         'tzlocal >= 1.2',
