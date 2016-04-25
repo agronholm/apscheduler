@@ -82,9 +82,9 @@ class TestCronTrigger(object):
 
     def test_previous_fire_time_3(self, timezone):
         trigger = CronTrigger(day="*", timezone=timezone)
-        previous_fire_time = timezone.localize(datetime(2016, 04, 25))
-        now = timezone.localize(datetime(2016, 04, 25))
-        correct_next_date = timezone.localize(datetime(2016, 04, 26))
+        previous_fire_time = timezone.localize(datetime(2016, 4, 25))
+        now = timezone.localize(datetime(2016, 4, 25))
+        correct_next_date = timezone.localize(datetime(2016, 4, 26))
         assert trigger.get_next_fire_time(previous_fire_time, now) == correct_next_date
 
     def test_cron_weekday_overlap(self, timezone):
