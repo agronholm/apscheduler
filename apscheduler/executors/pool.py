@@ -1,7 +1,7 @@
-from abc import abstractmethod
 import concurrent.futures
+from abc import abstractmethod
 
-from apscheduler.executors.base import BaseExecutor, run_job
+from apscheduler.executors.base import BaseExecutor
 
 
 class BasePoolExecutor(BaseExecutor):
@@ -19,7 +19,7 @@ class BasePoolExecutor(BaseExecutor):
             else:
                 self._run_job_success(job.id, f.result())
 
-        f = self._pool.submit(run_job, job, job._jobstore_alias, run_times, self._logger.name)
+        f = self._pool.submit(self._job_runtime, job, run_times)
         f.add_done_callback(callback)
 
     def shutdown(self, wait=True):
