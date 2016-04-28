@@ -136,7 +136,7 @@ def job_runtime(job, run_times, logger_name, jobstore_alias, run_job_func=run_jo
                                                 run_time))
                 logger.warning('Run time of job "%s" was missed by %s', job, difference)
                 continue
-            events.append(run_job_func(job, run_time, logger_name))
+            events.append(run_job_func(job, run_time, logger_name, jobstore_alias))
 
         logger.info('Running job "%s" (scheduled at %s)', job, run_time)
 
