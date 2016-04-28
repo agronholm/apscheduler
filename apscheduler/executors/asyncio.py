@@ -1,11 +1,23 @@
 from __future__ import absolute_import
 
-import asyncio
 import sys
 from traceback import format_tb
 
+try:
+    import asyncio
+
+    real_asyncio = True
+except ImportError:  # pragma: nocover
+    try:
+        import trollius as asyncio
+
+        real_asyncio = False
+    except ImportError:
+        raise ImportError(
+            'AsyncIOScheduler requires either Python 3.4 or the asyncio/trollius package installed')
+
 from apscheduler.events import JobExecutionEvent, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
-from apscheduler.executors.base import BaseExecutor
+from apscheduler.executors.base import BaseExecutor, job_runtime
 
 
 class AsyncIOExecutor(BaseExecutor):
@@ -31,29 +43,54 @@ class AsyncIOExecutor(BaseExecutor):
             else:
                 self._run_job_success(job.id, events)
 
-        events = self._job_runtime(job, run_times)
-        future_events = []
-        for event in events:
-            if not (isinstance(event, asyncio.Future) or asyncio.iscoroutine(event)):
-                future = asyncio.Future()
-                future.set_result(event)
-                future_events.append(future)
-            else:
-                future_events.append(event)
-        future = asyncio.gather(*events)
+        if not asyncio.iscoroutinefunction(job.func):
+            future = self._eventloop.run_in_executor(None, job_runtime, job, run_times, self._logger.name)
+        else:
+            events = job_runtime(job, run_times, self._logger.name, self._run_job)
+            future_events = []
+            for event in events:
+                if not (isinstance(event, asyncio.Future) or asyncio.iscoroutine(event)):
+                    future = asyncio.Future()
+                    future.set_result(event)
+                    future_events.append(future)
+                else:
+                    future_events.append(event)
+            future = asyncio.gather(*events)
         future.add_done_callback(callback)
 
-    @asyncio.coroutine
-    def _run_job(self, job, run_time):
-        """Actual implementation of calling the job function"""
-        try:
-            retval = yield from job.func(*job.args, **job.kwargs)
-        except:
-            exc, tb = sys.exc_info()[1:]
-            formatted_tb = ''.join(format_tb(tb))
-            self._logger.exception('Job "%s" raised an exception', job)
-            return JobExecutionEvent(EVENT_JOB_ERROR, job.id, job._jobstore_alias, run_time,
-                                     exception=exc, traceback=formatted_tb)
-        else:
-            self._logger.info('Job "%s" executed successfully', job)
-            return JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, job._jobstore_alias, run_time, retval=retval)
+    if real_asyncio:
+        @asyncio.coroutine
+        def _run_job(self, job, run_time):
+            """Actual implementation of calling the job function"""
+            try:
+                for v in job.func(*job.args, **job.kwargs):
+                    retval = yield v
+            except:
+                exc, tb = sys.exc_info()[1:]
+                formatted_tb = ''.join(format_tb(tb))
+                self._logger.exception('Job "%s" raised an exception', job)
+                return JobExecutionEvent(EVENT_JOB_ERROR, job.id, job._jobstore_alias, run_time,
+                                         exception=exc, traceback=formatted_tb)
+            else:
+                self._logger.info('Job "%s" executed successfully', job)
+                return JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, job._jobstore_alias, run_time, retval=retval)
+    else:
+        @asyncio.coroutine
+        def _run_job(self, job, run_time):
+            """Actual implementation of calling the job function"""
+            try:
+                retval = yield asyncio.From(job.func(*job.args, **job.kwargs))
+            except:
+                exc, tb = sys.exc_info()[1:]
+                formatted_tb = ''.join(format_tb(tb))
+                self._logger.exception('Job "%s" raised an exception', job)
+                raise asyncio.Return(
+                    JobExecutionEvent(EVENT_JOB_ERROR, job.id, job._jobstore_alias, run_time,
+                                      exception=exc, traceback=formatted_tb)
+                )
+            else:
+                self._logger.info('Job "%s" executed successfully', job)
+                raise asyncio.Return(
+                    JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, job._jobstore_alias, run_time,
+                                      retval=retval)
+                )
