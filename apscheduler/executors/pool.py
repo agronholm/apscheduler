@@ -19,7 +19,7 @@ class BasePoolExecutor(BaseExecutor):
             else:
                 self._run_job_success(job.id, f.result())
 
-        f = self._pool.submit(job_runtime, job, run_times, self._logger.name)
+        f = self._pool.submit(job_runtime, job, run_times, self._logger.name, job._jobstore_alias)
         f.add_done_callback(callback)
 
     def shutdown(self, wait=True):

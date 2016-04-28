@@ -102,7 +102,7 @@ class FauxJob(object):
     _jobstore_alias = 'foo'
 
 
-def dummy_run_job(job, jobstore_alias, run_times, logger_name):
+def dummy_job_runtime(job, jobstore_alias, run_times, logger_name):
     raise Exception('dummy')
 
 
@@ -115,8 +115,8 @@ def test_run_job_error(monkeypatch, executor):
 
     event = Event()
     exc_traceback = [None, None]
-    monkeypatch.setattr('apscheduler.executors.base.run_job', dummy_run_job)
-    monkeypatch.setattr('apscheduler.executors.pool.run_job', dummy_run_job)
+    monkeypatch.setattr('apscheduler.executors.base.job_runtime', dummy_job_runtime)
+    monkeypatch.setattr('apscheduler.executors.pool.job_runtime', dummy_job_runtime)
     monkeypatch.setattr(executor, '_run_job_error', run_job_error)
     executor.submit_job(FauxJob(), [])
 
