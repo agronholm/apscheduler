@@ -44,10 +44,12 @@ class AsyncIOExecutor(BaseExecutor):
                 self._run_job_success(job.id, events)
 
         if not asyncio.iscoroutinefunction(job.func):
-            future = self._eventloop.run_in_executor(None, job_runtime, job, run_times, job._jobstore_alias,
+            future = self._eventloop.run_in_executor(None, job_runtime, job, run_times,
+                                                     job._jobstore_alias,
                                                      self._logger.name)
         else:
-            events = job_runtime(job, run_times, self._logger.name, job._jobstore_alias, self._run_job)
+            events = job_runtime(job, run_times, self._logger.name, job._jobstore_alias,
+                                 self._run_job)
             future_events = []
             for event in events:
                 if not (isinstance(event, asyncio.Future) or asyncio.iscoroutine(event)):
@@ -74,7 +76,8 @@ class AsyncIOExecutor(BaseExecutor):
                                          exception=exc, traceback=formatted_tb)
             else:
                 self._logger.info('Job "%s" executed successfully', job)
-                return JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time, retval=retval)
+                return JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
+                                         retval=retval)
     else:
         @asyncio.coroutine
         def _run_job(self, job, run_time, jobstore_alias, logger_name):

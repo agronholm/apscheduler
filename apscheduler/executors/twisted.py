@@ -21,5 +21,7 @@ class TwistedExecutor(BaseExecutor):
             else:
                 self._run_job_error(job.id, result.value, result.tb)
 
-        self._reactor.getThreadPool() \
-            .callInThreadWithCallback(callback, job_runtime, job, run_times, self._logger.name, job._jobstore_alias)
+        self._reactor \
+            .getThreadPool() \
+            .callInThreadWithCallback(callback, job_runtime, job, run_times, self._logger.name,
+                                      job._jobstore_alias)
