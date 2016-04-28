@@ -60,7 +60,7 @@ class AsyncIOExecutor(BaseExecutor):
 
     if real_asyncio:
         @asyncio.coroutine
-        def _run_job(self, job, run_time):
+        def _run_job(self, job, run_time, logger_name):
             """Actual implementation of calling the job function"""
             try:
                 for v in job.func(*job.args, **job.kwargs):
@@ -76,7 +76,7 @@ class AsyncIOExecutor(BaseExecutor):
                 return JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, job._jobstore_alias, run_time, retval=retval)
     else:
         @asyncio.coroutine
-        def _run_job(self, job, run_time):
+        def _run_job(self, job, run_time, logger_name):
             """Actual implementation of calling the job function"""
             try:
                 retval = yield asyncio.From(job.func(*job.args, **job.kwargs))
