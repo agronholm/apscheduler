@@ -113,7 +113,8 @@ def run_job(job, run_time, logger_name):
                                  exception=exc, traceback=formatted_tb)
     else:
         logger.info('Job "%s" executed successfully', job)
-        JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, job._jobstore_alias, run_time, retval=retval)
+        return JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, job._jobstore_alias, run_time,
+                                 retval=retval)
 
 
 def job_runtime(job, run_times, logger_name, run_job_func=run_job):
