@@ -1,5 +1,4 @@
 import datetime
-import json
 import pickle
 import warnings
 
@@ -7,7 +6,6 @@ from apscheduler.job import Job
 from apscheduler.jobstores.base import BaseJobStore, ConflictingIdError, JobLookupError
 
 try:
-    import gcloud
     from gcloud import datastore as ds
 except ImportError:
     raise ImportError('GoogleDatastoreStore needs gcloud installed')
