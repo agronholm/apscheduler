@@ -98,7 +98,7 @@ class MongoDBJobStore(BaseJobStore):
         }
         result = self.collection.update({'_id': job.id}, {'$set': changes})
         if result and result['n'] == 0:
-            raise JobLookupError(id)
+            raise JobLookupError(job.id)
 
     def remove_job(self, job_id):
         result = self.collection.remove(job_id)
