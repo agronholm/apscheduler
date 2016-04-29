@@ -14,7 +14,8 @@ except ImportError:  # pragma: nocover
         real_asyncio = False
     except ImportError:
         raise ImportError(
-            'AsyncIOScheduler requires either Python 3.4 or the asyncio/trollius package installed')
+            'AsyncIOScheduler requires either Python 3.4 or the asyncio/trollius package installed'
+        )
 
 from apscheduler.events import JobExecutionEvent, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 from apscheduler.executors.base import BaseExecutor, job_runtime
