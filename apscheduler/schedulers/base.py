@@ -25,7 +25,8 @@ from apscheduler.events import (
     SchedulerEvent, JobEvent, JobSubmissionEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN,
     EVENT_JOBSTORE_ADDED, EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_JOB_MODIFIED, EVENT_JOB_REMOVED,
     EVENT_JOB_ADDED, EVENT_EXECUTOR_ADDED, EVENT_EXECUTOR_REMOVED, EVENT_ALL_JOBS_REMOVED,
-    EVENT_JOB_SUBMITTED, EVENT_JOB_MAX_INSTANCES, EVENT_SCHEDULER_RESUMED, EVENT_SCHEDULER_PAUSED)
+    EVENT_JOB_SUBMITTED, EVENT_JOB_MAX_INSTANCES, EVENT_SCHEDULER_RESUMED, EVENT_SCHEDULER_PAUSED,
+    EVENT_JOB_BEFORE_REMOVE)
 
 
 class SchedulerState(Enum):
@@ -590,6 +591,11 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 for alias, store in six.iteritems(self._jobstores):
                     if jobstore in (None, alias):
                         try:
+                            # Notify listeners that a job is going to remove
+                            event = JobEvent(EVENT_JOB_BEFORE_REMOVE, job_id, jobstore)
+                            self._dispatch_event(event)
+
+                            self._logger.info('Removing job %s', job_id)
                             store.remove_job(job_id)
                         except JobLookupError:
                             continue
