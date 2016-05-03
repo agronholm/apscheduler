@@ -578,6 +578,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :raises JobLookupError: if the job was not found
 
         """
+
+        self._logger.info('Removing job %s', job_id)
+
+        # Notify listeners that a job is going to remove
+        event = JobEvent(EVENT_JOB_BEFORE_REMOVE, job_id, jobstore)
+        self._dispatch_event(event)
+
         with self._jobstores_lock:
             # Check if the job is among the pending jobs
             for i, (job, jobstore_alias, replace_existing) in enumerate(self._pending_jobs):
@@ -591,11 +598,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 for alias, store in six.iteritems(self._jobstores):
                     if jobstore in (None, alias):
                         try:
-                            # Notify listeners that a job is going to remove
-                            event = JobEvent(EVENT_JOB_BEFORE_REMOVE, job_id, jobstore)
-                            self._dispatch_event(event)
-
-                            self._logger.info('Removing job %s', job_id)
                             store.remove_job(job_id)
                         except JobLookupError:
                             continue

@@ -19,7 +19,7 @@ from apscheduler.events import (
     EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_ALL_JOBS_REMOVED, EVENT_EXECUTOR_ADDED,
     EVENT_EXECUTOR_REMOVED, EVENT_JOB_MODIFIED, EVENT_JOB_REMOVED, EVENT_JOB_ADDED,
     EVENT_JOB_EXECUTED, EVENT_JOB_SUBMITTED, EVENT_JOB_MAX_INSTANCES, SchedulerEvent,
-    EVENT_SCHEDULER_PAUSED, EVENT_SCHEDULER_RESUMED)
+    EVENT_SCHEDULER_PAUSED, EVENT_SCHEDULER_RESUMED, EVENT_JOB_BEFORE_REMOVE)
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import undefined
 
@@ -540,9 +540,11 @@ class TestBaseScheduler(object):
             scheduler._jobstores['bar'].remove_job.assert_called_once_with('foo')
 
         assert len(scheduler._pending_jobs) == 0
-        assert scheduler._dispatch_event.call_count == 1
-        event = scheduler._dispatch_event.call_args[0][0]
-        assert event.code == EVENT_JOB_REMOVED
+        assert scheduler._dispatch_event.call_count == 2
+        event_job_before_remove = scheduler._dispatch_event.call_args_list[0][0][0]
+        event_job_after_removed = scheduler._dispatch_event.call_args_list[1][0][0]
+        assert event_job_before_remove.code == EVENT_JOB_BEFORE_REMOVE
+        assert event_job_after_removed.code == EVENT_JOB_REMOVED
 
     def test_remove_nonexistent_job(self, scheduler):
         pytest.raises(JobLookupError, scheduler.remove_job, 'foo')
@@ -943,6 +945,7 @@ class SchedulerImplementationTestBase(object):
         event = self.wait_event(eventqueue)
         assert event.code == EVENT_JOB_EXECUTED
         assert event.retval == 3
+        assert self.wait_event(eventqueue).code == EVENT_JOB_BEFORE_REMOVE
         assert self.wait_event(eventqueue).code == EVENT_JOB_REMOVED
 
     def test_add_live_job(self, scheduler, freeze_time, eventqueue, start_scheduler):
@@ -958,6 +961,7 @@ class SchedulerImplementationTestBase(object):
         event = self.wait_event(eventqueue)
         assert event.code == EVENT_JOB_EXECUTED
         assert event.retval == 3
+        assert self.wait_event(eventqueue).code == EVENT_JOB_BEFORE_REMOVE
         assert self.wait_event(eventqueue).code == EVENT_JOB_REMOVED
 
     def test_shutdown(self, scheduler, eventqueue, start_scheduler):
