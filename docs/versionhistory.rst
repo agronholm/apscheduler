@@ -18,6 +18,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Fixed wrong run time being set for date trigger when the timezone isn't the same as the local one
 
+* Fixed builtin ``id()`` erroneously used in MongoDBJobStore's ``JobLookupError()``
+
 
 3.1.0
 -----
