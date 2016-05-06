@@ -16,6 +16,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Fixed some events missing from ``apscheduler.events.__all__`` and
   ``apscheduler.events.EVENTS_ALL``
 
+* Fixed wrong run time being set for date trigger when the timezone isn't the same as the local one
+
 
 3.1.0
 -----

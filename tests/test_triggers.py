@@ -234,9 +234,13 @@ class TestDateTrigger(object):
         ('2009-7-6', None, None, datetime(2009, 9, 2), datetime(2009, 7, 6)),
         (datetime(2009, 7, 6), None, datetime(2009, 7, 6), datetime(2009, 9, 2), None),
         (datetime(2009, 7, 5, 22), pytz.FixedOffset(-60), datetime(2009, 7, 6),
-         datetime(2009, 7, 6), None)
-    ], ids=['earlier', 'exact', 'later', 'as text', 'previously fired', 'alternate timezone'])
-    def test_get_next_fire_time(self, run_date, alter_tz, previous, now, expected, timezone):
+         datetime(2009, 7, 6), None),
+        (None, pytz.FixedOffset(-120), None, datetime(2011, 4, 3, 18, 40),
+         datetime(2011, 4, 3, 18, 40))
+    ], ids=['earlier', 'exact', 'later', 'as text', 'previously fired', 'alternate timezone',
+            'current_time'])
+    def test_get_next_fire_time(self, run_date, alter_tz, previous, now, expected, timezone,
+                                freeze_time):
         trigger = DateTrigger(run_date, alter_tz or timezone)
         previous = timezone.localize(previous) if previous else None
         now = timezone.localize(now)
@@ -246,7 +250,8 @@ class TestDateTrigger(object):
     @pytest.mark.parametrize('is_dst', [True, False], ids=['daylight saving', 'standard time'])
     def test_dst_change(self, is_dst):
         """
-        Making sure that DateTrigger works during the ambiguous "fall-back" DST period.
+        Test that DateTrigger works during the ambiguous "fall-back" DST period.
+
         Note that you should explicitly compare datetimes as strings to avoid the internal datetime
         comparison which would test for equality in the UTC timezone.
 
@@ -268,7 +273,6 @@ class TestDateTrigger(object):
 
     def test_pickle(self, timezone):
         """Test that the trigger is pickleable."""
-
         trigger = DateTrigger(date(2016, 4, 3), timezone=timezone)
         data = pickle.dumps(trigger, 2)
         trigger2 = pickle.loads(data)
