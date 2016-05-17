@@ -64,16 +64,26 @@ def redisjobstore():
     store.shutdown()
 
 
-@pytest.fixture(params=[
-    'memjobstore', 'sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore', 'rethinkdbjobstore'
-], ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb'])
+@pytest.yield_fixture
+def zookeeperjobstore():
+    zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
+    store = zookeeper.ZookeeperJobStore(path='/apscheduler_unittest')
+    store.start(None, 'zookeeper')
+    yield store
+    store.remove_all_jobs()
+    store.shutdown()
+
+
+@pytest.fixture(params=['memjobstore', 'sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore',
+                        'rethinkdbjobstore', 'zookeeperjobstore'],
+                ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper'])
 def jobstore(request):
     return request.getfuncargvalue(request.param)
 
 
-@pytest.fixture(params=[
-    'sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore', 'rethinkdbjobstore'
-], ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb'])
+@pytest.fixture(params=['sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore',
+                        'rethinkdbjobstore', 'zookeeperjobstore'],
+                ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper'])
 def persistent_jobstore(request):
     return request.getfuncargvalue(request.param)
 
@@ -269,6 +279,11 @@ def test_repr_redisjobstore(redisjobstore):
     assert repr(redisjobstore) == '<RedisJobStore>'
 
 
+def test_repr_zookeeperjobstore(zookeeperjobstore):
+    class_sig = "<ZookeeperJobStore (client=<kazoo.client.KazooClient"
+    assert repr(zookeeperjobstore).startswith(class_sig)
+
+
 def test_memstore_close(memjobstore, create_add_job):
     create_add_job(memjobstore, dummy_job, datetime(2016, 5, 3))
     memjobstore.shutdown()
@@ -303,6 +318,35 @@ def test_mongodb_client_ref():
         del mongodb_client
 
 
+def test_zookeeper_client_ref():
+    global zookeeper_client
+    zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
+    zookeeper_client = zookeeper.KazooClient()
+    try:
+        zookeeperjobstore = zookeeper.ZookeeperJobStore(client='%s:zookeeper_client' % __name__)
+        zookeeperjobstore.start(None, 'zookeeper')
+        zookeeperjobstore.shutdown()
+        assert zookeeper_client.connected is True
+    finally:
+        zookeeper_client.stop()
+        zookeeper_client.close()
+        del zookeeper_client
+
+
+def test_zookeeper_client_keep_open():
+    global zookeeper_client
+    zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
+    zookeeper_client = zookeeper.KazooClient()
+    try:
+        zookeeperjobstore = zookeeper.ZookeeperJobStore(client='%s:zookeeper_client' % __name__,
+                                                        close_connection_on_exit=True)
+        zookeeperjobstore.start(None, 'zookeeper')
+        zookeeperjobstore.shutdown()
+        assert zookeeper_client.connected is False
+    finally:
+        del zookeeper_client
+
+
 def test_mongodb_null_database():
     mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
     exc = pytest.raises(ValueError, mongodb.MongoDBJobStore, database='')
@@ -313,3 +357,9 @@ def test_mongodb_null_collection():
     mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
     exc = pytest.raises(ValueError, mongodb.MongoDBJobStore, collection='')
     assert '"collection"' in str(exc.value)
+
+
+def test_zookeeper_null_path():
+    zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
+    exc = pytest.raises(ValueError, zookeeper.ZookeeperJobStore, path='')
+    assert '"path"' in str(exc.value)

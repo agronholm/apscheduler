@@ -66,7 +66,8 @@ setup(
             'sqlalchemy = apscheduler.jobstores.sqlalchemy:SQLAlchemyJobStore',
             'mongodb = apscheduler.jobstores.mongodb:MongoDBJobStore',
             'rethinkdb = apscheduler.jobstores.rethinkdb:RethinkDBJobStore',
-            'redis = apscheduler.jobstores.redis:RedisJobStore'
+            'redis = apscheduler.jobstores.redis:RedisJobStore',
+            'zookeeper = apscheduler.jobstores.zookeeper:ZookeeperJobStore'
         ]
     }
 )
