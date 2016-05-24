@@ -26,11 +26,10 @@ script: tox
 
 after_success: coveralls
 
-#notifications:
-#  irc:
-#    channels:
-#      - "chat.freenode.net#apscheduler"
-#    on_success: change
-#    use_notice: true
-#    skip_join: true
-
+notifications:
+  irc:
+    channels:
+      - "chat.freenode.net#apscheduler"
+    on_success: change
+    use_notice: true
+    skip_join: true
