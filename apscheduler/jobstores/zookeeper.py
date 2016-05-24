@@ -65,8 +65,8 @@ class ZookeeperJobStore(BaseJobStore):
         node_path = os.path.join(self.path, job_id)
         try:
             content, _ = self.client.get(node_path)
-            document = pickle.loads(content)
-            job = self._reconstitute_job(document['job_state'])
+            doc = pickle.loads(content)
+            job = self._reconstitute_job(doc['job_state'])
             return job
         except:
             return None
@@ -150,12 +150,12 @@ class ZookeeperJobStore(BaseJobStore):
             try:
                 node_path = os.path.join(self.path, node_name)
                 content, _ = self.client.get(node_path)
-                document = pickle.loads(content)
+                doc = pickle.loads(content)
                 job_def = {
                     'job_id': node_name,
-                    'next_run_time': document['next_run_time'] if document['next_run_time'] else None,
-                    'job_state': document['job_state'],
-                    'job': self._reconstitute_job(document['job_state']),
+                    'next_run_time': doc['next_run_time'] if doc['next_run_time'] else None,
+                    'job_state': doc['job_state'],
+                    'job': self._reconstitute_job(doc['job_state']),
                     'creation_time': _.ctime
                 }
                 jobs.append(job_def)
@@ -168,7 +168,8 @@ class ZookeeperJobStore(BaseJobStore):
             for failed_id in failed_job_ids:
                 self.remove_job(failed_id)
         paused_sort_key = datetime(9999, 12, 31, tzinfo=utc)
-        return sorted(jobs, key=lambda job_def: (job_def['job'].next_run_time or paused_sort_key, job_def['creation_time']))
+        return sorted(jobs, key=lambda job_def: (job_def['job'].next_run_time or paused_sort_key,
+                                                 job_def['creation_time']))
 
     def __repr__(self):
         self._logger.exception('<%s (client=%s)>' % (self.__class__.__name__, self.client))
