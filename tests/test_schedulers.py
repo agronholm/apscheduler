@@ -1,12 +1,17 @@
-from datetime import datetime, timedelta
-from collections import OrderedDict
-from threading import Thread
 import logging
+from datetime import datetime, timedelta
+from threading import Thread
 
-from pytz import utc
 import pytest
 import six
+from pytz import utc
 
+from apscheduler.events import (
+    EVENT_SCHEDULER_STARTED, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOBSTORE_ADDED,
+    EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_ALL_JOBS_REMOVED, EVENT_EXECUTOR_ADDED,
+    EVENT_EXECUTOR_REMOVED, EVENT_JOB_MODIFIED, EVENT_JOB_REMOVED, EVENT_JOB_ADDED,
+    EVENT_JOB_EXECUTED, EVENT_JOB_SUBMITTED, EVENT_JOB_MAX_INSTANCES, EVENT_SCHEDULER_PAUSED,
+    EVENT_SCHEDULER_RESUMED, SchedulerEvent)
 from apscheduler.executors.base import BaseExecutor, MaxInstancesReachedError
 from apscheduler.executors.debug import DebugExecutor
 from apscheduler.job import Job
@@ -14,15 +19,8 @@ from apscheduler.jobstores.base import BaseJobStore, JobLookupError, Conflicting
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
 from apscheduler.schedulers.base import BaseScheduler, SchedulerState
-from apscheduler.events import (
-    EVENT_SCHEDULER_STARTED, EVENT_SCHEDULER_SHUTDOWN, EVENT_JOBSTORE_ADDED,
-    EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_ALL_JOBS_REMOVED, EVENT_EXECUTOR_ADDED,
-    EVENT_EXECUTOR_REMOVED, EVENT_JOB_MODIFIED, EVENT_JOB_REMOVED, EVENT_JOB_ADDED,
-    EVENT_JOB_EXECUTED, EVENT_JOB_SUBMITTED, EVENT_JOB_MAX_INSTANCES, SchedulerEvent,
-    EVENT_SCHEDULER_PAUSED, EVENT_SCHEDULER_RESUMED)
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import undefined
-
 
 try:
     from StringIO import StringIO
@@ -482,29 +480,22 @@ class TestBaseScheduler(object):
             scheduler.modify_job.assert_called_once_with('foo', 'bar',
                                                          next_run_time=next_fire_time)
 
-    @pytest.mark.parametrize('pending', [True, False, None],
-                             ids=['pending only', 'no pending', 'both'])
-    @pytest.mark.parametrize('jobstore', [None, 'baz'], ids=['all jobstores', 'specific jobstore'])
-    def test_get_jobs(self, scheduler, pending, jobstore):
-        pending_job1 = object()
-        pending_job2 = object()
-        scheduled_job1 = object()
-        scheduled_job2 = object()
-        scheduler._pending_jobs = [(pending_job1, 'bar', False), (pending_job2, 'baz', False)]
-        scheduler._jobstores = OrderedDict([
-            ('bar', MagicMock(BaseJobStore, get_all_jobs=lambda: [scheduled_job1])),
-            ('baz', MagicMock(BaseJobStore, get_all_jobs=lambda: [scheduled_job2])),
-        ])
-        jobs = scheduler.get_jobs(jobstore, pending)
+    @pytest.mark.parametrize('scheduler_started', [True, False], ids=['running', 'stopped'])
+    @pytest.mark.parametrize('jobstore', [None, 'other'],
+                             ids=['all jobstores', 'specific jobstore'])
+    def test_get_jobs(self, scheduler, scheduler_started, jobstore):
+        scheduler.add_jobstore(MemoryJobStore(), 'other')
+        scheduler.add_job(lambda: None, 'interval', seconds=1, id='job1')
+        scheduler.add_job(lambda: None, 'interval', seconds=1, id='job2', jobstore='other')
+        if scheduler_started:
+            scheduler.start(paused=True)
 
-        if pending is True:
-            assert jobs == ([pending_job1, pending_job2] if jobstore is None else [pending_job2])
-        elif pending is False:
-            assert jobs == ([scheduled_job1, scheduled_job2] if
-                            jobstore is None else [scheduled_job2])
-        else:
-            assert jobs == ([pending_job1, pending_job2, scheduled_job1, scheduled_job2] if
-                            jobstore is None else [pending_job2, scheduled_job2])
+        expected_job_ids = {'job2'}
+        if jobstore is None:
+            expected_job_ids.add('job1')
+
+        job_ids = {job.id for job in scheduler.get_jobs(jobstore)}
+        assert job_ids == expected_job_ids
 
     @pytest.mark.parametrize('jobstore', [None, 'bar'], ids=['any jobstore', 'specific jobstore'])
     def test_get_job(self, scheduler, jobstore):
@@ -521,107 +512,91 @@ class TestBaseScheduler(object):
     def test_get_job_nonexistent_jobstore(self, scheduler):
         assert scheduler.get_job('foo', 'bar') is None
 
-    @pytest.mark.parametrize('pending', [True, False], ids=['pending', 'nor pending'])
-    @pytest.mark.parametrize('jobstore', [None, 'bar'], ids=['any jobstore', 'specific jobstore'])
-    def test_remove_job(self, scheduler, pending, jobstore):
-        if pending:
-            scheduler._pending_jobs.append((MagicMock(Job, id='foo'), 'bar', False))
-        scheduler._dispatch_event = MagicMock()
-        scheduler._jobstores = OrderedDict([
-            ('baz', MagicMock(BaseJobStore,
-                              remove_job=MagicMock(side_effect=JobLookupError('foo')))),
-            ('bar', MagicMock(BaseJobStore)),
-        ])
-        scheduler.remove_job('foo', jobstore)
+    @pytest.mark.parametrize('start_scheduler', [True, False])
+    @pytest.mark.parametrize('jobstore', [None, 'other'],
+                             ids=['any jobstore', 'specific jobstore'])
+    def test_remove_job(self, scheduler, scheduler_events, start_scheduler, jobstore):
+        scheduler.add_jobstore(MemoryJobStore(), 'other')
+        scheduler.add_job(lambda: None, id='job1')
+        if start_scheduler:
+            scheduler.start(paused=True)
 
-        if pending:
-            assert scheduler._jobstores['bar'].remove_job.call_count == 0
+        del scheduler_events[:]
+        if jobstore:
+            pytest.raises(JobLookupError, scheduler.remove_job, 'job1', jobstore)
+            assert len(scheduler.get_jobs()) == 1
+            assert len(scheduler_events) == 0
         else:
-            scheduler._jobstores['bar'].remove_job.assert_called_once_with('foo')
-
-        assert len(scheduler._pending_jobs) == 0
-        assert scheduler._dispatch_event.call_count == 1
-        event = scheduler._dispatch_event.call_args[0][0]
-        assert event.code == EVENT_JOB_REMOVED
+            scheduler.remove_job('job1', jobstore)
+            assert len(scheduler.get_jobs()) == 0
+            assert len(scheduler_events) == 1
+            assert scheduler_events[0].code == EVENT_JOB_REMOVED
 
     def test_remove_nonexistent_job(self, scheduler):
         pytest.raises(JobLookupError, scheduler.remove_job, 'foo')
 
-    @pytest.mark.parametrize('jobstore', [None, 'alter', 'third'],
-                             ids=['all', 'single jobstore', 'nonexistent store'])
-    def test_remove_all_jobs(self, scheduler, jobstore):
+    @pytest.mark.parametrize('start_scheduler', [True, False])
+    @pytest.mark.parametrize('jobstore', [None, 'other'], ids=['all', 'single jobstore'])
+    def test_remove_all_jobs(self, scheduler, start_scheduler, scheduler_events, jobstore):
         """
-        Tests that remove_all_jobs() removes all jobs from all attached
-        job stores, plus any pending jobs.
+        Test that remove_all_jobs() removes all jobs from all attached job stores, plus any
+        pending jobs.
 
         """
-        scheduler._jobstores = OrderedDict([
-            ('default', MagicMock(BaseJobStore)),
-            ('alter', MagicMock(BaseJobStore))
-        ])
-        scheduler._pending_jobs = [
-            (MagicMock(Job), 'default', False),
-            (MagicMock(Job), 'alter', False),
-            (MagicMock(Job), 'third', False)
-        ]
-        scheduler._dispatch_event = MagicMock()
+        scheduler.add_jobstore(MemoryJobStore(), 'other')
+        scheduler.add_job(lambda: None, id='job1')
+        scheduler.add_job(lambda: None, id='job2')
+        scheduler.add_job(lambda: None, id='job3', jobstore='other')
+        if start_scheduler:
+            scheduler.start(paused=True)
+
+        del scheduler_events[:]
         scheduler.remove_all_jobs(jobstore)
+        jobs = scheduler.get_jobs()
 
-        if jobstore == 'alter':
-            scheduler._jobstores['alter'].remove_all_jobs.assert_called_once_with()
-            assert scheduler._jobstores['default'].remove_all_jobs.call_count == 0
-            assert len(scheduler._pending_jobs) == 2
-        elif jobstore == 'third':
-            assert scheduler._jobstores['alter'].remove_all_jobs.call_count == 0
-            assert scheduler._jobstores['default'].remove_all_jobs.call_count == 0
-            assert len(scheduler._pending_jobs) == 2
-        else:
-            scheduler._jobstores['alter'].remove_all_jobs.assert_called_once_with()
-            scheduler._jobstores['default'].remove_all_jobs.assert_called_once_with()
-            assert len(scheduler._pending_jobs) == 0
+        assert len(jobs) == (2 if jobstore else 0)
+        assert len(scheduler_events) == 1
+        assert scheduler_events[0].code == EVENT_ALL_JOBS_REMOVED
+        assert scheduler_events[0].alias == jobstore
 
-        assert scheduler._dispatch_event.call_count == 1
-        event = scheduler._dispatch_event.call_args[0][0]
-        assert event.code == EVENT_ALL_JOBS_REMOVED
-        assert event.alias == jobstore
+    @pytest.mark.parametrize('start_scheduler', [True, False])
+    @pytest.mark.parametrize('jobstore', [None, 'other'],
+                             ids=['all jobstores', 'specific jobstore'])
+    def test_print_jobs(self, scheduler, start_scheduler, jobstore):
+        scheduler.add_jobstore(MemoryJobStore(), 'other')
+        if start_scheduler:
+            scheduler.start(paused=True)
 
-    @pytest.mark.parametrize('jobstore', [None, 'bar'], ids=['all jobstores', 'specific jobstore'])
-    def test_print_jobs(self, scheduler, jobstore):
+        scheduler.add_job(lambda: None, 'date', run_date='2099-09-09', id='job1',
+                          name='test job 1')
+        scheduler.add_job(lambda: None, 'date', run_date='2099-08-08', id='job2',
+                          name='test job 2', jobstore='other')
+
         outfile = StringIO()
-        bar_job = MagicMock(Job)
-        bar_job.__str__ = bar_job.__unicode__ = MagicMock(return_value=u'bar job 1')
-        pending_bar_job = MagicMock(Job)
-        pending_bar_job.__str__ = pending_bar_job.__unicode__ = \
-            MagicMock(return_value=u'pending bar job 1')
-        pending_baz_job = MagicMock(Job)
-        pending_baz_job.__str__ = pending_baz_job.__unicode__ = \
-            MagicMock(return_value=u'pending baz job 1')
-        scheduler._jobstores = OrderedDict([
-            ('bar', MagicMock(BaseJobStore, get_all_jobs=lambda: [bar_job])),
-            ('baz', MagicMock(BaseJobStore, get_all_jobs=lambda: []))
-        ])
-        scheduler._pending_jobs = [
-            (pending_bar_job, 'bar', False),
-            (pending_baz_job, 'baz', False),
-        ]
         scheduler.print_jobs(jobstore, outfile)
 
-        if jobstore:
+        if jobstore and not start_scheduler:
             assert outfile.getvalue() == """\
 Pending jobs:
-    pending bar job 1
-Jobstore bar:
-    bar job 1
+    test job 2 (trigger: date[2099-08-08 00:00:00 CET], pending)
+"""
+        elif jobstore and start_scheduler:
+            assert outfile.getvalue() == """\
+Jobstore other:
+    test job 2 (trigger: date[2099-08-08 00:00:00 CET], next run at: 2099-08-08 00:00:00 CET)
+"""
+        elif not jobstore and not start_scheduler:
+            assert outfile.getvalue() == """\
+Pending jobs:
+    test job 1 (trigger: date[2099-09-09 00:00:00 CET], pending)
+    test job 2 (trigger: date[2099-08-08 00:00:00 CET], pending)
 """
         else:
             assert outfile.getvalue() == """\
-Pending jobs:
-    pending bar job 1
-    pending baz job 1
-Jobstore bar:
-    bar job 1
-Jobstore baz:
-    No scheduled jobs
+Jobstore default:
+    test job 1 (trigger: date[2099-09-09 00:00:00 CET], next run at: 2099-09-09 00:00:00 CET)
+Jobstore other:
+    test job 2 (trigger: date[2099-08-08 00:00:00 CET], next run at: 2099-08-08 00:00:00 CET)
 """
 
     @pytest.mark.parametrize('config', [
@@ -707,29 +682,6 @@ Jobstore baz:
 
     def test_lookup_jobstore_nonexistent(self, scheduler):
         pytest.raises(KeyError, scheduler._lookup_jobstore, 'store')
-
-    @pytest.mark.parametrize('pending', [True, False], ids=['pending', 'nor pending'])
-    @pytest.mark.parametrize('jobstore', [None, 'baz'], ids=['all jobstores', 'specific jobstore'])
-    def test_lookup_job(self, scheduler, pending, jobstore):
-        job = MagicMock(Job, id='foo')
-        scheduler._jobstores = OrderedDict([
-            ('bar', MagicMock(BaseJobStore, lookup_job=lambda job_id: None)),
-            ('baz', MagicMock(BaseJobStore, lookup_job=lambda job_id: None))
-        ])
-        if pending:
-            scheduler._pending_jobs = [(job, 'baz', False)]
-        else:
-            scheduler._jobstores['baz'].lookup_job = MagicMock(return_value=job)
-
-        assert scheduler._lookup_job('foo', jobstore) == (job, None if pending else 'baz')
-
-    @pytest.mark.parametrize('jobstore', [None, 'bar'], ids=['all jobstores', 'specific jobstore'])
-    def test_lookup_job_nonexistent_job(self, scheduler, jobstore):
-        scheduler._jobstores = OrderedDict([
-            ('bar', MagicMock(BaseJobStore, lookup_job=lambda job_id: None)),
-            ('baz', MagicMock(BaseJobStore, lookup_job=lambda job_id: None))
-        ])
-        pytest.raises(JobLookupError, scheduler._lookup_job, 'foo', jobstore)
 
     def test_dispatch_event(self, scheduler):
         event = SchedulerEvent(1)

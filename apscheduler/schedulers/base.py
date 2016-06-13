@@ -6,6 +6,7 @@ from enum import Enum
 from threading import RLock
 from datetime import datetime
 from logging import getLogger
+import warnings
 import sys
 
 from pkg_resources import iter_entry_points
@@ -19,8 +20,7 @@ from apscheduler.jobstores.base import ConflictingIdError, JobLookupError, BaseJ
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import (asbool, asint, astimezone, maybe_ref, timedelta_seconds, undefined,
-                              TIMEOUT_MAX)
+from apscheduler.util import asbool, asint, astimezone, maybe_ref, timedelta_seconds, undefined
 from apscheduler.events import (
     SchedulerEvent, JobEvent, JobSubmissionEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN,
     EVENT_JOBSTORE_ADDED, EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_JOB_MODIFIED, EVENT_JOB_REMOVED,
@@ -530,22 +530,26 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         Returns a list of pending jobs (if the scheduler hasn't been started yet) and scheduled
         jobs, either from a specific job store or from all of them.
 
+        If the scheduler has not been started yet, only pending jobs can be returned because the
+        job stores haven't been started yet either.
+
         :param str|unicode jobstore: alias of the job store
-        :param bool pending: ``False`` to leave out pending jobs (jobs that are waiting for the
-            scheduler start to be added to their respective job stores), ``True`` to only include
-            pending jobs, anything else to return both
+        :param bool pending: **DEPRECATED**
         :rtype: list[Job]
 
         """
+        if pending is not None:
+            warnings.warn('The "pending" option is deprecated -- get_jobs() always returns '
+                          'pending jobs if the scheduler has been started and scheduled jobs '
+                          'otherwise', DeprecationWarning)
+
         with self._jobstores_lock:
             jobs = []
-
-            if pending is not False:
+            if self.state is SchedulerState.stopped:
                 for job, alias, replace_existing in self._pending_jobs:
                     if jobstore is None or alias == jobstore:
                         jobs.append(job)
-
-            if pending is not True:
+            else:
                 for alias, store in six.iteritems(self._jobstores):
                     if jobstore is None or alias == jobstore:
                         jobs.extend(store.get_all_jobs())
@@ -577,13 +581,16 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :raises JobLookupError: if the job was not found
 
         """
+        jobstore_alias = None
         with self._jobstores_lock:
-            # Check if the job is among the pending jobs
-            for i, (job, jobstore_alias, replace_existing) in enumerate(self._pending_jobs):
-                if job.id == job_id:
-                    del self._pending_jobs[i]
-                    jobstore = jobstore_alias
-                    break
+            if self.state is SchedulerState.stopped:
+                # Check if the job is among the pending jobs
+                if self.state is SchedulerState.stopped:
+                    for i, (job, alias, replace_existing) in enumerate(self._pending_jobs):
+                        if job.id == job_id and jobstore in (None, alias):
+                            del self._pending_jobs[i]
+                            jobstore_alias = alias
+                            break
             else:
                 # Otherwise, try to remove it from each store until it succeeds or we run out of
                 # stores to check
@@ -591,17 +598,16 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     if jobstore in (None, alias):
                         try:
                             store.remove_job(job_id)
+                            jobstore_alias = alias
+                            break
                         except JobLookupError:
                             continue
 
-                        jobstore = alias
-                        break
-
-        if jobstore is None:
+        if jobstore_alias is None:
             raise JobLookupError(job_id)
 
         # Notify listeners that a job has been removed
-        event = JobEvent(EVENT_JOB_REMOVED, job_id, jobstore)
+        event = JobEvent(EVENT_JOB_REMOVED, job_id, jobstore_alias)
         self._dispatch_event(event)
 
         self._logger.info('Removed job %s', job_id)
@@ -614,15 +620,16 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         """
         with self._jobstores_lock:
-            if jobstore:
-                self._pending_jobs = [pending for pending in self._pending_jobs if
-                                      pending[1] != jobstore]
+            if self.state is SchedulerState.stopped:
+                if jobstore:
+                    self._pending_jobs = [pending for pending in self._pending_jobs if
+                                          pending[1] != jobstore]
+                else:
+                    self._pending_jobs = []
             else:
-                self._pending_jobs = []
-
-            for alias, store in six.iteritems(self._jobstores):
-                if jobstore in (None, alias):
-                    store.remove_all_jobs()
+                for alias, store in six.iteritems(self._jobstores):
+                    if jobstore in (None, alias):
+                        store.remove_all_jobs()
 
         self._dispatch_event(SchedulerEvent(EVENT_ALL_JOBS_REMOVED, jobstore))
 
@@ -640,21 +647,24 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         out = out or sys.stdout
         with self._jobstores_lock:
-            if self._pending_jobs:
+            if self.state is SchedulerState.stopped:
                 print(u'Pending jobs:', file=out)
-                for job, jobstore_alias, replace_existing in self._pending_jobs:
-                    if jobstore in (None, jobstore_alias):
-                        print(u'    %s' % job, file=out)
-
-            for alias, store in six.iteritems(self._jobstores):
-                if jobstore in (None, alias):
-                    print(u'Jobstore %s:' % alias, file=out)
-                    jobs = store.get_all_jobs()
-                    if jobs:
-                        for job in jobs:
+                if self._pending_jobs:
+                    for job, jobstore_alias, replace_existing in self._pending_jobs:
+                        if jobstore in (None, jobstore_alias):
                             print(u'    %s' % job, file=out)
-                    else:
-                        print(u'    No scheduled jobs', file=out)
+                else:
+                    print(u'    No pending jobs', file=out)
+            else:
+                for alias, store in sorted(six.iteritems(self._jobstores)):
+                    if jobstore in (None, alias):
+                        print(u'Jobstore %s:' % alias, file=out)
+                        jobs = store.get_all_jobs()
+                        if jobs:
+                            for job in jobs:
+                                print(u'    %s' % job, file=out)
+                        else:
+                            print(u'    No scheduled jobs', file=out)
 
     @abstractmethod
     def wakeup(self):
@@ -775,17 +785,18 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :raises JobLookupError: if no job by the given ID is found.
 
         """
-        # Check if the job is among the pending jobs
-        for job, alias, replace_existing in self._pending_jobs:
-            if job.id == job_id:
-                return job, None
-
-        # Look in all job stores
-        for alias, store in six.iteritems(self._jobstores):
-            if jobstore_alias in (None, alias):
-                job = store.lookup_job(job_id)
-                if job is not None:
-                    return job, alias
+        if self.state is SchedulerState.stopped:
+            # Check if the job is among the pending jobs
+            for job, alias, replace_existing in self._pending_jobs:
+                if job.id == job_id:
+                    return job, None
+        else:
+            # Look in all job stores
+            for alias, store in six.iteritems(self._jobstores):
+                if jobstore_alias in (None, alias):
+                    job = store.lookup_job(job_id)
+                    if job is not None:
+                        return job, alias
 
         raise JobLookupError(job_id)
 
@@ -898,7 +909,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         if self.state is SchedulerState.paused:
             self._logger.debug('Scheduler is paused -- not processing jobs')
-            return TIMEOUT_MAX
+            return None
 
         self._logger.debug('Looking for jobs to run')
         now = datetime.now(self.timezone)
