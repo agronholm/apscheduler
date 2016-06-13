@@ -43,8 +43,7 @@ setup(
         'tzlocal >= 1.2',
     ],
     extras_require={
-        ':python_version == "2.7"': ['futures', 'funcsigs', 'enum34 >= 1.1.2'],
-        ':python_version == "3.3"': ['enum34 >= 1.1.2']
+        ':python_version == "2.7"': ['futures', 'funcsigs']
     },
     zip_safe=False,
     entry_points={

@@ -18,7 +18,7 @@ from apscheduler.job import Job
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
-from apscheduler.schedulers.base import BaseScheduler, SchedulerState
+from apscheduler.schedulers.base import BaseScheduler, STATE_RUNNING, STATE_STOPPED
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import undefined
 
@@ -230,7 +230,7 @@ class TestBaseScheduler(object):
         event = scheduler._dispatch_event.call_args_list[2][0][0]
         assert event.code == EVENT_SCHEDULER_STARTED
 
-        assert scheduler.state is SchedulerState.running
+        assert scheduler.state == STATE_RUNNING
 
     @pytest.mark.parametrize('wait', [True, False], ids=['wait', 'nowait'])
     def test_shutdown(self, scheduler, scheduler_events, wait):
@@ -242,7 +242,7 @@ class TestBaseScheduler(object):
         del scheduler_events[:]
         scheduler.shutdown(wait)
 
-        assert scheduler.state is SchedulerState.stopped
+        assert scheduler.state == STATE_STOPPED
         assert len(scheduler_events) == 1
         assert scheduler_events[0].code == EVENT_SCHEDULER_SHUTDOWN
 

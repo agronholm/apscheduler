@@ -2,7 +2,6 @@ from __future__ import print_function
 
 from abc import ABCMeta, abstractmethod
 from collections import MutableMapping
-from enum import Enum
 from threading import RLock
 from datetime import datetime
 from logging import getLogger
@@ -27,11 +26,9 @@ from apscheduler.events import (
     EVENT_JOB_ADDED, EVENT_EXECUTOR_ADDED, EVENT_EXECUTOR_REMOVED, EVENT_ALL_JOBS_REMOVED,
     EVENT_JOB_SUBMITTED, EVENT_JOB_MAX_INSTANCES, EVENT_SCHEDULER_RESUMED, EVENT_SCHEDULER_PAUSED)
 
-
-class SchedulerState(Enum):
-    stopped = 1
-    running = 2
-    paused = 3
+STATE_STOPPED = 0
+STATE_RUNNING = 1
+STATE_PAUSED = 2
 
 
 class BaseScheduler(six.with_metaclass(ABCMeta)):
@@ -72,7 +69,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self._listeners = []
         self._listeners_lock = self._create_lock()
         self._pending_jobs = []
-        self.state = SchedulerState.stopped
+        self.state = STATE_STOPPED
         self.configure(gconfig, **options)
 
     def configure(self, gconfig={}, prefix='apscheduler.', **options):
@@ -88,7 +85,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :raises SchedulerAlreadyRunningError: if the scheduler is already running
 
         """
-        if self.state is not SchedulerState.stopped:
+        if self.state != STATE_STOPPED:
             raise SchedulerAlreadyRunningError
 
         # If a non-empty prefix was given, strip it from the keys in the
@@ -122,7 +119,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :raises SchedulerAlreadyRunningError: if the scheduler is already running
 
         """
-        if self.state is not SchedulerState.stopped:
+        if self.state != STATE_STOPPED:
             raise SchedulerAlreadyRunningError
 
         with self._executors_lock:
@@ -148,7 +145,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 self._real_add_job(job, jobstore_alias, replace_existing)
             del self._pending_jobs[:]
 
-        self.state = SchedulerState.paused if paused else SchedulerState.running
+        self.state = STATE_PAUSED if paused else STATE_RUNNING
         self._logger.info('Scheduler started')
         self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_START))
 
@@ -166,10 +163,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :raises SchedulerNotRunningError: if the scheduler has not been started yet
 
         """
-        if self.state is SchedulerState.stopped:
+        if self.state == STATE_STOPPED:
             raise SchedulerNotRunningError
 
-        self.state = SchedulerState.stopped
+        self.state = STATE_STOPPED
 
         with self._jobstores_lock, self._executors_lock:
             # Shut down all executors
@@ -191,19 +188,19 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         is called. It will not however stop any already running job processing.
 
         """
-        if self.state is SchedulerState.stopped:
+        if self.state == STATE_STOPPED:
             raise SchedulerNotRunningError
-        elif self.state is SchedulerState.running:
-            self.state = SchedulerState.paused
+        elif self.state == STATE_RUNNING:
+            self.state = STATE_PAUSED
             self._logger.info('Paused scheduler job processing')
             self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_PAUSED))
 
     def resume(self):
         """Resume job processing in the scheduler."""
-        if self.state is SchedulerState.stopped:
+        if self.state == STATE_STOPPED:
             raise SchedulerNotRunningError
-        elif self.state is SchedulerState.paused:
-            self.state = SchedulerState.running
+        elif self.state == STATE_PAUSED:
+            self.state = STATE_RUNNING
             self._logger.info('Resumed scheduler job processing')
             self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_RESUMED))
             self.wakeup()
@@ -213,10 +210,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         Return ``True`` if the scheduler has been started and is processing jobs normally.
 
-        This is a shortcut for ``scheduler.state is SchedulerState.running``.
+        This is a shortcut for ``scheduler.state == STATE_RUNNING``.
 
         """
-        return self.state is SchedulerState.running
+        return self.state == STATE_RUNNING
 
     def add_executor(self, executor, alias='default', **executor_opts):
         """
@@ -246,7 +243,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                                 executor.__class__.__name__)
 
             # Start the executor right away if the scheduler is running
-            if self.state is not SchedulerState.stopped:
+            if self.state != STATE_STOPPED:
                 executor.start(self, alias)
 
         self._dispatch_event(SchedulerEvent(EVENT_EXECUTOR_ADDED, alias))
@@ -296,14 +293,14 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                                 jobstore.__class__.__name__)
 
             # Start the job store right away if the scheduler isn't stopped
-            if self.state is not SchedulerState.stopped:
+            if self.state != STATE_STOPPED:
                 jobstore.start(self, alias)
 
         # Notify listeners that a new job store has been added
         self._dispatch_event(SchedulerEvent(EVENT_JOBSTORE_ADDED, alias))
 
         # Notify the scheduler so it can scan the new job store for jobs
-        if self.state is not SchedulerState.stopped:
+        if self.state != STATE_STOPPED:
             self.wakeup()
 
     def remove_jobstore(self, alias, shutdown=True):
@@ -420,7 +417,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Don't really add jobs to job stores before the scheduler is up and running
         with self._jobstores_lock:
-            if self.state is SchedulerState.stopped:
+            if self.state == STATE_STOPPED:
                 self._pending_jobs.append((job, jobstore, replace_existing))
                 self._logger.info('Adding job tentatively -- it will be properly scheduled when '
                                   'the scheduler starts')
@@ -473,7 +470,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self._dispatch_event(JobEvent(EVENT_JOB_MODIFIED, job_id, jobstore))
 
         # Wake up the scheduler since the job's next run time may have been changed
-        if self.state is SchedulerState.running:
+        if self.state == STATE_RUNNING:
             self.wakeup()
 
         return job
@@ -545,7 +542,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         with self._jobstores_lock:
             jobs = []
-            if self.state is SchedulerState.stopped:
+            if self.state == STATE_STOPPED:
                 for job, alias, replace_existing in self._pending_jobs:
                     if jobstore is None or alias == jobstore:
                         jobs.append(job)
@@ -583,9 +580,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         jobstore_alias = None
         with self._jobstores_lock:
-            if self.state is SchedulerState.stopped:
+            if self.state == STATE_STOPPED:
                 # Check if the job is among the pending jobs
-                if self.state is SchedulerState.stopped:
+                if self.state == STATE_STOPPED:
                     for i, (job, alias, replace_existing) in enumerate(self._pending_jobs):
                         if job.id == job_id and jobstore in (None, alias):
                             del self._pending_jobs[i]
@@ -620,7 +617,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         """
         with self._jobstores_lock:
-            if self.state is SchedulerState.stopped:
+            if self.state == STATE_STOPPED:
                 if jobstore:
                     self._pending_jobs = [pending for pending in self._pending_jobs if
                                           pending[1] != jobstore]
@@ -647,7 +644,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         out = out or sys.stdout
         with self._jobstores_lock:
-            if self.state is SchedulerState.stopped:
+            if self.state == STATE_STOPPED:
                 print(u'Pending jobs:', file=out)
                 if self._pending_jobs:
                     for job, jobstore_alias, replace_existing in self._pending_jobs:
@@ -785,7 +782,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :raises JobLookupError: if no job by the given ID is found.
 
         """
-        if self.state is SchedulerState.stopped:
+        if self.state == STATE_STOPPED:
             # Check if the job is among the pending jobs
             for job, alias, replace_existing in self._pending_jobs:
                 if job.id == job_id:
@@ -858,7 +855,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self._logger.info('Added job "%s" to job store "%s"', job.name, jobstore_alias)
 
         # Notify the scheduler about the new job
-        if self.state is SchedulerState.running:
+        if self.state == STATE_RUNNING:
             self.wakeup()
 
     def _create_plugin_instance(self, type_, alias, constructor_kwargs):
@@ -907,7 +904,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         to wait for the next round.
 
         """
-        if self.state is SchedulerState.paused:
+        if self.state == STATE_PAUSED:
             self._logger.debug('Scheduler is paused -- not processing jobs')
             return None
 
@@ -970,7 +967,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             self._dispatch_event(event)
 
         # Determine the delay until this method should be called again
-        if self.state is SchedulerState.paused:
+        if self.state == STATE_PAUSED:
             wait_seconds = None
             self._logger.debug('Scheduler is paused; waiting until resume() is called')
         elif next_wakeup_time is None:
