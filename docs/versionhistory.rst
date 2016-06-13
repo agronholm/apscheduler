@@ -20,6 +20,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Fixed builtin ``id()`` erroneously used in MongoDBJobStore's ``JobLookupError()``
 
+* Fixed endless loop with CronTrigger that may occur when the computer's clock resolution is too
+   low (thanks to Jinping Bai for the patch)
+
 
 3.1.0
 -----
