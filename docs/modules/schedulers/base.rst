@@ -2,9 +2,5 @@
 ==================================
 
 .. automodule:: apscheduler.schedulers.base
-
-API
----
-
-.. autoclass:: BaseScheduler
     :members:
+    :member-order: bysource

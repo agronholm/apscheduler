@@ -26,8 +26,11 @@ from apscheduler.events import (
     EVENT_JOB_ADDED, EVENT_EXECUTOR_ADDED, EVENT_EXECUTOR_REMOVED, EVENT_ALL_JOBS_REMOVED,
     EVENT_JOB_SUBMITTED, EVENT_JOB_MAX_INSTANCES, EVENT_SCHEDULER_RESUMED, EVENT_SCHEDULER_PAUSED)
 
+#: constant indicating a scheduler's stopped state
 STATE_STOPPED = 0
+#: constant indicating a scheduler's running state (started and processing jobs)
 STATE_RUNNING = 1
+#: constant indicating a scheduler's paused state (started but not processing jobs)
 STATE_PAUSED = 2
 
 
@@ -45,6 +48,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         dict
     :param dict executors: a dictionary of executor alias -> executor instance or configuration
         dict
+
+    :ivar int state: current running state of the scheduler (one of the following constants from
+        ``apscheduler.schedulers.base``: ``STATE_STOPPED``, ``STATE_RUNNING``, ``STATE_PAUSED``)
 
     .. seealso:: :ref:`scheduler-config`
     """
@@ -208,12 +214,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     @property
     def running(self):
         """
-        Return ``True`` if the scheduler has been started and is processing jobs normally.
+        Return ``True`` if the scheduler has been started.
 
-        This is a shortcut for ``scheduler.state == STATE_RUNNING``.
+        This is a shortcut for ``scheduler.state != STATE_STOPPED``.
 
         """
-        return self.state == STATE_RUNNING
+        return self.state != STATE_STOPPED
 
     def add_executor(self, executor, alias='default', **executor_opts):
         """

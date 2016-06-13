@@ -2,8 +2,18 @@
 Migrating from previous versions of APScheduler
 ###############################################
 
-From v2.x to 3.0
-================
+From v3.0 to v3.2
+=================
+
+Prior to v3.1, the scheduler inadvertently exposed the ability to fetch and manipulate jobs before
+the scheduler had been started. The scheduler now requires you to call ``scheduler.start()`` before
+attempting to access any of the jobs in the job stores. To ensure that no old jobs are mistakenly
+executed, you can start the scheduler in paused mode (``scheduler.start(paused=True)``) (introduced
+in v3.2) to avoid any premature job processing.
+
+
+From v2.x to v3.0
+=================
 
 The 3.0 series is API incompatible with previous releases due to a design overhaul.
 
