@@ -29,6 +29,7 @@ Supported backends for storing jobs include:
 * `SQLAlchemy <http://www.sqlalchemy.org/>`_ (any RDBMS supported by SQLAlchemy works)
 * `MongoDB <http://www.mongodb.org/>`_
 * `Redis <http://redis.io/>`_
+* `Zookeeper <https://zookeeper.apache.org/>`_
 
 APScheduler also integrates with several common Python frameworks, like:
 
