@@ -259,7 +259,7 @@ def ref_to_obj(ref):
 
     modulename, rest = ref.split(':', 1)
     try:
-        obj = __import__(modulename, globals(), locals(), [rest])
+        obj = __import__(modulename, fromlist=[rest])
     except ImportError:
         raise LookupError('Error resolving reference %s: could not import module' % ref)
 

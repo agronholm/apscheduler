@@ -1,6 +1,7 @@
 # coding: utf-8
 from datetime import date, datetime, timedelta, tzinfo
 from functools import partial
+from types import ModuleType
 
 import pytest
 import pytz
@@ -219,6 +220,15 @@ class TestRefToObj(object):
     def test_valid_ref(self):
         from logging.handlers import RotatingFileHandler
         assert ref_to_obj('logging.handlers:RotatingFileHandler') is RotatingFileHandler
+
+    def test_complex_path(self):
+        pkg1 = ModuleType('pkg1')
+        pkg1.pkg2 = 'blah'
+        pkg2 = ModuleType('pkg1.pkg2')
+        pkg2.varname = 'test'
+        sys.modules['pkg1'] = pkg1
+        sys.modules['pkg1.pkg2'] = pkg2
+        assert ref_to_obj('pkg1.pkg2:varname') == 'test'
 
     @pytest.mark.parametrize('input,error', [
         (object(), TypeError),
