@@ -4,6 +4,15 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.3.0
+-----
+
+* Added ZooKeeper job store (thanks to Jose Ignacio Villar for the patch)
+
+* Improved import logic in ``ref_to_obj()`` to avoid errors in cases where traversing the path with
+  ``getattr()`` would not work (thanks to Jarek Glowacki for the patch)
+
+
 3.2.0
 -----
 
