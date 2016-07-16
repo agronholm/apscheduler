@@ -67,7 +67,7 @@ def redisjobstore():
 @pytest.yield_fixture
 def zookeeperjobstore():
     zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
-    store = zookeeper.ZookeeperJobStore(path='/apscheduler_unittest')
+    store = zookeeper.ZooKeeperJobStore(path='/apscheduler_unittest')
     store.start(None, 'zookeeper')
     yield store
     store.remove_all_jobs()
@@ -280,7 +280,7 @@ def test_repr_redisjobstore(redisjobstore):
 
 
 def test_repr_zookeeperjobstore(zookeeperjobstore):
-    class_sig = "<ZookeeperJobStore (client=<kazoo.client.KazooClient"
+    class_sig = "<ZooKeeperJobStore (client=<kazoo.client.KazooClient"
     assert repr(zookeeperjobstore).startswith(class_sig)
 
 
@@ -323,7 +323,7 @@ def test_zookeeper_client_ref():
     zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
     zookeeper_client = zookeeper.KazooClient()
     try:
-        zookeeperjobstore = zookeeper.ZookeeperJobStore(client='%s:zookeeper_client' % __name__)
+        zookeeperjobstore = zookeeper.ZooKeeperJobStore(client='%s:zookeeper_client' % __name__)
         zookeeperjobstore.start(None, 'zookeeper')
         zookeeperjobstore.shutdown()
         assert zookeeper_client.connected is True
@@ -338,7 +338,7 @@ def test_zookeeper_client_keep_open():
     zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
     zookeeper_client = zookeeper.KazooClient()
     try:
-        zookeeperjobstore = zookeeper.ZookeeperJobStore(client='%s:zookeeper_client' % __name__,
+        zookeeperjobstore = zookeeper.ZooKeeperJobStore(client='%s:zookeeper_client' % __name__,
                                                         close_connection_on_exit=True)
         zookeeperjobstore.start(None, 'zookeeper')
         zookeeperjobstore.shutdown()
@@ -361,5 +361,5 @@ def test_mongodb_null_collection():
 
 def test_zookeeper_null_path():
     zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
-    exc = pytest.raises(ValueError, zookeeper.ZookeeperJobStore, path='')
+    exc = pytest.raises(ValueError, zookeeper.ZooKeeperJobStore, path='')
     assert '"path"' in str(exc.value)
