@@ -1,5 +1,5 @@
 """
-Demonstrates how to use the Tornado compatible scheduler to schedule a job that executes on 3
+Demonstrates how to use the asyncio compatible scheduler to schedule a job that executes on 3
 second intervals.
 """
 
