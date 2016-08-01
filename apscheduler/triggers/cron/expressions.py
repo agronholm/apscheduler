@@ -165,7 +165,7 @@ class WeekdayPositionExpression(AllExpression):
         if self.option_num < 5:
             target_day = first_hit_day + self.option_num * 7
         else:
-            target_day = first_hit_day + ((last_day - first_hit_day) / 7) * 7
+            target_day = first_hit_day + ((last_day - first_hit_day) // 7) * 7
 
         if target_day <= last_day and target_day >= date.day:
             return target_day
