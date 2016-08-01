@@ -12,7 +12,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Improved import logic in ``ref_to_obj()`` to avoid errors in cases where traversing the path with
   ``getattr()`` would not work (thanks to Jarek Glowacki for the patch)
 
-* Fixed positional weekday position expressions failing on Python 3
+* Fixed CronTrigger's weekday position expressions failing on Python 3
+
+* Fixed CronTrigger's range expressions sometimes allowing values outside the given range
 
 
 3.2.0

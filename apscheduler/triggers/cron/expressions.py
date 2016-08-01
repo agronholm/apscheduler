@@ -63,28 +63,25 @@ class RangeExpression(AllExpression):
         self.last = last
 
     def get_next_value(self, date, field):
-        start = field.get_value(date)
+        startval = field.get_value(date)
         minval = field.get_min(date)
         maxval = field.get_max(date)
 
         # Apply range limits
-        minval = min(maxval, max(minval, self.first))
-        if self.last is not None:
-            maxval = min(maxval, self.last)
-        start = max(start, minval)
+        minval = max(minval, self.first)
+        maxval = min(maxval, self.last) if self.last is not None else maxval
+        nextval = max(minval, startval)
 
-        if not self.step:
-            next = start
-        else:
-            distance_to_next = (self.step - (start - minval)) % self.step
-            next = start + distance_to_next
+        # Apply the step if defined
+        if self.step:
+            distance_to_next = (self.step - (nextval - minval)) % self.step
+            nextval += distance_to_next
 
-        if next <= maxval:
-            return next
+        return nextval if nextval <= maxval else None
 
-        def __eq__(self, other):
-            return (isinstance(other, self.__class__) and self.first == other.first and
-                    self.last == other.last)
+    def __eq__(self, other):
+        return (isinstance(other, self.__class__) and self.first == other.first and
+                self.last == other.last)
 
     def __str__(self):
         if self.last != self.first and self.last is not None:

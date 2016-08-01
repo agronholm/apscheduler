@@ -160,6 +160,12 @@ class TestCronTrigger(object):
     def test_cron_bad_kwarg(self, timezone):
         pytest.raises(TypeError, CronTrigger, second=0, third=1, timezone=timezone)
 
+    def test_month_rollover(self, timezone):
+        trigger = CronTrigger(timezone=timezone, day=30)
+        now = timezone.localize(datetime(2016, 2, 1))
+        expected = timezone.localize(datetime(2016, 3, 30))
+        assert trigger.get_next_fire_time(None, now) == expected
+
     def test_timezone_from_start_date(self, timezone):
         """
         Tests that the trigger takes the timezone from the start_date parameter if no timezone is
