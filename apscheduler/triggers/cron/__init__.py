@@ -180,13 +180,13 @@ class CronTrigger(BaseTrigger):
         # check if a switch from no dst to dst falls into the 24 hours before the next date
         if next_date \
                 and next_date.dst() > self.timezone.normalize(next_date - timedelta(days=1)).dst():
-            # perform a fixed point iteration to cope with "missing time" 
+            # perform a fixed point iteration to cope with "missing time"
             # due to a switch from winter to summer time
             last_date = None
             loops = 0
             while last_date != next_date:
                 if loops > 10 and next_date - start_date > timedelta(days=5*365):
-                    # if there's no valid fire time in the next ~5 years, 
+                    # if there's no valid fire time in the next ~5 years,
                     # then give up and return "no next fire time"
                     return None
 
