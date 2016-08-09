@@ -231,7 +231,7 @@ class TestCronTrigger(object):
         start_date = timezone.localize(start_date, is_dst=start_date_dst)
         correct_next_date = timezone.localize(correct_next_date, is_dst=correct_next_date_dst)
         next_date = trigger.get_next_fire_time(None, start_date)
-        print 'trigger', trigger, 'start', start_date, 'expected next', correct_next_date, 'got next', next_date
+        print('trigger', trigger, 'start', start_date, 'expected next', correct_next_date, 'got next', next_date)
         assert str(next_date) == str(correct_next_date)
 
     def test_dst_missing_hour(self):
