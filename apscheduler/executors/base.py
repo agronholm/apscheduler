@@ -1,12 +1,12 @@
+import logging
+import sys
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from datetime import datetime, timedelta
 from traceback import format_tb
-import logging
-import sys
 
-from pytz import utc
 import six
+from pytz import utc
 
 from apscheduler.events import (
     JobExecutionEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED)
@@ -100,14 +100,31 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
         self._logger.error('Error running job %s', job_id, exc_info=exc_info)
 
 
-def run_job(job, jobstore_alias, run_times, logger_name):
+def run_job(job, run_time, logger_name, jobstore_alias):
+    """Actual implementation of calling the job function"""
+    logger = logging.getLogger(logger_name)
+    try:
+        retval = job.func(*job.args, **job.kwargs)
+    except:
+        exc, tb = sys.exc_info()[1:]
+        formatted_tb = ''.join(format_tb(tb))
+        logger.exception('Job "%s" raised an exception', job)
+        return JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
+                                 exception=exc, traceback=formatted_tb)
+    else:
+        logger.info('Job "%s" executed successfully', job)
+        return JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
+                                 retval=retval)
+
+
+def job_runtime(job, run_times, logger_name, jobstore_alias, run_job_func=run_job):
     """
     Called by executors to run the job. Returns a list of scheduler events to be dispatched by the
     scheduler.
 
     """
-    events = []
     logger = logging.getLogger(logger_name)
+    events = []
     for run_time in run_times:
         # See if the job missed its run time window, and handle
         # possible misfires accordingly
@@ -119,19 +136,8 @@ def run_job(job, jobstore_alias, run_times, logger_name):
                                                 run_time))
                 logger.warning('Run time of job "%s" was missed by %s', job, difference)
                 continue
+            events.append(run_job_func(job, run_time, logger_name, jobstore_alias))
 
         logger.info('Running job "%s" (scheduled at %s)', job, run_time)
-        try:
-            retval = job.func(*job.args, **job.kwargs)
-        except:
-            exc, tb = sys.exc_info()[1:]
-            formatted_tb = ''.join(format_tb(tb))
-            events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
-                                            exception=exc, traceback=formatted_tb))
-            logger.exception('Job "%s" raised an exception', job)
-        else:
-            events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
-                                            retval=retval))
-            logger.info('Job "%s" executed successfully', job)
 
     return events

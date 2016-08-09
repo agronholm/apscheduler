@@ -1,8 +1,8 @@
 from __future__ import absolute_import
+
 import sys
 
-from apscheduler.executors.base import BaseExecutor, run_job
-
+from apscheduler.executors.base import BaseExecutor, job_runtime
 
 try:
     import gevent
@@ -26,5 +26,5 @@ class GeventExecutor(BaseExecutor):
             else:
                 self._run_job_success(job.id, events)
 
-        gevent.spawn(run_job, job, job._jobstore_alias, run_times, self._logger.name).\
-            link(callback)
+        gevent.spawn(job_runtime, job, run_times, self._logger.name, job._jobstore_alias) \
+            .link(callback)
