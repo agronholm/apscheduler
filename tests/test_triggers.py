@@ -246,15 +246,14 @@ class TestCronTrigger(object):
               correct_next_date, 'got next', next_date)
         assert str(next_date) == str(correct_next_date)
 
-    def test_dst_missing_hour(self):
+    def test_dst_missing_hour(self, timezone):
         """
         It might be that a CronTrigger can be configured to only ever fire in the missing
         time period during the switch from standard to daylight saving time,
         resulting in a trigger unable to fire.
 
         """
-        timezone = pytz.timezone('Europe/Berlin')
-        trigger = CronTrigger(timezone=timezone, month=3, day='last sun', hour=2, minute=30)
+        trigger = CronTrigger(month=3, day='last sun', hour=2, minute=30)
         start_date = timezone.localize(datetime(2006, 4, 1), is_dst=False)
         next_date = trigger.get_next_fire_time(None, start_date)
         assert next_date is None
