@@ -253,7 +253,7 @@ class TestCronTrigger(object):
         resulting in a trigger unable to fire.
 
         """
-        trigger = CronTrigger(month=3, day='last sun', hour=2, minute=30)
+        trigger = CronTrigger(timezone=timezone, month=3, day='last sun', hour=2, minute=30)
         start_date = timezone.localize(datetime(2006, 4, 1), is_dst=False)
         next_date = trigger.get_next_fire_time(None, start_date)
         assert next_date is None
