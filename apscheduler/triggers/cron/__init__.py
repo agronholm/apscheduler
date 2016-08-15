@@ -133,7 +133,7 @@ class CronTrigger(BaseTrigger):
                     values[field.name] = new_value
 
         return self.timezone.normalize(self.timezone.localize(datetime(**values),
-                                       is_dst=dateval.dst()))
+                                                              is_dst=dateval.dst()))
 
     def _find_next_potential_fire_time(self, start_date):
         next_date = start_date
@@ -178,8 +178,8 @@ class CronTrigger(BaseTrigger):
         next_date = self._find_next_potential_fire_time(start_date)
 
         # check if a switch from no dst to dst falls into the 24 hours before the next date
-        if next_date \
-                and next_date.dst() > self.timezone.normalize(next_date - timedelta(days=1)).dst():
+        if (next_date and
+                next_date.dst() > self.timezone.normalize(next_date - timedelta(days=1)).dst()):
             # perform a fixed point iteration to cope with "missing time"
             # due to a switch from winter to summer time
             last_date = None
