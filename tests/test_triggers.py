@@ -200,35 +200,40 @@ class TestCronTrigger(object):
         correct_next_date = timezone.localize(datetime(2009, 4, 8))
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
-    @pytest.mark.parametrize('trigger_args, start_date, start_date_dst, '
-                             'correct_next_date_dst, correct_next_date', [
-        ({'hour': (DST_SPRING.hour + 12) % 24}, DST_SPRING - timedelta(hours=6), False,
-         True, DST_SPRING + timedelta(hours=12)),
-        ({'hour': (DST_AUTUMN.hour + 12) % 24}, DST_AUTUMN - timedelta(hours=6), True,
-         False, DST_AUTUMN + timedelta(hours=12)),
-        ({'minute': 30}, DST_AUTUMN - timedelta(hours=0.25), True,
-         True, DST_AUTUMN + timedelta(hours=0.5)),
-        ({'minute': 30}, DST_AUTUMN + timedelta(hours=0.75), True,
-         False, DST_AUTUMN + timedelta(hours=0.5)),
-        ({'minute': 30}, DST_AUTUMN + timedelta(hours=0.75), False,
-         False, DST_AUTUMN + timedelta(hours=1.5)),
-        ({'hour': '*'}, DST_SPRING - timedelta(hours=0.25), True,
-         False, DST_SPRING + timedelta(hours=1)),
-        ({'hour': DST_SPRING.hour, 'minute': 30}, DST_SPRING - timedelta(hours=6), True,
-         False, DST_SPRING + timedelta(hours=24.5)),
-        ({'minute': '*/30'}, DST_SPRING - timedelta(hours=0.25), False,
-         True, DST_SPRING + timedelta(hours=1)),
-        ({'minute': '*/30'}, DST_AUTUMN - timedelta(hours=0.25), True,
-         True, DST_AUTUMN),
-        ({'minute': '*/30'}, DST_AUTUMN + timedelta(hours=0.25), True,
-         True, DST_AUTUMN + timedelta(hours=0.5)),
-        ({'minute': '*/30'}, DST_AUTUMN + timedelta(hours=0.75), True,
-         False, DST_AUTUMN),
-    ], ids=['absolute_spring', 'absolute_autumn',
+    @pytest.mark.parametrize(
+        'trigger_args, start_date, start_date_dst, correct_next_date_dst, correct_next_date',
+        [
+            ({'hour': (DST_SPRING.hour + 12) % 24}, DST_SPRING - timedelta(hours=6), False,
+             True, DST_SPRING + timedelta(hours=12)),
+            ({'hour': (DST_AUTUMN.hour + 12) % 24}, DST_AUTUMN - timedelta(hours=6), True,
+             False, DST_AUTUMN + timedelta(hours=12)),
+            ({'minute': 30}, DST_AUTUMN - timedelta(hours=0.25), True,
+             True, DST_AUTUMN + timedelta(hours=0.5)),
+            ({'minute': 30}, DST_AUTUMN + timedelta(hours=0.75), True,
+             False, DST_AUTUMN + timedelta(hours=0.5)),
+            ({'minute': 30}, DST_AUTUMN + timedelta(hours=0.75), False,
+             False, DST_AUTUMN + timedelta(hours=1.5)),
+            ({'hour': '*'}, DST_SPRING - timedelta(hours=0.25), True,
+             False, DST_SPRING + timedelta(hours=1)),
+            ({'hour': DST_SPRING.hour, 'minute': 30}, DST_SPRING - timedelta(hours=6), True,
+             False, DST_SPRING + timedelta(hours=24.5)),
+            ({'minute': '*/30'}, DST_SPRING - timedelta(hours=0.25), False,
+             True, DST_SPRING + timedelta(hours=1)),
+            ({'minute': '*/30'}, DST_AUTUMN - timedelta(hours=0.25), True,
+             True, DST_AUTUMN),
+            ({'minute': '*/30'}, DST_AUTUMN + timedelta(hours=0.25), True,
+             True, DST_AUTUMN + timedelta(hours=0.5)),
+            ({'minute': '*/30'}, DST_AUTUMN + timedelta(hours=0.75), True,
+             False, DST_AUTUMN),
+        ],
+        ids=[
+            'absolute_spring', 'absolute_autumn',
             'repeat_hour_enter', 'repeat_hour', 'repeat_hour_exit',
             'interval_skipped_hour', 'absolute_skipped_hour',
             'interval_spring', 'interval_autumn_enter',
-            'interval_autumn', 'interval_autumn_exit'])
+            'interval_autumn', 'interval_autumn_exit',
+        ],
+    )
     def test_dst_change(self, trigger_args, start_date, start_date_dst,
                         correct_next_date_dst, correct_next_date):
         """
