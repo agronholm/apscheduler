@@ -10,8 +10,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 
 DST_TIMEZONE = 'Europe/Berlin'
-DST_AUTUMN = datetime(2015, 10, 25, 2)  # must be top of the hour and the following hour is repeated
-DST_SPRING = datetime(2016, 3, 27, 2)  # must be top of the hour and the following hour is skipped
+DST_AUTUMN = datetime(2015, 10, 25, 2)  # must be top of the hour. the following hour is repeated
+DST_SPRING = datetime(2016, 3, 27, 2)  # must be top of the hour. the following hour is skipped
 
 
 class TestCronTrigger(object):
