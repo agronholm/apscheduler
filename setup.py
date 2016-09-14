@@ -43,7 +43,16 @@ setup(
         'tzlocal >= 1.2',
     ],
     extras_require={
-        ':python_version == "2.7"': ['futures', 'funcsigs']
+        ':python_version == "2.7"': ['futures', 'funcsigs'],
+        'asyncio:python_version == "2.7"': ['trollius'],
+        'asyncio:python_version == "3.3"': ['asyncio'],
+        'gevent': ['gevent'],
+        'twisted': ['twisted'],
+        'sqlalchemy': ['sqlalchemy >= 0.8'],
+        'mongodb': ['pymongo >= 2.8'],
+        'rethinkdb': ['rethinkdb'],
+        'redis': ['redis'],
+        'zookeeper': ['kazoo']
     },
     zip_safe=False,
     entry_points={
@@ -56,17 +65,17 @@ setup(
             'debug = apscheduler.executors.debug:DebugExecutor',
             'threadpool = apscheduler.executors.pool:ThreadPoolExecutor',
             'processpool = apscheduler.executors.pool:ProcessPoolExecutor',
-            'asyncio = apscheduler.executors.asyncio:AsyncIOExecutor',
-            'gevent = apscheduler.executors.gevent:GeventExecutor',
-            'twisted = apscheduler.executors.twisted:TwistedExecutor'
+            'asyncio = apscheduler.executors.asyncio:AsyncIOExecutor [asyncio]',
+            'gevent = apscheduler.executors.gevent:GeventExecutor [gevent]',
+            'twisted = apscheduler.executors.twisted:TwistedExecutor [twisted]'
         ],
         'apscheduler.jobstores': [
             'memory = apscheduler.jobstores.memory:MemoryJobStore',
-            'sqlalchemy = apscheduler.jobstores.sqlalchemy:SQLAlchemyJobStore',
-            'mongodb = apscheduler.jobstores.mongodb:MongoDBJobStore',
-            'rethinkdb = apscheduler.jobstores.rethinkdb:RethinkDBJobStore',
-            'redis = apscheduler.jobstores.redis:RedisJobStore',
-            'zookeeper = apscheduler.jobstores.zookeeper:ZookeeperJobStore'
+            'sqlalchemy = apscheduler.jobstores.sqlalchemy:SQLAlchemyJobStore [sqlalchemy]',
+            'mongodb = apscheduler.jobstores.mongodb:MongoDBJobStore [mongodb]',
+            'rethinkdb = apscheduler.jobstores.rethinkdb:RethinkDBJobStore [rethinkdb]',
+            'redis = apscheduler.jobstores.redis:RedisJobStore [redis]',
+            'zookeeper = apscheduler.jobstores.zookeeper:ZookeeperJobStore [zookeeper]'
         ]
     }
 )
