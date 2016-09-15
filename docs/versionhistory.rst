@@ -7,7 +7,14 @@ APScheduler, see the :doc:`migration section <migration>`.
 3.3.0
 -----
 
+* The asyncio and Tornado schedulers can now run jobs targeting coroutine functions
+  (requires Python 3.5; only native coroutines (``async def``) are supported)
+
+* The Tornado scheduler now uses TornadoExecutor as its default executor (see above as for why)
+
 * Added ZooKeeper job store (thanks to Jose Ignacio Villar for the patch)
+
+* Added the ability to execute coroutine functions with asyncio/trollius and Twisted
 
 * Improved import logic in ``ref_to_obj()`` to avoid errors in cases where traversing the path with
   ``getattr()`` would not work (thanks to Jarek Glowacki for the patch)

@@ -52,6 +52,7 @@ setup(
         'mongodb': ['pymongo >= 2.8'],
         'rethinkdb': ['rethinkdb'],
         'redis': ['redis'],
+        'tornado': ['tornado >= 4.3'],
         'zookeeper': ['kazoo']
     },
     zip_safe=False,
@@ -67,6 +68,7 @@ setup(
             'processpool = apscheduler.executors.pool:ProcessPoolExecutor',
             'asyncio = apscheduler.executors.asyncio:AsyncIOExecutor [asyncio]',
             'gevent = apscheduler.executors.gevent:GeventExecutor [gevent]',
+            'tornado = apscheduler.executors.tornado:TornadoExecutor [tornado]',
             'twisted = apscheduler.executors.twisted:TwistedExecutor [twisted]'
         ],
         'apscheduler.jobstores': [

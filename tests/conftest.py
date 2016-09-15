@@ -15,6 +15,10 @@ except ImportError:
     from mock import Mock
 
 
+def pytest_ignore_collect(path, config):
+    return path.basename.endswith('_py35.py') and sys.version_info < (3, 5)
+
+
 def minpython(*version):
     version_str = '.'.join([str(num) for num in version])
 
