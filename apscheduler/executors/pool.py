@@ -1,7 +1,7 @@
 from abc import abstractmethod
 import concurrent.futures
 
-from apscheduler.executors.base import BaseExecutor, run_job
+from apscheduler.executors.base import BaseExecutor
 
 
 class BasePoolExecutor(BaseExecutor):
@@ -10,7 +10,7 @@ class BasePoolExecutor(BaseExecutor):
         super(BasePoolExecutor, self).__init__()
         self._pool = pool
 
-    def _do_submit_job(self, job, run_times):
+    def _do_submit_job(self, job, run_times, run_job_func):
         def callback(f):
             exc, tb = (f.exception_info() if hasattr(f, 'exception_info') else
                        (f.exception(), getattr(f.exception(), '__traceback__', None)))
@@ -18,8 +18,8 @@ class BasePoolExecutor(BaseExecutor):
                 self._run_job_error(job.id, exc, tb)
             else:
                 self._run_job_success(job.id, f.result())
-
-        f = self._pool.submit(run_job, job, job._jobstore_alias, run_times, self._logger.name)
+        
+        f = self._pool.submit(run_job_func, job, job._jobstore_alias, run_times, self._logger.name)
         f.add_done_callback(callback)
 
     def shutdown(self, wait=True):

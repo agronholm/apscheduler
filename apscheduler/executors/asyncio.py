@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 import sys
 
-from apscheduler.executors.base import BaseExecutor, run_job
+from apscheduler.executors.base import BaseExecutor
 
 try:
     from asyncio import iscoroutinefunction
@@ -27,7 +27,7 @@ class AsyncIOExecutor(BaseExecutor):
         super(AsyncIOExecutor, self).start(scheduler, alias)
         self._eventloop = scheduler._eventloop
 
-    def _do_submit_job(self, job, run_times):
+    def _do_submit_job(self, job, run_times, run_job_func):
         def callback(f):
             try:
                 events = f.result()
@@ -43,7 +43,7 @@ class AsyncIOExecutor(BaseExecutor):
             else:
                 raise Exception('Executing coroutine based jobs is not supported with Trollius')
         else:
-            f = self._eventloop.run_in_executor(None, run_job, job, job._jobstore_alias, run_times,
+            f = self._eventloop.run_in_executor(None, run_job_func, job, job._jobstore_alias, run_times,
                                                 self._logger.name)
 
         f.add_done_callback(callback)

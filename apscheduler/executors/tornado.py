@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from tornado.gen import convert_yielded
 
-from apscheduler.executors.base import BaseExecutor, run_job
+from apscheduler.executors.base import BaseExecutor
 
 try:
     from inspect import iscoroutinefunction
@@ -35,7 +35,7 @@ class TornadoExecutor(BaseExecutor):
         super(TornadoExecutor, self).start(scheduler, alias)
         self._ioloop = scheduler._ioloop
 
-    def _do_submit_job(self, job, run_times):
+    def _do_submit_job(self, job, run_times, run_job_func):
         def callback(f):
             try:
                 events = f.result()
@@ -47,7 +47,7 @@ class TornadoExecutor(BaseExecutor):
         if iscoroutinefunction(job.func):
             f = run_coroutine_job(job, job._jobstore_alias, run_times, self._logger.name)
         else:
-            f = self.executor.submit(run_job, job, job._jobstore_alias, run_times,
+            f = self.executor.submit(run_job_func, job, job._jobstore_alias, run_times,
                                      self._logger.name)
 
         f = convert_yielded(f)

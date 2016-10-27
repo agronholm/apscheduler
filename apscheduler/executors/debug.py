@@ -1,6 +1,6 @@
 import sys
 
-from apscheduler.executors.base import BaseExecutor, run_job
+from apscheduler.executors.base import BaseExecutor
 
 
 class DebugExecutor(BaseExecutor):
@@ -11,9 +11,9 @@ class DebugExecutor(BaseExecutor):
     Plugin alias: ``debug``
     """
 
-    def _do_submit_job(self, job, run_times):
+    def _do_submit_job(self, job, run_times, run_job_func):
         try:
-            events = run_job(job, job._jobstore_alias, run_times, self._logger.name)
+            events = run_job_func(job, job._jobstore_alias, run_times, self._logger.name)
         except:
             self._run_job_error(job.id, *sys.exc_info()[1:])
         else:
