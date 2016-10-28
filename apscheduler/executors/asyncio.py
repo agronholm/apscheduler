@@ -6,7 +6,6 @@ from apscheduler.executors.base import BaseExecutor
 
 try:
     from asyncio import iscoroutinefunction
-    from apscheduler.executors.base_py3 import run_coroutine_job
 except ImportError:
     from trollius import iscoroutinefunction
     run_coroutine_job = None

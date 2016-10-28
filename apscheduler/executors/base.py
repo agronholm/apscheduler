@@ -10,7 +10,12 @@ import six
 
 from apscheduler.events import (
     JobExecutionEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED)
-
+try:
+    from inspect import iscoroutinefunction
+    from apscheduler.executors.base_py3 import run_coroutine_job
+except ImportError:
+    def iscoroutinefunction(func):
+        return False
 
 
 class MaxInstancesReachedError(Exception):
@@ -75,16 +80,27 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
         job_submission_id = job._scheduler.jobstores[jobstore_alias].\
                 add_job_submission(job)
         self._instances[job.id].append(job_submission_id)
-        self._do_submit_job(job, 
-                            run_times, 
-                            # Bind "job_submission_id" to "run_job()" in a closure
-                            generate_run_job_closure(job_submission_id))
-        
+                
+        if iscoroutinefunction(job.func):
+            self._do_submit_job(job, 
+                                run_times, 
+                                # Bind "job_submission_id" to "run_job()" in a closure
+                                generate_run_job_closure(job_submission_id),
+        else:
+            self._do_submit_job(job, 
+                                run_times,
+                                # Build the same closure, only return a coroutine
+                                generate_run_coroutine_job_closure(job_submission_id))
+
 
     @abstractmethod
-    def _do_submit_job(self, job, run_times, run_job_func, run_job_coroutine_func):
-        """Performs the actual task of scheduling `run_job_func` to be called."""
+    def _do_submit_job(self, job, run_times, run_job_func):
+        """
+        Performs the actual task of scheduling `run_job_func` to be called.
+
+        :param run_job_func func|coroutine: The function or coroutine to be executed
         
+        """
 
     def _run_job_success(self, job_id, job_instance_id, events):
         """

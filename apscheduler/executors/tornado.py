@@ -9,7 +9,6 @@ from apscheduler.executors.base import BaseExecutor
 
 try:
     from inspect import iscoroutinefunction
-    from apscheduler.executors.base_py3 import run_coroutine_job
 except ImportError:
     def iscoroutinefunction(func):
         return False
@@ -44,8 +43,9 @@ class TornadoExecutor(BaseExecutor):
             else:
                 self._run_job_success(job.id, events)
 
+        # run_job_func is either a coroutine function, or a regular function 
         if iscoroutinefunction(job.func):
-            f = run_coroutine_job(job, job._jobstore_alias, run_times, self._logger.name)
+            f = run_job_func(job, job._jobstore_alias, run_times, self._logger.name)
         else:
             f = self.executor.submit(run_job_func, job, job._jobstore_alias, run_times,
                                      self._logger.name)
