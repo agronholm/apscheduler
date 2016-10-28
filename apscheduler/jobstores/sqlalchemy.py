@@ -103,6 +103,13 @@ class SQLAlchemyJobStore(BaseJobStore):
         job_submission_id = r.inserted_primary_key[0]
         return job_submission_id
     
+    def update_job_submissions(self, conditions, **kwargs):
+        update = self.job_submissions_t\
+                .update(kwargs)\
+                .where(and_(*tuple([key == value for key, value in kwargs.iteritems()])))
+        result = self.engine.execute(update)
+        self._logger.info("Updated '{0}' rows WHERE '{1}'...set values to: '{2}'"
+                .format(str(result.rowcount), str(conditions), str(kwargs)))
     def update_job_submission(self, job_submission_id, **kwargs):
         update = self.job_submissions_t\
                 .update(kwargs)\

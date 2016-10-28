@@ -56,10 +56,16 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         self._scheduler = scheduler
         self._alias = alias
         self._logger = logging.getLogger('apscheduler.jobstores.%s' % alias)
+        # If jobstore didn't 'stop' gracefully, set all non-finished job_submissions to "orphaned"
+        self.update_job_submissions({"status": "running"}, status='orphaned')
+        self.update_job_submissions({"status": "submitted"}, status='orphaned')
 
     def shutdown(self):
         """Frees any resources still bound to this job store."""
-
+        # Any jobs that haven't finished will be orphaned when we shutdown !
+        self.update_job_submissions({"status": "running"}, status='orphaned')
+        self.update_job_submissions({"status": "submitted"}, status='orphaned')
+        
     def _fix_paused_jobs_sorting(self, jobs):
         for i, job in enumerate(jobs):
             if job.next_run_time is not None:
@@ -78,6 +84,18 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         :rtype: int
         """
     
+    @abstractmethod
+    def update_job_submissions(self, conditions, **kwargs):
+        """
+        Finds all job submissions which satisfy ``conditions``, and updates them according to the
+        columns/values in ``kwargs``.
+
+        :param dict conditions: A dict of columns => values which is used to build a condition
+        to choose which rows to update. ({'column1': 'value1', 'columnn2': 'value2'...}
+        :param dict kwargs: A dict of columns => values which designates what columns to update in the
+        job_submission store.
+
+        """
 
     @abstractmethod
     def update_job_submission(self, job_submission_id, **kwargs):
