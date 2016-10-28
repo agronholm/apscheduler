@@ -11,7 +11,8 @@ except ImportError:  # pragma: nocover
 
 try:
     from sqlalchemy import (
-        create_engine, Table, Column, MetaData, Unicode, Float, LargeBinary, select)
+        create_engine, Table, Column, MetaData, Unicode, Float, DateTime, 
+        Integer, String, LargeBinary, select, ForeignKey)
     from sqlalchemy.exc import IntegrityError
     from sqlalchemy.sql.expression import null
 except ImportError:  # pragma: nocover
@@ -54,12 +55,26 @@ class SQLAlchemyJobStore(BaseJobStore):
             tablename, metadata,
             Column('id', Unicode(191, _warn_on_bytestring=False), primary_key=True),
             Column('next_run_time', Float(25), index=True),
-            Column('job_state', LargeBinary, nullable=False)
+            Column('job_state', LargeBinary, nullable=False),
+
         )
+
+        self.job_submissions_t = Table(
+            "apscheduler_job_submissions", metadata,
+            Column("id", primary_key=True),
+            Column("state", Enum("submitted", "running", "success", "failure", "orphaned")),
+            Column("func", String()),
+            Column("submitted_at", DateTime()),
+            Column("started_at", DateTime()),
+            Column("completed_at", DateTime()),
+            Column("apscheduler_job_id", Integer(), ForeignKey(tablename + ".id"))
+        )
+            
 
     def start(self, scheduler, alias):
         super(SQLAlchemyJobStore, self).start(scheduler, alias)
         self.jobs_t.create(self.engine, True)
+        self.job_submissions_t.create(self.engine, True)
 
     def lookup_job(self, job_id):
         selectable = select([self.jobs_t.c.job_state]).where(self.jobs_t.c.id == job_id)
@@ -77,6 +92,43 @@ class SQLAlchemyJobStore(BaseJobStore):
         next_run_time = self.engine.execute(selectable).scalar()
         return utc_timestamp_to_datetime(next_run_time)
 
+    def add_job_submission(self, job):
+        insert = self.job_submissions_t.insert().values(**{
+            'state': 'submitted',
+            'func': job.func,
+            'submitted_at': datetime.now(),
+            'apscheduler_job_id': job.id,
+        })
+        r = self.engine.execute(insert)
+        job_submission_id = r.inserted_primary_key[0]
+        return job_submission_id
+    
+    def update_job_submission(self, job_submission_id, **kwargs):
+        update = self.job_submissions_t\
+                .update(kwargs)\
+                .where(job_submissions_t.c.id == job_submission_id)
+        result = self.engine.execute(update)
+        if result.rowcount == 0:
+            raise JobInstanceLookupError(job_submission_id)
+    
+    def get_job_submissions_with_status(self, statuses=[]):
+        selectable = select(map(lambda col: getattr(self.job_submissions_t.c, col),
+            ["id", "state", "func", "submitted_at", "apscheduler_job_id"])).\
+            order_by(self.job_submissions_t.c.submitted_at)
+        if len(statuses) > 0:
+            selectable = selectable.\
+            where(self.job_submissions_t.c.status in statuses)
+        job_instances = []
+        for row in self.engine.execute(selectable):
+            job_instances.append(dict(row))
+        return jobs
+    
+    def get_job_submission(self, job_submission_id):
+        selectable = self.job_submissions_t.select()\
+                .where(self.submissions_t.c.id == job_submission_id)
+        job_submission = self.engine.execute(selectable).scalar()
+        return job_submission
+    
     def get_all_jobs(self):
         jobs = self._get_jobs()
         self._fix_paused_jobs_sorting(jobs)

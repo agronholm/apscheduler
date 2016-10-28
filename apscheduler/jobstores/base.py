@@ -10,6 +10,11 @@ class JobLookupError(KeyError):
     def __init__(self, job_id):
         super(JobLookupError, self).__init__(u'No job by the id of %s was found' % job_id)
 
+class JobInstanceLookupError(KeyError):
+    """Raised when the job store cannot find the *job instance* of job for update or removal."""
+
+    def __init__(self, job_id):
+        super(JobInstanceLookupError, self).__init__(u'No job by the id of %s was found' % job_id)
 
 class ConflictingIdError(KeyError):
     """Raised when the uniqueness of job IDs is being violated."""
@@ -63,6 +68,46 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
                     del jobs[:i]
                     jobs.extend(paused_jobs)
                 break
+
+    @abstractmethod
+    def add_job_submission(self, job):
+        """ 
+        Adds a job submission to the jobstore, and returns the ID of the inserted record
+    
+        :param Job job: The job which has been submitted to be executed
+        :rtype: int
+        """
+    
+
+    @abstractmethod
+    def update_job_submission(self, job_submission_id, **kwargs):
+        """
+        Updates the job submission designated by ``job_submission_id``, specifically updating the
+        record's attributes specified by keywords in **kwargs
+
+        :param int job_submission_id: The ID of the job_submission in the job_store
+        :param dict kwargs: A dictionary whos keys correspond to attributes (columns) of the 
+        apscheduler_job_submission collection in the jobstore. Common keywords (columns) passed
+        to this function include: ``status``, ``started_at``, and ``completed_at``.
+        
+        """
+    @abstractmethod
+    def get_job_submissions_with_status(self, statuses=[]):
+        """
+        Returns all job submissions in the jobstore which have a status in ``statuses``.
+
+        :param list[str] statuses: List of strings in the set ['submitted','running','failure','success',
+        'orphaned']. Function will fetch job_submissions with any of the provided statuses.
+        :rtype: dict
+        """
+    @abstractmethod
+    def get_job_submission(self, job_submission_id):
+        """
+        Returns the specific job submission with ID ``job_submission_id``.
+
+        :param int job_submission_id: The ID of the ``job_submission` to fetch.
+        :rtype: dict
+        """
 
     @abstractmethod
     def lookup_job(self, job_id):
