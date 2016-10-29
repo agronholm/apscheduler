@@ -1,6 +1,9 @@
 from __future__ import absolute_import
+from datetime import datetime
+import six
 
-from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
+from apscheduler.jobstores.base import (
+    BaseJobStore, JobLookupError, ConflictingIdError, JobSubmissionLookupError)
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
@@ -11,8 +14,8 @@ except ImportError:  # pragma: nocover
 
 try:
     from sqlalchemy import (
-        create_engine, Table, Column, MetaData, Unicode, Float, DateTime, 
-        Integer, String, LargeBinary, select, ForeignKey)
+        create_engine, Table, Column, MetaData, Unicode, Float, DateTime,
+        Integer, String, LargeBinary, Enum, select, ForeignKey, and_)
     from sqlalchemy.exc import IntegrityError
     from sqlalchemy.sql.expression import null
 except ImportError:  # pragma: nocover
@@ -61,7 +64,7 @@ class SQLAlchemyJobStore(BaseJobStore):
 
         self.job_submissions_t = Table(
             "apscheduler_job_submissions", metadata,
-            Column("id", primary_key=True),
+            Column("id", Integer(), primary_key=True),
             Column("state", Enum("submitted", "running", "success", "failure", "orphaned")),
             Column("func", String()),
             Column("submitted_at", DateTime()),
@@ -69,7 +72,6 @@ class SQLAlchemyJobStore(BaseJobStore):
             Column("completed_at", DateTime()),
             Column("apscheduler_job_id", Integer(), ForeignKey(tablename + ".id"))
         )
-            
 
     def start(self, scheduler, alias):
         super(SQLAlchemyJobStore, self).start(scheduler, alias)
@@ -95,47 +97,54 @@ class SQLAlchemyJobStore(BaseJobStore):
     def add_job_submission(self, job):
         insert = self.job_submissions_t.insert().values(**{
             'state': 'submitted',
-            'func': job.func,
+            # TODO: Pickle the 'job.func' so we can recover from 2 diff sessions
+            'func': job.func if isinstance(job.func, six.string_types) else job.func.__name__,
             'submitted_at': datetime.now(),
             'apscheduler_job_id': job.id,
         })
         r = self.engine.execute(insert)
         job_submission_id = r.inserted_primary_key[0]
         return job_submission_id
-    
+
     def update_job_submissions(self, conditions, **kwargs):
+        whereclause = ()
+        for key in conditions:
+            whereclause += (key == conditions[key],)
         update = self.job_submissions_t\
-                .update(kwargs)\
-                .where(and_(*tuple([key == value for key, value in kwargs.iteritems()])))
+                .update()\
+                .values(kwargs)\
+                .where(and_(*whereclause))
         result = self.engine.execute(update)
         self._logger.info("Updated '{0}' rows WHERE '{1}'...set values to: '{2}'"
-                .format(str(result.rowcount), str(conditions), str(kwargs)))
+                          .format(str(result.rowcount), str(conditions), str(kwargs)))
+
     def update_job_submission(self, job_submission_id, **kwargs):
         update = self.job_submissions_t\
-                .update(kwargs)\
-                .where(job_submissions_t.c.id == job_submission_id)
+                .update()\
+                .values(kwargs)\
+                .where(self.job_submissions_t.c.id == job_submission_id)
         result = self.engine.execute(update)
         if result.rowcount == 0:
-            raise JobInstanceLookupError(job_submission_id)
-    
-    def get_job_submissions_with_status(self, statuses=[]):
+            raise JobSubmissionLookupError(job_submission_id)
+
+    def get_job_submissions_with_states(self, states=[]):
         selectable = select(map(lambda col: getattr(self.job_submissions_t.c, col),
-            ["id", "state", "func", "submitted_at", "apscheduler_job_id"])).\
+                            ["id", "state", "func", "submitted_at", "apscheduler_job_id"])).\
             order_by(self.job_submissions_t.c.submitted_at)
-        if len(statuses) > 0:
+        if len(states) > 0:
             selectable = selectable.\
-            where(self.job_submissions_t.c.status in statuses)
-        job_instances = []
+                         where(self.job_submissions_t.c.state in states)
+        job_submissions = []
         for row in self.engine.execute(selectable):
-            job_instances.append(dict(row))
-        return jobs
-    
+            job_submissions.append(dict(row))
+        return job_submissions
+
     def get_job_submission(self, job_submission_id):
         selectable = self.job_submissions_t.select()\
                 .where(self.submissions_t.c.id == job_submission_id)
         job_submission = self.engine.execute(selectable).scalar()
         return job_submission
-    
+
     def get_all_jobs(self):
         jobs = self._get_jobs()
         self._fix_paused_jobs_sorting(jobs)

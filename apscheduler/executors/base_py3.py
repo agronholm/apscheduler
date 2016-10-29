@@ -15,7 +15,8 @@ def generate_run_coroutine_job_closure(job_submission_id):
         events = []
         logger = logging.getLogger(logger_name)
         for run_time in run_times:
-            # See if the job missed its run time window, and handle possible misfires accordingly
+            # See if the job missed its run time window, and handle
+            # possible misfires accordingly
             if job.misfire_grace_time is not None:
                 difference = datetime.now(utc) - run_time
                 grace_time = timedelta(seconds=job.misfire_grace_time)
@@ -26,22 +27,36 @@ def generate_run_coroutine_job_closure(job_submission_id):
                     continue
 
             logger.info('Running job "%s" (scheduled at %s)', job, run_time)
+            # Update the job submission to "running"
+            job._scheduler._jobstores[jobstore_alias].\
+                update_job_submission(job_submission_id, state="running")
             try:
-                retval = await job.func(*job.args, **job.kwargs)
+                retval = job.func(*job.args, **job.kwargs)
             except:
                 exc, tb = sys.exc_info()[1:]
                 formatted_tb = ''.join(format_tb(tb))
                 events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
                                                 exception=exc, traceback=formatted_tb))
-                job._scheduler.jobstores[jobstore_alias].\
-                        update_job_submission(job_submission_id, status="failure")
                 logger.exception('Job "%s" raised an exception', job)
+                with job.executor._lock:
+                    job.executor._instances[job.id].remove(job_submission_id)
+                    if len(job.executor._instances[job.id]) == 0:
+                        del job.executor._instances[job_id]
+                job._scheduler._jobstores[jobstore_alias].\
+                    update_job_submission(job_submission_id, state="failure")
             else:
-                events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
-                                                retval=retval))
+                with job.executor._lock:
+                    job.executor._instances[job.id].remove(job_submission_id)
+                    if len(job.executor._instances[job.id]) == 0:
+                        del job.executor._instances[job.id]
+                        events.append(JobExecutionEvent(EVENT_JOB_EXECUTED,
+                                                        job.id,
+                                                        jobstore_alias,
+                                                        run_time,
+                                                        retval=retval))
                 logger.info('Job "%s" executed successfully', job)
-                job._scheduler.jobstores[jobstore_alias].\
-                        update_job_submission(job_submission_id, status="success")
+                job._scheduler._jobstores[jobstore_alias].\
+                    update_job_submission(job_submission_id, state="success")
 
         return events
     return run_coroutine_job

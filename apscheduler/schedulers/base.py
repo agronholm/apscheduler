@@ -145,7 +145,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             # Start all the job stores
             for alias, store in six.iteritems(self._jobstores):
                 store.start(self, alias)
-
+                store.update_orphans()
             # Schedule all pending jobs
             for job, jobstore_alias, replace_existing in self._pending_jobs:
                 self._real_add_job(job, jobstore_alias, replace_existing)

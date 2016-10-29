@@ -10,11 +10,14 @@ class JobLookupError(KeyError):
     def __init__(self, job_id):
         super(JobLookupError, self).__init__(u'No job by the id of %s was found' % job_id)
 
-class JobInstanceLookupError(KeyError):
+
+class JobSubmissionLookupError(KeyError):
     """Raised when the job store cannot find the *job instance* of job for update or removal."""
 
     def __init__(self, job_id):
-        super(JobInstanceLookupError, self).__init__(u'No job by the id of %s was found' % job_id)
+        super(JobSubmissionLookupError, self).\
+            __init__(u'No job by the id of %s was found' % job_id)
+
 
 class ConflictingIdError(KeyError):
     """Raised when the uniqueness of job IDs is being violated."""
@@ -57,15 +60,19 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         self._alias = alias
         self._logger = logging.getLogger('apscheduler.jobstores.%s' % alias)
         # If jobstore didn't 'stop' gracefully, set all non-finished job_submissions to "orphaned"
-        self.update_job_submissions({"status": "running"}, status='orphaned')
-        self.update_job_submissions({"status": "submitted"}, status='orphaned')
+    def update_orphans(self):
+        self.update_job_submissions({"state": "running"}, state='orphaned')
+        self.update_job_submissions({"state": "submitted"}, state='orphaned')
 
     def shutdown(self):
-        """Frees any resources still bound to this job store."""
+        """
+        Frees any resources still bound to this job store.
+        """
         # Any jobs that haven't finished will be orphaned when we shutdown !
-        self.update_job_submissions({"status": "running"}, status='orphaned')
-        self.update_job_submissions({"status": "submitted"}, status='orphaned')
-        
+        self.update_job_submissions({"state": "running"}, state='orphaned')
+        self.update_job_submissions({"state": "submitted"}, state='orphaned')
+        # TODO: Try and gracefully stop these jobs when we shutdown the jobstore...
+
     def _fix_paused_jobs_sorting(self, jobs):
         for i, job in enumerate(jobs):
             if job.next_run_time is not None:
@@ -77,13 +84,13 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
 
     @abstractmethod
     def add_job_submission(self, job):
-        """ 
+        """
         Adds a job submission to the jobstore, and returns the ID of the inserted record
-    
+
         :param Job job: The job which has been submitted to be executed
         :rtype: int
         """
-    
+
     @abstractmethod
     def update_job_submissions(self, conditions, **kwargs):
         """
@@ -92,8 +99,8 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
 
         :param dict conditions: A dict of columns => values which is used to build a condition
         to choose which rows to update. ({'column1': 'value1', 'columnn2': 'value2'...}
-        :param dict kwargs: A dict of columns => values which designates what columns to update in the
-        job_submission store.
+        :param dict kwargs: A dict of columns => values which designates what columns to update
+        in the job_submission store.
 
         """
 
@@ -104,18 +111,19 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         record's attributes specified by keywords in **kwargs
 
         :param int job_submission_id: The ID of the job_submission in the job_store
-        :param dict kwargs: A dictionary whos keys correspond to attributes (columns) of the 
+        :param dict kwargs: A dictionary whos keys correspond to attributes (columns) of the
         apscheduler_job_submission collection in the jobstore. Common keywords (columns) passed
-        to this function include: ``status``, ``started_at``, and ``completed_at``.
-        
+        to this function include: ``state``, ``started_at``, and ``completed_at``.
+
         """
     @abstractmethod
-    def get_job_submissions_with_status(self, statuses=[]):
+    def get_job_submissions_with_states(self, states=[]):
         """
-        Returns all job submissions in the jobstore which have a status in ``statuses``.
+        Returns all job submissions in the jobstore which have a state in ``states``.
 
-        :param list[str] statuses: List of strings in the set ['submitted','running','failure','success',
-        'orphaned']. Function will fetch job_submissions with any of the provided statuses.
+        :param list[str] states: List of strings in the set ['submitted','running','failure',
+        'success','orphaned']. Function will fetch job_submissions with any of the provided
+        states.
         :rtype: dict
         """
     @abstractmethod
