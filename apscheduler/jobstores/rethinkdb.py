@@ -45,6 +45,7 @@ class RethinkDBJobStore(BaseJobStore):
         self.pickle_protocol = pickle_protocol
         self.connect_args = connect_args
         self.conn = None
+        self.job_submission_table = "job_submissions"
 
     def start(self, scheduler, alias):
         super(RethinkDBJobStore, self).start(scheduler, alias)
@@ -60,10 +61,14 @@ class RethinkDBJobStore(BaseJobStore):
         if self.table not in r.table_list().run(self.conn):
             r.table_create(self.table).run(self.conn)
 
+        if self.job_submission_table not in r.table_list().run(self.conn):
+            r.table_create(self.job_submission_table).run(self.conn)
+
         if 'next_run_time' not in r.table(self.table).index_list().run(self.conn):
             r.table(self.table).index_create('next_run_time').run(self.conn)
 
         self.table = r.db(self.database).table(self.table)
+        self.job_submission_table = r.db(self.database).table(self.job_submission_table)
 
     def lookup_job(self, job_id):
         results = list(self.table.get_all(job_id).pluck('job_state').run(self.conn))
@@ -88,6 +93,39 @@ class RethinkDBJobStore(BaseJobStore):
         self._fix_paused_jobs_sorting(jobs)
         return jobs
 
+    def add_job_submission(self, job):
+        job_sub_dict = {
+            'state': 'submitted',
+            # TODO: Pickle the 'job.func' so we can recover from 2 diff sessions
+            'func': job.func if isinstance(job.func, six.string_types) else job.func.__name__,
+            'submitted_at': datetime.now(),
+            'apscheduler_job_id': job.id,
+        }
+        result = self.job_submission_table.insert(job_sub_dict).run(self.conn)
+        generated_id = result['generated_keys'][0]
+        return generated_id
+
+    def update_job_submission(self, job_submission_id, **kwargs):
+        result = self.job_submission_table.get_all(job_submission_id)\
+            .update(kwargs).run(self.conn)
+    
+    def update_job_submissions(self, conditions, **kwargs):
+        result = self.job_submission_table.filter(conditions)\
+            .update(kwargs).run(self.conn)
+        replaced = result['replaced']
+        self._logger.info("Updated '{0}' field where '{1}'...set values: '{2}'"
+            .format(str(replaced), str(conditions), str(kwargs)))
+    
+    def get_job_submissions_with_states(self, states=[]):
+        if states:
+            return [dict(doc) for doc in self.job_submission_table.filter(
+                lambda job_sub: job_sub['state'] in states).run(conn)]
+        else:
+            return [dict(doc) for doc in self.job_submission_table.run(conn)]
+
+    def get_job_submission(self, job_submission_id):
+        return self.job_submission_table.get(job_submission_id).run(conn)
+    
     def add_job(self, job):
         job_dict = {
             'id': job.id,
