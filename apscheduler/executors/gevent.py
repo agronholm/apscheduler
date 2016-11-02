@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 import sys
 
-from apscheduler.executors.base import BaseExecutor
+from apscheduler.executors.base import BaseExecutor, run_job
 
 
 try:
@@ -17,7 +17,7 @@ class GeventExecutor(BaseExecutor):
     Plugin alias: ``gevent``
     """
 
-    def _do_submit_job(self, job, run_times, run_job_func):
+    def _do_submit_job(self, job, job_submission_id, run_time):
         def callback(greenlet):
             try:
                 events = greenlet.get()
@@ -26,5 +26,5 @@ class GeventExecutor(BaseExecutor):
             else:
                 self._run_job_success(job.id, events)
 
-        gevent.spawn(run_job_func, job, job._jobstore_alias, run_times, self._logger.name).\
+        gevent.spawn(run_job, job, self._logger.name, job_submission_id, run_time).\
             link(callback)
