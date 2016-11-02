@@ -24,7 +24,8 @@ from apscheduler.events import (
     SchedulerEvent, JobEvent, JobSubmissionEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN,
     EVENT_JOBSTORE_ADDED, EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_JOB_MODIFIED, EVENT_JOB_REMOVED,
     EVENT_JOB_ADDED, EVENT_EXECUTOR_ADDED, EVENT_EXECUTOR_REMOVED, EVENT_ALL_JOBS_REMOVED,
-    EVENT_JOB_SUBMITTED, EVENT_JOB_MAX_INSTANCES, EVENT_SCHEDULER_RESUMED, EVENT_SCHEDULER_PAUSED)
+    EVENT_JOB_SUBMITTED, EVENT_JOB_MAX_INSTANCES, EVENT_SCHEDULER_RESUMED, EVENT_SCHEDULER_PAUSED,
+    EVENT_JOB_MISSED)
 
 #: constant indicating a scheduler's stopped state
 STATE_STOPPED = 0
@@ -669,6 +670,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                         else:
                             print(u'    No scheduled jobs', file=out)
 
+
+    
+
     @abstractmethod
     def wakeup(self):
         """
@@ -676,9 +680,34 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         Triggers :meth:`_process_jobs` to be run in an implementation specific manner.
         """
 
+    
+
+
     #
     # Private API
     #
+
+    def _update_job_submission(self, job_submission_id, jobstore_alias, **kwargs):
+        """
+        
+
+        """
+        with self._jobstores_lock:
+            self._jobstores[jobstore_alias].\
+                update_job_submission(job_submission_id, **kwargs)
+            
+
+    def _add_job_submission(self, job):
+        """
+        Creates a new ``job_submission`` in the jobstore, and returns its ID
+
+        :param Job job: Job to submit to be run
+        :rtype: int 
+        """
+        with self._jobstores_lock:
+            return self._jobstores[job._jobstore_alias].\
+                add_job_submission(job)
+
 
     def _configure(self, config):
         # Set general options
@@ -933,10 +962,26 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                         continue
 
                     run_times = job._get_run_times(now)
-                    run_times = run_times[-1:] if run_times and job.coalesce else run_times
-                    if run_times:
+                    if job.coalesce:
+                        # Insert missed job submissions for every job but the most recent...
+                        for run_time in run_times[:-1]:
+                            job_submission_id = self._add_job_submission(job)
+                            self._update_job_submission(job_submission_id, jobstore_alias,
+                                                        state='missed', submitted_at=run_time)
+                        run_times = run_times[-1:] if run_times else run_times
+                     
+                    for run_time in run_times:
+                        if job.misfire_grace_time is not None:
+                            difference = now - run_time
+                            grace_time = timedelta(seconds=job.misfire_grace_time)
+                            if difference > grace_time:
+                                job_submission_id = self._add_job_submission(job)
+                                self._update_job_submission(job_submission_id, jobstore_alias, state='missed')
+                                events.append(EVENT_JOB_MISSED, job.id, job.jobstore_alias, run_time)
+                                logger.warning('Run time of job "%s" was missed by %s', job, difference)
+                                continue
                         try:
-                            executor.submit_job(job, run_times)
+                            executor.submit_job(job, run_time)
                         except MaxInstancesReachedError:
                             self._logger.warning(
                                 'Execution of job "%s" skipped: maximum number of running '
