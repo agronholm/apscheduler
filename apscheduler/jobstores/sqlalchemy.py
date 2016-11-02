@@ -65,7 +65,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         self.job_submissions_t = Table(
             "apscheduler_job_submissions", metadata,
             Column("id", Integer(), primary_key=True),
-            Column("state", Enum("submitted", "running", "success", "failure", "orphaned")),
+            Column("state", Enum("submitted", "success", "failure", "missed", "orphaned")),
             Column("func", String()),
             Column("submitted_at", DateTime()),
             Column("started_at", DateTime()),
@@ -143,7 +143,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         selectable = self.job_submissions_t.select()\
                 .where(self.submissions_t.c.id == job_submission_id)
         job_submission = self.engine.execute(selectable).scalar()
-        return job_submission
+        return dict(job_submission)
 
     def get_all_jobs(self):
         jobs = self._get_jobs()

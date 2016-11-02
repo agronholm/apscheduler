@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+import time
 
 import pytest
 
@@ -101,6 +102,11 @@ def create_add_job(timezone, create_job):
         return job
 
     return create
+
+def test_submit_job_and_get_submission(jobstore, create_add_job):
+    initial_job = create_add_job(jobstore, dummy_job, datetime.now())
+    job_subs = jobstore.get_job_submissions_with_states(['submitted', 'running', 'orphaned','success','failure'])
+    assert(job_subs[0].apscheduler_job_id == initial_job.id)
 
 
 def test_lookup_job(jobstore, create_add_job):

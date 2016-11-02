@@ -72,6 +72,21 @@ class DummyJobStore(BaseJobStore):
         self.start = MagicMock()
         self.shutdown = MagicMock()
 
+    def add_job_submission(self, job):
+        pass
+
+    def get_job_submission(self, job_submission_id):
+        pass
+
+    def get_job_submissions_with_states(self, statuses):
+        pass
+
+    def update_job_submission(self, job_submission_id, **kwargs):
+        pass
+
+    def update_job_submissions(self, conditions, **kwargs):
+        pass
+
     def get_due_jobs(self, now):
         pass
 

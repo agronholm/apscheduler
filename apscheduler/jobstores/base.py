@@ -124,7 +124,7 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         :param list[str] states: List of strings in the set ['submitted','running','failure',
         'success','orphaned']. Function will fetch job_submissions with any of the provided
         states.
-        :rtype: dict
+        :rtype: list[dict]
         """
     @abstractmethod
     def get_job_submission(self, job_submission_id):

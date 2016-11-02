@@ -67,7 +67,6 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
                 raise MaxInstancesReachedError(job)
 
             job_submission_id = self._scheduler._add_job_submission(job)
-
             self._do_submit_job(job, job_submission_id, run_time)
             self._instances[job.id] += 1
 
@@ -75,7 +74,7 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
     def _do_submit_job(self, job, job_submission_id, run_time):
         """Performs the actual task of scheduling `run_job` to be called."""
 
-    def _run_job_success(self, job_id, events):
+    def _run_job_success(self, job_id, job_submission_id, jobstore_alias, events):
         """
         Called by the executor with the list of generated events when :func:`run_job` has been
         successfully called.
@@ -88,42 +87,41 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
 
         for event in events:
             self._scheduler._dispatch_event(event)
+        self._scheduler._update_job_submission(job_submission_id, jobstore_alias, state='success')
 
-    def _run_job_error(self, job_id, exc, traceback=None):
+    def _run_job_error(self, job_id, job_submission_id, jobstore_alias, exc, traceback=None):
         """Called by the executor with the exception if there is an error  calling `run_job`."""
         with self._lock:
             self._instances[job_id] -= 1
             if self._instances[job_id] == 0:
                 del self._instances[job_id]
-
+        self._scheduler._update_job_submission(job_submission_id, jobstore_alias, state='failure')
         exc_info = (exc.__class__, exc, traceback)
         self._logger.error('Error running job %s', job_id, exc_info=exc_info)
 
 
-def run_job(job, logger_name, job_submission_id, run_time):
+def run_job(job, logger_name, job_submission_id, jobstore_alias, run_time):
     """
     Called by executors to run the job. Returns a list of scheduler events to be dispatched by the
     scheduler.
 
     """
+     
     events = []
     logger = logging.getLogger(logger_name)
-    
-    job._scheduler._update_job_submission(job_submission_id, job._jobstore_alias, state='running')
+    #jobstore.update_job_submission(job_submission_id, job._jobstore_alias, state='running')
     logger.info('Running job "%s" (scheduled at %s)', job, run_time)
     try:
         retval = job.func(*job.args, **job.kwargs)
     except:
         exc, tb = sys.exc_info()[1:]
         formatted_tb = ''.join(format_tb(tb))
-        events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, job_submission_id, job.jobstore_alias, run_time,
+        events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, job_submission_id, jobstore_alias, run_time,
                                         exception=exc, traceback=formatted_tb))
-        job._scheduler._update_job_submission(job_submission_id, job._jobstore_alias, state='failure')
         logger.exception('Job "%s" raised an exception', job)
     else:
-        events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, job_submission_id, job.jobstore_alias, run_time,
+        events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, job_submission_id, jobstore_alias, run_time,
                                         retval=retval))
-        job._scheduler._update_job_submission(job_submission_id, job._jobstore_alias, state='success')
         logger.info('Job "%s" executed successfully', job)
 
     return events

@@ -3,7 +3,7 @@ from __future__ import print_function
 from abc import ABCMeta, abstractmethod
 from collections import MutableMapping
 from threading import RLock
-from datetime import datetime
+from datetime import datetime, timedelta
 from logging import getLogger
 import warnings
 import sys
@@ -416,12 +416,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             'misfire_grace_time': misfire_grace_time,
             'coalesce': coalesce,
             'max_instances': max_instances,
-            'next_run_time': next_run_time
+            'next_run_time': next_run_time,
         }
         job_kwargs = dict((key, value) for key, value in six.iteritems(job_kwargs) if
                           value is not undefined)
         job = Job(self, **job_kwargs)
-
+        self._logger.info(job._scheduler)
         # Don't really add jobs to job stores before the scheduler is up and running
         with self._jobstores_lock:
             if self.state == STATE_STOPPED:
@@ -977,8 +977,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                             if difference > grace_time:
                                 job_submission_id = self._add_job_submission(job)
                                 self._update_job_submission(job_submission_id, jobstore_alias, state='missed')
-                                events.append(EVENT_JOB_MISSED, job.id, job.jobstore_alias, run_time)
-                                logger.warning('Run time of job "%s" was missed by %s', job, difference)
+                                events.append(JobSubmissionEvent(EVENT_JOB_MISSED, job.id, jobstore_alias, run_time))
+                                self._logger.warning('Run time of job "%s" was missed by %s', job, difference)
                                 continue
                         try:
                             executor.submit_job(job, run_time)

@@ -2,7 +2,8 @@ from __future__ import absolute_import
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import datetime_to_utc_timestamp
-
+import six
+import datetime
 
 class MemoryJobStore(BaseJobStore):
     """
@@ -16,7 +17,7 @@ class MemoryJobStore(BaseJobStore):
         # list of (job, timestamp), sorted by next_run_time and job id (ascending)
         self._jobs = []
         self._jobs_index = {}  # id -> (job, timestamp) lookup table
-        self._job_submissions = # id -> job_submission
+        self._job_submissions = {}# id -> job_submission
         self._next_id = 1
 
     def add_job_submission(self, job):
@@ -25,7 +26,7 @@ class MemoryJobStore(BaseJobStore):
             'state': 'submitted',
             # TODO: Pickle the 'job.func' so we can recover from 2 diff sessions
             'func': job.func if isinstance(job.func, six.string_types) else job.func.__name__,
-            'submitted_at': datetime.now(),
+            'submitted_at': datetime.datetime.now(),
             'apscheduler_job_id': job.id,
         }
         self._job_submissions[self._next_id] = job_submission
@@ -50,7 +51,7 @@ class MemoryJobStore(BaseJobStore):
     def get_job_submissions_with_states(self, states=[]):
         return [self._job_submissions[k] \
                 for k in self._job_submissions \
-                if not states or self._job_submissions[k]['state'] in states]]
+                if not states or self._job_submissions[k]['state'] in states]
 
     def get_job_submission(self, job_submission_id, **kwargs):
         return self._job_submissions[job_submission_id]

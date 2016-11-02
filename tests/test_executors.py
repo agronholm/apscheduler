@@ -19,6 +19,7 @@ except ImportError:
 def mock_scheduler(timezone):
     scheduler_ = Mock(BaseScheduler, timezone=timezone)
     scheduler_._create_lock = MagicMock()
+    scheduler_._jobstores_lock = MagicMock()
     return scheduler_
 
 
@@ -75,6 +76,7 @@ def test_submit_job(mock_scheduler, executor, create_job, freeze_time, timezone,
     successfully executed.
 
     """
+
     mock_scheduler._dispatch_event = MagicMock()
     job = create_job(func=func, id='foo')
     job._jobstore_alias = 'test_jobstore'
