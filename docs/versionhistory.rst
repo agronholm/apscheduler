@@ -16,6 +16,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added the ability to execute coroutine functions with asyncio/trollius and Twisted
 
+* Fixed job store failure (``get_due_jobs()``) causing the scheduler main loop to exit (it now
+  waits a configurable number of seconds before retrying)
+
 * Improved import logic in ``ref_to_obj()`` to avoid errors in cases where traversing the path with
   ``getattr()`` would not work (thanks to Jarek Glowacki for the patch)
 
