@@ -35,9 +35,9 @@ class IntervalTrigger(BaseTrigger):
 
         if timezone:
             self.timezone = astimezone(timezone)
-        elif start_date and start_date.tzinfo:
+        elif isinstance(start_date, datetime) and start_date.tzinfo:
             self.timezone = start_date.tzinfo
-        elif end_date and end_date.tzinfo:
+        elif isinstance(end_date, datetime) and end_date.tzinfo:
             self.timezone = end_date.tzinfo
         else:
             self.timezone = get_localzone()
