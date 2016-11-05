@@ -16,10 +16,10 @@ python:
 before_install:
   - docker pull mongo:latest
   - docker pull rethinkdb:latest
-  - docker pull jplock/zookeeper
+  - docker pull zookeeper:latest
   - docker run -d -p 127.0.0.1:27017:27017 mongo
   - docker run -d -p 127.0.0.1:28015:28015 rethinkdb
-  - docker run -d -p 127.0.0.1:2181:2181 jplock/zookeeper
+  - docker run -d -p 127.0.0.1:2181:2181 zookeeper
 
 install: pip install tox-travis coveralls
 
