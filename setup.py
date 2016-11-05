@@ -47,13 +47,21 @@ setup(
         'asyncio:python_version == "2.7"': ['trollius'],
         'asyncio:python_version == "3.3"': ['asyncio'],
         'gevent': ['gevent'],
-        'twisted': ['twisted'],
-        'sqlalchemy': ['sqlalchemy >= 0.8'],
         'mongodb': ['pymongo >= 2.8'],
-        'rethinkdb': ['rethinkdb'],
         'redis': ['redis'],
+        'rethinkdb': ['rethinkdb'],
+        'sqlalchemy': ['sqlalchemy >= 0.8'],
         'tornado': ['tornado >= 4.3'],
-        'zookeeper': ['kazoo']
+        'twisted': ['twisted'],
+        'zookeeper': ['kazoo'],
+        'testing': [
+            'pytest',
+            'pytest-cov',
+            'pytest-catchlog',
+            'pytest-tornado'
+        ],
+        'testing:python_version == "2.7"': ['mock'],
+        'testing:python_version != "2.7"': ['pytest_asyncio']
     },
     zip_safe=False,
     entry_points={
