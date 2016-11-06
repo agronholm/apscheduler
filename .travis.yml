@@ -27,6 +27,17 @@ script: tox
 
 after_success: coveralls
 
+deploy:
+  provider: pypi
+  user: agronholm
+  password:
+    secure: YXuMMv+Ukr49mhiMzy8+bXDilRo52y6YrEzxlLnEksLlq0BNjgRcAsiDzo46k6xuxGxo7XsWaGEP6TBPwTR6eVgmWKjEPrnqyQepRV9Ibrw7+V7DzJn4pBZWX9Pg2oe3WMlYhooIvy6tRDfSaB8cc06/k0ftSNbzAjzpeVk8k0VyLRsBRBqOsrnzvqlRNOUWi0dlgGqhZvGkDMpmi+WVv6rW3y/VaV+vRK88luKHXUy48eMEGPnL3xCgr727es5qmAP9fDKVGKpXvpGzZyRoeMor2HQwj5AFt9DH4YoBbzJRJESSgI4DugtgGPG7Uz1Xx+TxZY609UbR1kju00Vl1KsnGBsxvR0okmItcTzIgp1IRg8MVDGc+duD3oCjlFQEynJL/RExY/yTQfN5rJFtV6nrHrMVgaL2N2dEVFV8zxGvmrptKRq2ujuJ5t2ssMkKAwXRxg2wXQwCjrxUDRMWd7VfRgGadTTdM6TzoeMo8vlL2FA/RvcFVSnfItrSS4ip2FyswzevVyCQMdblLlnlwFG5YTKMAfljd7JzkyA02IND/nFXGcJ3BsP4ciOXoa49PvD+qbNwqL+6v8I5wCYfPlpqfpf9um2SLDYDE6Ka44p1MvnF3me3oaegt2SX92eDvkZN1TICdOxQuvTTGEx7pW8wJS3opBVaQ7Pes5PHO60=
+  distributions: sdist bdist_wheel
+  on:
+    tags: true
+    repo: agronholm/apscheduler
+    python: "3.5"
+
 notifications:
   irc:
     channels:
