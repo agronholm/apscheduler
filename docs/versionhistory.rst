@@ -19,6 +19,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Fixed job store failure (``get_due_jobs()``) causing the scheduler main loop to exit (it now
   waits a configurable number of seconds before retrying)
 
+* Fixed ``@scheduled_job`` not working when serialization is required (persistent job stores and
+  ``ProcessPoolScheduler``)
+
 * Improved import logic in ``ref_to_obj()`` to avoid errors in cases where traversing the path with
   ``getattr()`` would not work (thanks to Jarek Glowacki for the patch)
 
