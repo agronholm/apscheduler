@@ -14,8 +14,6 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added ZooKeeper job store (thanks to Jose Ignacio Villar for the patch)
 
-* Added the ability to execute coroutine functions with asyncio/trollius and Twisted
-
 * Fixed job store failure (``get_due_jobs()``) causing the scheduler main loop to exit (it now
   waits a configurable number of seconds before retrying)
 
