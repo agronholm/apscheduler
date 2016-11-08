@@ -767,7 +767,7 @@ Jobstore other:
         scheduler._process_jobs()
 
         assert len(events) == 1
-        assert events[0].scheduled_run_times == [freeze_time.get(scheduler.timezone)]
+        assert events[0].scheduled_run_times == freeze_time.get(scheduler.timezone)
 
     @pytest.mark.parametrize('scheduler_events', [EVENT_JOB_MAX_INSTANCES],
                              indirect=['scheduler_events'])
@@ -783,15 +783,17 @@ Jobstore other:
         scheduler._process_jobs()
 
         assert len(scheduler_events) == 1
-        assert scheduler_events[0].scheduled_run_times == [freeze_time.get(scheduler.timezone)]
+        assert scheduler_events[0].scheduled_run_times == freeze_time.get(scheduler.timezone)
 
 
 class TestProcessJobs(object):
     @pytest.fixture
-    def job(self):
+    def job(self, freeze_time):
         job = MagicMock(Job, id=999, executor='default')
         job.trigger = MagicMock(get_next_fire_time=MagicMock(return_value=None))
         job. __str__ = lambda x: 'job 999'
+        job._get_run_times = MagicMock(return_value=[])
+        job.misfire_grace_time = None 
         return job
 
     @pytest.fixture
@@ -828,21 +830,23 @@ class TestProcessJobs(object):
             'Executor lookup ("default") failed for job "job 999" -- removing it from the job ' \
             'store'
 
-    def test_max_instances_reached(self, scheduler, job, jobstore, executor, caplog):
+    def test_max_instances_reached(self, scheduler, job, jobstore, executor, caplog, freeze_time):
         """Tests that a warning is logged when the maximum instances of a job is reached."""
         caplog.set_level(logging.WARNING)
         executor.submit_job = MagicMock(side_effect=MaxInstancesReachedError(job))
-
+        
+        job._get_run_times = MagicMock(return_value=[freeze_time.current - timedelta(seconds=30)])
         assert scheduler._process_jobs() is None
-        assert len(caplog.records) == 1
-        assert caplog.records[0].message == \
+        assert len(caplog.records) == 2
+        assert caplog.records[1].message == \
             'Execution of job "job 999" skipped: maximum number of running instances reached (1)'
 
-    def test_executor_error(self, scheduler, jobstore, executor, caplog):
+    def test_executor_error(self, scheduler, job, jobstore, executor, caplog, freeze_time):
         """Tests that if any exception is raised in executor.submit(), it is logged."""
         caplog.set_level(logging.ERROR)
         executor.submit_job = MagicMock(side_effect=Exception('test message'))
-
+        job._get_run_times = MagicMock(return_value=[freeze_time.current - timedelta(seconds=30)])
+        
         assert scheduler._process_jobs() is None
         assert len(caplog.records) == 1
         assert 'test message' in caplog.records[0].exc_text
@@ -858,6 +862,24 @@ class TestProcessJobs(object):
         assert scheduler._process_jobs() is None
         job._modify.assert_called_once_with(next_run_time=next_run_time)
         jobstore.update_job.assert_called_once_with(job)
+
+    def test_report_missed_jobs(self, caplog, scheduler, executor, job, jobstore, freeze_time):
+        """
+        Tests that jobs that were missed are reported via events, and have their
+        job_submissions added to the database
+        """
+        caplog.set_level(logging.WARNING)
+        executor.submit_job = MagicMock(return_value=None)
+        job._get_run_times = MagicMock(return_value=[
+            freeze_time.current - timedelta(seconds=15),
+            ])
+        
+        assert scheduler._process_jobs() is None
+        assert len(caplog.records) == 1
+        assert 'Run time of job "job 999" was missed by' in caplog.records[0].message
+
+    def test_update_job_submission():
+        pass
 
     def test_wait_time(self, scheduler, freeze_time):
         """
