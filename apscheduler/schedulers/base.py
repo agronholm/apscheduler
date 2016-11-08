@@ -432,6 +432,46 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         return job
 
+    def get_job_submissions(self, jobstore):
+        """
+        Gets all job submissions in a jobstore
+
+        :param str jobstore: The name of the jobstore where the job_submission is stored
+        :rtype: dict
+        
+        """
+        
+        # This gets ALL job_submissions (b/c we don't provide the 'states' parameter
+        return self._lookup_jobstore(jobstore).get_job_submissions_with_states()
+    
+    def get_job_submission(self, jobstore, job_submission_id):
+        """
+        Gets specific job_submission from jobstore
+
+        :param str jobstore: The name of the jobstore where the job_submission is stored
+        :param str|int job_submission_id: The unique identifier of the job_submission
+        :rtype: dict
+        
+        """
+        
+        # This gets ALL job_submissions (b/c we don't provide the 'states' parameter
+        return self._lookup_jobstore(jobstore).get_job_submission(job_submission_id)
+    
+    def get_job_submissions_for_job(self, jobstore, job_id):
+        """
+        Gets job_submissions for a specific job
+
+        :param str jobstore: The name of the jobstore where the job_submission is stored
+        :param str|int job_id: The unique identifier of the job
+        :rtype: list(dict)
+        
+        """
+        
+        #TODO: Implement this function at the jobstore level to optimze this query, rather
+        # than fetching ALL job_submissions, and then filtering.
+        return filter(lambda js: js['apscheduler_job_id'] == job_id,
+                      self._lookup_jobstore(jobstore).get_job_submissions_with_states())
+
     def scheduled_job(self, trigger, args=None, kwargs=None, id=None, name=None,
                       misfire_grace_time=undefined, coalesce=undefined, max_instances=undefined,
                       next_run_time=undefined, jobstore='default', executor='default',
@@ -527,7 +567,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 return self.modify_job(job_id, jobstore, next_run_time=next_run_time)
             else:
                 self.remove_job(job.id, jobstore)
-
+ 
     def get_jobs(self, jobstore=None, pending=None):
         """
         Returns a list of pending jobs (if the scheduler hasn't been started yet) and scheduled
