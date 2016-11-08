@@ -61,7 +61,6 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         self._logger = logging.getLogger('apscheduler.jobstores.%s' % alias)
         # If jobstore didn't 'stop' gracefully, set all non-finished job_submissions to "orphaned"
     def update_orphans(self):
-        self.update_job_submissions({"state": "running"}, state='orphaned')
         self.update_job_submissions({"state": "submitted"}, state='orphaned')
 
     def shutdown(self):
@@ -69,7 +68,6 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         Frees any resources still bound to this job store.
         """
         # Any jobs that haven't finished will be orphaned when we shutdown !
-        self.update_job_submissions({"state": "running"}, state='orphaned')
         self.update_job_submissions({"state": "submitted"}, state='orphaned')
         # TODO: Try and gracefully stop these jobs when we shutdown the jobstore...
 
@@ -83,11 +81,12 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
                 break
 
     @abstractmethod
-    def add_job_submission(self, job):
+    def add_job_submission(self, job, now):
         """
         Adds a job submission to the jobstore, and returns the ID of the inserted record
 
         :param Job job: The job which has been submitted to be executed
+        :param datetime now: The current datetime.now(timezone) value
         :rtype: int
         """
 

@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 import warnings
+import six
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
@@ -77,12 +78,12 @@ class MongoDBJobStore(BaseJobStore):
                                             sort=[('next_run_time', ASCENDING)])
         return utc_timestamp_to_datetime(document['next_run_time']) if document else None
     
-    def add_job_submission(self, job):
+    def add_job_submission(self, job, now):
         job_submission = {
             'state': 'submitted',
             # TODO: Pickle the 'job.func' so we can recover from 2 diff sessions
             'func': job.func if isinstance(job.func, six.string_types) else job.func.__name__,
-            'submitted_at': datetime.now(),
+            'submitted_at': now,
             'apscheduler_job_id': job.id,
         }
         self.job_submission_collection.insert(job_submission)
@@ -98,9 +99,10 @@ class MongoDBJobStore(BaseJobStore):
     def update_job_submissions(self, conditions, **kwargs):
         query = {'$and': []}
         for column in conditions:
-            query['$and'].append({column: { '$eq': conditions[column] } })
-        result = self.job_submission_collection.update(query, {'$set': kwargs})
-        num_updates = result['n']
+            query['$and'].append({column: conditions[column] })
+        result = self.job_submission_collection.update_many(query, {'$set': kwargs})
+        num_updates = result.modified_count
+
         self._logger.info("Updated '{0}' rows where '{1}'...set values to: '{2}'"
                 .format(str(num_updates), str(query), str(kwargs)))
     def get_job_submissions_with_states(self, states=[]):
@@ -121,7 +123,11 @@ class MongoDBJobStore(BaseJobStore):
         return job_submissions
    
     def get_job_submission(self, job_submission_id):
-        return dict(self.job_submission_collection.find_one(job_submission_id))
+        js = self.job_submission_collection.find_one(job_submission_id)
+        _id = js['_id']
+        js.update({'id': _id})
+        del js['_id']
+        return js
 
     def get_all_jobs(self):
         jobs = self._get_jobs({})

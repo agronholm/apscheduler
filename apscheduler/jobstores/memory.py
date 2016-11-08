@@ -20,13 +20,13 @@ class MemoryJobStore(BaseJobStore):
         self._job_submissions = {}# id -> job_submission
         self._next_id = 1
 
-    def add_job_submission(self, job):
+    def add_job_submission(self, job, now):
         job_submission = {
             'id': self._next_id,
             'state': 'submitted',
             # TODO: Pickle the 'job.func' so we can recover from 2 diff sessions
             'func': job.func if isinstance(job.func, six.string_types) else job.func.__name__,
-            'submitted_at': datetime.datetime.now(),
+            'submitted_at': now,
             'apscheduler_job_id': job.id,
         }
         self._job_submissions[self._next_id] = job_submission
@@ -53,7 +53,7 @@ class MemoryJobStore(BaseJobStore):
                 for k in self._job_submissions \
                 if not states or self._job_submissions[k]['state'] in states]
 
-    def get_job_submission(self, job_submission_id, **kwargs):
+    def get_job_submission(self, job_submission_id):
         return self._job_submissions[job_submission_id]
 
     def lookup_job(self, job_id):

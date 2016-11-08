@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+import six
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
@@ -93,12 +94,12 @@ class RethinkDBJobStore(BaseJobStore):
         self._fix_paused_jobs_sorting(jobs)
         return jobs
 
-    def add_job_submission(self, job):
+    def add_job_submission(self, job, now):
         job_sub_dict = {
             'state': 'submitted',
             # TODO: Pickle the 'job.func' so we can recover from 2 diff sessions
             'func': job.func if isinstance(job.func, six.string_types) else job.func.__name__,
-            'submitted_at': datetime.now(),
+            'submitted_at': now,
             'apscheduler_job_id': job.id,
         }
         result = self.job_submission_table.insert(job_sub_dict).run(self.conn)
@@ -117,14 +118,15 @@ class RethinkDBJobStore(BaseJobStore):
             .format(str(replaced), str(conditions), str(kwargs)))
     
     def get_job_submissions_with_states(self, states=[]):
-        if states:
+        if len(states) > 0:
             return [dict(doc) for doc in self.job_submission_table.filter(
-                lambda job_sub: job_sub['state'] in states).run(conn)]
+                r.or_(*tuple([r.row['state'] == s for s in states] )))\
+                .run(self.conn)]
         else:
-            return [dict(doc) for doc in self.job_submission_table.run(conn)]
+            return [dict(doc) for doc in self.job_submission_table.run(self.conn)]
 
     def get_job_submission(self, job_submission_id):
-        return self.job_submission_table.get(job_submission_id).run(conn)
+        return self.job_submission_table.get(job_submission_id).run(self.conn)
     
     def add_job(self, job):
         job_dict = {

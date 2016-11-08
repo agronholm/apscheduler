@@ -68,7 +68,6 @@ class SQLAlchemyJobStore(BaseJobStore):
             Column("state", Enum("submitted", "success", "failure", "missed", "orphaned")),
             Column("func", String()),
             Column("submitted_at", DateTime()),
-            Column("started_at", DateTime()),
             Column("completed_at", DateTime()),
             Column("apscheduler_job_id", Integer(), ForeignKey(tablename + ".id"))
         )
@@ -94,12 +93,12 @@ class SQLAlchemyJobStore(BaseJobStore):
         next_run_time = self.engine.execute(selectable).scalar()
         return utc_timestamp_to_datetime(next_run_time)
 
-    def add_job_submission(self, job):
+    def add_job_submission(self, job, now):
         insert = self.job_submissions_t.insert().values(**{
             'state': 'submitted',
             # TODO: Pickle the 'job.func' so we can recover from 2 diff sessions
             'func': job.func if isinstance(job.func, six.string_types) else job.func.__name__,
-            'submitted_at': datetime.now(),
+            'submitted_at': now,
             'apscheduler_job_id': job.id,
         })
         r = self.engine.execute(insert)
@@ -107,13 +106,13 @@ class SQLAlchemyJobStore(BaseJobStore):
         return job_submission_id
 
     def update_job_submissions(self, conditions, **kwargs):
-        whereclause = ()
-        for key in conditions:
-            whereclause += (key == conditions[key],)
         update = self.job_submissions_t\
                 .update()\
                 .values(kwargs)\
-                .where(and_(*whereclause))
+                .where(and_(
+                    *tuple([getattr(self.job_submissions_t.c, key) == conditions[key] 
+                        for key in conditions])))
+        self._logger.info(update)
         result = self.engine.execute(update)
         self._logger.info("Updated '{0}' rows WHERE '{1}'...set values to: '{2}'"
                           .format(str(result.rowcount), str(conditions), str(kwargs)))
@@ -133,7 +132,7 @@ class SQLAlchemyJobStore(BaseJobStore):
             order_by(self.job_submissions_t.c.submitted_at)
         if len(states) > 0:
             selectable = selectable.\
-                         where(self.job_submissions_t.c.state in states)
+                         where(self.job_submissions_t.c.state.in_(states))
         job_submissions = []
         for row in self.engine.execute(selectable):
             job_submissions.append(dict(row))
@@ -141,8 +140,8 @@ class SQLAlchemyJobStore(BaseJobStore):
 
     def get_job_submission(self, job_submission_id):
         selectable = self.job_submissions_t.select()\
-                .where(self.submissions_t.c.id == job_submission_id)
-        job_submission = self.engine.execute(selectable).scalar()
+                .where(self.job_submissions_t.c.id == job_submission_id)
+        job_submission = self.engine.execute(selectable).fetchone()
         return dict(job_submission)
 
     def get_all_jobs(self):
