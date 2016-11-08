@@ -421,7 +421,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         job_kwargs = dict((key, value) for key, value in six.iteritems(job_kwargs) if
                           value is not undefined)
         job = Job(self, **job_kwargs)
-        self._logger.info(job._scheduler)
         # Don't really add jobs to job stores before the scheduler is up and running
         with self._jobstores_lock:
             if self.state == STATE_STOPPED:
@@ -689,7 +688,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     def _update_job_submission(self, job_submission_id, jobstore_alias, **kwargs):
         """
-        
+           
 
         """
         with self._jobstores_lock:
@@ -706,7 +705,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         with self._jobstores_lock:
             return self._jobstores[job._jobstore_alias].\
-                add_job_submission(job)
+                add_job_submission(job, datetime.now(self.timezone))
 
 
     def _configure(self, config):
@@ -961,50 +960,52 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                         self.remove_job(job.id, jobstore_alias)
                         continue
 
-                    run_times = job._get_run_times(now)
+                    past_run_times = job._get_run_times(now)
                     if job.coalesce:
-                        # Insert missed job submissions for every job but the most recent...
-                        for run_time in run_times[:-1]:
+                        for past_run_time in past_run_times[:-1]:
                             job_submission_id = self._add_job_submission(job)
+                            # Insert missed job submissions for every job but the most recent...
                             self._update_job_submission(job_submission_id, jobstore_alias,
                                                         state='missed', submitted_at=run_time)
-                        run_times = run_times[-1:] if run_times else run_times
+                        # When coalescing, we collapse jobs list to JUST the most recent!
+                        past_run_times = past_run_times[-1:] if past_run_times else past_run_times
                      
-                    for run_time in run_times:
+                    for past_run_time in past_run_times:
+                        difference = now - past_run_time
+                        self._logger.warning('Run time of job "%s" was missed by %s', job, difference)
                         if job.misfire_grace_time is not None:
-                            difference = now - run_time
                             grace_time = timedelta(seconds=job.misfire_grace_time)
                             if difference > grace_time:
                                 job_submission_id = self._add_job_submission(job)
                                 self._update_job_submission(job_submission_id, jobstore_alias, state='missed')
-                                events.append(JobSubmissionEvent(EVENT_JOB_MISSED, job.id, jobstore_alias, run_time))
-                                self._logger.warning('Run time of job "%s" was missed by %s', job, difference)
+                                events.append(JobSubmissionEvent(EVENT_JOB_MISSED, job.id, jobstore_alias, past_run_time))
                                 continue
                         try:
-                            executor.submit_job(job, run_time)
+                            executor.submit_job(job, past_run_time)
                         except MaxInstancesReachedError:
                             self._logger.warning(
                                 'Execution of job "%s" skipped: maximum number of running '
                                 'instances reached (%d)', job, job.max_instances)
                             event = JobSubmissionEvent(EVENT_JOB_MAX_INSTANCES, job.id,
-                                                       jobstore_alias, run_times)
+                                                       jobstore_alias, past_run_time)
                             events.append(event)
                         except:
                             self._logger.exception('Error submitting job "%s" to executor "%s"',
                                                    job, job.executor)
                         else:
                             event = JobSubmissionEvent(EVENT_JOB_SUBMITTED, job.id, jobstore_alias,
-                                                       run_times)
+                                                       past_run_time)
                             events.append(event)
 
-                        # Update the job if it has a next execution time.
-                        # Otherwise remove it from the job store.
-                        job_next_run = job.trigger.get_next_fire_time(run_times[-1], now)
-                        if job_next_run:
-                            job._modify(next_run_time=job_next_run)
-                            jobstore.update_job(job)
-                        else:
-                            self.remove_job(job.id, jobstore_alias)
+                    # Update the job if it has a next execution time.
+                    # Otherwise remove it from the job store.
+                    job_next_run = job.trigger.get_next_fire_time(past_run_times[-1] if past_run_times else None,
+                                                                  now)
+                    if job_next_run:
+                        job._modify(next_run_time=job_next_run)
+                        jobstore.update_job(job)
+                    else:
+                        self.remove_job(job.id, jobstore_alias)
 
                 # Set a new next wakeup time if there isn't one yet or
                 # the jobstore has an even earlier one
