@@ -142,7 +142,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         selectable = self.job_submissions_t.select()\
                 .where(self.job_submissions_t.c.id == job_submission_id)
         job_submission = self.engine.execute(selectable).fetchone()
-        return dict(job_submission)
+        return dict(job_submission) if job_submission else None
 
     def get_all_jobs(self):
         jobs = self._get_jobs()

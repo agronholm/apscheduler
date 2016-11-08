@@ -124,10 +124,13 @@ class MongoDBJobStore(BaseJobStore):
    
     def get_job_submission(self, job_submission_id):
         js = self.job_submission_collection.find_one(job_submission_id)
-        _id = js['_id']
-        js.update({'id': _id})
-        del js['_id']
-        return js
+        if js:
+            _id = js['_id']
+            js.update({'id': _id})
+            del js['_id']
+            return js
+        else:
+            return None
 
     def get_all_jobs(self):
         jobs = self._get_jobs({})

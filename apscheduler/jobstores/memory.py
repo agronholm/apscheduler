@@ -54,7 +54,7 @@ class MemoryJobStore(BaseJobStore):
                 if not states or self._job_submissions[k]['state'] in states]
 
     def get_job_submission(self, job_submission_id):
-        return self._job_submissions[job_submission_id]
+        return self._job_submissions.get(job_submission_id)
 
     def lookup_job(self, job_id):
         return self._jobs_index.get(job_id, (None, None))[0]

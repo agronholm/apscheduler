@@ -122,6 +122,8 @@ class RedisJobStore(BaseJobStore):
 
     def get_job_submission(self, job_submission_id):
         pickled_job_submission = self.redis.hget(self.job_submissions_key, str(job_submission_id))
+        if not pickled_job_submission:
+            return None
         job_sub = pickle.loads(pickled_job_submission)
         job_sub.update({'id': job_submission_id})
         return job_sub

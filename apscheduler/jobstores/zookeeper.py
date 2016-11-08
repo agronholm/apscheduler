@@ -161,10 +161,13 @@ class ZooKeeperJobStore(BaseJobStore):
     def get_job_submission(self, job_submission_id):
         self._ensure_paths()
         node_path = os.path.join(self.job_submission_path, job_submission_id)
-        content, _ = self.client.get(node_path)
-        doc = pickle.loads(content)
-        doc.update({"id": job_submission_id})
-        return doc
+        try:
+            content, _ = self.client.get(node_path)
+            doc = pickle.loads(content)
+            doc.update({"id": job_submission_id})
+            return doc
+        except:
+            return None
 
     def get_all_jobs(self):
         jobs = [job_def['job'] for job_def in self._get_jobs()]
