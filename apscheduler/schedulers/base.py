@@ -437,13 +437,18 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         Gets all job submissions in a jobstore
 
         :param str jobstore: The name of the jobstore where the job_submission is stored
-        :rtype: dict
+        :rtype: list(dict)
         
         """
         
         # This gets ALL job_submissions (b/c we don't provide the 'states' parameter
-        return self._lookup_jobstore(jobstore).get_job_submissions_with_states()
-    
+        with self._jobstores_lock:
+            job_submissions = []
+            for alias, store in six.iteritems(self._jobstores):
+                if jobstore is None or alias == jobstore:
+                    job_submissions.extend(store.get_job_submissions_with_states())
+            return job_submissions
+
     def get_job_submission(self, jobstore, job_submission_id):
         """
         Gets specific job_submission from jobstore
@@ -454,8 +459,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         
         """
         
-        # This gets ALL job_submissions (b/c we don't provide the 'states' parameter
-        return self._lookup_jobstore(jobstore).get_job_submission(job_submission_id)
+        with self._jobstores_lock:
+            for alias, store in six.iteritems(self._jobstores):
+                if jobstore in (None, alias):
+                    job_submission = store.get_job_submission(job_submission_id)
+                    if job_submission is not None:
+                        return job_submission
+
     
     def get_job_submissions_for_job(self, jobstore, job_id):
         """
@@ -466,12 +476,18 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :rtype: list(dict)
         
         """
-        
+        with self._jobstores_lock:
+            job_submissions = []
+            for alias, store in six.iteritems(self._jobstores):
+                if jobstore in (None, alias):
+                    job_submissions.extend(filter(lambda js:
+                        js['apscheduler_job_id'] == job_id,
+                        store.get_job_submissions_with_states()))
+            return job_submissions
+
         #TODO: Implement this function at the jobstore level to optimze this query, rather
         # than fetching ALL job_submissions, and then filtering.
-        return filter(lambda js: js['apscheduler_job_id'] == job_id,
-                      self._lookup_jobstore(jobstore).get_job_submissions_with_states())
-
+           
     def scheduled_job(self, trigger, args=None, kwargs=None, id=None, name=None,
                       misfire_grace_time=undefined, coalesce=undefined, max_instances=undefined,
                       next_run_time=undefined, jobstore='default', executor='default',
