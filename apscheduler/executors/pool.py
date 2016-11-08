@@ -1,3 +1,4 @@
+import datetime
 from abc import abstractmethod
 import concurrent.futures
 
@@ -18,7 +19,6 @@ class BasePoolExecutor(BaseExecutor):
                 self._run_job_error(job.id, job_submission_id, job._jobstore_alias, exc, tb)
             else:
                 self._run_job_success(job.id, job_submission_id, job._jobstore_alias, f.result())
-
         f = self._pool.submit(run_job, job, self._logger.name, job_submission_id, job._jobstore_alias, run_time)
         f.add_done_callback(callback)
 
@@ -38,7 +38,6 @@ class ThreadPoolExecutor(BasePoolExecutor):
     def __init__(self, max_workers=10):
         pool = concurrent.futures.ThreadPoolExecutor(int(max_workers))
         super(ThreadPoolExecutor, self).__init__(pool)
-
 
 class ProcessPoolExecutor(BasePoolExecutor):
     """

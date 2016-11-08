@@ -65,7 +65,6 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
         with self._lock:
             if self._instances[job.id] >= job.max_instances:
                 raise MaxInstancesReachedError(job)
-
             job_submission_id = self._scheduler._add_job_submission(job)
             self._do_submit_job(job, job_submission_id, run_time)
             self._instances[job.id] += 1
@@ -87,7 +86,9 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
 
         for event in events:
             self._scheduler._dispatch_event(event)
-        self._scheduler._update_job_submission(job_submission_id, jobstore_alias, state='success')
+        now = datetime.now(self._scheduler.timezone)
+        self._scheduler._update_job_submission(job_submission_id, jobstore_alias,
+                                               completed_at=now, state='success')
 
     def _run_job_error(self, job_id, job_submission_id, jobstore_alias, exc, traceback=None):
         """Called by the executor with the exception if there is an error  calling `run_job`."""
@@ -95,7 +96,10 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
             self._instances[job_id] -= 1
             if self._instances[job_id] == 0:
                 del self._instances[job_id]
-        self._scheduler._update_job_submission(job_submission_id, jobstore_alias, state='failure')
+
+        now = datetime.now(self._scheduler.timezone)
+        self._scheduler._update_job_submission(job_submission_id, jobstore_alias,
+                                               state='failure', completed_at=now)
         exc_info = (exc.__class__, exc, traceback)
         self._logger.error('Error running job %s', job_id, exc_info=exc_info)
 
@@ -106,7 +110,6 @@ def run_job(job, logger_name, job_submission_id, jobstore_alias, run_time):
     scheduler.
 
     """
-     
     events = []
     logger = logging.getLogger(logger_name)
     #jobstore.update_job_submission(job_submission_id, job._jobstore_alias, state='running')
@@ -116,12 +119,12 @@ def run_job(job, logger_name, job_submission_id, jobstore_alias, run_time):
     except:
         exc, tb = sys.exc_info()[1:]
         formatted_tb = ''.join(format_tb(tb))
-        events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, job_submission_id, jobstore_alias, run_time,
-                                        exception=exc, traceback=formatted_tb))
+        events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
+                                        job_submission_id, exception=exc, traceback=formatted_tb))
         logger.exception('Job "%s" raised an exception', job)
     else:
-        events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, job_submission_id, jobstore_alias, run_time,
-                                        retval=retval))
+        events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
+                                        job_submission_id, retval=retval))
         logger.info('Job "%s" executed successfully', job)
 
     return events
