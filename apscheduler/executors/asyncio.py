@@ -29,8 +29,12 @@ class AsyncIOExecutor(BaseExecutor):
 
     def _do_submit_job(self, job, job_submission_id, run_time):
         def callback(f):
-            event = f.result()
-            self._handle_job_event(event)
+            try:
+                events = f.result()
+            except:
+                self._run_job_error(job.id, job_submission_id, job._jobstore_alias, *sys.exc_info()[1:])
+            else:
+                self._run_job_success(job.id, job_submission_id, job._jobstore_alias, events)
 
         if iscoroutinefunction(job.func):
             if run_coroutine_job is not None:
