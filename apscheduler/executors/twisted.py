@@ -16,10 +16,7 @@ class TwistedExecutor(BaseExecutor):
 
     def _do_submit_job(self, job, job_submission_id, run_time):
         def callback(success, result):
-            if success:
-                self._run_job_success(job.id, job_submission_id, job._jobstore_alias, result)
-            else:
-                self._run_job_error(job.id, job_submission_id, job._jobstore_alias, result.value, result.tb)
+            self._handle_job_event(result)
 
         self._reactor.getThreadPool().callInThreadWithCallback(
             callback, run_job, job, self._logger.name, job_submission_id, job._jobstore_alias, run_time)
