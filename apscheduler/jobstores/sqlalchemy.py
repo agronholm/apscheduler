@@ -127,8 +127,7 @@ class SQLAlchemyJobStore(BaseJobStore):
             raise JobSubmissionLookupError(job_submission_id)
 
     def get_job_submissions_with_states(self, states=[]):
-        selectable = select(map(lambda col: getattr(self.job_submissions_t.c, col),
-                            ["id", "state", "func", "submitted_at", "apscheduler_job_id"])).\
+        selectable = self.job_submissions_t.select().\
             order_by(self.job_submissions_t.c.submitted_at)
         if len(states) > 0:
             selectable = selectable.\
