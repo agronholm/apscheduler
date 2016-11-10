@@ -59,8 +59,10 @@ class BaseJobStore(six.with_metaclass(ABCMeta)):
         self._scheduler = scheduler
         self._alias = alias
         self._logger = logging.getLogger('apscheduler.jobstores.%s' % alias)
-        # If jobstore didn't 'stop' gracefully, set all non-finished job_submissions to "orphaned"
+
     def update_orphans(self):
+        # If jobstore didn't 'stop' gracefully,
+        # set all non-finished job_submissions to "orphaned"
         self.update_job_submissions({"state": "submitted"}, state='orphaned')
 
     def shutdown(self):

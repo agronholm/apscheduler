@@ -56,9 +56,11 @@ async def test_run_coroutine_job(asyncio_scheduler, asyncio_executor, exception)
 
     future = Future()
     job = asyncio_scheduler.add_job(waiter, 'interval', seconds=1, args=[sleep, exception])
-    asyncio_executor._run_job_success = lambda job_id, events: future.set_result(events)
-    asyncio_executor._run_job_error = lambda job_id, exc, tb: future.set_exception(exc)
-    asyncio_executor.submit_job(job, [datetime.now(utc)])
+    asyncio_executor._run_job_success = \
+        lambda job_id, job_submission_id, jobstore_alias, events: future.set_result(events)
+    asyncio_executor._run_job_error = \
+        lambda job_id, job_submission_id, jobstore_alias, exc, tb: future.set_exception(exc)
+    asyncio_executor.submit_job(job, datetime.now(utc))
     events = await future
     assert len(events) == 1
     if exception:
@@ -75,8 +77,10 @@ async def test_run_coroutine_job_tornado(tornado_scheduler, tornado_executor, ex
 
     future = Future()
     job = tornado_scheduler.add_job(waiter, 'interval', seconds=1, args=[sleep, exception])
-    tornado_executor._run_job_success = lambda job_id, events: future.set_result(events)
-    tornado_executor._run_job_error = lambda job_id, exc, tb: future.set_exception(exc)
+    tornado_executor._run_job_success = \
+        lambda job_id, job_submission_id, jobstore_alias, events: future.set_result(events)
+    tornado_executor._run_job_error = \
+        lambda job_id, job_submission_id, jobstore_alias, exc, tb: future.set_exception(exc)
     tornado_executor.submit_job(job, [datetime.now(utc)])
     events = await future
     assert len(events) == 1

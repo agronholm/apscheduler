@@ -438,9 +438,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         :param str jobstore: The name of the jobstore where the job_submission is stored
         :rtype: list(dict)
-        
+
         """
-        
+
         # This gets ALL job_submissions (b/c we don't provide the 'states' parameter
         with self._jobstores_lock:
             job_submissions = []
@@ -456,9 +456,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param str jobstore: The name of the jobstore where the job_submission is stored
         :param str|int job_submission_id: The unique identifier of the job_submission
         :rtype: dict
-        
+
         """
-        
+
         with self._jobstores_lock:
             for alias, store in six.iteritems(self._jobstores):
                 if jobstore in (None, alias):
@@ -466,7 +466,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     if job_submission is not None:
                         return job_submission
 
-    
     def get_job_submissions_for_job(self, jobstore, job_id):
         """
         Gets job_submissions for a specific job
@@ -474,20 +473,20 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :param str jobstore: The name of the jobstore where the job_submission is stored
         :param str|int job_id: The unique identifier of the job
         :rtype: list(dict)
-        
+
         """
         with self._jobstores_lock:
             job_submissions = []
             for alias, store in six.iteritems(self._jobstores):
                 if jobstore in (None, alias):
                     job_submissions.extend(filter(lambda js:
-                        js['apscheduler_job_id'] == job_id,
-                        store.get_job_submissions_with_states()))
+                                                  js['apscheduler_job_id'] == job_id,
+                                                  store.get_job_submissions_with_states()))
             return job_submissions
 
-        #TODO: Implement this function at the jobstore level to optimze this query, rather
+        # TODO: Implement this function at the jobstore level to optimze this query, rather
         # than fetching ALL job_submissions, and then filtering.
-           
+
     def scheduled_job(self, trigger, args=None, kwargs=None, id=None, name=None,
                       misfire_grace_time=undefined, coalesce=undefined, max_instances=undefined,
                       next_run_time=undefined, jobstore='default', executor='default',
@@ -583,7 +582,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 return self.modify_job(job_id, jobstore, next_run_time=next_run_time)
             else:
                 self.remove_job(job.id, jobstore)
- 
+
     def get_jobs(self, jobstore=None, pending=None):
         """
         Returns a list of pending jobs (if the scheduler hasn't been started yet) and scheduled
@@ -725,44 +724,26 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                         else:
                             print(u'    No scheduled jobs', file=out)
 
-
-    
-
     @abstractmethod
     def wakeup(self):
         """
         Notifies the scheduler that there may be jobs due for execution.
         Triggers :meth:`_process_jobs` to be run in an implementation specific manner.
         """
-
-    
-
-
     #
     # Private API
     #
 
     def _update_job_submission(self, job_submission_id, jobstore_alias, **kwargs):
-        """
-           
-
-        """
         with self._jobstores_lock:
             self._jobstores[jobstore_alias].\
                 update_job_submission(job_submission_id, **kwargs)
-            
 
     def _add_job_submission(self, job):
-        """
-        Creates a new ``job_submission`` in the jobstore, and returns its ID
-
-        :param Job job: Job to submit to be run
-        :rtype: int 
-        """
+        # Creates a new ``job_submission`` in the jobstore, and returns its ID
         with self._jobstores_lock:
             return self._jobstores[job._jobstore_alias].\
                 add_job_submission(job, datetime.now(self.timezone))
-
 
     def _configure(self, config):
         # Set general options
@@ -1022,19 +1003,22 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                             job_submission_id = self._add_job_submission(job)
                             # Insert missed job submissions for every job but the most recent...
                             self._update_job_submission(job_submission_id, jobstore_alias,
-                                                        state='missed', submitted_at=run_time)
+                                                        state='missed', submitted_at=past_run_time)
                         # When coalescing, we collapse jobs list to JUST the most recent!
                         past_run_times = past_run_times[-1:] if past_run_times else past_run_times
-                     
+
                     for past_run_time in past_run_times:
                         difference = now - past_run_time
-                        self._logger.warning('Run time of job "%s" was missed by %s', job, difference)
+                        self._logger.warning('Run time of job "%s" was missed by %s', job,
+                                             difference)
                         if job.misfire_grace_time is not None:
                             grace_time = timedelta(seconds=job.misfire_grace_time)
                             if difference > grace_time:
                                 job_submission_id = self._add_job_submission(job)
-                                self._update_job_submission(job_submission_id, jobstore_alias, state='missed')
-                                events.append(JobSubmissionEvent(EVENT_JOB_MISSED, job.id, jobstore_alias, past_run_time))
+                                self._update_job_submission(job_submission_id, jobstore_alias,
+                                                            state='missed')
+                                events.append(JobSubmissionEvent(EVENT_JOB_MISSED, job.id,
+                                                                 jobstore_alias, past_run_time))
                                 continue
                         try:
                             executor.submit_job(job, past_run_time)
@@ -1055,8 +1039,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
                     # Update the job if it has a next execution time.
                     # Otherwise remove it from the job store.
-                    job_next_run = job.trigger.get_next_fire_time(past_run_times[-1] if past_run_times else None,
-                                                                  now)
+                    job_next_run = job.trigger.get_next_fire_time(
+                        past_run_times[-1] if past_run_times else None,
+                        now)
                     if job_next_run:
                         job._modify(next_run_time=job_next_run)
                         jobstore.update_job(job)

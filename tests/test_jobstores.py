@@ -1,5 +1,4 @@
-from datetime import datetime, timedelta
-import time
+from datetime import datetime
 
 import pytest
 from pytz import utc
@@ -106,19 +105,20 @@ def create_add_job(timezone, create_job):
 
     return create
 
+
 @pytest.fixture
 def create_add_job_submission(timezone, create_job):
     def create(jobstore, func=dummy_job, run_date=datetime(2999, 1, 1), id=None, paused=False,
-                **kwargs):
+               **kwargs):
         run_date = timezone.localize(run_date)
         job = create_job(func=func, trigger='date', trigger_args={'run_date': run_date}, id=id,
                          **kwargs)
         job.next_run_time = None if paused else job.trigger.get_next_fire_time(None, run_date)
         job_submission_id = jobstore.add_job_submission(job, datetime.now(timezone))
-        return job_submission_id 
+        return job_submission_id
     return create
 
-     
+
 def test_get_job_submission(jobstore, create_add_job_submission):
     job_submission_id = create_add_job_submission(jobstore)
     assert job_submission_id is not None
@@ -126,6 +126,7 @@ def test_get_job_submission(jobstore, create_add_job_submission):
     assert type(job_submission) is dict
     assert 'id' in job_submission.keys()
     assert job_submission_id == job_submission['id']
+
 
 def test_get_all_job_submissions(jobstore, create_add_job_submission):
     job_submission_id_1 = create_add_job_submission(jobstore, dummy_job, datetime(2016, 6, 6))
@@ -137,6 +138,7 @@ def test_get_all_job_submissions(jobstore, create_add_job_submission):
     job_submissions = jobstore.get_job_submissions_with_states(states=[])
     assert(type(job_submissions) is list)
     assert(len(job_submissions) == 3)
+
 
 def test_get_job_submissions_by_state(jobstore, create_add_job_submission):
     job_submission_id_1 = create_add_job_submission(jobstore, dummy_job, datetime(2016, 6, 6))
@@ -151,6 +153,7 @@ def test_get_job_submissions_by_state(jobstore, create_add_job_submission):
     empty_job_submissions = jobstore.get_job_submissions_with_states(states=['completed'])
     assert(len(empty_job_submissions) == 0)
 
+
 def test_update_job_submission(jobstore, create_add_job_submission):
     job_submission_id = create_add_job_submission(jobstore, dummy_job, datetime(2016, 6, 6))
     now = utc.localize(datetime.now())
@@ -162,15 +165,18 @@ def test_update_job_submission(jobstore, create_add_job_submission):
     updated_time = job_submission['completed_at']
     assert(updated_time.minute == now.minute and updated_time.second == now.second)
     assert(job_submission['id'] == job_submission_id)
-        
+
+
 def test_update_job_submissions(jobstore, create_add_job_submission):
-    job_submission_ids = [create_add_job_submission(jobstore, dummy_job, datetime(2016, 6, 6)) for i in range(0,3) ]
+    job_submission_ids = [create_add_job_submission(jobstore, dummy_job, datetime(2016, 6, 6))
+                          for i in range(0, 3)]
 
     jobstore.update_job_submissions({"state": "submitted"}, state="orphaned")
 
     job_submissions = map(lambda _id: jobstore.get_job_submission(_id), job_submission_ids)
     for js in job_submissions:
         assert(js['state'] == 'orphaned')
+
 
 def test_lookup_job(jobstore, create_add_job):
     initial_job = create_add_job(jobstore)

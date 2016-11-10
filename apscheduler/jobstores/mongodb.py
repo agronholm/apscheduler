@@ -2,7 +2,8 @@ from __future__ import absolute_import
 import warnings
 import six
 
-from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
+from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError,\
+    JobSubmissionLookupError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
@@ -77,7 +78,7 @@ class MongoDBJobStore(BaseJobStore):
                                             projection=['next_run_time'],
                                             sort=[('next_run_time', ASCENDING)])
         return utc_timestamp_to_datetime(document['next_run_time']) if document else None
-    
+
     def add_job_submission(self, job, now):
         job_submission = {
             'state': 'submitted',
@@ -95,16 +96,17 @@ class MongoDBJobStore(BaseJobStore):
              update({'_id': job_submission_id}, {'$set': kwargs})
         if result and result['n'] == 0:
             raise JobSubmissionLookupError(job_submission_id)
- 
+
     def update_job_submissions(self, conditions, **kwargs):
         query = {'$and': []}
         for column in conditions:
-            query['$and'].append({column: conditions[column] })
+            query['$and'].append({column: conditions[column]})
         result = self.job_submission_collection.update_many(query, {'$set': kwargs})
         num_updates = result.modified_count
 
         self._logger.info("Updated '{0}' rows where '{1}'...set values to: '{2}'"
-                .format(str(num_updates), str(query), str(kwargs)))
+                          .format(str(num_updates), str(query), str(kwargs)))
+
     def get_job_submissions_with_states(self, states=[]):
         job_submissions = []
         if states:
@@ -121,7 +123,7 @@ class MongoDBJobStore(BaseJobStore):
                 del obj['_id']
                 job_submissions.append(obj)
         return job_submissions
-   
+
     def get_job_submission(self, job_submission_id):
         js = self.job_submission_collection.find_one(job_submission_id)
         if js:

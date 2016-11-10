@@ -793,7 +793,7 @@ class TestProcessJobs(object):
         job.trigger = MagicMock(get_next_fire_time=MagicMock(return_value=None))
         job. __str__ = lambda x: 'job 999'
         job._get_run_times = MagicMock(return_value=[])
-        job.misfire_grace_time = None 
+        job.misfire_grace_time = None
         return job
 
     @pytest.fixture
@@ -834,7 +834,7 @@ class TestProcessJobs(object):
         """Tests that a warning is logged when the maximum instances of a job is reached."""
         caplog.set_level(logging.WARNING)
         executor.submit_job = MagicMock(side_effect=MaxInstancesReachedError(job))
-        
+
         job._get_run_times = MagicMock(return_value=[freeze_time.current - timedelta(seconds=30)])
         assert scheduler._process_jobs() is None
         assert len(caplog.records) == 2
@@ -846,7 +846,7 @@ class TestProcessJobs(object):
         caplog.set_level(logging.ERROR)
         executor.submit_job = MagicMock(side_effect=Exception('test message'))
         job._get_run_times = MagicMock(return_value=[freeze_time.current - timedelta(seconds=30)])
-        
+
         assert scheduler._process_jobs() is None
         assert len(caplog.records) == 1
         assert 'test message' in caplog.records[0].exc_text
@@ -873,13 +873,10 @@ class TestProcessJobs(object):
         job._get_run_times = MagicMock(return_value=[
             freeze_time.current - timedelta(seconds=15),
             ])
-        
+
         assert scheduler._process_jobs() is None
         assert len(caplog.records) == 1
         assert 'Run time of job "job 999" was missed by' in caplog.records[0].message
-
-    def test_update_job_submission():
-        pass
 
     def test_wait_time(self, scheduler, freeze_time):
         """

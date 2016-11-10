@@ -35,7 +35,8 @@ class RedisJobStore(BaseJobStore):
         highest available
     """
 
-    def __init__(self, db=0, jobs_key='apscheduler.jobs', job_submissions_key='apscheduler.job_submissions',
+    def __init__(self, db=0, jobs_key='apscheduler.jobs',
+                 job_submissions_key='apscheduler.job_submissions',
                  run_times_key='apscheduler.run_times', pickle_protocol=pickle.HIGHEST_PROTOCOL,
                  **connect_args):
         super(RedisJobStore, self).__init__()
@@ -76,7 +77,8 @@ class RedisJobStore(BaseJobStore):
                 try:
                     job_submission = {
                         'state': 'submitted',
-                        'func': job.func if isinstance(job.func, six.string_types) else job.func.__name__,
+                        'func': job.func if isinstance(job.func, six.string_types)
+                                 else job.func.__name__,
                         'submitted_at': now,
                         'apscheduler_job_id': job.id
                     }
@@ -84,19 +86,20 @@ class RedisJobStore(BaseJobStore):
                     pipe.watch(self.job_submissions_key)
                     current_length = pipe.hlen(self.job_submissions_key)
                     job_submission_id = int(current_length) + 1
-                    
+
                     pipe.multi()
-                    pipe.hset(self.job_submissions_key, str(job_submission_id), 
+                    pipe.hset(self.job_submissions_key, str(job_submission_id),
                               pickle.dumps(job_submission, self.pickle_protocol))
                     pipe.execute()
                     break
                 except WatchError:
                     # This should never happen due to the jobstore lock !
-                    self._logger.exception("WatchError was raised in Redis jobstore! Multiple threads/workers " +\
-                        "are writing to the jobstore at 1 time! This shouldn't happen due to the jobstore lock...")
+                    self._logger.exception("WatchError was raised in Redis jobstore! Multiple " +
+                                           "threads/workers are writing to the jobstore at 1 " +
+                                           "time! This shouldn't happen due to the jobstore lock")
                     raise
             return job_submission_id
-    
+
     def update_job_submissions(self, conditions, **kwargs):
         # Get all jobs that satisfy conditions
         job_submissions_dict = self.redis.hgetall(self.job_submissions_key)
@@ -113,7 +116,7 @@ class RedisJobStore(BaseJobStore):
                     pipe.hset(self.job_submissions_key, key,
                               pickle.dumps(job_sub, self.pickle_protocol))
             pipe.execute()
-    
+
     def update_job_submission(self, job_submission_id, **kwargs):
         with self.redis.pipeline() as pipe:
             pipe.hset(self.job_submissions_key, str(job_submission_id),
@@ -127,7 +130,7 @@ class RedisJobStore(BaseJobStore):
         job_sub = pickle.loads(pickled_job_submission)
         job_sub.update({'id': job_submission_id})
         return job_sub
-       
+
     def get_job_submissions_with_states(self, states=[]):
         job_submissions = []
         job_submissions_dict = self.redis.hgetall(self.job_submissions_key)
@@ -183,11 +186,11 @@ class RedisJobStore(BaseJobStore):
             pipe.delete(self.jobs_key)
             pipe.delete(self.run_times_key)
             pipe.execute()
+
     def remove_all_job_submissions(self):
         with self.redis.pipeline() as pipe:
             pipe.delete(self.job_submissions_key)
             pipe.execute()
-        
 
     def shutdown(self):
         self.redis.connection_pool.disconnect()

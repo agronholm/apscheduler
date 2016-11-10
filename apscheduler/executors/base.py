@@ -1,15 +1,14 @@
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 from traceback import format_tb
 import logging
 import sys
 
-from pytz import utc
 import six
 
 from apscheduler.events import (
-    JobExecutionEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED)
+    JobExecutionEvent, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED)
 
 
 class MaxInstancesReachedError(Exception):
@@ -112,7 +111,6 @@ def run_job(job, logger_name, job_submission_id, jobstore_alias, run_time):
     """
     events = []
     logger = logging.getLogger(logger_name)
-    #jobstore.update_job_submission(job_submission_id, job._jobstore_alias, state='running')
     logger.info('Running job "%s" (scheduled at %s)', job, run_time)
     try:
         retval = job.func(*job.args, **job.kwargs)

@@ -3,12 +3,12 @@ import six
 
 import os
 from datetime import datetime
-import time
 
 from pytz import utc
 from kazoo.exceptions import NoNodeError, NodeExistsError
 
-from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
+from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError,\
+    JobSubmissionLookupError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
@@ -38,7 +38,10 @@ class ZooKeeperJobStore(BaseJobStore):
         highest available
     """
 
-    def __init__(self, path='/apscheduler', job_submission_path='/apscheduler_job_submissions', client=None, close_connection_on_exit=False,
+    def __init__(self, path='/apscheduler',
+                 job_submission_path='/apscheduler_job_submissions',
+                 client=None,
+                 close_connection_on_exit=False,
                  pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
         super(ZooKeeperJobStore, self).__init__()
         self.pickle_protocol = pickle_protocol
@@ -49,7 +52,7 @@ class ZooKeeperJobStore(BaseJobStore):
 
         if not job_submission_path:
             raise ValueError('The "job_submission_path" parameter must not be empty')
-        
+
         self.path = path
         self.job_submission_path = job_submission_path
 
@@ -96,7 +99,7 @@ class ZooKeeperJobStore(BaseJobStore):
         self._ensure_paths()
         utc_now = now.astimezone(utc)
         job_submission_id = job.id + "_" + \
-            str((utc_now - utc.localize(datetime(1970, 1, 1))).total_seconds() * 1000 )
+            str((utc_now - utc.localize(datetime(1970, 1, 1))).total_seconds() * 1000)
         node_path = os.path.join(self.job_submission_path, job_submission_id)
         self._logger.info(node_path)
         value = {
@@ -121,7 +124,7 @@ class ZooKeeperJobStore(BaseJobStore):
             content, _ = self.client.get(node_path)
             doc = pickle.loads(content)
             # Update the job_submission data
-            doc.update(kwargs)    
+            doc.update(kwargs)
             data = pickle.dumps(doc, self.pickle_protocol)
             self.client.set(node_path, value=data)
         except NoNodeError:
@@ -141,7 +144,7 @@ class ZooKeeperJobStore(BaseJobStore):
                 js.update(kwargs)
                 data = pickle.dumps(js, self.pickle_protocol)
                 self.client.set(node_path, value=data)
-    
+
     def get_job_submissions_with_states(self, states=[]):
         self._ensure_paths()
         job_submissions = []
@@ -214,7 +217,7 @@ class ZooKeeperJobStore(BaseJobStore):
         except NoNodeError:
             pass
         self._ensured_path = False
-    
+
     def remove_all_job_submissions(self):
         try:
             self.client.delete(self.job_submission_path, recursive=True)

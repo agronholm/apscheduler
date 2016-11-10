@@ -3,7 +3,7 @@ from __future__ import absolute_import
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import datetime_to_utc_timestamp
 import six
-import datetime
+
 
 class MemoryJobStore(BaseJobStore):
     """
@@ -17,7 +17,7 @@ class MemoryJobStore(BaseJobStore):
         # list of (job, timestamp), sorted by next_run_time and job id (ascending)
         self._jobs = []
         self._jobs_index = {}  # id -> (job, timestamp) lookup table
-        self._job_submissions = {}# id -> job_submission
+        self._job_submissions = {}  # id -> job_submission
         self._next_id = 1
 
     def add_job_submission(self, job, now):
@@ -41,16 +41,16 @@ class MemoryJobStore(BaseJobStore):
             for column in conditions:
                 val = conditions[column]
                 if this_job_submission[column] != val:
-                    update_flag = False            
+                    update_flag = False
             if update_flag:
                 this_job_submission.update(kwargs)
-    
+
     def update_job_submission(self, job_submission_id, **kwargs):
         self._job_submissions[job_submission_id].update(kwargs)
-       
+
     def get_job_submissions_with_states(self, states=[]):
-        return [self._job_submissions[k] \
-                for k in self._job_submissions \
+        return [self._job_submissions[k]
+                for k in self._job_submissions
                 if not states or self._job_submissions[k]['state'] in states]
 
     def get_job_submission(self, job_submission_id):

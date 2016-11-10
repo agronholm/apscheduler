@@ -1,5 +1,4 @@
 from __future__ import absolute_import
-from datetime import datetime
 import six
 
 from apscheduler.jobstores.base import (
@@ -110,8 +109,8 @@ class SQLAlchemyJobStore(BaseJobStore):
                 .update()\
                 .values(kwargs)\
                 .where(and_(
-                    *tuple([getattr(self.job_submissions_t.c, key) == conditions[key] 
-                        for key in conditions])))
+                    *tuple([getattr(self.job_submissions_t.c, key) == conditions[key]
+                            for key in conditions])))
         self._logger.info(update)
         result = self.engine.execute(update)
         self._logger.info("Updated '{0}' rows WHERE '{1}'...set values to: '{2}'"

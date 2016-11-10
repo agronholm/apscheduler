@@ -32,18 +32,23 @@ class AsyncIOExecutor(BaseExecutor):
             try:
                 events = f.result()
             except:
-                self._run_job_error(job.id, job_submission_id, job._jobstore_alias, *sys.exc_info()[1:])
+                self._run_job_error(job.id, job_submission_id, job._jobstore_alias,
+                                    *sys.exc_info()[1:])
             else:
                 self._run_job_success(job.id, job_submission_id, job._jobstore_alias, events)
 
         if iscoroutinefunction(job.func):
             if run_coroutine_job is not None:
-                coro = run_coroutine_job(job, self._logger.name, job_submission_id, job._jobstore_alias, run_time)
+                self._logger.info("Calling run_coroutine_job")
+                coro = run_coroutine_job(job, self._logger.name,
+                                         job_submission_id, job._jobstore_alias, run_time)
+                self._logger.info("Ran coroutine job")
                 f = self._eventloop.create_task(coro)
+                self._logger.info("Got future...")
             else:
                 raise Exception('Executing coroutine based jobs is not supported with Trollius')
         else:
             f = self._eventloop.run_in_executor(None, run_job, job, self._logger.name,
-                                               job_submission_id, job._jobstore_alias, run_time)
+                                                job_submission_id, job._jobstore_alias, run_time)
 
         f.add_done_callback(callback)
