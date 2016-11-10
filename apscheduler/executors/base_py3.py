@@ -1,12 +1,10 @@
 import logging
 import sys
-from datetime import datetime, timedelta
 from traceback import format_tb
 
-from pytz import utc
 
 from apscheduler.events import (
-    JobExecutionEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED)
+    JobExecutionEvent, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED)
 
 
 async def run_coroutine_job(job, logger_name, job_submission_id, jobstore_alias, run_time):
