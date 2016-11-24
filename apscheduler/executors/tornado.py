@@ -28,7 +28,7 @@ class TornadoExecutor(BaseExecutor):
     """
 
     def __init__(self, max_workers=10):
-        super().__init__()
+        super(TornadoExecutor, self).__init__()
         self.executor = ThreadPoolExecutor(max_workers)
 
     def start(self, scheduler, alias):
