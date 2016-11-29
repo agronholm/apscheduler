@@ -390,3 +390,16 @@ class TestIntervalTrigger(object):
 
         for attr in IntervalTrigger.__slots__:
             assert getattr(trigger2, attr) == getattr(trigger, attr)
+
+    def test_comparison(self):
+        assert (CronTrigger('*', '*', '*', '*', '1', '*', '*', '*')
+                == CronTrigger('*', '*', '*', '*', '1', '*', '*', '*'))
+        assert (CronTrigger('*', '*', '*', '*', '1', '*', '*', '*')
+                != CronTrigger('*', '*', '*', '1', '*', '*', '*', '*'))
+        assert DateTrigger('1945-05-8') == DateTrigger('1945-05-08')
+        assert DateTrigger('1945-05-08') != DateTrigger('1945-05-09')
+        start_date = datetime.now()
+        assert (IntervalTrigger(weeks=1, start_date=start_date)
+                == IntervalTrigger(weeks=1, start_date=start_date))
+        assert (IntervalTrigger(weeks=1, start_date=start_date)
+                != IntervalTrigger(weeks=1, seconds=1, start_date=start_date))

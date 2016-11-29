@@ -70,6 +70,9 @@ class BaseField(object):
     def __eq__(self, other):
         return isinstance(self, self.__class__) and self.expressions == other.expressions
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __str__(self):
         expr_strings = (str(e) for e in self.expressions)
         return ','.join(expr_strings)
