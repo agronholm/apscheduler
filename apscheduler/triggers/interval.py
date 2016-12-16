@@ -16,7 +16,7 @@ class IntervalTrigger(BaseTrigger):
     :param int days: number of days to wait
     :param int hours: number of hours to wait
     :param int minutes: number of minutes to wait
-    :param int seconds: number of seconds to wait
+    :param float seconds: number of seconds to wait
     :param datetime|str start_date: starting point for the interval calculation
     :param datetime|str end_date: latest possible date/time to trigger on
     :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
