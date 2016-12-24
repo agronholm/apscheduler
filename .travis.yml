@@ -11,6 +11,7 @@ python:
   - "3.3"
   - "3.4"
   - "3.5"
+  - "3.6"
   - "pypy"
 
 before_install:
@@ -27,6 +28,14 @@ script: tox
 
 after_success: coveralls
 
+notifications:
+  irc:
+    channels:
+      - "chat.freenode.net#apscheduler"
+    on_success: change
+    use_notice: true
+    skip_join: true
+
 deploy:
   provider: pypi
   user: agronholm
@@ -35,13 +44,5 @@ deploy:
   distributions: sdist bdist_wheel
   on:
     tags: true
-    repo: agronholm/apscheduler
     python: "3.5"
-
-notifications:
-  irc:
-    channels:
-      - "chat.freenode.net#apscheduler"
-    on_success: change
-    use_notice: true
-    skip_join: true
+    repo: agronholm/apscheduler
