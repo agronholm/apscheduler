@@ -4,6 +4,12 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.3.1
+-----
+
+* Fixed Python 2.7 compatibility in ``TornadoExecutor``
+
+
 3.3.0
 -----
 
