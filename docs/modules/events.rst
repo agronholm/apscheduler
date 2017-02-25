@@ -49,7 +49,7 @@ The following event codes are numeric constants importable from :mod:`apschedule
     - An executor was added to the scheduler
     - :class:`SchedulerEvent`
   * - EVENT_EXECUTOR_REMOVED
-    - An executor was added to the scheduler
+    - An executor was removed to the scheduler
     - :class:`SchedulerEvent`
   * - EVENT_JOBSTORE_ADDED
     - A job store was added to the scheduler
