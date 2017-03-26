@@ -78,49 +78,41 @@ Job stores不能被两个调度任务同时使用。
 很简单对吧？
 
 选择合适的job store的话，这取决于你是否需要job持久化。如果你总是在运行你的应用程序的时候重复创建你的job，你可以直接使用默认的job store。
-(:class:`~apscheduler.jobstores.memory.MemoryJobStore`).
-But if you need your jobs to persist over scheduler restarts or
-application crashes, then your choice usually boils down to what tools are used in your programming environment.
-If, however, you are in the position to choose freely, then
-:class:`~apscheduler.jobstores.sqlalchemy.SQLAlchemyJobStore` on a `PostgreSQL <http://www.postgresql.org/>`_ backend is
-the recommended choice due to its strong data integrity protection.
+(:class:`~apscheduler.jobstores.memory.MemoryJobStore`).如果你需要你的job在调度器重启或者应用崩溃的时候依然保持运行，这就要看你在的编程环境当中使用什么样的工具了。
+我们推荐使用
+:class:`~apscheduler.jobstores.sqlalchemy.SQLAlchemyJobStore` 链接一个 `PostgreSQL <http://www.postgresql.org/>`_ 这是因为它有极其强大的数据保护性。
 
-Likewise, the choice of executors is usually made for you if you use one of the frameworks above.
-Otherwise, the default :class:`~apscheduler.executors.pool.ThreadPoolExecutor` should be good enough for most purposes.
-If your workload involves CPU intensive operations, you should consider using
-:class:`~apscheduler.executors.pool.ProcessPoolExecutor` instead to make use of multiple CPU cores.
-You could even use both at once, adding the process pool executor as a secondary executor.
+同时，调度器的选择通常取决于你使用了什么样的框架。
+另一方面，默认的 :class:`~apscheduler.executors.pool.ThreadPoolExecutor` 应该足够应付大多数的情况。
+如果你的工作涉及到了CPU集群操作，你应该考虑使用
+:class:`~apscheduler.executors.pool.ProcessPoolExecutor` 而不是去使用多个CPU核心。
+当然你也可以两者同时使用，添加进程池作为备用的调度器。
 
-When you schedule a job, you need to choose a _trigger_ for it. The trigger determines the logic by
-which the dates/times are calculated when the job will be run. APScheduler comes with three
-built-in trigger types:
+当你调度一个job的的时候，你需要为它选择一个触发器。触发器决定了在某一个时间点上触发job的逻辑。APScheduler提供三个内建的触发器类型：
 
 * :mod:`~apscheduler.triggers.date`:
-  use when you want to run the job just once at a certain point of time
+  在job只在某一个时间点运行一次的情况下使用。
 * :mod:`~apscheduler.triggers.interval`:
-  use when you want to run the job at fixed intervals of time
+  job在固定时间间隔的情况下使用。
 * :mod:`~apscheduler.triggers.cron`:
-  use when you want to run the job periodically at certain time(s) of day
+  job定期每天执行的情况下使用。
 
-You can find the plugin names of each job store, executor and trigger type on their respective API
-documentation pages.
+你可以找到每一个job store，executor和trigger类型的名字在他们的API文档页里面。
 
 
 .. _scheduler-config:
 
-Configuring the scheduler
+配置调度器
 -------------------------
 
-APScheduler provides many different ways to configure the scheduler. You can use a configuration dictionary or you can
-pass in the options as keyword arguments. You can also instantiate the scheduler first, add jobs and configure the
-scheduler afterwards. This way you get maximum flexibility for any environment.
+APScheduler提供了许多不同的方式配置调度器。你可以使用一个配置词典或者关键词参数进行配置。你也可以先实例化调度器，添加job之后再配置调度器。
+这样可以极大的兼容任何编程环境。
 
-The full list of scheduler level configuration options can be found on the API reference of the
-:class:`~apscheduler.schedulers.base.BaseScheduler` class. Scheduler subclasses may also have additional options which
-are documented on their respective API references. Configuration options for individual job stores and executors can
-likewise be found on their API reference pages.
+所有的调度器配置选项都可以在API参考
+:class:`~apscheduler.schedulers.base.BaseScheduler` 类当中找到。调度器的子类也许有额外的选项，它们在它们各自的API参考当中。
+job stores和executors的配置选项同样可以在API参考当中找到。
 
-Let's say you want to run BackgroundScheduler in your application with the default job store and the default executor::
+假如在程序里使用默认配置运行BackgroundScheduler ::
 
     from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -129,20 +121,18 @@ Let's say you want to run BackgroundScheduler in your application with the defau
 
     # Initialize the rest of the application here, or before the scheduler initialization
 
-This will get you a BackgroundScheduler with a MemoryJobStore named "default" and a ThreadPoolExecutor named "default"
-with a default maximum thread count of 10.
+这将给你一个BackgroundScheduler它带有一个名字叫做“default”的MemoryJobStore（内存作业存储区）和一个名字叫做“default”的ThreadPoolExecutor（线程池执行器）并且最大线程为10。
 
-Now, suppose you want more. You want to have *two* job stores using *two* executors and you also want to tweak the
-default values for new jobs and set a different timezone.
-The following three examples are completely equivalent, and will get you:
+现在假设你向要更多，你向要有两个 job store 使用两个 executor并且你还想为新job调整默认值和设置一个不同的时区。
+下面三个是三个类似的例子：
 
-* a MongoDBJobStore named "mongo"
-* an SQLAlchemyJobStore named "default" (using SQLite)
-* a ThreadPoolExecutor named "default", with a worker count of 20
-* a ProcessPoolExecutor named "processpool", with a worker count of 5
-* UTC as the scheduler's timezone
-* coalescing turned off for new jobs by default
-* a default maximum instance limit of 3 for new jobs
+* 一个 MongoDBJobStore 名字为 "mongo"
+* 一个 SQLAlchemyJobStore 名字为 "default" (使用 SQLite)
+* 一个 ThreadPoolExecutor 名字为 "default", 20个线程
+* 一个 ProcessPoolExecutor 名字为 "processpool", 5个线程
+* UTC 作为调度器的时区
+* 合并新job默认关闭。
+* 默认最大的job实例限制为3个。
 
 Method 1::
 
@@ -223,7 +213,7 @@ Method 3::
     scheduler.configure(jobstores=jobstores, executors=executors, job_defaults=job_defaults, timezone=utc)
 
 
-Starting the scheduler
+启动调度器
 ----------------------
 
 Starting the scheduler is done by simply calling :meth:`~apscheduler.schedulers.base.BaseScheduler.start` on the
