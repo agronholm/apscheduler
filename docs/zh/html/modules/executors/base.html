@@ -1,0 +1,172 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>apscheduler.executors.base &#8212; APScheduler 3.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '3.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-apscheduler.executors.base">
+<span id="apscheduler-executors-base"></span><h1><a class="reference internal" href="#module-apscheduler.executors.base" title="apscheduler.executors.base"><code class="xref py py-mod docutils literal"><span class="pre">apscheduler.executors.base</span></code></a><a class="headerlink" href="#module-apscheduler.executors.base" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="apscheduler.executors.base.BaseExecutor">
+<em class="property">class </em><code class="descclassname">apscheduler.executors.base.</code><code class="descname">BaseExecutor</code><a class="headerlink" href="#apscheduler.executors.base.BaseExecutor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Abstract base class that defines the interface that every executor must implement.</p>
+<dl class="method">
+<dt id="apscheduler.executors.base.BaseExecutor.shutdown">
+<code class="descname">shutdown</code><span class="sig-paren">(</span><em>wait=True</em><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.executors.base.BaseExecutor.shutdown" title="Permalink to this definition">¶</a></dt>
+<dd><p>Shuts down this executor.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>wait</strong> (<a class="reference external" href="https://docs.python.org/2/library/functions.html#bool" title="(in Python v2.7)"><em>bool</em></a>) &#8211; <code class="docutils literal"><span class="pre">True</span></code> to wait until all submitted jobs
+have been executed</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.executors.base.BaseExecutor.start">
+<code class="descname">start</code><span class="sig-paren">(</span><em>scheduler</em>, <em>alias</em><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.executors.base.BaseExecutor.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Called by the scheduler when the scheduler is being started or when the executor is being
+added to an already running scheduler.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>scheduler</strong> (<a class="reference internal" href="../schedulers/base.html#apscheduler.schedulers.base.BaseScheduler" title="apscheduler.schedulers.base.BaseScheduler"><em>apscheduler.schedulers.base.BaseScheduler</em></a>) &#8211; the scheduler that is starting
+this executor</li>
+<li><strong>alias</strong> (<em>str|unicode</em>) &#8211; alias of this executor as it was assigned to the scheduler</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.executors.base.BaseExecutor.submit_job">
+<code class="descname">submit_job</code><span class="sig-paren">(</span><em>job</em>, <em>run_times</em><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.executors.base.BaseExecutor.submit_job" title="Permalink to this definition">¶</a></dt>
+<dd><p>Submits job for execution.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>job</strong> (<a class="reference internal" href="../job.html#apscheduler.job.Job" title="apscheduler.job.Job"><em>Job</em></a>) &#8211; job to execute</li>
+<li><strong>run_times</strong> (<a class="reference external" href="https://docs.python.org/2/library/functions.html#list" title="(in Python v2.7)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/2/library/datetime.html#module-datetime" title="(in Python v2.7)"><em>datetime</em></a><em>]</em><em></em>) &#8211; list of datetimes specifying
+when the job should have been run</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last"><strong>MaxInstancesReachedError</strong> &#8211; if the maximum number of
+allowed instances for this job has been reached</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#"><code class="docutils literal"><span class="pre">apscheduler.executors.base</span></code></a><ul>
+<li><a class="reference internal" href="#module-contents">Module Contents</a></li>
+</ul>
+</li>
+</ul>
+
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/modules/executors/base.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright Alex Grönholm.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>apscheduler.schedulers.asyncio &#8212; APScheduler 3.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '3.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-apscheduler.schedulers.asyncio">
+<span id="apscheduler-schedulers-asyncio"></span><h1><a class="reference internal" href="#module-apscheduler.schedulers.asyncio" title="apscheduler.schedulers.asyncio"><code class="xref py py-mod docutils literal"><span class="pre">apscheduler.schedulers.asyncio</span></code></a><a class="headerlink" href="#module-apscheduler.schedulers.asyncio" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="api">
+<h2>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="apscheduler.schedulers.asyncio.AsyncIOScheduler">
+<em class="property">class </em><code class="descclassname">apscheduler.schedulers.asyncio.</code><code class="descname">AsyncIOScheduler</code><span class="sig-paren">(</span><em>gconfig={}</em>, <em>**options</em><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.schedulers.asyncio.AsyncIOScheduler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="base.html#apscheduler.schedulers.base.BaseScheduler" title="apscheduler.schedulers.base.BaseScheduler"><code class="xref py py-class docutils literal"><span class="pre">apscheduler.schedulers.base.BaseScheduler</span></code></a></p>
+<p>A scheduler that runs on an asyncio (<span class="target" id="index-0"></span><a class="pep reference external" href="https://www.python.org/dev/peps/pep-3156"><strong>PEP 3156</strong></a>) event loop.</p>
+<p>The default executor can run jobs based on native coroutines (<code class="docutils literal"><span class="pre">async</span> <span class="pre">def</span></code>).</p>
+<p>Extra options:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="19%" />
+<col width="81%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">event_loop</span></code></td>
+<td>AsyncIO event loop to use (defaults to the global event loop)</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>AsyncIOScheduler was meant to be used with the <a class="reference external" href="https://docs.python.org/3/library/asyncio.html">AsyncIO</a> event loop.
+By default, it will run jobs in the event loop&#8217;s thread pool.</p>
+<p>If you have an application that runs on an AsyncIO event loop, you will want to use this scheduler.</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>Default executor</td>
+<td><a class="reference internal" href="../executors/asyncio.html#apscheduler.executors.asyncio.AsyncIOExecutor" title="apscheduler.executors.asyncio.AsyncIOExecutor"><code class="xref py py-class docutils literal"><span class="pre">AsyncIOExecutor</span></code></a></td>
+</tr>
+<tr class="row-even"><td>External dependencies</td>
+<td><ul class="first last simple">
+<li>Python &gt;= 3.4: none</li>
+<li>Python 3.3: <a class="reference external" href="https://pypi.python.org/pypi/asyncio/">asyncio</a></li>
+<li>Python &lt;= 3.2: <a class="reference external" href="https://pypi.python.org/pypi/trollius/">trollius</a></li>
+</ul>
+</td>
+</tr>
+<tr class="row-odd"><td>Example</td>
+<td><code class="docutils literal"><span class="pre">examples/schedulers/asyncio_.py</span></code>
+(<a class="reference external" href="https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/asyncio_.py">view online</a>).</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#"><code class="docutils literal"><span class="pre">apscheduler.schedulers.asyncio</span></code></a><ul>
+<li><a class="reference internal" href="#api">API</a></li>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+</ul>
+</li>
+</ul>
+
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/modules/schedulers/asyncio.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright Alex Grönholm.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.3.
+    </div>
+  </body>
+</html>

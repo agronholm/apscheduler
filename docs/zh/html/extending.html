@@ -1,0 +1,253 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Extending APScheduler &#8212; APScheduler 3.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '3.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Contributing to APScheduler" href="contributing.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="contributing.html" title="Contributing to APScheduler"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="extending-apscheduler">
+<h1>Extending APScheduler<a class="headerlink" href="#extending-apscheduler" title="Permalink to this headline">¶</a></h1>
+<p>This document is meant to explain how to develop your custom triggers, job stores, executors and schedulers.</p>
+<div class="section" id="custom-triggers">
+<h2>Custom triggers<a class="headerlink" href="#custom-triggers" title="Permalink to this headline">¶</a></h2>
+<p>The built-in triggers cover the needs of the majority of all users.
+However, some users may need specialized scheduling logic. To that end, the trigger system was made pluggable.</p>
+<p>To implement your scheduling logic, subclass <a class="reference internal" href="modules/triggers/base.html#apscheduler.triggers.base.BaseTrigger" title="apscheduler.triggers.base.BaseTrigger"><code class="xref py py-class docutils literal"><span class="pre">BaseTrigger</span></code></a>.
+Look at the interface documentation in that class. Then look at the existing trigger implementations.
+That should give you a good idea what is expected of a trigger implementation.</p>
+<p>To use your trigger, you can use <a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.add_job" title="apscheduler.schedulers.base.BaseScheduler.add_job"><code class="xref py py-meth docutils literal"><span class="pre">add_job()</span></code></a> like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">trigger</span> <span class="o">=</span> <span class="n">MyTrigger</span><span class="p">(</span><span class="n">arg1</span><span class="o">=</span><span class="s1">&#39;foo&#39;</span><span class="p">)</span>
+<span class="n">scheduler</span><span class="o">.</span><span class="n">add_job</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">trigger</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You can also register it as a plugin so you can use can use the alternate form of <code class="docutils literal"><span class="pre">add_jobstore</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">scheduler</span><span class="o">.</span><span class="n">add_job</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="s1">&#39;my_trigger&#39;</span><span class="p">,</span> <span class="n">arg1</span><span class="o">=</span><span class="s1">&#39;foo&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This is done by adding an entry point in your project&#8217;s <code class="file docutils literal"><span class="pre">setup.py</span></code>:</p>
+<div class="highlight-ini"><div class="highlight"><pre><span></span><span class="na">...</span>
+<span class="na">entry_points</span><span class="o">=</span><span class="s">{</span>
+<span class="s">      &#39;apscheduler.triggers&#39;: [&#39;my_trigger = mytoppackage.subpackage:MyTrigger&#39;]</span>
+<span class="na">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="custom-job-stores">
+<h2>Custom job stores<a class="headerlink" href="#custom-job-stores" title="Permalink to this headline">¶</a></h2>
+<p>If you want to store your jobs in a fancy new NoSQL database, or a totally custom datastore, you can implement your
+own job store by subclassing <a class="reference internal" href="modules/jobstores/base.html#apscheduler.jobstores.base.BaseJobStore" title="apscheduler.jobstores.base.BaseJobStore"><code class="xref py py-class docutils literal"><span class="pre">BaseJobStore</span></code></a>.</p>
+<p>A job store typically serializes the <a class="reference internal" href="modules/job.html#apscheduler.job.Job" title="apscheduler.job.Job"><code class="xref py py-class docutils literal"><span class="pre">Job</span></code></a> objects given to it, and constructs new Job objects
+from binary data when they are loaded from the backing store. It is important that the job store restores the
+<code class="docutils literal"><span class="pre">_scheduler</span></code> and <code class="docutils literal"><span class="pre">_jobstore_alias</span></code> attribute of any Job that it creates. Refer to existing implementations for
+examples.</p>
+<p>It should be noted that <a class="reference internal" href="modules/jobstores/memory.html#apscheduler.jobstores.memory.MemoryJobStore" title="apscheduler.jobstores.memory.MemoryJobStore"><code class="xref py py-class docutils literal"><span class="pre">MemoryJobStore</span></code></a> is special in that it does not
+deserialize the jobs. This comes with its own problems, which it handles in its own way.
+If your job store does serialize jobs, you can of course use a serializer other than pickle.
+You should, however, use the <code class="docutils literal"><span class="pre">__getstate__</span></code> and <code class="docutils literal"><span class="pre">__setstate__</span></code> special methods to respectively get and set the Job
+state. Pickle uses them implicitly.</p>
+<p>To use your job store, you can add it to the scheduler like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">jobstore</span> <span class="o">=</span> <span class="n">MyJobStore</span><span class="p">()</span>
+<span class="n">scheduler</span><span class="o">.</span><span class="n">add_jobstore</span><span class="p">(</span><span class="n">jobstore</span><span class="p">,</span> <span class="s1">&#39;mystore&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You can also register it as a plugin so you can use can use the alternate form of <code class="docutils literal"><span class="pre">add_jobstore</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">scheduler</span><span class="o">.</span><span class="n">add_jobstore</span><span class="p">(</span><span class="s1">&#39;my_jobstore&#39;</span><span class="p">,</span> <span class="s1">&#39;mystore&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This is done by adding an entry point in your project&#8217;s <code class="file docutils literal"><span class="pre">setup.py</span></code>:</p>
+<div class="highlight-ini"><div class="highlight"><pre><span></span><span class="na">...</span>
+<span class="na">entry_points</span><span class="o">=</span><span class="s">{</span>
+<span class="s">      &#39;apscheduler.jobstores&#39;: [&#39;my_jobstore = mytoppackage.subpackage:MyJobStore&#39;]</span>
+<span class="na">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="custom-executors">
+<h2>Custom executors<a class="headerlink" href="#custom-executors" title="Permalink to this headline">¶</a></h2>
+<p>If you need custom logic for executing your jobs, you can create your own executor classes.
+One scenario for this would be if you want to use distributed computing to run your jobs on other nodes.</p>
+<p>Start by subclassing <a class="reference internal" href="modules/executors/base.html#apscheduler.executors.base.BaseExecutor" title="apscheduler.executors.base.BaseExecutor"><code class="xref py py-class docutils literal"><span class="pre">BaseExecutor</span></code></a>.
+The responsibilities of an executor are as follows:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Performing any initialization when <code class="docutils literal"><span class="pre">start()</span></code> is called</li>
+<li>Releasing any resources when <code class="docutils literal"><span class="pre">shutdown()</span></code> is called</li>
+<li>Keeping track of the number of instances of each job running on it, and refusing to run more than the maximum</li>
+<li>Notifying the scheduler of the results of the job</li>
+</ul>
+</div></blockquote>
+<p>If your executor needs to serialize the jobs, make sure you either use pickle for it, or invoke the <code class="docutils literal"><span class="pre">__getstate__</span></code> and
+<code class="docutils literal"><span class="pre">__setstate__</span></code> special methods to respectively get and set the Job state. Pickle uses them implicitly.</p>
+<p>To use your executor, you can add it to the scheduler like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">executor</span> <span class="o">=</span> <span class="n">MyExecutor</span><span class="p">()</span>
+<span class="n">scheduler</span><span class="o">.</span><span class="n">add_executor</span><span class="p">(</span><span class="n">executor</span><span class="p">,</span> <span class="s1">&#39;myexecutor&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You can also register it as a plugin so you can use can use the alternate form of <code class="docutils literal"><span class="pre">add_executor</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">scheduler</span><span class="o">.</span><span class="n">add_executor</span><span class="p">(</span><span class="s1">&#39;my_executor&#39;</span><span class="p">,</span> <span class="s1">&#39;myexecutor&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This is done by adding an entry point in your project&#8217;s <code class="file docutils literal"><span class="pre">setup.py</span></code>:</p>
+<div class="highlight-ini"><div class="highlight"><pre><span></span><span class="na">...</span>
+<span class="na">entry_points</span><span class="o">=</span><span class="s">{</span>
+<span class="s">      &#39;apscheduler.executors&#39;: [&#39;my_executor = mytoppackage.subpackage:MyExecutor&#39;]</span>
+<span class="na">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="custom-schedulers">
+<h2>Custom schedulers<a class="headerlink" href="#custom-schedulers" title="Permalink to this headline">¶</a></h2>
+<p>A typical situation where you would want to make your own scheduler subclass is when you want to integrate it with your
+application framework of choice.</p>
+<p>Your custom scheduler should always be a subclass of <a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler" title="apscheduler.schedulers.base.BaseScheduler"><code class="xref py py-class docutils literal"><span class="pre">BaseScheduler</span></code></a>.
+But if you&#8217;re not adapting to a framework that relies on callbacks, consider subclassing
+<a class="reference internal" href="modules/schedulers/blocking.html#apscheduler.schedulers.blocking.BlockingScheduler" title="apscheduler.schedulers.blocking.BlockingScheduler"><code class="xref py py-class docutils literal"><span class="pre">BlockingScheduler</span></code></a> instead.</p>
+<dl class="docutils">
+<dt>The most typical extension points for scheduler subclasses are:</dt>
+<dd><ul class="first last simple">
+<li><dl class="first docutils">
+<dt><a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.start" title="apscheduler.schedulers.base.BaseScheduler.start"><code class="xref py py-meth docutils literal"><span class="pre">start()</span></code></a></dt>
+<dd>must be overridden to wake up the scheduler for the first time</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt><a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.shutdown" title="apscheduler.schedulers.base.BaseScheduler.shutdown"><code class="xref py py-meth docutils literal"><span class="pre">shutdown()</span></code></a></dt>
+<dd>must be overridden to release resources allocated during <code class="docutils literal"><span class="pre">start()</span></code></dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt><a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.wakeup" title="apscheduler.schedulers.base.BaseScheduler.wakeup"><code class="xref py py-meth docutils literal"><span class="pre">wakeup()</span></code></a></dt>
+<dd>must be overridden to manage the timernotify the scheduler of changes in the job store</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt><code class="xref py py-meth docutils literal"><span class="pre">_create_lock()</span></code></dt>
+<dd>override if your framework uses some alternate locking implementation (like gevent)</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt><code class="xref py py-meth docutils literal"><span class="pre">_create_default_executor()</span></code></dt>
+<dd>override if you need to use an alternative default executor</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">Remember to call the superclass implementations of overridden methods, even abstract ones
+(unless they&#8217;re empty).</p>
+</div>
+<p>The most important responsibility of the scheduler subclass is to manage the scheduler&#8217;s sleeping based on the return
+values of <code class="docutils literal"><span class="pre">_process_jobs()</span></code>. This can be done in various ways, including setting timeouts in <code class="docutils literal"><span class="pre">wakeup()</span></code> or running
+a blocking loop in <code class="docutils literal"><span class="pre">start()</span></code>. Again, see the existing scheduler classes for examples.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Extending APScheduler</a><ul>
+<li><a class="reference internal" href="#custom-triggers">Custom triggers</a></li>
+<li><a class="reference internal" href="#custom-job-stores">Custom job stores</a></li>
+<li><a class="reference internal" href="#custom-executors">Custom executors</a></li>
+<li><a class="reference internal" href="#custom-schedulers">Custom schedulers</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="contributing.html"
+                        title="previous chapter">Contributing to APScheduler</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/extending.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="contributing.html" title="Contributing to APScheduler"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright Alex Grönholm.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.3.
+    </div>
+  </body>
+</html>

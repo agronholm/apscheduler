@@ -1,0 +1,262 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>apscheduler.jobstores.base &#8212; APScheduler 3.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '3.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-apscheduler.jobstores.base">
+<span id="apscheduler-jobstores-base"></span><h1><a class="reference internal" href="#module-apscheduler.jobstores.base" title="apscheduler.jobstores.base"><code class="xref py py-mod docutils literal"><span class="pre">apscheduler.jobstores.base</span></code></a><a class="headerlink" href="#module-apscheduler.jobstores.base" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="api">
+<h2>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="apscheduler.jobstores.base.BaseJobStore">
+<em class="property">class </em><code class="descclassname">apscheduler.jobstores.base.</code><code class="descname">BaseJobStore</code><a class="headerlink" href="#apscheduler.jobstores.base.BaseJobStore" title="Permalink to this definition">¶</a></dt>
+<dd><p>Abstract base class that defines the interface that every job store must implement.</p>
+<dl class="method">
+<dt id="apscheduler.jobstores.base.BaseJobStore.add_job">
+<code class="descname">add_job</code><span class="sig-paren">(</span><em>job</em><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.jobstores.base.BaseJobStore.add_job" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds the given job to this store.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>job</strong> (<a class="reference internal" href="../job.html#apscheduler.job.Job" title="apscheduler.job.Job"><em>Job</em></a>) &#8211; the job to add</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><strong>ConflictingIdError</strong> &#8211; if there is another job in this store with the same ID</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.jobstores.base.BaseJobStore.get_all_jobs">
+<code class="descname">get_all_jobs</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.jobstores.base.BaseJobStore.get_all_jobs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of all jobs in this job store.
+The returned jobs should be sorted by next run time (ascending).
+Paused jobs (next_run_time == None) should be sorted last.</p>
+<p>The job store is responsible for setting the <code class="docutils literal"><span class="pre">scheduler</span></code> and <code class="docutils literal"><span class="pre">jobstore</span></code> attributes of
+the returned jobs to point to the scheduler and itself, respectively.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/2/library/functions.html#list" title="(in Python v2.7)">list</a>[<a class="reference internal" href="../job.html#apscheduler.job.Job" title="apscheduler.job.Job">Job</a>]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.jobstores.base.BaseJobStore.get_due_jobs">
+<code class="descname">get_due_jobs</code><span class="sig-paren">(</span><em>now</em><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.jobstores.base.BaseJobStore.get_due_jobs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the list of jobs that have <code class="docutils literal"><span class="pre">next_run_time</span></code> earlier or equal to <code class="docutils literal"><span class="pre">now</span></code>.
+The returned jobs must be sorted by next run time (ascending).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>now</strong> (<a class="reference external" href="https://docs.python.org/2/library/datetime.html#datetime.datetime" title="(in Python v2.7)"><em>datetime.datetime</em></a>) &#8211; the current (timezone aware) datetime</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/2/library/functions.html#list" title="(in Python v2.7)">list</a>[<a class="reference internal" href="../job.html#apscheduler.job.Job" title="apscheduler.job.Job">Job</a>]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.jobstores.base.BaseJobStore.get_next_run_time">
+<code class="descname">get_next_run_time</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.jobstores.base.BaseJobStore.get_next_run_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the earliest run time of all the jobs stored in this job store, or <code class="docutils literal"><span class="pre">None</span></code> if
+there are no active jobs.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/2/library/datetime.html#datetime.datetime" title="(in Python v2.7)">datetime.datetime</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.jobstores.base.BaseJobStore.lookup_job">
+<code class="descname">lookup_job</code><span class="sig-paren">(</span><em>job_id</em><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.jobstores.base.BaseJobStore.lookup_job" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a specific job, or <code class="docutils literal"><span class="pre">None</span></code> if it isn&#8217;t found..</p>
+<p>The job store is responsible for setting the <code class="docutils literal"><span class="pre">scheduler</span></code> and <code class="docutils literal"><span class="pre">jobstore</span></code> attributes of
+the returned job to point to the scheduler and itself, respectively.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>job_id</strong> (<em>str|unicode</em>) &#8211; identifier of the job</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="../job.html#apscheduler.job.Job" title="apscheduler.job.Job">Job</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.jobstores.base.BaseJobStore.remove_all_jobs">
+<code class="descname">remove_all_jobs</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.jobstores.base.BaseJobStore.remove_all_jobs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes all jobs from this store.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.jobstores.base.BaseJobStore.remove_job">
+<code class="descname">remove_job</code><span class="sig-paren">(</span><em>job_id</em><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.jobstores.base.BaseJobStore.remove_job" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes the given job from this store.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>job_id</strong> (<em>str|unicode</em>) &#8211; identifier of the job</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><strong>JobLookupError</strong> &#8211; if the job does not exist</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.jobstores.base.BaseJobStore.shutdown">
+<code class="descname">shutdown</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.jobstores.base.BaseJobStore.shutdown" title="Permalink to this definition">¶</a></dt>
+<dd><p>Frees any resources still bound to this job store.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.jobstores.base.BaseJobStore.start">
+<code class="descname">start</code><span class="sig-paren">(</span><em>scheduler</em>, <em>alias</em><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.jobstores.base.BaseJobStore.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Called by the scheduler when the scheduler is being started or when the job store is being
+added to an already running scheduler.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>scheduler</strong> (<a class="reference internal" href="../schedulers/base.html#apscheduler.schedulers.base.BaseScheduler" title="apscheduler.schedulers.base.BaseScheduler"><em>apscheduler.schedulers.base.BaseScheduler</em></a>) &#8211; the scheduler that is starting
+this job store</li>
+<li><strong>alias</strong> (<em>str|unicode</em>) &#8211; alias of this job store as it was assigned to the scheduler</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.jobstores.base.BaseJobStore.update_job">
+<code class="descname">update_job</code><span class="sig-paren">(</span><em>job</em><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.jobstores.base.BaseJobStore.update_job" title="Permalink to this definition">¶</a></dt>
+<dd><p>Replaces the job in the store with the given newer version.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>job</strong> (<a class="reference internal" href="../job.html#apscheduler.job.Job" title="apscheduler.job.Job"><em>Job</em></a>) &#8211; the job to update</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><strong>JobLookupError</strong> &#8211; if the job does not exist</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#"><code class="docutils literal"><span class="pre">apscheduler.jobstores.base</span></code></a><ul>
+<li><a class="reference internal" href="#api">API</a></li>
+</ul>
+</li>
+</ul>
+
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/modules/jobstores/base.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright Alex Grönholm.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.3.
+    </div>
+  </body>
+</html>

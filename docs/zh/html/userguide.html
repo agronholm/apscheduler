@@ -1,0 +1,531 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>用户指南 &#8212; APScheduler 3.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '3.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Version history" href="versionhistory.html" />
+    <link rel="prev" title="先进的 Python 调度程序" href="index.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="versionhistory.html" title="Version history"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="先进的 Python 调度程序"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="id1">
+<h1>用户指南<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="apscheduler">
+<h2>安装 APScheduler<a class="headerlink" href="#apscheduler" title="Permalink to this headline">¶</a></h2>
+<p>最好的安装方式是通过 <a class="reference external" href="http://pypi.python.org/pypi/pip/">pip</a> 安装:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ pip install apscheduler
+</pre></div>
+</div>
+<p>如果你没有安装pip，你可以下载和运行
+<a class="reference external" href="https://bootstrap.pypa.io/get-pip.py">get-pip.py</a>.</p>
+<p>如果由于某些原因pip无法工作，你可以自己手动去PyPI
+<a class="reference external" href="https://pypi.python.org/pypi/APScheduler/">下载 APScheduler</a> ， 然后安装它:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ python setup.py install
+</pre></div>
+</div>
+</div>
+<div class="section" id="code-examples">
+<h2>Code examples<a class="headerlink" href="#code-examples" title="Permalink to this headline">¶</a></h2>
+<p>The source distribution contains the <code class="file docutils literal"><span class="pre">examples</span></code> directory where you can find many working examples for using
+APScheduler in different ways. The examples can also be
+<a class="reference external" href="https://github.com/agronholm/apscheduler/tree/master/examples/?at=master">browsed online</a>.</p>
+</div>
+<div class="section" id="basic-concepts">
+<h2>Basic concepts<a class="headerlink" href="#basic-concepts" title="Permalink to this headline">¶</a></h2>
+<p>APScheduler has four kinds of components:</p>
+<ul class="simple">
+<li>triggers</li>
+<li>job stores</li>
+<li>executors</li>
+<li>schedulers</li>
+</ul>
+<p><em>Triggers</em> contain the scheduling logic. Each job has its own trigger which determines when the job should be run next.
+Beyond their initial configuration, triggers are completely stateless.</p>
+<p><em>Job stores</em> house the scheduled jobs. The default job store simply keeps the jobs in memory, but others store them in
+various kinds of databases. A job&#8217;s data is serialized when it is saved to a persistent job store, and deserialized when
+it&#8217;s loaded back from it. Job stores (other than the default one) don&#8217;t keep the job data in memory, but act as
+middlemen for saving, loading, updating and searching jobs in the backend. Job stores must never be shared between
+schedulers.</p>
+<p><em>Executors</em> are what handle the running of the jobs. They do this typically by submitting the designated callable in a
+job to a thread or process pool. When the job is done, the executor notifies the scheduler which then emits an
+appropriate event.</p>
+<p><em>Schedulers</em> are what bind the rest together. You typically have only one scheduler running in your application.
+The application developer doesn&#8217;t normally deal with the job stores, executors or triggers directly. Instead, the
+scheduler provides the proper interface to handle all those. Configuring the job stores and executors is done through
+the scheduler, as is adding, modifying and removing jobs.</p>
+</div>
+<div class="section" id="choosing-the-right-scheduler-job-store-s-executor-s-and-trigger-s">
+<h2>Choosing the right scheduler, job store(s), executor(s) and trigger(s)<a class="headerlink" href="#choosing-the-right-scheduler-job-store-s-executor-s-and-trigger-s" title="Permalink to this headline">¶</a></h2>
+<p>Your choice of scheduler depends mostly on your programming environment and what you&#8217;ll be using APScheduler for.
+Here&#8217;s a quick guide for choosing a scheduler:</p>
+<ul class="simple">
+<li><a class="reference internal" href="modules/schedulers/blocking.html#apscheduler.schedulers.blocking.BlockingScheduler" title="apscheduler.schedulers.blocking.BlockingScheduler"><code class="xref py py-class docutils literal"><span class="pre">BlockingScheduler</span></code></a>:
+use when the scheduler is the only thing running in your process</li>
+<li><a class="reference internal" href="modules/schedulers/background.html#apscheduler.schedulers.background.BackgroundScheduler" title="apscheduler.schedulers.background.BackgroundScheduler"><code class="xref py py-class docutils literal"><span class="pre">BackgroundScheduler</span></code></a>:
+use when you&#8217;re not using any of the frameworks below, and want the scheduler to run in the background inside your
+application</li>
+<li><a class="reference internal" href="modules/schedulers/asyncio.html#apscheduler.schedulers.asyncio.AsyncIOScheduler" title="apscheduler.schedulers.asyncio.AsyncIOScheduler"><code class="xref py py-class docutils literal"><span class="pre">AsyncIOScheduler</span></code></a>:
+use if your application uses the asyncio module</li>
+<li><code class="xref py py-class docutils literal"><span class="pre">GeventScheduler</span></code>:
+use if your application uses gevent</li>
+<li><code class="xref py py-class docutils literal"><span class="pre">TornadoScheduler</span></code>:
+use if you&#8217;re building a Tornado application</li>
+<li><code class="xref py py-class docutils literal"><span class="pre">TwistedScheduler</span></code>:
+use if you&#8217;re building a Twisted application</li>
+<li><code class="xref py py-class docutils literal"><span class="pre">QtScheduler</span></code>:
+use if you&#8217;re building a Qt application</li>
+</ul>
+<p>Simple enough, yes?</p>
+<p>To pick the appropriate job store, you need to determine whether you need job persistence or not. If you always recreate
+your jobs at the start of your application, then you can probably go with the default
+(<a class="reference internal" href="modules/jobstores/memory.html#apscheduler.jobstores.memory.MemoryJobStore" title="apscheduler.jobstores.memory.MemoryJobStore"><code class="xref py py-class docutils literal"><span class="pre">MemoryJobStore</span></code></a>). But if you need your jobs to persist over scheduler restarts or
+application crashes, then your choice usually boils down to what tools are used in your programming environment.
+If, however, you are in the position to choose freely, then
+<a class="reference internal" href="modules/jobstores/sqlalchemy.html#apscheduler.jobstores.sqlalchemy.SQLAlchemyJobStore" title="apscheduler.jobstores.sqlalchemy.SQLAlchemyJobStore"><code class="xref py py-class docutils literal"><span class="pre">SQLAlchemyJobStore</span></code></a> on a <a class="reference external" href="http://www.postgresql.org/">PostgreSQL</a> backend is
+the recommended choice due to its strong data integrity protection.</p>
+<p>Likewise, the choice of executors is usually made for you if you use one of the frameworks above.
+Otherwise, the default <a class="reference internal" href="modules/executors/pool.html#apscheduler.executors.pool.ThreadPoolExecutor" title="apscheduler.executors.pool.ThreadPoolExecutor"><code class="xref py py-class docutils literal"><span class="pre">ThreadPoolExecutor</span></code></a> should be good enough for most purposes.
+If your workload involves CPU intensive operations, you should consider using
+<a class="reference internal" href="modules/executors/pool.html#apscheduler.executors.pool.ProcessPoolExecutor" title="apscheduler.executors.pool.ProcessPoolExecutor"><code class="xref py py-class docutils literal"><span class="pre">ProcessPoolExecutor</span></code></a> instead to make use of multiple CPU cores.
+You could even use both at once, adding the process pool executor as a secondary executor.</p>
+<p>When you schedule a job, you need to choose a _trigger_ for it. The trigger determines the logic by
+which the dates/times are calculated when the job will be run. APScheduler comes with three
+built-in trigger types:</p>
+<ul class="simple">
+<li><a class="reference internal" href="modules/triggers/date.html#module-apscheduler.triggers.date" title="apscheduler.triggers.date"><code class="xref py py-mod docutils literal"><span class="pre">date</span></code></a>:
+use when you want to run the job just once at a certain point of time</li>
+<li><a class="reference internal" href="modules/triggers/interval.html#module-apscheduler.triggers.interval" title="apscheduler.triggers.interval"><code class="xref py py-mod docutils literal"><span class="pre">interval</span></code></a>:
+use when you want to run the job at fixed intervals of time</li>
+<li><a class="reference internal" href="modules/triggers/cron.html#module-apscheduler.triggers.cron" title="apscheduler.triggers.cron"><code class="xref py py-mod docutils literal"><span class="pre">cron</span></code></a>:
+use when you want to run the job periodically at certain time(s) of day</li>
+</ul>
+<p>You can find the plugin names of each job store, executor and trigger type on their respective API
+documentation pages.</p>
+</div>
+<div class="section" id="configuring-the-scheduler">
+<span id="scheduler-config"></span><h2>Configuring the scheduler<a class="headerlink" href="#configuring-the-scheduler" title="Permalink to this headline">¶</a></h2>
+<p>APScheduler provides many different ways to configure the scheduler. You can use a configuration dictionary or you can
+pass in the options as keyword arguments. You can also instantiate the scheduler first, add jobs and configure the
+scheduler afterwards. This way you get maximum flexibility for any environment.</p>
+<p>The full list of scheduler level configuration options can be found on the API reference of the
+<a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler" title="apscheduler.schedulers.base.BaseScheduler"><code class="xref py py-class docutils literal"><span class="pre">BaseScheduler</span></code></a> class. Scheduler subclasses may also have additional options which
+are documented on their respective API references. Configuration options for individual job stores and executors can
+likewise be found on their API reference pages.</p>
+<p>Let&#8217;s say you want to run BackgroundScheduler in your application with the default job store and the default executor:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">apscheduler.schedulers.background</span> <span class="k">import</span> <span class="n">BackgroundScheduler</span>
+
+
+<span class="n">scheduler</span> <span class="o">=</span> <span class="n">BackgroundScheduler</span><span class="p">()</span>
+
+<span class="c1"># Initialize the rest of the application here, or before the scheduler initialization</span>
+</pre></div>
+</div>
+<p>This will get you a BackgroundScheduler with a MemoryJobStore named &#8220;default&#8221; and a ThreadPoolExecutor named &#8220;default&#8221;
+with a default maximum thread count of 10.</p>
+<p>Now, suppose you want more. You want to have <em>two</em> job stores using <em>two</em> executors and you also want to tweak the
+default values for new jobs and set a different timezone.
+The following three examples are completely equivalent, and will get you:</p>
+<ul class="simple">
+<li>a MongoDBJobStore named &#8220;mongo&#8221;</li>
+<li>an SQLAlchemyJobStore named &#8220;default&#8221; (using SQLite)</li>
+<li>a ThreadPoolExecutor named &#8220;default&#8221;, with a worker count of 20</li>
+<li>a ProcessPoolExecutor named &#8220;processpool&#8221;, with a worker count of 5</li>
+<li>UTC as the scheduler&#8217;s timezone</li>
+<li>coalescing turned off for new jobs by default</li>
+<li>a default maximum instance limit of 3 for new jobs</li>
+</ul>
+<p>Method 1:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pytz</span> <span class="k">import</span> <span class="n">utc</span>
+
+<span class="kn">from</span> <span class="nn">apscheduler.schedulers.background</span> <span class="k">import</span> <span class="n">BackgroundScheduler</span>
+<span class="kn">from</span> <span class="nn">apscheduler.jobstores.mongodb</span> <span class="k">import</span> <span class="n">MongoDBJobStore</span>
+<span class="kn">from</span> <span class="nn">apscheduler.jobstores.sqlalchemy</span> <span class="k">import</span> <span class="n">SQLAlchemyJobStore</span>
+<span class="kn">from</span> <span class="nn">apscheduler.executors.pool</span> <span class="k">import</span> <span class="n">ThreadPoolExecutor</span><span class="p">,</span> <span class="n">ProcessPoolExecutor</span>
+
+
+<span class="n">jobstores</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;mongo&#39;</span><span class="p">:</span> <span class="n">MongoDBJobStore</span><span class="p">(),</span>
+    <span class="s1">&#39;default&#39;</span><span class="p">:</span> <span class="n">SQLAlchemyJobStore</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s1">&#39;sqlite:///jobs.sqlite&#39;</span><span class="p">)</span>
+<span class="p">}</span>
+<span class="n">executors</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;default&#39;</span><span class="p">:</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="mi">20</span><span class="p">),</span>
+    <span class="s1">&#39;processpool&#39;</span><span class="p">:</span> <span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="p">}</span>
+<span class="n">job_defaults</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;coalesce&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s1">&#39;max_instances&#39;</span><span class="p">:</span> <span class="mi">3</span>
+<span class="p">}</span>
+<span class="n">scheduler</span> <span class="o">=</span> <span class="n">BackgroundScheduler</span><span class="p">(</span><span class="n">jobstores</span><span class="o">=</span><span class="n">jobstores</span><span class="p">,</span> <span class="n">executors</span><span class="o">=</span><span class="n">executors</span><span class="p">,</span> <span class="n">job_defaults</span><span class="o">=</span><span class="n">job_defaults</span><span class="p">,</span> <span class="n">timezone</span><span class="o">=</span><span class="n">utc</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Method 2:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">apscheduler.schedulers.background</span> <span class="k">import</span> <span class="n">BackgroundScheduler</span>
+
+
+<span class="c1"># The &quot;apscheduler.&quot; prefix is hard coded</span>
+<span class="n">scheduler</span> <span class="o">=</span> <span class="n">BackgroundScheduler</span><span class="p">({</span>
+    <span class="s1">&#39;apscheduler.jobstores.mongo&#39;</span><span class="p">:</span> <span class="p">{</span>
+         <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;mongodb&#39;</span>
+    <span class="p">},</span>
+    <span class="s1">&#39;apscheduler.jobstores.default&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;sqlalchemy&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;url&#39;</span><span class="p">:</span> <span class="s1">&#39;sqlite:///jobs.sqlite&#39;</span>
+    <span class="p">},</span>
+    <span class="s1">&#39;apscheduler.executors.default&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;class&#39;</span><span class="p">:</span> <span class="s1">&#39;apscheduler.executors.pool:ThreadPoolExecutor&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;max_workers&#39;</span><span class="p">:</span> <span class="s1">&#39;20&#39;</span>
+    <span class="p">},</span>
+    <span class="s1">&#39;apscheduler.executors.processpool&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;processpool&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;max_workers&#39;</span><span class="p">:</span> <span class="s1">&#39;5&#39;</span>
+    <span class="p">},</span>
+    <span class="s1">&#39;apscheduler.job_defaults.coalesce&#39;</span><span class="p">:</span> <span class="s1">&#39;false&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;apscheduler.job_defaults.max_instances&#39;</span><span class="p">:</span> <span class="s1">&#39;3&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;apscheduler.timezone&#39;</span><span class="p">:</span> <span class="s1">&#39;UTC&#39;</span><span class="p">,</span>
+<span class="p">})</span>
+</pre></div>
+</div>
+<p>Method 3:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pytz</span> <span class="k">import</span> <span class="n">utc</span>
+
+<span class="kn">from</span> <span class="nn">apscheduler.schedulers.background</span> <span class="k">import</span> <span class="n">BackgroundScheduler</span>
+<span class="kn">from</span> <span class="nn">apscheduler.jobstores.sqlalchemy</span> <span class="k">import</span> <span class="n">SQLAlchemyJobStore</span>
+<span class="kn">from</span> <span class="nn">apscheduler.executors.pool</span> <span class="k">import</span> <span class="n">ProcessPoolExecutor</span>
+
+
+<span class="n">jobstores</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;mongo&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;mongodb&#39;</span><span class="p">},</span>
+    <span class="s1">&#39;default&#39;</span><span class="p">:</span> <span class="n">SQLAlchemyJobStore</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s1">&#39;sqlite:///jobs.sqlite&#39;</span><span class="p">)</span>
+<span class="p">}</span>
+<span class="n">executors</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;default&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;threadpool&#39;</span><span class="p">,</span> <span class="s1">&#39;max_workers&#39;</span><span class="p">:</span> <span class="mi">20</span><span class="p">},</span>
+    <span class="s1">&#39;processpool&#39;</span><span class="p">:</span> <span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="p">}</span>
+<span class="n">job_defaults</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;coalesce&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s1">&#39;max_instances&#39;</span><span class="p">:</span> <span class="mi">3</span>
+<span class="p">}</span>
+<span class="n">scheduler</span> <span class="o">=</span> <span class="n">BackgroundScheduler</span><span class="p">()</span>
+
+<span class="c1"># .. do something else here, maybe add jobs etc.</span>
+
+<span class="n">scheduler</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">jobstores</span><span class="o">=</span><span class="n">jobstores</span><span class="p">,</span> <span class="n">executors</span><span class="o">=</span><span class="n">executors</span><span class="p">,</span> <span class="n">job_defaults</span><span class="o">=</span><span class="n">job_defaults</span><span class="p">,</span> <span class="n">timezone</span><span class="o">=</span><span class="n">utc</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="starting-the-scheduler">
+<h2>Starting the scheduler<a class="headerlink" href="#starting-the-scheduler" title="Permalink to this headline">¶</a></h2>
+<p>Starting the scheduler is done by simply calling <a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.start" title="apscheduler.schedulers.base.BaseScheduler.start"><code class="xref py py-meth docutils literal"><span class="pre">start()</span></code></a> on the
+scheduler. For schedulers other than <cite>~apscheduler.schedulers.blocking.BlockingScheduler</cite>, this call will return
+immediately and you can continue the initialization process of your application, possibly adding jobs to the scheduler.</p>
+<p>For BlockingScheduler, you will only want to call <a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.start" title="apscheduler.schedulers.base.BaseScheduler.start"><code class="xref py py-meth docutils literal"><span class="pre">start()</span></code></a> after you&#8217;re
+done with any initialization steps.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">After the scheduler has been started, you can no longer alter its settings.</p>
+</div>
+</div>
+<div class="section" id="adding-jobs">
+<h2>Adding jobs<a class="headerlink" href="#adding-jobs" title="Permalink to this headline">¶</a></h2>
+<p>There are two ways to add jobs to a scheduler:</p>
+<ol class="arabic simple">
+<li>by calling <a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.add_job" title="apscheduler.schedulers.base.BaseScheduler.add_job"><code class="xref py py-meth docutils literal"><span class="pre">add_job()</span></code></a></li>
+<li>by decorating a function with <a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.scheduled_job" title="apscheduler.schedulers.base.BaseScheduler.scheduled_job"><code class="xref py py-meth docutils literal"><span class="pre">scheduled_job()</span></code></a></li>
+</ol>
+<p>The first way is the most common way to do it. The second way is mostly a convenience to declare jobs that don&#8217;t change
+during the application&#8217;s run time. The <a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.add_job" title="apscheduler.schedulers.base.BaseScheduler.add_job"><code class="xref py py-meth docutils literal"><span class="pre">add_job()</span></code></a> method returns a
+<a class="reference internal" href="modules/job.html#apscheduler.job.Job" title="apscheduler.job.Job"><code class="xref py py-class docutils literal"><span class="pre">apscheduler.job.Job</span></code></a> instance that you can use to modify or remove the job later.</p>
+<p>You can schedule jobs on the scheduler <strong>at any time</strong>. If the scheduler is not yet running when the job is added, the
+job will be scheduled <em>tentatively</em> and its first run time will only be computed when the scheduler starts.</p>
+<p>It is important to note that if you use an executor or job store that serializes the job, it will add a couple
+requirements on your job:</p>
+<ol class="arabic simple">
+<li>The target callable must be globally accessible</li>
+<li>Any arguments to the callable must be serializable</li>
+</ol>
+<p>Of the builtin job stores, only MemoryJobStore doesn&#8217;t serialize jobs.
+Of the builtin executors, only ProcessPoolExecutor will serialize jobs.</p>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">If you schedule jobs in a persistent job store during your application&#8217;s initialization, you <strong>MUST</strong>
+define an explicit ID for the job and use <code class="docutils literal"><span class="pre">replace_existing=True</span></code> or you will get a new copy of the job every time
+your application restarts!</p>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">To run a job immediately, omit <code class="docutils literal"><span class="pre">trigger</span></code> argument when adding the job.</p>
+</div>
+</div>
+<div class="section" id="removing-jobs">
+<h2>Removing jobs<a class="headerlink" href="#removing-jobs" title="Permalink to this headline">¶</a></h2>
+<p>When you remove a job from the scheduler, it is removed from its associated job store and will not be executed anymore.
+There are two ways to make this happen:</p>
+<ol class="arabic simple">
+<li>by calling <a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.remove_job" title="apscheduler.schedulers.base.BaseScheduler.remove_job"><code class="xref py py-meth docutils literal"><span class="pre">remove_job()</span></code></a> with the job&#8217;s ID and job store alias</li>
+<li>by calling <a class="reference internal" href="modules/job.html#apscheduler.job.Job.remove" title="apscheduler.job.Job.remove"><code class="xref py py-meth docutils literal"><span class="pre">remove()</span></code></a> on the Job instance you got from
+<a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.add_job" title="apscheduler.schedulers.base.BaseScheduler.add_job"><code class="xref py py-meth docutils literal"><span class="pre">add_job()</span></code></a></li>
+</ol>
+<p>The latter method is probably more convenient, but it requires that you store somewhere the
+<a class="reference internal" href="modules/job.html#apscheduler.job.Job" title="apscheduler.job.Job"><code class="xref py py-class docutils literal"><span class="pre">Job</span></code></a> instance you received when adding the job. For jobs scheduled via the
+<a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.scheduled_job" title="apscheduler.schedulers.base.BaseScheduler.scheduled_job"><code class="xref py py-meth docutils literal"><span class="pre">scheduled_job()</span></code></a>, the first way is the only way.</p>
+<p>If the job&#8217;s schedule ends (i.e. its trigger doesn&#8217;t produce any further run times), it is automatically removed.</p>
+<p>Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">job</span> <span class="o">=</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">add_job</span><span class="p">(</span><span class="n">myfunc</span><span class="p">,</span> <span class="s1">&#39;interval&#39;</span><span class="p">,</span> <span class="n">minutes</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">job</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Same, using an explicit job ID:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">scheduler</span><span class="o">.</span><span class="n">add_job</span><span class="p">(</span><span class="n">myfunc</span><span class="p">,</span> <span class="s1">&#39;interval&#39;</span><span class="p">,</span> <span class="n">minutes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="s1">&#39;my_job_id&#39;</span><span class="p">)</span>
+<span class="n">scheduler</span><span class="o">.</span><span class="n">remove_job</span><span class="p">(</span><span class="s1">&#39;my_job_id&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="pausing-and-resuming-jobs">
+<h2>Pausing and resuming jobs<a class="headerlink" href="#pausing-and-resuming-jobs" title="Permalink to this headline">¶</a></h2>
+<p>You can easily pause and resume jobs through either the <a class="reference internal" href="modules/job.html#apscheduler.job.Job" title="apscheduler.job.Job"><code class="xref py py-class docutils literal"><span class="pre">Job</span></code></a> instance or the scheduler itself.
+When a job is paused, its next run time is cleared and no further run times will be calculated for it until the job is
+resumed. To pause a job, use either method:</p>
+<ul class="simple">
+<li><a class="reference internal" href="modules/job.html#apscheduler.job.Job.pause" title="apscheduler.job.Job.pause"><code class="xref py py-meth docutils literal"><span class="pre">apscheduler.job.Job.pause()</span></code></a></li>
+<li><a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.pause_job" title="apscheduler.schedulers.base.BaseScheduler.pause_job"><code class="xref py py-meth docutils literal"><span class="pre">apscheduler.schedulers.base.BaseScheduler.pause_job()</span></code></a></li>
+</ul>
+<p>To resume:</p>
+<ul class="simple">
+<li><a class="reference internal" href="modules/job.html#apscheduler.job.Job.resume" title="apscheduler.job.Job.resume"><code class="xref py py-meth docutils literal"><span class="pre">apscheduler.job.Job.resume()</span></code></a></li>
+<li><a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.resume_job" title="apscheduler.schedulers.base.BaseScheduler.resume_job"><code class="xref py py-meth docutils literal"><span class="pre">apscheduler.schedulers.base.BaseScheduler.resume_job()</span></code></a></li>
+</ul>
+</div>
+<div class="section" id="getting-a-list-of-scheduled-jobs">
+<h2>Getting a list of scheduled jobs<a class="headerlink" href="#getting-a-list-of-scheduled-jobs" title="Permalink to this headline">¶</a></h2>
+<p>To get a machine processable list of the scheduled jobs, you can use the
+<a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.get_jobs" title="apscheduler.schedulers.base.BaseScheduler.get_jobs"><code class="xref py py-meth docutils literal"><span class="pre">get_jobs()</span></code></a> method. It will return a list of
+<a class="reference internal" href="modules/job.html#apscheduler.job.Job" title="apscheduler.job.Job"><code class="xref py py-class docutils literal"><span class="pre">Job</span></code></a> instances. If you&#8217;re only interested in the jobs contained in a particular job store,
+then give a job store alias as the second argument.</p>
+<p>As a convenience, you can use the <a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.print_jobs" title="apscheduler.schedulers.base.BaseScheduler.print_jobs"><code class="xref py py-meth docutils literal"><span class="pre">print_jobs()</span></code></a> method which will print
+out a formatted list of jobs, their triggers and next run times.</p>
+</div>
+<div class="section" id="modifying-jobs">
+<h2>Modifying jobs<a class="headerlink" href="#modifying-jobs" title="Permalink to this headline">¶</a></h2>
+<p>You can modify any job attributes by calling either <a class="reference internal" href="modules/job.html#apscheduler.job.Job.modify" title="apscheduler.job.Job.modify"><code class="xref py py-meth docutils literal"><span class="pre">apscheduler.job.Job.modify()</span></code></a> or
+<a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.modify_job" title="apscheduler.schedulers.base.BaseScheduler.modify_job"><code class="xref py py-meth docutils literal"><span class="pre">modify_job()</span></code></a>. You can modify any Job attributes except for <code class="docutils literal"><span class="pre">id</span></code>.</p>
+<p>Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">job</span><span class="o">.</span><span class="n">modify</span><span class="p">(</span><span class="n">max_instances</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Alternate name&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you want to reschedule the job &#8211; that is, change its trigger, you can use either
+<a class="reference internal" href="modules/job.html#apscheduler.job.Job.reschedule" title="apscheduler.job.Job.reschedule"><code class="xref py py-meth docutils literal"><span class="pre">apscheduler.job.Job.reschedule()</span></code></a> or <a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.reschedule_job" title="apscheduler.schedulers.base.BaseScheduler.reschedule_job"><code class="xref py py-meth docutils literal"><span class="pre">reschedule_job()</span></code></a>.
+These methods construct a new trigger for the job and recalculate its next run time based on the new trigger.</p>
+<p>Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">scheduler</span><span class="o">.</span><span class="n">reschedule_job</span><span class="p">(</span><span class="s1">&#39;my_job_id&#39;</span><span class="p">,</span> <span class="n">trigger</span><span class="o">=</span><span class="s1">&#39;cron&#39;</span><span class="p">,</span> <span class="n">minute</span><span class="o">=</span><span class="s1">&#39;*/5&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="shutting-down-the-scheduler">
+<h2>Shutting down the scheduler<a class="headerlink" href="#shutting-down-the-scheduler" title="Permalink to this headline">¶</a></h2>
+<p>To shut down the scheduler:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">scheduler</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>By default, the scheduler shuts down its job stores and executors and waits until all currently executing jobs are
+finished. If you don&#8217;t want to wait, you can do:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">scheduler</span><span class="o">.</span><span class="n">shutdown</span><span class="p">(</span><span class="n">wait</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This will still shut down the job stores and executors but does not wait for any running
+tasks to complete.</p>
+</div>
+<div class="section" id="pausing-resuming-job-processing">
+<h2>Pausing/resuming job processing<a class="headerlink" href="#pausing-resuming-job-processing" title="Permalink to this headline">¶</a></h2>
+<p>It is possible to pause the processing of scheduled jobs:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">scheduler</span><span class="o">.</span><span class="n">pause</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This will cause the scheduler to not wake up until processing is resumed:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">scheduler</span><span class="o">.</span><span class="n">resume</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>It is also possible to start the scheduler in paused state, that is, without the first wakeup
+call:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">scheduler</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">paused</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This is useful when you need to prune unwanted jobs before they have a chance to run.</p>
+</div>
+<div class="section" id="limiting-the-number-of-concurrently-executing-instances-of-a-job">
+<h2>Limiting the number of concurrently executing instances of a job<a class="headerlink" href="#limiting-the-number-of-concurrently-executing-instances-of-a-job" title="Permalink to this headline">¶</a></h2>
+<p>By default, only one instance of each job is allowed to be run at the same time.
+This means that if the job is about to be run but the previous run hasn&#8217;t finished yet, then the latest run is
+considered a misfire. It is possible to set the maximum number of instances for a particular job that the scheduler will
+let run concurrently, by using the <code class="docutils literal"><span class="pre">max_instances</span></code> keyword argument when adding the job.</p>
+</div>
+<div class="section" id="missed-job-executions-and-coalescing">
+<span id="missed-job-executions"></span><h2>Missed job executions and coalescing<a class="headerlink" href="#missed-job-executions-and-coalescing" title="Permalink to this headline">¶</a></h2>
+<p>Sometimes the scheduler may be unable to execute a scheduled job at the time it was scheduled to run.
+The most common case is when a job is scheduled in a persistent job store and the scheduler is shut down and restarted
+after the job was supposed to execute. When this happens, the job is considered to have &#8220;misfired&#8221;.
+The scheduler will then check each missed execution time against the job&#8217;s <code class="docutils literal"><span class="pre">misfire_grace_time</span></code> option (which can be
+set on per-job basis or globally in the scheduler) to see if the execution should still be triggered.
+This can lead into the job being executed several times in succession.</p>
+<p>If this behavior is undesirable for your particular use case, it is possible to use <cite>coalescing</cite> to roll all these
+missed executions into one. In other words, if coalescing is enabled for the job and the scheduler sees one or more
+queued executions for the job, it will only trigger it once. No misfire events will be sent for the &#8220;bypassed&#8221; runs.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If the execution of a job is delayed due to no threads or processes being available in the pool, the executor may
+skip it due to it being run too late (compared to its originally designated run time).
+If this is likely to happen in your application, you may want to either increase the number of threads/processes in
+the executor, or adjust the <code class="docutils literal"><span class="pre">misfire_grace_time</span></code> setting to a higher value.</p>
+</div>
+</div>
+<div class="section" id="scheduler-events">
+<span id="id3"></span><h2>Scheduler events<a class="headerlink" href="#scheduler-events" title="Permalink to this headline">¶</a></h2>
+<p>It is possible to attach event listeners to the scheduler. Scheduler events are fired on certain occasions, and may
+carry additional information in them concerning the details of that particular event.
+It is possible to listen to only particular types of events by giving the appropriate <code class="docutils literal"><span class="pre">mask</span></code> argument to
+<a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.add_listener" title="apscheduler.schedulers.base.BaseScheduler.add_listener"><code class="xref py py-meth docutils literal"><span class="pre">add_listener()</span></code></a>, OR&#8217;ing the different constants together.
+The listener callable is called with one argument, the event object.</p>
+<p>See the documentation for the <a class="reference internal" href="modules/events.html#module-apscheduler.events" title="apscheduler.events"><code class="xref py py-mod docutils literal"><span class="pre">events</span></code></a> module for specifics on the available events and their
+attributes.</p>
+<p>Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">my_listener</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">exception</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;The job crashed :(&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;The job worked :)&#39;</span><span class="p">)</span>
+
+<span class="n">scheduler</span><span class="o">.</span><span class="n">add_listener</span><span class="p">(</span><span class="n">my_listener</span><span class="p">,</span> <span class="n">EVENT_JOB_EXECUTED</span> <span class="o">|</span> <span class="n">EVENT_JOB_ERROR</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="reporting-bugs">
+<h2>Reporting bugs<a class="headerlink" href="#reporting-bugs" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">用户指南</a><ul>
+<li><a class="reference internal" href="#apscheduler">安装 APScheduler</a></li>
+<li><a class="reference internal" href="#code-examples">Code examples</a></li>
+<li><a class="reference internal" href="#basic-concepts">Basic concepts</a></li>
+<li><a class="reference internal" href="#choosing-the-right-scheduler-job-store-s-executor-s-and-trigger-s">Choosing the right scheduler, job store(s), executor(s) and trigger(s)</a></li>
+<li><a class="reference internal" href="#configuring-the-scheduler">Configuring the scheduler</a></li>
+<li><a class="reference internal" href="#starting-the-scheduler">Starting the scheduler</a></li>
+<li><a class="reference internal" href="#adding-jobs">Adding jobs</a></li>
+<li><a class="reference internal" href="#removing-jobs">Removing jobs</a></li>
+<li><a class="reference internal" href="#pausing-and-resuming-jobs">Pausing and resuming jobs</a></li>
+<li><a class="reference internal" href="#getting-a-list-of-scheduled-jobs">Getting a list of scheduled jobs</a></li>
+<li><a class="reference internal" href="#modifying-jobs">Modifying jobs</a></li>
+<li><a class="reference internal" href="#shutting-down-the-scheduler">Shutting down the scheduler</a></li>
+<li><a class="reference internal" href="#pausing-resuming-job-processing">Pausing/resuming job processing</a></li>
+<li><a class="reference internal" href="#limiting-the-number-of-concurrently-executing-instances-of-a-job">Limiting the number of concurrently executing instances of a job</a></li>
+<li><a class="reference internal" href="#missed-job-executions-and-coalescing">Missed job executions and coalescing</a></li>
+<li><a class="reference internal" href="#scheduler-events">Scheduler events</a></li>
+<li><a class="reference internal" href="#reporting-bugs">Reporting bugs</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">先进的 Python 调度程序</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="versionhistory.html"
+                        title="next chapter">Version history</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/userguide.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="versionhistory.html" title="Version history"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="先进的 Python 调度程序"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright Alex Grönholm.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>apscheduler.job &#8212; APScheduler 3.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '3.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-apscheduler.job">
+<span id="apscheduler-job"></span><h1><a class="reference internal" href="#module-apscheduler.job" title="apscheduler.job"><code class="xref py py-mod docutils literal"><span class="pre">apscheduler.job</span></code></a><a class="headerlink" href="#module-apscheduler.job" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="api">
+<h2>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="apscheduler.job.Job">
+<em class="property">class </em><code class="descclassname">apscheduler.job.</code><code class="descname">Job</code><span class="sig-paren">(</span><em>scheduler</em>, <em>id=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.job.Job" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contains the options given when scheduling callables and its current schedule and other state.
+This class should never be instantiated by the user.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Variables:</th><td class="field-body"><ul class="first last simple">
+<li><a class="reference external" href="https://docs.python.org/2/library/functions.html#id" title="(in Python v2.7)"><strong>id</strong></a> (<a class="reference external" href="https://docs.python.org/2/library/functions.html#str" title="(in Python v2.7)"><em>str</em></a>) &#8211; the unique identifier of this job</li>
+<li><strong>name</strong> (<a class="reference external" href="https://docs.python.org/2/library/functions.html#str" title="(in Python v2.7)"><em>str</em></a>) &#8211; the description of this job</li>
+<li><strong>func</strong> &#8211; the callable to execute</li>
+<li><strong>args</strong> (<em>tuple|list</em>) &#8211; positional arguments to the callable</li>
+<li><strong>kwargs</strong> (<a class="reference external" href="https://docs.python.org/2/library/stdtypes.html#dict" title="(in Python v2.7)"><em>dict</em></a>) &#8211; keyword arguments to the callable</li>
+<li><strong>coalesce</strong> (<a class="reference external" href="https://docs.python.org/2/library/functions.html#bool" title="(in Python v2.7)"><em>bool</em></a>) &#8211; whether to only run the job once when several run times are due</li>
+<li><strong>trigger</strong> &#8211; the trigger object that controls the schedule of this job</li>
+<li><strong>executor</strong> (<a class="reference external" href="https://docs.python.org/2/library/functions.html#str" title="(in Python v2.7)"><em>str</em></a>) &#8211; the name of the executor that will run this job</li>
+<li><strong>misfire_grace_time</strong> (<a class="reference external" href="https://docs.python.org/2/library/functions.html#int" title="(in Python v2.7)"><em>int</em></a>) &#8211; the time (in seconds) how much this job&#8217;s execution is allowed to
+be late</li>
+<li><strong>max_instances</strong> (<a class="reference external" href="https://docs.python.org/2/library/functions.html#int" title="(in Python v2.7)"><em>int</em></a>) &#8211; the maximum number of concurrently executing instances allowed for this
+job</li>
+<li><strong>next_run_time</strong> (<a class="reference external" href="https://docs.python.org/2/library/datetime.html#datetime.datetime" title="(in Python v2.7)"><em>datetime.datetime</em></a>) &#8211; the next scheduled run time of this job</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <code class="docutils literal"><span class="pre">misfire_grace_time</span></code> has some non-obvious effects on job execution. See the
+<a class="reference internal" href="../userguide.html#missed-job-executions"><span class="std std-ref">Missed job executions and coalescing</span></a> section in the documentation for an in-depth explanation.</p>
+</div>
+<dl class="method">
+<dt id="apscheduler.job.Job.modify">
+<code class="descname">modify</code><span class="sig-paren">(</span><em>**changes</em><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.job.Job.modify" title="Permalink to this definition">¶</a></dt>
+<dd><p>Makes the given changes to this job and saves it in the associated job store.</p>
+<p>Accepted keyword arguments are the same as the variables on this class.</p>
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.modify_job" title="apscheduler.schedulers.base.BaseScheduler.modify_job"><code class="xref py py-meth docutils literal"><span class="pre">modify_job()</span></code></a></p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return Job:</th><td class="field-body">this job instance</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.job.Job.pause">
+<code class="descname">pause</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.job.Job.pause" title="Permalink to this definition">¶</a></dt>
+<dd><p>Temporarily suspend the execution of this job.</p>
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.pause_job" title="apscheduler.schedulers.base.BaseScheduler.pause_job"><code class="xref py py-meth docutils literal"><span class="pre">pause_job()</span></code></a></p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return Job:</th><td class="field-body">this job instance</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="apscheduler.job.Job.pending">
+<code class="descname">pending</code><a class="headerlink" href="#apscheduler.job.Job.pending" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns <code class="docutils literal"><span class="pre">True</span></code> if the referenced job is still waiting to be added to its designated job
+store.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.job.Job.remove">
+<code class="descname">remove</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.job.Job.remove" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unschedules this job and removes it from its associated job store.</p>
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.remove_job" title="apscheduler.schedulers.base.BaseScheduler.remove_job"><code class="xref py py-meth docutils literal"><span class="pre">remove_job()</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.job.Job.reschedule">
+<code class="descname">reschedule</code><span class="sig-paren">(</span><em>trigger</em>, <em>**trigger_args</em><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.job.Job.reschedule" title="Permalink to this definition">¶</a></dt>
+<dd><p>Shortcut for switching the trigger on this job.</p>
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.reschedule_job" title="apscheduler.schedulers.base.BaseScheduler.reschedule_job"><code class="xref py py-meth docutils literal"><span class="pre">reschedule_job()</span></code></a></p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return Job:</th><td class="field-body">this job instance</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="apscheduler.job.Job.resume">
+<code class="descname">resume</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#apscheduler.job.Job.resume" title="Permalink to this definition">¶</a></dt>
+<dd><p>Resume the schedule of this job if previously paused.</p>
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.resume_job" title="apscheduler.schedulers.base.BaseScheduler.resume_job"><code class="xref py py-meth docutils literal"><span class="pre">resume_job()</span></code></a></p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return Job:</th><td class="field-body">this job instance</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#"><code class="docutils literal"><span class="pre">apscheduler.job</span></code></a><ul>
+<li><a class="reference internal" href="#api">API</a></li>
+</ul>
+</li>
+</ul>
+
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/modules/job.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright Alex Grönholm.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.3.
+    </div>
+  </body>
+</html>

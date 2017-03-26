@@ -1,0 +1,228 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Migrating from previous versions of APScheduler &#8212; APScheduler 3.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '3.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Contributing to APScheduler" href="contributing.html" />
+    <link rel="prev" title="Version history" href="versionhistory.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="contributing.html" title="Contributing to APScheduler"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="versionhistory.html" title="Version history"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="migrating-from-previous-versions-of-apscheduler">
+<h1>Migrating from previous versions of APScheduler<a class="headerlink" href="#migrating-from-previous-versions-of-apscheduler" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="from-v3-0-to-v3-2">
+<h2>From v3.0 to v3.2<a class="headerlink" href="#from-v3-0-to-v3-2" title="Permalink to this headline">¶</a></h2>
+<p>Prior to v3.1, the scheduler inadvertently exposed the ability to fetch and manipulate jobs before
+the scheduler had been started. The scheduler now requires you to call <code class="docutils literal"><span class="pre">scheduler.start()</span></code> before
+attempting to access any of the jobs in the job stores. To ensure that no old jobs are mistakenly
+executed, you can start the scheduler in paused mode (<code class="docutils literal"><span class="pre">scheduler.start(paused=True)</span></code>) (introduced
+in v3.2) to avoid any premature job processing.</p>
+</div>
+<div class="section" id="from-v2-x-to-v3-0">
+<h2>From v2.x to v3.0<a class="headerlink" href="#from-v2-x-to-v3-0" title="Permalink to this headline">¶</a></h2>
+<p>The 3.0 series is API incompatible with previous releases due to a design overhaul.</p>
+<div class="section" id="scheduler-changes">
+<h3>Scheduler changes<a class="headerlink" href="#scheduler-changes" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>The concept of &#8220;standalone mode&#8221; is gone. For <code class="docutils literal"><span class="pre">standalone=True</span></code>, use
+<a class="reference internal" href="modules/schedulers/blocking.html#apscheduler.schedulers.blocking.BlockingScheduler" title="apscheduler.schedulers.blocking.BlockingScheduler"><code class="xref py py-class docutils literal"><span class="pre">BlockingScheduler</span></code></a> instead, and for <code class="docutils literal"><span class="pre">standalone=False</span></code>, use
+<a class="reference internal" href="modules/schedulers/background.html#apscheduler.schedulers.background.BackgroundScheduler" title="apscheduler.schedulers.background.BackgroundScheduler"><code class="xref py py-class docutils literal"><span class="pre">BackgroundScheduler</span></code></a>. BackgroundScheduler matches the old default
+semantics.</li>
+<li>Job defaults (like <code class="docutils literal"><span class="pre">misfire_grace_time</span></code> and <code class="docutils literal"><span class="pre">coalesce</span></code>) must now be passed in a dictionary as the
+<code class="docutils literal"><span class="pre">job_defaults</span></code> option to <a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.configure" title="apscheduler.schedulers.base.BaseScheduler.configure"><code class="xref py py-meth docutils literal"><span class="pre">configure()</span></code></a>. When supplying an ini-style
+configuration as the first argument, they will need a corresponding <code class="docutils literal"><span class="pre">job_defaults.</span></code> prefix.</li>
+<li>The configuration key prefix for job stores was changed from <code class="docutils literal"><span class="pre">jobstore.</span></code> to <code class="docutils literal"><span class="pre">jobstores.</span></code> to match the dict-style
+configuration better.</li>
+<li>The <code class="docutils literal"><span class="pre">max_runs</span></code> option has been dropped since the run counter could not be reliably preserved when replacing a job
+with another one with the same ID. To make up for this, the <code class="docutils literal"><span class="pre">end_date</span></code> option was added to cron and interval
+triggers.</li>
+<li>The old thread pool is gone, replaced by <code class="docutils literal"><span class="pre">ThreadPoolExecutor</span></code>.
+This means that the old <code class="docutils literal"><span class="pre">threadpool</span></code> options are no longer valid.
+See <a class="reference internal" href="userguide.html#scheduler-config"><span class="std std-ref">Configuring the scheduler</span></a> on how to configure executors.</li>
+<li>The trigger-specific scheduling methods have been removed entirely from the scheduler.
+Use the generic <a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.add_job" title="apscheduler.schedulers.base.BaseScheduler.add_job"><code class="xref py py-meth docutils literal"><span class="pre">add_job()</span></code></a> method or the
+<a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.scheduled_job" title="apscheduler.schedulers.base.BaseScheduler.scheduled_job"><code class="xref py py-meth docutils literal"><span class="pre">scheduled_job()</span></code></a> decorator instead.
+The signatures of these methods were changed significantly.</li>
+<li>The <code class="docutils literal"><span class="pre">shutdown_threadpool</span></code> and <code class="docutils literal"><span class="pre">close_jobstores</span></code> options have been removed from the
+<a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.shutdown" title="apscheduler.schedulers.base.BaseScheduler.shutdown"><code class="xref py py-meth docutils literal"><span class="pre">shutdown()</span></code></a> method.
+Executors and job stores are now always shut down on scheduler shutdown.</li>
+<li><code class="xref py py-meth docutils literal"><span class="pre">unschedule_job()</span></code> and <code class="xref py py-meth docutils literal"><span class="pre">unschedule_func()</span></code>
+have been replaced by <a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.remove_job" title="apscheduler.schedulers.base.BaseScheduler.remove_job"><code class="xref py py-meth docutils literal"><span class="pre">remove_job()</span></code></a>.
+You can also unschedule a job by using the job handle returned from
+<a class="reference internal" href="modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler.add_job" title="apscheduler.schedulers.base.BaseScheduler.add_job"><code class="xref py py-meth docutils literal"><span class="pre">add_job()</span></code></a>.</li>
+</ul>
+</div>
+<div class="section" id="job-store-changes">
+<h3>Job store changes<a class="headerlink" href="#job-store-changes" title="Permalink to this headline">¶</a></h3>
+<p>The job store system was completely overhauled for both efficiency and forwards compatibility.
+Unfortunately, this means that the old data is not compatible with the new job stores.
+If you need to migrate existing data from APScheduler 2.x to 3.x, contact the APScheduler author.</p>
+<p>The Shelve job store had to be dropped because it could not support the new job store design.
+Use SQLAlchemyJobStore with SQLite instead.</p>
+</div>
+<div class="section" id="trigger-changes">
+<h3>Trigger changes<a class="headerlink" href="#trigger-changes" title="Permalink to this headline">¶</a></h3>
+<p>From 3.0 onwards, triggers now require a pytz timezone. This is normally provided by the scheduler, but if you were
+instantiating triggers manually before, then one must be supplied as the <code class="docutils literal"><span class="pre">timezone</span></code> argument.</p>
+<p>The only other backwards incompatible change was that <code class="docutils literal"><span class="pre">get_next_fire_time()</span></code> takes two arguments now: the previous
+fire time and the current datetime.</p>
+</div>
+</div>
+<div class="section" id="from-v1-x-to-2-0">
+<h2>From v1.x to 2.0<a class="headerlink" href="#from-v1-x-to-2-0" title="Permalink to this headline">¶</a></h2>
+<p>There have been some API changes since the 1.x series. This document
+explains the changes made to v2.0 that are incompatible with the v1.x API.</p>
+<div class="section" id="api-changes">
+<h3>API changes<a class="headerlink" href="#api-changes" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>The behavior of cron scheduling with regards to default values for omitted
+fields has been made more intuitive &#8211; omitted fields lower than the least
+significant explicitly defined field will default to their minimum values
+except for the week number and weekday fields</li>
+<li>SchedulerShutdownError has been removed &#8211; jobs are now added tentatively
+and scheduled for real when/if the scheduler is restarted</li>
+<li>Scheduler.is_job_active() has been removed &#8211; use
+<code class="docutils literal"><span class="pre">job</span> <span class="pre">in</span> <span class="pre">scheduler.get_jobs()</span></code> instead</li>
+<li>dump_jobs() is now print_jobs() and prints directly to the given file or
+sys.stdout if none is given</li>
+<li>The <code class="docutils literal"><span class="pre">repeat</span></code> parameter was removed from
+<code class="xref py py-meth docutils literal"><span class="pre">add_interval_job()</span></code> and
+<code class="xref py py-meth docutils literal"><span class="pre">interval_schedule()</span></code> in favor of the
+universal <code class="docutils literal"><span class="pre">max_runs</span></code> option</li>
+<li><code class="xref py py-meth docutils literal"><span class="pre">unschedule_func()</span></code> now raises a
+KeyError if the given function is not scheduled</li>
+<li>The semantics of <code class="xref py py-meth docutils literal"><span class="pre">shutdown()</span></code> have
+changed &#8211; the method no longer accepts a numeric argument, but two booleans</li>
+</ul>
+</div>
+<div class="section" id="configuration-changes">
+<h3>Configuration changes<a class="headerlink" href="#configuration-changes" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>The scheduler can no longer be reconfigured while it&#8217;s running</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Migrating from previous versions of APScheduler</a><ul>
+<li><a class="reference internal" href="#from-v3-0-to-v3-2">From v3.0 to v3.2</a></li>
+<li><a class="reference internal" href="#from-v2-x-to-v3-0">From v2.x to v3.0</a><ul>
+<li><a class="reference internal" href="#scheduler-changes">Scheduler changes</a></li>
+<li><a class="reference internal" href="#job-store-changes">Job store changes</a></li>
+<li><a class="reference internal" href="#trigger-changes">Trigger changes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#from-v1-x-to-2-0">From v1.x to 2.0</a><ul>
+<li><a class="reference internal" href="#api-changes">API changes</a></li>
+<li><a class="reference internal" href="#configuration-changes">Configuration changes</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="versionhistory.html"
+                        title="previous chapter">Version history</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="contributing.html"
+                        title="next chapter">Contributing to APScheduler</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/migration.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="contributing.html" title="Contributing to APScheduler"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="versionhistory.html" title="Version history"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">APScheduler 3.3.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright Alex Grönholm.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.3.
+    </div>
+  </body>
+</html>
