@@ -216,203 +216,189 @@ Method 3::
 启动调度器
 ----------------------
 
-Starting the scheduler is done by simply calling :meth:`~apscheduler.schedulers.base.BaseScheduler.start` on the
-scheduler. For schedulers other than `~apscheduler.schedulers.blocking.BlockingScheduler`, this call will return
-immediately and you can continue the initialization process of your application, possibly adding jobs to the scheduler.
-
-For BlockingScheduler, you will only want to call :meth:`~apscheduler.schedulers.base.BaseScheduler.start` after you're
-done with any initialization steps.
-
-.. note:: After the scheduler has been started, you can no longer alter its settings.
+可以通过一个简单的调用启动调度器 :meth:`~apscheduler.schedulers.base.BaseScheduler.start`
+调度器除了 `~apscheduler.schedulers.blocking.BlockingScheduler`, 这个调用将立即执行，并且你可以继续初始化应用程序的进程将一个job添加到调度器。
 
 
-Adding jobs
+对于 BlockingScheduler, 你只需要在完成初始化步骤以后调用 :meth:`~apscheduler.schedulers.base.BaseScheduler.start` 就可以了。
+
+.. note:: 调度器启动以后，你就不必再修改这个设置了。
+
+
+添加 job(作业)
 -----------
 
-There are two ways to add jobs to a scheduler:
+这有两个办法将job添加到调度器:
 
-#. by calling :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job`
-#. by decorating a function with :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job`
+#. 通过调用 :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job`
+#. 通过装饰器 :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job`
 
-The first way is the most common way to do it. The second way is mostly a convenience to declare jobs that don't change
-during the application's run time. The :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job` method returns a
-:class:`apscheduler.job.Job` instance that you can use to modify or remove the job later.
+第一个方法是最普通的办法，第二个方法主要是为了方便声明一个不会在应用程序运行的过程当中改变的job。
+:meth:`~apscheduler.schedulers.base.BaseScheduler.add_job` 方法返回一个
+:class:`apscheduler.job.Job` 实例，这个实例可以在以后用来修改和删除job。
 
-You can schedule jobs on the scheduler **at any time**. If the scheduler is not yet running when the job is added, the
-job will be scheduled *tentatively* and its first run time will only be computed when the scheduler starts.
+任何时候你都可以在调度器当中调度job。如果调度器还没有运行，当job被添加的时候，job将被暂时调度并且当调度器启动时第一次调度就被计算了。
 
+如果你使用executor(执行器)或者 job store（作业存储区）初始化job的时候，你的job上需要两个必要条件。
 It is important to note that if you use an executor or job store that serializes the job, it will add a couple
 requirements on your job:
 
-#. The target callable must be globally accessible
-#. Any arguments to the callable must be serializable
+#. 目标调用必须是全局的
+#. 任何参数的调用必须是可序列化的
 
-Of the builtin job stores, only MemoryJobStore doesn't serialize jobs.
-Of the builtin executors, only ProcessPoolExecutor will serialize jobs.
-
-.. important:: If you schedule jobs in a persistent job store during your application's initialization, you **MUST**
-   define an explicit ID for the job and use ``replace_existing=True`` or you will get a new copy of the job every time
-   your application restarts!
-
-.. tip:: To run a job immediately, omit ``trigger`` argument when adding the job.
+内建job stores，只有MemoryJobStore 不序列化job。
+内建executors，只有ProcessPoolExecutor 将序列化 job。
 
 
-Removing jobs
+.. important:: 在程序初始化的期间，如果你的调度作业在一个持久化的作业存储区，你必须为你的job定义一个明确的ID并且使用``replace_existing=True``
+   否则每次重新运行程序你都将得到一个新的job的复制。
+
+.. tip:: 快速启动一个job可以在添加job的时候忽略触发器。
+
+
+移除job（作业）
 -------------
 
-When you remove a job from the scheduler, it is removed from its associated job store and will not be executed anymore.
-There are two ways to make this happen:
+当你从调度器当中移除job的时候，这将移除相关的job store 并且它将不再被执行。
+有两个方法移除job：
 
-#. by calling :meth:`~apscheduler.schedulers.base.BaseScheduler.remove_job` with the job's ID and job store alias
-#. by calling :meth:`~apscheduler.job.Job.remove` on the Job instance you got from
-   :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job`
+#. 通过job的ID和job store的别名调用 :meth:`~apscheduler.schedulers.base.BaseScheduler.remove_job`
+#. 在job实例上调用 :meth:`~apscheduler.job.Job.remove` 这个实例是从
+   :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job` 得来的。
 
-The latter method is probably more convenient, but it requires that you store somewhere the
-:class:`~apscheduler.job.Job` instance you received when adding the job. For jobs scheduled via the
-:meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job`, the first way is the only way.
+最后的方法也许更方便，但是它需要你存储在某处的 :class:`~apscheduler.job.Job` 实例，当添加job的时候你将接受它。
+当job被调度且通过 :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job`, 第一个方法就是唯一的方法了。
 
-If the job's schedule ends (i.e. its trigger doesn't produce any further run times), it is automatically removed.
+如果job的调度结束（即，触发器不再生成进一步的运行时间），它将自动被移除。
 
 Example::
 
     job = scheduler.add_job(myfunc, 'interval', minutes=2)
     job.remove()
 
-Same, using an explicit job ID::
+同样的使用一个明确的 job ID::
 
     scheduler.add_job(myfunc, 'interval', minutes=2, id='my_job_id')
     scheduler.remove_job('my_job_id')
 
 
-Pausing and resuming jobs
+暂停和恢复 job（作业）
 -------------------------
 
-You can easily pause and resume jobs through either the :class:`~apscheduler.job.Job` instance or the scheduler itself.
-When a job is paused, its next run time is cleared and no further run times will be calculated for it until the job is
-resumed. To pause a job, use either method:
+你可以很容易的通过一下方式暂停或者恢复作业 :class:`~apscheduler.job.Job` 实例或者调度器自己。
+
+当job暂停的时候，下一次的运行次数将被清除并且没有进一步的运行次数将被计算，直到job被恢复。
+暂停jbo使用下面的方法：
 
 * :meth:`apscheduler.job.Job.pause`
 * :meth:`apscheduler.schedulers.base.BaseScheduler.pause_job`
 
-To resume:
+恢复:
 
 * :meth:`apscheduler.job.Job.resume`
 * :meth:`apscheduler.schedulers.base.BaseScheduler.resume_job`
 
 
-Getting a list of scheduled jobs
+获得被调度的 job的列表
 --------------------------------
 
-To get a machine processable list of the scheduled jobs, you can use the
-:meth:`~apscheduler.schedulers.base.BaseScheduler.get_jobs` method. It will return a list of
-:class:`~apscheduler.job.Job` instances. If you're only interested in the jobs contained in a particular job store,
-then give a job store alias as the second argument.
+获得机器上被调度的job的进程列表，你可以使用 :meth:`~apscheduler.schedulers.base.BaseScheduler.get_jobs` 方法。
+它将返回一个 :class:`~apscheduler.job.Job` 实例列表。如果你对想关注一个包含在job store当中的job感兴趣，你需要在第二个参数里面给提供一个job store的别名。
 
-As a convenience, you can use the :meth:`~apscheduler.schedulers.base.BaseScheduler.print_jobs` method which will print
-out a formatted list of jobs, their triggers and next run times.
+为了便利性你可以使用 :meth:`~apscheduler.schedulers.base.BaseScheduler.print_jobs` 方法，这个方法将打印出格式化的job列表，他们的触发器以及下一个运行次数。
 
 
-Modifying jobs
+修改 job
 --------------
 
-You can modify any job attributes by calling either :meth:`apscheduler.job.Job.modify` or
-:meth:`~apscheduler.schedulers.base.BaseScheduler.modify_job`. You can modify any Job attributes except for ``id``.
+你可以修改任何job的参数通过调用 :meth:`apscheduler.job.Job.modify` 或者
+:meth:`~apscheduler.schedulers.base.BaseScheduler.modify_job`. 你可以修改任何job参数除了”id“。
 
 Example::
 
     job.modify(max_instances=6, name='Alternate name')
 
-If you want to reschedule the job -- that is, change its trigger, you can use either
-:meth:`apscheduler.job.Job.reschedule` or :meth:`~apscheduler.schedulers.base.BaseScheduler.reschedule_job`.
-These methods construct a new trigger for the job and recalculate its next run time based on the new trigger.
+如果你想重新调度job，就是说改变它的触发器，你可以使用下面的方法
+:meth:`apscheduler.job.Job.reschedule` 或者 :meth:`~apscheduler.schedulers.base.BaseScheduler.reschedule_job`。
+这些方法为job构造一个新的触发器，并且基于新的触发器重新计算运行次数。
 
 Example::
 
     scheduler.reschedule_job('my_job_id', trigger='cron', minute='*/5')
 
 
-Shutting down the scheduler
+关闭调度器
 ---------------------------
 
-To shut down the scheduler::
+关闭调度器::
 
     scheduler.shutdown()
 
-By default, the scheduler shuts down its job stores and executors and waits until all currently executing jobs are
-finished. If you don't want to wait, you can do::
+默认情况下，等到所有正在执行的job都结束的时候，调度器会关闭它的job stores和executors。如果你不想等待你可以这样做::
 
     scheduler.shutdown(wait=False)
 
-This will still shut down the job stores and executors but does not wait for any running
-tasks to complete.
+这将关闭job stores和executors但是不会等待任何运行中的任务完成。
 
 
-Pausing/resuming job processing
+暂停/恢复调度进程
 -------------------------------
 
-It is possible to pause the processing of scheduled jobs::
+它可以暂定调度作业的进程::
 
     scheduler.pause()
 
-This will cause the scheduler to not wake up until processing is resumed::
+暂停调度器直到进程恢复::
 
     scheduler.resume()
 
-It is also possible to start the scheduler in paused state, that is, without the first wakeup
-call::
+它可以启动暂停状态的调度器，就是说可以在还没有唤醒这个调度的时候调用它::
 
     scheduler.start(paused=True)
 
-This is useful when you need to prune unwanted jobs before they have a chance to run.
+在运行之前当你需要删减不想要的job的时候这就显得格外有用的。
 
 
-Limiting the number of concurrently executing instances of a job
+限制当前执行job实例的数量
 ----------------------------------------------------------------
 
-By default, only one instance of each job is allowed to be run at the same time.
-This means that if the job is about to be run but the previous run hasn't finished yet, then the latest run is
-considered a misfire. It is possible to set the maximum number of instances for a particular job that the scheduler will
-let run concurrently, by using the ``max_instances`` keyword argument when adding the job.
+默认情况下，只有一个实例的每一个工作被允许在同一时间执行。
+这意味着如果job打算去运行但是之前的运行并没有结束，后面的运行就会失败。可以通过为一个特殊的job设置最大实例数，设置调度器最大可同时运行的job。
+当添加job的时候使用 ``max_instances`` 关键词。
 
 
 .. _missed-job-executions:
 
-Missed job executions and coalescing
+错过的工作执行以及合并
 ------------------------------------
 
-Sometimes the scheduler may be unable to execute a scheduled job at the time it was scheduled to run.
-The most common case is when a job is scheduled in a persistent job store and the scheduler is shut down and restarted
-after the job was supposed to execute. When this happens, the job is considered to have "misfired".
-The scheduler will then check each missed execution time against the job's ``misfire_grace_time`` option (which can be
-set on per-job basis or globally in the scheduler) to see if the execution should still be triggered.
-This can lead into the job being executed several times in succession.
+有时调度程序可能无法在调度运行时执行调度作业。
+最常见的情况是当作业被安排在持久性作业存储中并且调度程序被关闭并重新启动时，作业被意外执行。这种情况发生的时候，作业被认为是”失败的“。
+调度器将根据作业的“misfire_grace_time”选项检查每个错过的执行次数（可以是在每个作业基础上设置或在调度程序中全局设置），以查看执行是否被触发。
+这可以导致连续几次执行的工作。
 
-If this behavior is undesirable for your particular use case, it is possible to use `coalescing` to roll all these
-missed executions into one. In other words, if coalescing is enabled for the job and the scheduler sees one or more
-queued executions for the job, it will only trigger it once. No misfire events will be sent for the "bypassed" runs.
+如果这种行为对于特定用例是不被期望的，它可以使用 `coalescing` 去滚动所有的错过的执行。换句话说，如果为作业启用合并，并且调度程序看到一个或多个
+排队执行的工作，它只会触发一次。绕过运行不会触失败事件。
 
 .. note::
-    If the execution of a job is delayed due to no threads or processes being available in the pool, the executor may
-    skip it due to it being run too late (compared to its originally designated run time).
-    If this is likely to happen in your application, you may want to either increase the number of threads/processes in
-    the executor, or adjust the ``misfire_grace_time`` setting to a higher value.
+    如果执行一个作业被延迟，它是由于没有线程或者进程是有效的在进程池中，执行器也许会跳过它因为它延迟了（与原来指定的运行时间相比）。
+    如果这个事情在你的应用程序当中，你可以在执行器当中增加线程或者进程数，或者调整``misfire_grace_time``设置到更高的数值。
 
 
 .. _scheduler-events:
 
-Scheduler events
+调度器事件
 ----------------
 
-It is possible to attach event listeners to the scheduler. Scheduler events are fired on certain occasions, and may
-carry additional information in them concerning the details of that particular event.
-It is possible to listen to only particular types of events by giving the appropriate ``mask`` argument to
-:meth:`~apscheduler.schedulers.base.BaseScheduler.add_listener`, OR'ing the different constants together.
-The listener callable is called with one argument, the event object.
+可以给调度器附加一个事件监听器。调度器事件在某些情况下被触发，并且可以在其中附加关于该特定事件的细节的附加信息。
 
-See the documentation for the :mod:`~apscheduler.events` module for specifics on the available events and their
-attributes.
+通过给出适当的“mask”参数，可以只听特定类型的事件
+:meth:`~apscheduler.schedulers.base.BaseScheduler.add_listener`将不同的常量组合在一起。
+监听器可调用的参数是一个事件对象。
 
-Example::
+有关可用事件的详细信息，请参与一下文档 :mod:`~apscheduler.events` 模块。
+
+例子::
 
     def my_listener(event):
         if event.exception:
@@ -423,7 +409,7 @@ Example::
     scheduler.add_listener(my_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
 
-Reporting bugs
+报告BUG
 --------------
 
 .. include:: ../README.rst
