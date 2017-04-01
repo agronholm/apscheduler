@@ -4,7 +4,7 @@ from apscheduler.schedulers.base import BaseScheduler
 
 try:
     from PyQt5.QtCore import QObject, QTimer
-except ImportError:  # pragma: nocover
+except ImportError, RuntimeError:  # pragma: nocover
     try:
         from PyQt4.QtCore import QObject, QTimer
     except ImportError:
