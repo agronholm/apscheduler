@@ -1,3 +1,10 @@
+.. image:: https://travis-ci.org/agronholm/apscheduler.svg?branch=master
+  :target: https://travis-ci.org/agronholm/apscheduler
+  :alt: Build Status
+.. image:: https://coveralls.io/repos/github/agronholm/apscheduler/badge.svg?branch=master
+  :target: https://coveralls.io/github/agronholm/apscheduler?branch=master
+  :alt: Code Coverage
+
 Advanced Python Scheduler (APScheduler) is a Python library that lets you schedule your Python code to be executed
 later, either just once or periodically. You can add new jobs or remove old ones on the fly as you please. If you store
 your jobs in a database, they will also survive scheduler restarts and maintain their state. When the scheduler is
@@ -22,7 +29,8 @@ Supported backends for storing jobs include:
 * `SQLAlchemy <http://www.sqlalchemy.org/>`_ (any RDBMS supported by SQLAlchemy works)
 * `MongoDB <http://www.mongodb.org/>`_
 * `Redis <http://redis.io/>`_
-* `Zookeeper <https://zookeeper.apache.org/>`_
+* `RethinkDB <https://www.rethinkdb.com/>`_
+* `ZooKeeper <https://zookeeper.apache.org/>`_
 
 APScheduler also integrates with several common Python frameworks, like:
 
@@ -34,13 +42,6 @@ APScheduler also integrates with several common Python frameworks, like:
   or `PySide <http://qt-project.org/wiki/PySide>`_)
 
 .. [#f1] The cutoff period for this is also configurable.
-
-.. image:: https://travis-ci.org/agronholm/apscheduler.svg?branch=master
-  :target: https://travis-ci.org/agronholm/apscheduler
-  :alt: Build Status
-.. image:: https://coveralls.io/repos/github/agronholm/apscheduler/badge.svg?branch=master
-  :target: https://coveralls.io/github/agronholm/apscheduler?branch=master
-  :alt: Code Coverage
 
 
 Documentation

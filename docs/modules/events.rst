@@ -33,17 +33,23 @@ The following event codes are numeric constants importable from :mod:`apschedule
   * - Constant
     - Description
     - Event class
-  * - EVENT_SCHEDULER_START
+  * - EVENT_SCHEDULER_STARTED
     - The scheduler was started
     - :class:`SchedulerEvent`
   * - EVENT_SCHEDULER_SHUTDOWN
     - The scheduler was shut down
     - :class:`SchedulerEvent`
+  * - EVENT_SCHEDULER_PAUSED
+    - Job processing in the scheduler was paused
+    - :class:`SchedulerEvent`
+  * - EVENT_SCHEDULER_RESUMED
+    - Job processing in the scheduler was resumed
+    - :class:`SchedulerEvent`
   * - EVENT_EXECUTOR_ADDED
     - An executor was added to the scheduler
     - :class:`SchedulerEvent`
   * - EVENT_EXECUTOR_REMOVED
-    - An executor was added to the scheduler
+    - An executor was removed to the scheduler
     - :class:`SchedulerEvent`
   * - EVENT_JOBSTORE_ADDED
     - A job store was added to the scheduler

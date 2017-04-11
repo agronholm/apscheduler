@@ -48,9 +48,9 @@ class CronTrigger(BaseTrigger):
                  minute=None, second=None, start_date=None, end_date=None, timezone=None):
         if timezone:
             self.timezone = astimezone(timezone)
-        elif start_date and start_date.tzinfo:
+        elif isinstance(start_date, datetime) and start_date.tzinfo:
             self.timezone = start_date.tzinfo
-        elif end_date and end_date.tzinfo:
+        elif isinstance(end_date, datetime) and end_date.tzinfo:
             self.timezone = end_date.tzinfo
         else:
             self.timezone = get_localzone()
@@ -137,6 +137,8 @@ class CronTrigger(BaseTrigger):
     def get_next_fire_time(self, previous_fire_time, now):
         if previous_fire_time:
             start_date = min(now, previous_fire_time + timedelta(microseconds=1))
+            if start_date == previous_fire_time:
+                start_date += timedelta(microseconds=1)
         else:
             start_date = max(now, self.start_date) if self.start_date else now
 

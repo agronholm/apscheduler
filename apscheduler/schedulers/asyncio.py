@@ -16,14 +16,16 @@ except ImportError:  # pragma: nocover
 
 def run_in_event_loop(func):
     @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        self._eventloop.call_soon_threadsafe(func, self, *args, **kwargs)
+    def wrapper(self, *args):
+        self._eventloop.call_soon_threadsafe(func, self, *args)
     return wrapper
 
 
 class AsyncIOScheduler(BaseScheduler):
     """
     A scheduler that runs on an asyncio (:pep:`3156`) event loop.
+
+    The default executor can run jobs based on native coroutines (``async def``).
 
     Extra options:
 

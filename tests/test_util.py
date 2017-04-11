@@ -1,6 +1,7 @@
 # coding: utf-8
 from datetime import date, datetime, timedelta, tzinfo
 from functools import partial
+from types import ModuleType
 
 import pytest
 import pytz
@@ -189,10 +190,22 @@ class TestGetCallableName(object):
 
 
 class TestObjToRef(object):
-    @pytest.mark.parametrize('input', [partial(DummyClass.meth)], ids=['partial/bound method'])
-    def test_no_ref_found(self, input):
-        exc = pytest.raises(ValueError, obj_to_ref, input)
-        assert 'Cannot determine the reference to ' in str(exc.value)
+    @pytest.mark.parametrize('obj, error', [
+        (partial(DummyClass.meth), 'Cannot create a reference to a partial()'),
+        (lambda: None, 'Cannot create a reference to a lambda')
+    ], ids=['partial', 'lambda'])
+    def test_errors(self, obj, error):
+        exc = pytest.raises(ValueError, obj_to_ref, obj)
+        assert str(exc.value) == error
+
+    @pytest.mark.skipif(sys.version_info[:2] < (3, 3),
+                        reason='Requires __qualname__ (Python 3.3+)')
+    def test_nested_function_error(self):
+        def nested():
+            pass
+
+        exc = pytest.raises(ValueError, obj_to_ref, nested)
+        assert str(exc.value) == 'Cannot create a reference to a nested function'
 
     @pytest.mark.parametrize('input,expected', [
         pytest.mark.skipif(sys.version_info[:2] == (3, 2),
@@ -219,6 +232,15 @@ class TestRefToObj(object):
     def test_valid_ref(self):
         from logging.handlers import RotatingFileHandler
         assert ref_to_obj('logging.handlers:RotatingFileHandler') is RotatingFileHandler
+
+    def test_complex_path(self):
+        pkg1 = ModuleType('pkg1')
+        pkg1.pkg2 = 'blah'
+        pkg2 = ModuleType('pkg1.pkg2')
+        pkg2.varname = 'test'
+        sys.modules['pkg1'] = pkg1
+        sys.modules['pkg1.pkg2'] = pkg2
+        assert ref_to_obj('pkg1.pkg2:varname') == 'test'
 
     @pytest.mark.parametrize('input,error', [
         (object(), TypeError),

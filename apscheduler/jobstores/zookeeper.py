@@ -1,8 +1,11 @@
 from __future__ import absolute_import
+
 import os
 from datetime import datetime
+
 from pytz import utc
 from kazoo.exceptions import NoNodeError, NodeExistsError
+
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
@@ -15,12 +18,12 @@ except ImportError:  # pragma: nocover
 try:
     from kazoo.client import KazooClient
 except ImportError:  # pragma: nocover
-    raise ImportError('ZookeeperJobStore requires Kazoo installed')
+    raise ImportError('ZooKeeperJobStore requires Kazoo installed')
 
 
-class ZookeeperJobStore(BaseJobStore):
+class ZooKeeperJobStore(BaseJobStore):
     """
-    Stores jobs in a Zookeeper tree. Any leftover keyword arguments are directly passed to
+    Stores jobs in a ZooKeeper tree. Any leftover keyword arguments are directly passed to
     kazoo's `KazooClient
     <http://kazoo.readthedocs.io/en/latest/api/client.html>`_.
 
@@ -35,7 +38,7 @@ class ZookeeperJobStore(BaseJobStore):
 
     def __init__(self, path='/apscheduler', client=None, close_connection_on_exit=False,
                  pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
-        super(ZookeeperJobStore, self).__init__()
+        super(ZooKeeperJobStore, self).__init__()
         self.pickle_protocol = pickle_protocol
         self.close_connection_on_exit = close_connection_on_exit
 
@@ -56,7 +59,7 @@ class ZookeeperJobStore(BaseJobStore):
         self._ensured_path = True
 
     def start(self, scheduler, alias):
-        super(ZookeeperJobStore, self).start(scheduler, alias)
+        super(ZooKeeperJobStore, self).start(scheduler, alias)
         if not self.client.connected:
             self.client.start()
 

@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 from threading import Event
 
-from apscheduler.schedulers.base import BaseScheduler, SchedulerState
+from apscheduler.schedulers.base import BaseScheduler, STATE_STOPPED
 from apscheduler.util import TIMEOUT_MAX
 
 
@@ -24,7 +24,7 @@ class BlockingScheduler(BaseScheduler):
 
     def _main_loop(self):
         wait_seconds = TIMEOUT_MAX
-        while self.state is not SchedulerState.stopped:
+        while self.state != STATE_STOPPED:
             self._event.wait(wait_seconds)
             self._event.clear()
             wait_seconds = self._process_jobs()

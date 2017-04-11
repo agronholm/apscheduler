@@ -4,6 +4,36 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.3.1
+-----
+
+* Fixed Python 2.7 compatibility in ``TornadoExecutor``
+
+
+3.3.0
+-----
+
+* The asyncio and Tornado schedulers can now run jobs targeting coroutine functions
+  (requires Python 3.5; only native coroutines (``async def``) are supported)
+
+* The Tornado scheduler now uses TornadoExecutor as its default executor (see above as for why)
+
+* Added ZooKeeper job store (thanks to Jose Ignacio Villar for the patch)
+
+* Fixed job store failure (``get_due_jobs()``) causing the scheduler main loop to exit (it now
+  waits a configurable number of seconds before retrying)
+
+* Fixed ``@scheduled_job`` not working when serialization is required (persistent job stores and
+  ``ProcessPoolScheduler``)
+
+* Improved import logic in ``ref_to_obj()`` to avoid errors in cases where traversing the path with
+  ``getattr()`` would not work (thanks to Jarek Glowacki for the patch)
+
+* Fixed CronTrigger's weekday position expressions failing on Python 3
+
+* Fixed CronTrigger's range expressions sometimes allowing values outside the given range
+
+
 3.2.0
 -----
 
@@ -19,6 +49,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Fixed wrong run time being set for date trigger when the timezone isn't the same as the local one
 
 * Fixed builtin ``id()`` erroneously used in MongoDBJobStore's ``JobLookupError()``
+
+* Fixed endless loop with CronTrigger that may occur when the computer's clock resolution is too
+   low (thanks to Jinping Bai for the patch)
 
 
 3.1.0

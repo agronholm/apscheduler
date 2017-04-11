@@ -360,6 +360,25 @@ This will still shut down the job stores and executors but does not wait for any
 tasks to complete.
 
 
+Pausing/resuming job processing
+-------------------------------
+
+It is possible to pause the processing of scheduled jobs::
+
+    scheduler.pause()
+
+This will cause the scheduler to not wake up until processing is resumed::
+
+    scheduler.resume()
+
+It is also possible to start the scheduler in paused state, that is, without the first wakeup
+call::
+
+    scheduler.start(paused=True)
+
+This is useful when you need to prune unwanted jobs before they have a chance to run.
+
+
 Limiting the number of concurrently executing instances of a job
 ----------------------------------------------------------------
 

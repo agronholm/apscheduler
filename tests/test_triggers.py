@@ -8,6 +8,11 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+try:
+    from unittest.mock import Mock
+except ImportError:
+    from mock import Mock
+
 
 class TestCronTrigger(object):
     def test_cron_trigger_1(self, timezone):
@@ -40,6 +45,12 @@ class TestCronTrigger(object):
         start_date = timezone.localize(datetime(2012, 2, 1))
         correct_next_date = timezone.localize(datetime(2012, 2, 29))
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
+
+    def test_start_end_times_string(self, timezone, monkeypatch):
+        monkeypatch.setattr('apscheduler.triggers.cron.get_localzone', Mock(return_value=timezone))
+        trigger = CronTrigger(start_date='2016-11-05 05:06:53', end_date='2017-11-05 05:11:32')
+        assert trigger.start_date == timezone.localize(datetime(2016, 11, 5, 5, 6, 53))
+        assert trigger.end_date == timezone.localize(datetime(2017, 11, 5, 5, 11, 32))
 
     def test_cron_zero_value(self, timezone):
         trigger = CronTrigger(year=2009, month=2, hour=0, timezone=timezone)
@@ -78,6 +89,13 @@ class TestCronTrigger(object):
         previous_fire_time = timezone.localize(datetime(2015, 11, 23))
         now = timezone.localize(datetime(2015, 11, 22))
         correct_next_date = timezone.localize(datetime(2015, 11, 22))
+        assert trigger.get_next_fire_time(previous_fire_time, now) == correct_next_date
+
+    def test_previous_fire_time_3(self, timezone):
+        trigger = CronTrigger(day="*", timezone=timezone)
+        previous_fire_time = timezone.localize(datetime(2016, 4, 25))
+        now = timezone.localize(datetime(2016, 4, 25))
+        correct_next_date = timezone.localize(datetime(2016, 4, 26))
         assert trigger.get_next_fire_time(previous_fire_time, now) == correct_next_date
 
     def test_cron_weekday_overlap(self, timezone):
@@ -152,6 +170,12 @@ class TestCronTrigger(object):
 
     def test_cron_bad_kwarg(self, timezone):
         pytest.raises(TypeError, CronTrigger, second=0, third=1, timezone=timezone)
+
+    def test_month_rollover(self, timezone):
+        trigger = CronTrigger(timezone=timezone, day=30)
+        now = timezone.localize(datetime(2016, 2, 1))
+        expected = timezone.localize(datetime(2016, 3, 30))
+        assert trigger.get_next_fire_time(None, now) == expected
 
     def test_timezone_from_start_date(self, timezone):
         """
@@ -287,6 +311,13 @@ class TestIntervalTrigger(object):
 
     def test_invalid_interval(self, timezone):
         pytest.raises(TypeError, IntervalTrigger, '1-6', timezone=timezone)
+
+    def test_start_end_times_string(self, timezone, monkeypatch):
+        monkeypatch.setattr('apscheduler.triggers.interval.get_localzone',
+                            Mock(return_value=timezone))
+        trigger = IntervalTrigger(start_date='2016-11-05 05:06:53', end_date='2017-11-05 05:11:32')
+        assert trigger.start_date == timezone.localize(datetime(2016, 11, 5, 5, 6, 53))
+        assert trigger.end_date == timezone.localize(datetime(2017, 11, 5, 5, 11, 32))
 
     def test_before(self, trigger, timezone):
         """Tests that if "start_date" is later than "now", it will return start_date."""
