@@ -86,7 +86,7 @@ setup(
             'mongodb = apscheduler.jobstores.mongodb:MongoDBJobStore [mongodb]',
             'rethinkdb = apscheduler.jobstores.rethinkdb:RethinkDBJobStore [rethinkdb]',
             'redis = apscheduler.jobstores.redis:RedisJobStore [redis]',
-            'zookeeper = apscheduler.jobstores.zookeeper:ZookeeperJobStore [zookeeper]'
+            'zookeeper = apscheduler.jobstores.zookeeper:ZooKeeperJobStore [zookeeper]'
         ]
     }
 )
