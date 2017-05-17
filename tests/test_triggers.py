@@ -306,7 +306,7 @@ class TestDateTrigger(object):
 class TestIntervalTrigger(object):
     @pytest.fixture()
     def trigger(self, timezone):
-        return IntervalTrigger(seconds=1, start_date=datetime(2009, 8, 4, second=2),
+        return IntervalTrigger(seconds=0.5, start_date=datetime(2009, 8, 4, second=2),
                                timezone=timezone)
 
     def test_invalid_interval(self, timezone):
