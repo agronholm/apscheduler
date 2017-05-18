@@ -8,6 +8,17 @@ class BaseTrigger(six.with_metaclass(ABCMeta)):
 
     __slots__ = ()
 
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        for slot in self.__slots__:
+            if getattr(self, slot) != getattr(other, slot):
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     @abstractmethod
     def get_next_fire_time(self, previous_fire_time, now):
         """
