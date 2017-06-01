@@ -94,6 +94,8 @@ def test_submit_job(mock_scheduler, executor, create_job, freeze_time, timezone,
     elif event_code == EVENT_JOB_ERROR:
         assert str(event.exception) == 'test failure'
         assert isinstance(event.traceback, str)
+        assert isinstance(event.exc_info, tuple)
+        assert len(event.exc_info) == 3
 
 
 class FauxJob(object):
