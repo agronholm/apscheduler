@@ -63,6 +63,9 @@ async def test_run_coroutine_job(asyncio_scheduler, asyncio_executor, exception)
     assert len(events) == 1
     if exception:
         assert str(events[0].exception) == 'dummy error'
+        assert isinstance(events[0].traceback, str)
+        assert isinstance(events[0].exc_info, tuple)
+        assert len(events[0].exc_info) == 3
     else:
         assert events[0].retval is True
 
@@ -82,5 +85,8 @@ async def test_run_coroutine_job_tornado(tornado_scheduler, tornado_executor, ex
     assert len(events) == 1
     if exception:
         assert str(events[0].exception) == 'dummy error'
+        assert isinstance(events[0].traceback, str)
+        assert isinstance(events[0].exc_info, tuple)
+        assert len(events[0].exc_info) == 3
     else:
         assert events[0].retval is True

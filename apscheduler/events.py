@@ -83,12 +83,14 @@ class JobExecutionEvent(JobEvent):
     :ivar retval: the return value of the successfully executed job
     :ivar exception: the exception raised by the job
     :ivar traceback: a formatted traceback for the exception
+    :ivar exc_info: the sys.exc_info result
     """
 
     def __init__(self, code, job_id, jobstore, scheduled_run_time, retval=None, exception=None,
-                 traceback=None):
+                 traceback=None, exc_info=None):
         super(JobExecutionEvent, self).__init__(code, job_id, jobstore)
         self.scheduled_run_time = scheduled_run_time
         self.retval = retval
         self.exception = exception
         self.traceback = traceback
+        self.exc_info = exc_info
