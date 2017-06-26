@@ -9,6 +9,8 @@ from functools import partial
 from pytz import timezone, utc
 import six
 
+import sys
+
 try:
     from inspect import signature
 except ImportError:  # pragma: nocover
@@ -264,6 +266,9 @@ def ref_to_obj(ref):
         raise ValueError('Invalid reference')
 
     modulename, rest = ref.split(':', 1)
+
+    if modulename in sys.modules:
+        del sys.modules[modulename]
     try:
         obj = __import__(modulename, fromlist=[rest])
     except ImportError:
