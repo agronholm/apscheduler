@@ -1,15 +1,14 @@
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 from traceback import format_tb
 import logging
 import sys
 
-from pytz import utc
 import six
 
 from apscheduler.events import (
-    JobExecutionEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED)
+    JobExecutionEvent, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED)
 
 
 class MaxInstancesReachedError(Exception):
@@ -52,13 +51,11 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
             have been executed
         """
 
-    def submit_job(self, job, run_times):
+    def submit_job(self, job, run_time):
         """
         Submits job for execution.
 
         :param Job job: job to execute
-        :param list[datetime] run_times: list of datetimes specifying
-            when the job should have been run
         :raises MaxInstancesReachedError: if the maximum number of
             allowed instances for this job has been reached
 
@@ -67,15 +64,15 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
         with self._lock:
             if self._instances[job.id] >= job.max_instances:
                 raise MaxInstancesReachedError(job)
-
-            self._do_submit_job(job, run_times)
+            job_submission_id = self._scheduler._add_job_submission(job)
+            self._do_submit_job(job, job_submission_id, run_time)
             self._instances[job.id] += 1
 
     @abstractmethod
-    def _do_submit_job(self, job, run_times):
+    def _do_submit_job(self, job, job_submission_id, run_time):
         """Performs the actual task of scheduling `run_job` to be called."""
 
-    def _run_job_success(self, job_id, events):
+    def _run_job_success(self, job_id, job_submission_id, jobstore_alias, events):
         """
         Called by the executor with the list of generated events when :func:`run_job` has been
         successfully called.
@@ -88,19 +85,25 @@ class BaseExecutor(six.with_metaclass(ABCMeta, object)):
 
         for event in events:
             self._scheduler._dispatch_event(event)
+        now = datetime.now(self._scheduler.timezone)
+        self._scheduler._update_job_submission(job_submission_id, jobstore_alias,
+                                               completed_at=now, state='success')
 
-    def _run_job_error(self, job_id, exc, traceback=None):
+    def _run_job_error(self, job_id, job_submission_id, jobstore_alias, exc, traceback=None):
         """Called by the executor with the exception if there is an error  calling `run_job`."""
         with self._lock:
             self._instances[job_id] -= 1
             if self._instances[job_id] == 0:
                 del self._instances[job_id]
 
+        now = datetime.now(self._scheduler.timezone)
+        self._scheduler._update_job_submission(job_submission_id, jobstore_alias,
+                                               state='failure', completed_at=now)
         exc_info = (exc.__class__, exc, traceback)
         self._logger.error('Error running job %s', job_id, exc_info=exc_info)
 
 
-def run_job(job, jobstore_alias, run_times, logger_name):
+def run_job(job, logger_name, job_submission_id, jobstore_alias, run_time):
     """
     Called by executors to run the job. Returns a list of scheduler events to be dispatched by the
     scheduler.
@@ -108,30 +111,18 @@ def run_job(job, jobstore_alias, run_times, logger_name):
     """
     events = []
     logger = logging.getLogger(logger_name)
-    for run_time in run_times:
-        # See if the job missed its run time window, and handle
-        # possible misfires accordingly
-        if job.misfire_grace_time is not None:
-            difference = datetime.now(utc) - run_time
-            grace_time = timedelta(seconds=job.misfire_grace_time)
-            if difference > grace_time:
-                events.append(JobExecutionEvent(EVENT_JOB_MISSED, job.id, jobstore_alias,
-                                                run_time))
-                logger.warning('Run time of job "%s" was missed by %s', job, difference)
-                continue
-
-        logger.info('Running job "%s" (scheduled at %s)', job, run_time)
-        try:
-            retval = job.func(*job.args, **job.kwargs)
-        except:
-            exc, tb = sys.exc_info()[1:]
-            formatted_tb = ''.join(format_tb(tb))
-            events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
-                                            exception=exc, traceback=formatted_tb))
-            logger.exception('Job "%s" raised an exception', job)
-        else:
-            events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
-                                            retval=retval))
-            logger.info('Job "%s" executed successfully', job)
+    logger.info('Running job "%s" (scheduled at %s)', job, run_time)
+    try:
+        retval = job.func(*job.args, **job.kwargs)
+    except:
+        exc, tb = sys.exc_info()[1:]
+        formatted_tb = ''.join(format_tb(tb))
+        events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
+                                        job_submission_id, exception=exc, traceback=formatted_tb))
+        logger.exception('Job "%s" raised an exception', job)
+    else:
+        events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
+                                        job_submission_id, retval=retval))
+        logger.info('Job "%s" executed successfully', job)
 
     return events

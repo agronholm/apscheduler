@@ -17,14 +17,15 @@ class GeventExecutor(BaseExecutor):
     Plugin alias: ``gevent``
     """
 
-    def _do_submit_job(self, job, run_times):
+    def _do_submit_job(self, job, job_submission_id, run_time):
         def callback(greenlet):
             try:
                 events = greenlet.get()
             except:
-                self._run_job_error(job.id, *sys.exc_info()[1:])
+                self._run_job_error(job.id, job_submission_id, job._jobstore_alias,
+                                    *sys.exc_info()[1:])
             else:
-                self._run_job_success(job.id, events)
+                self._run_job_success(job.id, job_submission_id, job._jobstore_alias, events)
 
-        gevent.spawn(run_job, job, job._jobstore_alias, run_times, self._logger.name).\
-            link(callback)
+        gevent.spawn(run_job, job, self._logger.name, job_submission_id,
+                     job._jobstore_alias, run_time).link(callback)

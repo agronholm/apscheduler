@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import datetime_to_utc_timestamp
+import six
 
 
 class MemoryJobStore(BaseJobStore):
@@ -16,6 +17,44 @@ class MemoryJobStore(BaseJobStore):
         # list of (job, timestamp), sorted by next_run_time and job id (ascending)
         self._jobs = []
         self._jobs_index = {}  # id -> (job, timestamp) lookup table
+        self._job_submissions = {}  # id -> job_submission
+        self._next_id = 1
+
+    def add_job_submission(self, job, now):
+        job_submission = {
+            'id': self._next_id,
+            'state': 'submitted',
+            # TODO: Pickle the 'job.func' so we can recover from 2 diff sessions
+            'func': job.func if isinstance(job.func, six.string_types) else job.func.__name__,
+            'submitted_at': now,
+            'apscheduler_job_id': job.id,
+        }
+        self._job_submissions[self._next_id] = job_submission
+        self._next_id += 1
+        return job_submission['id']
+
+    def update_job_submissions(self, conditions, **kwargs):
+        for _id in self._job_submissions:
+            this_job_submission = self._job_submissions[_id]
+            update_flag = True
+            # If no conditions are given, all job_submissions will be updated
+            for column in conditions:
+                val = conditions[column]
+                if this_job_submission[column] != val:
+                    update_flag = False
+            if update_flag:
+                this_job_submission.update(kwargs)
+
+    def update_job_submission(self, job_submission_id, **kwargs):
+        self._job_submissions[job_submission_id].update(kwargs)
+
+    def get_job_submissions_with_states(self, states=[]):
+        return [self._job_submissions[k]
+                for k in self._job_submissions
+                if not states or self._job_submissions[k]['state'] in states]
+
+    def get_job_submission(self, job_submission_id):
+        return self._job_submissions.get(job_submission_id)
 
     def lookup_job(self, job_id):
         return self._jobs_index.get(job_id, (None, None))[0]

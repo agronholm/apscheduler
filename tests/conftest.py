@@ -75,6 +75,7 @@ def freeze_time(monkeypatch, timezone):
     monkeypatch.setattr('apscheduler.executors.base.datetime', fake_datetime)
     monkeypatch.setattr('apscheduler.triggers.interval.datetime', fake_datetime)
     monkeypatch.setattr('apscheduler.triggers.date.datetime', fake_datetime)
+
     return freezer
 
 

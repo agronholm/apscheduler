@@ -10,16 +10,16 @@ class BasePoolExecutor(BaseExecutor):
         super(BasePoolExecutor, self).__init__()
         self._pool = pool
 
-    def _do_submit_job(self, job, run_times):
+    def _do_submit_job(self, job, job_submission_id, run_time):
         def callback(f):
             exc, tb = (f.exception_info() if hasattr(f, 'exception_info') else
                        (f.exception(), getattr(f.exception(), '__traceback__', None)))
             if exc:
-                self._run_job_error(job.id, exc, tb)
+                self._run_job_error(job.id, job_submission_id, job._jobstore_alias, exc, tb)
             else:
-                self._run_job_success(job.id, f.result())
-
-        f = self._pool.submit(run_job, job, job._jobstore_alias, run_times, self._logger.name)
+                self._run_job_success(job.id, job_submission_id, job._jobstore_alias, f.result())
+        f = self._pool.submit(run_job, job, self._logger.name,
+                              job_submission_id, job._jobstore_alias, run_time)
         f.add_done_callback(callback)
 
     def shutdown(self, wait=True):

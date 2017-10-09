@@ -10,14 +10,29 @@ from datetime import datetime, timedelta
 import sys
 import os
 
+from logging import StreamHandler
+import logging
+
+from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 
+l = logging.getLogger("apscheduler.scheduler")
+l.addHandler(StreamHandler())
+l.setLevel(logging.DEBUG)
+
+l2= logging.getLogger("concurrent.futures")
+l2.addHandler(StreamHandler())
+l2.setLevel(logging.DEBUG)
+l3 = logging.getLogger("apscheduler.executors.default")
+l3.addHandler(StreamHandler())
+l3.setLevel(logging.DEBUG)
 
 def alarm(time):
     print('Alarm! This alarm was scheduled at %s.' % time)
 
 
 if __name__ == '__main__':
+    print "FUCK"
     scheduler = BlockingScheduler()
     url = sys.argv[1] if len(sys.argv) > 1 else 'sqlite:///example.sqlite'
     scheduler.add_jobstore('sqlalchemy', url=url)
@@ -29,4 +44,4 @@ if __name__ == '__main__':
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
-        pass
+        print "TURD FERGUSON"

@@ -35,20 +35,22 @@ class TornadoExecutor(BaseExecutor):
         super(TornadoExecutor, self).start(scheduler, alias)
         self._ioloop = scheduler._ioloop
 
-    def _do_submit_job(self, job, run_times):
+    def _do_submit_job(self, job, job_submission_id, run_time):
         def callback(f):
             try:
                 events = f.result()
             except:
-                self._run_job_error(job.id, *sys.exc_info()[1:])
+                self._run_job_error(job.id, job_submission_id, job._jobstore_alias,
+                                    *sys.exc_info()[1:])
             else:
-                self._run_job_success(job.id, events)
+                self._run_job_success(job.id, job_submission_id, job._jobstore_alias, events)
 
         if iscoroutinefunction(job.func):
-            f = run_coroutine_job(job, job._jobstore_alias, run_times, self._logger.name)
+            f = run_coroutine_job(job, self._logger.name,
+                                  job_submission_id, job._jobstore_alias, run_time)
         else:
-            f = self.executor.submit(run_job, job, job._jobstore_alias, run_times,
-                                     self._logger.name)
+            f = self.executor.submit(run_job, job, self._logger.name,
+                                     job_submission_id, job._jobstore_alias, run_time)
 
         f = convert_yielded(f)
         f.add_done_callback(callback)

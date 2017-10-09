@@ -4,8 +4,15 @@ Demonstrates how to schedule a job to be run in a process pool on 3 second inter
 
 from datetime import datetime
 import os
+from logging import StreamHandler
+
+import logging
 
 from apscheduler.schedulers.blocking import BlockingScheduler
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)-8s %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    handler=StreamHandler)
 
 
 def tick():
@@ -21,4 +28,5 @@ if __name__ == '__main__':
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
-        pass
+        raise
+        

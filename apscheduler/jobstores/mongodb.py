@@ -1,7 +1,9 @@
 from __future__ import absolute_import
 import warnings
+import six
 
-from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
+from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError,\
+    JobSubmissionLookupError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
@@ -51,6 +53,7 @@ class MongoDBJobStore(BaseJobStore):
             self.client = MongoClient(**connect_args)
 
         self.collection = self.client[database][collection]
+        self.job_submission_collection = self.client[database]['job_submissions']
 
     def start(self, scheduler, alias):
         super(MongoDBJobStore, self).start(scheduler, alias)
@@ -75,6 +78,61 @@ class MongoDBJobStore(BaseJobStore):
                                             projection=['next_run_time'],
                                             sort=[('next_run_time', ASCENDING)])
         return utc_timestamp_to_datetime(document['next_run_time']) if document else None
+
+    def add_job_submission(self, job, now):
+        job_submission = {
+            'state': 'submitted',
+            # TODO: Pickle the 'job.func' so we can recover from 2 diff sessions
+            'func': job.func if isinstance(job.func, six.string_types) else job.func.__name__,
+            'submitted_at': now,
+            'apscheduler_job_id': job.id,
+        }
+        self.job_submission_collection.insert(job_submission)
+        # 'job_submission' passed by reference, gets updated with '_id'
+        return job_submission['_id']
+
+    def update_job_submission(self, job_submission_id, **kwargs):
+        result = self.job_submission_collection.\
+             update({'_id': job_submission_id}, {'$set': kwargs})
+        if result and result['n'] == 0:
+            raise JobSubmissionLookupError(job_submission_id)
+
+    def update_job_submissions(self, conditions, **kwargs):
+        query = {'$and': []}
+        for column in conditions:
+            query['$and'].append({column: conditions[column]})
+        result = self.job_submission_collection.update_many(query, {'$set': kwargs})
+        num_updates = result.modified_count
+
+        self._logger.info("Updated '{0}' rows where '{1}'...set values to: '{2}'"
+                          .format(str(num_updates), str(query), str(kwargs)))
+
+    def get_job_submissions_with_states(self, states=[]):
+        job_submissions = []
+        if states:
+            for document in self.job_submission_collection.find({'state': {'$in': states}}):
+                obj = dict(document)
+                # Replace '_id' with 'id' column name to maintain abstraction
+                obj['id'] = obj['_id']
+                del obj['_id']
+                job_submissions.append(obj)
+        else:
+            for document in self.job_submission_collection.find({}):
+                obj = dict(document)
+                obj['id'] = obj['_id']
+                del obj['_id']
+                job_submissions.append(obj)
+        return job_submissions
+
+    def get_job_submission(self, job_submission_id):
+        js = self.job_submission_collection.find_one(job_submission_id)
+        if js:
+            _id = js['_id']
+            js.update({'id': _id})
+            del js['_id']
+            return js
+        else:
+            return None
 
     def get_all_jobs(self):
         jobs = self._get_jobs({})
