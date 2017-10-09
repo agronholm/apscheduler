@@ -36,7 +36,7 @@ class SQLAlchemyJobStore(BaseJobStore):
     """
 
     def __init__(self, url=None, engine=None, tablename='apscheduler_jobs', metadata=None,
-                 pickle_protocol=pickle.HIGHEST_PROTOCOL):
+                 pickle_protocol=pickle.HIGHEST_PROTOCOL, tableschema=None):
         super(SQLAlchemyJobStore, self).__init__()
         self.pickle_protocol = pickle_protocol
         metadata = maybe_ref(metadata) or MetaData()
@@ -54,7 +54,8 @@ class SQLAlchemyJobStore(BaseJobStore):
             tablename, metadata,
             Column('id', Unicode(191, _warn_on_bytestring=False), primary_key=True),
             Column('next_run_time', Float(25), index=True),
-            Column('job_state', LargeBinary, nullable=False)
+            Column('job_state', LargeBinary, nullable=False),
+            schema=tableschema
         )
 
     def start(self, scheduler, alias):
