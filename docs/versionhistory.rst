@@ -4,6 +4,12 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.4.0
+-----
+
+* Dropped support for Python 3.3
+
+
 3.3.1
 -----
 

@@ -26,7 +26,6 @@ setup(
         'Programming Language :: Python',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6'
@@ -46,7 +45,6 @@ setup(
     extras_require={
         ':python_version == "2.7"': ['futures', 'funcsigs'],
         'asyncio:python_version == "2.7"': ['trollius'],
-        'asyncio:python_version == "3.3"': ['asyncio'],
         'gevent': ['gevent'],
         'mongodb': ['pymongo >= 2.8'],
         'redis': ['redis'],
