@@ -1,4 +1,5 @@
 # coding: utf-8
+import platform
 from datetime import date, datetime, timedelta, tzinfo
 from functools import partial
 from types import ModuleType
@@ -314,6 +315,8 @@ class TestCheckCallableArgs(object):
         check_callable_args(object().__setattr__, ('blah', 1), {})
 
     @minpython(3, 4)
+    @pytest.mark.skipif(platform.python_implementation() == 'PyPy',
+                        reason='PyPy does not expose signatures of builtins')
     def test_positional_only_args(self):
         """
         Tests that an attempt to use keyword arguments for positional-only arguments raises an
