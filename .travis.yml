@@ -31,6 +31,7 @@ matrix:
       after_success: skip
 
     - stage: deploy to PyPI
+      python: "3.5"
       before_install: skip
       install: pip install -U setuptools
       script: skip
@@ -43,7 +44,6 @@ matrix:
         distributions: sdist bdist_wheel
         on:
           tags: true
-          python: "3.5"
           repo: agronholm/apscheduler
 
 before_install:
