@@ -8,6 +8,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 -----
 
 * Dropped support for Python 3.3
+* Added the ability to specify the table schema for ``SQLAlchemyJobStore``
+  (thanks to Meir Tseitlin)
 
 
 3.3.1

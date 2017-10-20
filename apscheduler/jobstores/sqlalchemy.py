@@ -33,6 +33,8 @@ class SQLAlchemyJobStore(BaseJobStore):
     :param metadata: a :class:`~sqlalchemy.MetaData` instance to use instead of creating a new one
     :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the
         highest available
+    :param str tableschema: name of the (existing) schema in the target database where the table
+        should be
     """
 
     def __init__(self, url=None, engine=None, tablename='apscheduler_jobs', metadata=None,
