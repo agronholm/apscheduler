@@ -8,6 +8,14 @@ stages:
 
 jobs:
   include:
+    - env: TOXENV=pypy
+      python: pypy
+      after_success: skip
+
+    - env: TOXENV=pypy3
+      python: pypy3
+      after_success: skip
+
     - env: TOXENV=py27
       python: "2.7"
 
@@ -19,14 +27,6 @@ jobs:
 
     - env: TOXENV=py36
       python: "3.6"
-
-    - env: TOXENV=pypy
-      python: pypy
-      after_success: skip
-
-    - env: TOXENV=pypy3
-      python: pypy3
-      after_success: skip
 
     - env: TOXENV=flake8
       python: "3.5"
