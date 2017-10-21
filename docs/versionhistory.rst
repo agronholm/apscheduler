@@ -10,6 +10,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Dropped support for Python 3.3
 * Added the ability to specify the table schema for ``SQLAlchemyJobStore``
   (thanks to Meir Tseitlin)
+* Added a workaround for the ``ImportError`` when used with PyInstaller and the likes
+  (caused by the missing packaging metadata when APScheduler is packaged with these tools)
 
 
 3.3.1
