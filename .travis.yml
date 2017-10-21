@@ -1,7 +1,12 @@
 sudo: required
 language: python
 
-matrix:
+stages:
+  - name: test
+  - name: deploy to pypi
+    if: type = push AND tag =~ ^v\d+\.\d+\.\d+
+
+jobs:
   include:
     - env: TOXENV=py27
       python: "2.7"
