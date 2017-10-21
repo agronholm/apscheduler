@@ -21,17 +21,18 @@ Scheduler changes
 -----------------
 
 * The concept of "standalone mode" is gone. For ``standalone=True``, use
-  :class:`~apscheduler.schedulers.blocking.BlockingScheduler` instead, and for ``standalone=False``, use
-  :class:`~apscheduler.schedulers.background.BackgroundScheduler`. BackgroundScheduler matches the old default
-  semantics.
-* Job defaults (like ``misfire_grace_time`` and ``coalesce``) must now be passed in a dictionary as the
-  ``job_defaults`` option to :meth:`~apscheduler.schedulers.base.BaseScheduler.configure`. When supplying an ini-style
-  configuration as the first argument, they will need a corresponding ``job_defaults.`` prefix.
-* The configuration key prefix for job stores was changed from ``jobstore.`` to ``jobstores.`` to match the dict-style
-  configuration better.
-* The ``max_runs`` option has been dropped since the run counter could not be reliably preserved when replacing a job
-  with another one with the same ID. To make up for this, the ``end_date`` option was added to cron and interval
-  triggers.
+  :class:`~apscheduler.schedulers.blocking.BlockingScheduler` instead, and for
+  ``standalone=False``, use :class:`~apscheduler.schedulers.background.BackgroundScheduler`.
+  BackgroundScheduler matches the old default semantics.
+* Job defaults (like ``misfire_grace_time`` and ``coalesce``) must now be passed in a dictionary as
+  the ``job_defaults`` option to :meth:`~apscheduler.schedulers.base.BaseScheduler.configure`. When
+  supplying an ini-style configuration as the first argument, they will need a corresponding
+  ``job_defaults.`` prefix.
+* The configuration key prefix for job stores was changed from ``jobstore.`` to ``jobstores.`` to
+  match the dict-style configuration better.
+* The ``max_runs`` option has been dropped since the run counter could not be reliably preserved
+  when replacing a job with another one with the same ID. To make up for this, the ``end_date``
+  option was added to cron and interval triggers.
 * The old thread pool is gone, replaced by ``ThreadPoolExecutor``.
   This means that the old ``threadpool`` options are no longer valid.
   See :ref:`scheduler-config` on how to configure executors.
@@ -42,10 +43,10 @@ Scheduler changes
 * The ``shutdown_threadpool`` and ``close_jobstores`` options have been removed from the
   :meth:`~apscheduler.schedulers.base.BaseScheduler.shutdown` method.
   Executors and job stores are now always shut down on scheduler shutdown.
-* :meth:`~apscheduler.scheduler.Scheduler.unschedule_job` and :meth:`~apscheduler.scheduler.Scheduler.unschedule_func`
-  have been replaced by :meth:`~apscheduler.schedulers.base.BaseScheduler.remove_job`.
-  You can also unschedule a job by using the job handle returned from
-  :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job`.
+* :meth:`~apscheduler.scheduler.Scheduler.unschedule_job` and
+  :meth:`~apscheduler.scheduler.Scheduler.unschedule_func` have been replaced by
+  :meth:`~apscheduler.schedulers.base.BaseScheduler.remove_job`. You can also unschedule a job by
+  using the job handle returned from :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job`.
 
 Job store changes
 -----------------
@@ -60,11 +61,12 @@ Use SQLAlchemyJobStore with SQLite instead.
 Trigger changes
 ---------------
 
-From 3.0 onwards, triggers now require a pytz timezone. This is normally provided by the scheduler, but if you were
-instantiating triggers manually before, then one must be supplied as the ``timezone`` argument.
+From 3.0 onwards, triggers now require a pytz timezone. This is normally provided by the scheduler,
+but if you were instantiating triggers manually before, then one must be supplied as the
+``timezone`` argument.
 
-The only other backwards incompatible change was that ``get_next_fire_time()`` takes two arguments now: the previous
-fire time and the current datetime.
+The only other backwards incompatible change was that ``get_next_fire_time()`` takes two arguments
+now: the previous fire time and the current datetime.
 
 
 From v1.x to 2.0

@@ -145,8 +145,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 * A wider variety of target callables can now be scheduled so that the jobs are still serializable
   (static methods on Python 3.3+, unbound methods on all except Python 3.2)
 
-* Attempting to serialize a non-serializable Job now raises a helpful exception during serialization.
-  Thanks to Jeremy Morgan for pointing this out.
+* Attempting to serialize a non-serializable Job now raises a helpful exception during
+  serialization. Thanks to Jeremy Morgan for pointing this out.
 
 * Fixed table creation with SQLAlchemyJobStore on MySQL/InnoDB
 
@@ -160,8 +160,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added support for timezones (special thanks to Curtis Vogt for help with this one)
 
-* Split the old Scheduler class into BlockingScheduler and BackgroundScheduler and added integration for
-  asyncio (PEP 3156), Gevent, Tornado, Twisted and Qt event loops
+* Split the old Scheduler class into BlockingScheduler and BackgroundScheduler and added
+  integration for asyncio (PEP 3156), Gevent, Tornado, Twisted and Qt event loops
 
 * Overhauled the job store system for much better scalability
 
@@ -171,11 +171,13 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Dropped the max_runs option and run counting of jobs since it could not be implemented reliably
 
-* Adding jobs is now done exclusively through ``add_job()`` -- the shortcuts to triggers were removed
+* Adding jobs is now done exclusively through ``add_job()`` -- the shortcuts to triggers were
+  removed
 
 * Added the ``end_date`` parameter to cron and interval triggers
 
-* It is now possible to add a job directly to an executor without scheduling, by omitting the trigger argument
+* It is now possible to add a job directly to an executor without scheduling, by omitting the
+  trigger argument
 
 * Replaced the thread pool with a pluggable executor system
 
@@ -205,11 +207,13 @@ APScheduler, see the :doc:`migration section <migration>`.
 2.0.3
 -----
 
-* The scheduler now closes the job store that is being removed, and all job stores on shutdown() by default
+* The scheduler now closes the job store that is being removed, and all job stores on shutdown() by
+  default
 
 * Added the ``last`` expression in the day field of CronTrigger (thanks rcaselli)
 
-* Raise a TypeError when fields with invalid names are passed to CronTrigger (thanks Christy O'Reilly)
+* Raise a TypeError when fields with invalid names are passed to CronTrigger (thanks Christy
+  O'Reilly)
 
 * Fixed the persistent.py example by shutting down the scheduler on Ctrl+C
 
