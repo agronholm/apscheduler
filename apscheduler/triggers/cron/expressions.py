@@ -15,7 +15,7 @@ WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 class AllExpression(object):
     value_re = re.compile(r'\*(?:/(?P<step>\d+))?$')
 
-    def __init__(self, step=None):
+    def __init__(self, exp_min, exp_max, step=None):
         self.step = asint(step)
         if self.step == 0:
             raise ValueError('Increment must be higher than 0')
@@ -51,14 +51,22 @@ class RangeExpression(AllExpression):
     value_re = re.compile(
         r'(?P<first>\d+)(?:-(?P<last>\d+))?(?:/(?P<step>\d+))?$')
 
-    def __init__(self, first, last=None, step=None):
-        AllExpression.__init__(self, step)
+    def __init__(self, exp_min, exp_max, first, last=None, step=None):
+        AllExpression.__init__(self, exp_min, exp_max, step)
         first = asint(first)
         last = asint(last)
         if last is None and step is None:
             last = first
+
+        if first < exp_min:
+            raise ValueError('Value must not be lower than the minimum value')
+        given_last = last if last is not None else first
+        if exp_max < given_last:
+            raise ValueError('Value must not be higher than the maximum value')
         if last is not None and first > last:
-            raise ValueError('The minimum value in a range must not be higher than the maximum')
+            raise ValueError('The first value in a range must not be higher than '
+                             'the last value in a range')
+
         self.first = first
         self.last = last
 
@@ -105,7 +113,7 @@ class RangeExpression(AllExpression):
 class WeekdayRangeExpression(RangeExpression):
     value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?', re.IGNORECASE)
 
-    def __init__(self, first, last=None):
+    def __init__(self, exp_min, exp_max, first, last=None):
         try:
             first_num = WEEKDAYS.index(first.lower())
         except ValueError:
@@ -119,7 +127,7 @@ class WeekdayRangeExpression(RangeExpression):
         else:
             last_num = None
 
-        RangeExpression.__init__(self, first_num, last_num)
+        RangeExpression.__init__(self, exp_min, exp_max, first_num, last_num)
 
     def __str__(self):
         if self.last != self.first and self.last is not None:
@@ -138,7 +146,7 @@ class WeekdayPositionExpression(AllExpression):
     value_re = re.compile(r'(?P<option_name>%s) +(?P<weekday_name>(?:\d+|\w+))' %
                           '|'.join(options), re.IGNORECASE)
 
-    def __init__(self, option_name, weekday_name):
+    def __init__(self, exp_min, exp_max, option_name, weekday_name):
         try:
             self.option_num = self.options.index(option_name.lower())
         except ValueError:
@@ -182,7 +190,7 @@ class WeekdayPositionExpression(AllExpression):
 class LastDayOfMonthExpression(AllExpression):
     value_re = re.compile(r'last', re.IGNORECASE)
 
-    def __init__(self):
+    def __init__(self, exp_min, exp_max):
         pass
 
     def get_next_value(self, date, field):
