@@ -194,4 +194,5 @@ latex_documents = [
 # If false, no module index is generated.
 #latex_use_modindex = True
 
-intersphinx_mapping = {'python': ('http://docs.python.org/', None)}
+intersphinx_mapping = {'python': ('http://docs.python.org/', None),
+                       'sqlalchemy': ('http://docs.sqlalchemy.org/en/latest/', None)}
