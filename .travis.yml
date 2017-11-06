@@ -29,11 +29,13 @@ jobs:
       python: "3.6"
 
     - env: TOXENV=flake8
+      sudo: false
       python: "3.5"
       before_install: skip
       after_success: skip
 
     - stage: deploy to PyPI
+      sudo: false
       python: "3.5"
       before_install: skip
       install: pip install -U setuptools
@@ -49,8 +51,7 @@ jobs:
           tags: true
           repo: agronholm/apscheduler
 
-before_install:
-  - docker-compose up -d
+before_install: docker-compose up -d
 
 install: pip install tox
 
