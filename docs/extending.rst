@@ -28,13 +28,11 @@ You can also register it as a plugin so you can use can use the alternate form o
 
   scheduler.add_job(target, 'my_trigger', arg1='foo')
 
-This is done by adding an entry point in your project's :file:`setup.py`:
-
-.. code-block:: ini
+This is done by adding an entry point in your project's :file:`setup.py`::
 
   ...
   entry_points={
-        'apscheduler.triggers': ['my_trigger = mytoppackage.subpackage:MyTrigger']
+      'apscheduler.triggers': ['my_trigger = mytoppackage.subpackage:MyTrigger']
   }
 
 
@@ -65,9 +63,7 @@ You can also register it as a plugin so you can use can use the alternate form o
 
   scheduler.add_jobstore('my_jobstore', 'mystore')
 
-This is done by adding an entry point in your project's :file:`setup.py`:
-
-.. code-block:: ini
+This is done by adding an entry point in your project's :file:`setup.py`::
 
   ...
   entry_points={
@@ -84,11 +80,12 @@ nodes.
 
 Start by subclassing :class:`~apscheduler.executors.base.BaseExecutor`.
 The responsibilities of an executor are as follows:
-  * Performing any initialization when ``start()`` is called
-  * Releasing any resources when ``shutdown()`` is called
-  * Keeping track of the number of instances of each job running on it, and refusing to run more
-    than the maximum
-  * Notifying the scheduler of the results of the job
+
+* Performing any initialization when ``start()`` is called
+* Releasing any resources when ``shutdown()`` is called
+* Keeping track of the number of instances of each job running on it, and refusing to run more
+  than the maximum
+* Notifying the scheduler of the results of the job
 
 If your executor needs to serialize the jobs, make sure you either use pickle for it, or invoke the
 ``__getstate__`` and ``__setstate__`` special methods to respectively get and set the Job state.
@@ -104,9 +101,7 @@ You can also register it as a plugin so you can use can use the alternate form o
 
   scheduler.add_executor('my_executor', 'myexecutor')
 
-This is done by adding an entry point in your project's :file:`setup.py`:
-
-.. code-block:: ini
+This is done by adding an entry point in your project's :file:`setup.py`::
 
   ...
   entry_points={
