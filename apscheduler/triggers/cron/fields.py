@@ -13,7 +13,7 @@ __all__ = ('MIN_VALUES', 'MAX_VALUES', 'DEFAULT_VALUES', 'BaseField', 'WeekField
 
 MIN_VALUES = {'year': 1970, 'month': 1, 'day': 1, 'week': 1, 'day_of_week': 0, 'hour': 0,
               'minute': 0, 'second': 0}
-MAX_VALUES = {'year': 2 ** 63, 'month': 12, 'day:': 31, 'week': 53, 'day_of_week': 6, 'hour': 23,
+MAX_VALUES = {'year': 2 ** 63, 'month': 12, 'day': 31, 'week': 53, 'day_of_week': 6, 'hour': 23,
               'minute': 59, 'second': 59}
 DEFAULT_VALUES = {'year': '*', 'month': 1, 'day': 1, 'week': '*', 'day_of_week': '*', 'hour': 0,
                   'minute': 0, 'second': 0}
@@ -28,11 +28,17 @@ class BaseField(object):
         self.is_default = is_default
         self.compile_expressions(exprs)
 
-    def get_min(self, dateval):
+    def get_default_min(self):
         return MIN_VALUES[self.name]
 
-    def get_max(self, dateval):
+    def get_default_max(self):
         return MAX_VALUES[self.name]
+
+    def get_min(self, dateval):
+        return self.get_default_min()
+
+    def get_max(self, dateval):
+        return self.get_default_max()
 
     def get_value(self, dateval):
         return getattr(dateval, self.name)
@@ -61,7 +67,8 @@ class BaseField(object):
         for compiler in self.COMPILERS:
             match = compiler.value_re.match(expr)
             if match:
-                compiled_expr = compiler(**match.groupdict())
+                compiled_expr = compiler(self.get_default_min(), self.get_default_max(),
+                                         **match.groupdict())
                 self.expressions.append(compiled_expr)
                 return
 

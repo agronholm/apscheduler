@@ -7,6 +7,9 @@ from apscheduler.triggers.cron.expressions import (
     AllExpression, RangeExpression, WeekdayPositionExpression, WeekdayRangeExpression,
     LastDayOfMonthExpression)
 
+TEST_MIN = 0
+TEST_MAX = 100
+
 
 def test_all_expression():
     field = DayOfMonthField('day', '*')
@@ -35,12 +38,12 @@ def test_all_expression_invalid():
 
 
 def test_all_expression_repr():
-    expr = AllExpression()
+    expr = AllExpression(TEST_MIN, TEST_MAX)
     assert repr(expr) == 'AllExpression(None)'
 
 
 def test_all_expression_step_repr():
-    expr = AllExpression(2)
+    expr = AllExpression(TEST_MIN, TEST_MAX, 2)
     assert repr(expr) == "AllExpression(2)"
 
 
@@ -77,22 +80,32 @@ def test_range_expression_single():
     assert field.get_next_value(date) is None
 
 
-def test_range_expression_invalid():
+def test_range_expression_invalid_first_higher_than_last():
     pytest.raises(ValueError, DayOfMonthField, 'day', '5-3')
 
 
+def test_range_expression_invalid_higher_than_max():
+    pytest.raises(ValueError, DayOfMonthField, 'day', '1-100')
+    pytest.raises(ValueError, DayOfMonthField, 'day', '100')
+
+
+def test_range_expression_invalid_lower_than_min():
+    pytest.raises(ValueError, DayOfMonthField, 'day', '0-4')
+    pytest.raises(ValueError, DayOfMonthField, 'day', '0')
+
+
 def test_range_expression_repr():
-    expr = RangeExpression(3, 7)
+    expr = RangeExpression(TEST_MIN, TEST_MAX, 3, 7)
     assert repr(expr) == 'RangeExpression(3, 7)'
 
 
 def test_range_expression_single_repr():
-    expr = RangeExpression(4)
+    expr = RangeExpression(TEST_MIN, TEST_MAX, 4)
     assert repr(expr) == 'RangeExpression(4)'
 
 
 def test_range_expression_step_repr():
-    expr = RangeExpression(3, 7, 2)
+    expr = RangeExpression(TEST_MIN, TEST_MAX, 3, 7, 2)
     assert repr(expr) == 'RangeExpression(3, 7, 2)'
 
 
@@ -111,63 +124,63 @@ def test_weekday_range():
 
 
 def test_weekday_pos_1():
-    expr = WeekdayPositionExpression('1st', 'Fri')
+    expr = WeekdayPositionExpression(TEST_MIN, TEST_MAX, '1st', 'Fri')
     assert str(expr) == '1st fri'
     date = datetime(2008, 2, 1)
     assert expr.get_next_value(date, 'day') == 1
 
 
 def test_weekday_pos_2():
-    expr = WeekdayPositionExpression('2nd', 'wed')
+    expr = WeekdayPositionExpression(TEST_MIN, TEST_MAX, '2nd', 'wed')
     assert str(expr) == '2nd wed'
     date = datetime(2008, 2, 1)
     assert expr.get_next_value(date, 'day') == 13
 
 
 def test_weekday_pos_3():
-    expr = WeekdayPositionExpression('last', 'fri')
+    expr = WeekdayPositionExpression(TEST_MIN, TEST_MAX, 'last', 'fri')
     assert str(expr) == 'last fri'
     date = datetime(2008, 2, 1)
     assert expr.get_next_value(date, 'day') == 29
 
 
 def test_day_of_week_invalid_pos():
-    pytest.raises(ValueError, WeekdayPositionExpression, '6th', 'fri')
+    pytest.raises(ValueError, WeekdayPositionExpression, TEST_MIN, TEST_MAX, '6th', 'fri')
 
 
 def test_day_of_week_invalid_name():
-    pytest.raises(ValueError, WeekdayPositionExpression, '1st', 'moh')
+    pytest.raises(ValueError, WeekdayPositionExpression, TEST_MIN, TEST_MAX, '1st', 'moh')
 
 
 def test_weekday_position_expression_repr():
-    expr = WeekdayPositionExpression('2nd', 'FRI')
+    expr = WeekdayPositionExpression(TEST_MIN, TEST_MAX, '2nd', 'FRI')
     assert repr(expr) == "WeekdayPositionExpression('2nd', 'fri')"
 
 
 def test_day_of_week_invalid_first():
-    pytest.raises(ValueError, WeekdayRangeExpression, 'moh', 'fri')
+    pytest.raises(ValueError, WeekdayRangeExpression, TEST_MIN, TEST_MAX, 'moh', 'fri')
 
 
 def test_day_of_week_invalid_last():
-    pytest.raises(ValueError, WeekdayRangeExpression, 'mon', 'fre')
+    pytest.raises(ValueError, WeekdayRangeExpression, TEST_MIN, TEST_MAX, 'mon', 'fre')
 
 
 def test_weekday_range_expression_repr():
-    expr = WeekdayRangeExpression('tue', 'SUN')
+    expr = WeekdayRangeExpression(TEST_MIN, TEST_MAX, 'tue', 'SUN')
     assert repr(expr) == "WeekdayRangeExpression('tue', 'sun')"
 
 
 def test_weekday_range_expression_single_repr():
-    expr = WeekdayRangeExpression('thu')
+    expr = WeekdayRangeExpression(TEST_MIN, TEST_MAX, 'thu')
     assert repr(expr) == "WeekdayRangeExpression('thu')"
 
 
 def test_last_day_of_month_expression():
-    expr = LastDayOfMonthExpression()
+    expr = LastDayOfMonthExpression(TEST_MIN, TEST_MAX)
     date = datetime(2012, 2, 1)
     assert expr.get_next_value(date, 'day') == 29
 
 
 def test_last_day_of_month_expression_invalid():
-    expr = LastDayOfMonthExpression()
+    expr = LastDayOfMonthExpression(TEST_MIN, TEST_MAX)
     assert repr(expr) == "LastDayOfMonthExpression()"
