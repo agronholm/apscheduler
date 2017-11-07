@@ -139,7 +139,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         for row in self.engine.execute(selectable):
             try:
                 jobs.append(self._reconstitute_job(row.job_state))
-            except:
+            except BaseException:
                 self._logger.exception('Unable to restore job "%s" -- removing it', row.id)
                 failed_job_ids.add(row.id)
 

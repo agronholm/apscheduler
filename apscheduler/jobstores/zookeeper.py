@@ -71,7 +71,7 @@ class ZooKeeperJobStore(BaseJobStore):
             doc = pickle.loads(content)
             job = self._reconstitute_job(doc['job_state'])
             return job
-        except:
+        except BaseException:
             return None
 
     def get_due_jobs(self, now):
@@ -162,7 +162,7 @@ class ZooKeeperJobStore(BaseJobStore):
                     'creation_time': _.ctime
                 }
                 jobs.append(job_def)
-            except:
+            except BaseException:
                 self._logger.exception('Unable to restore job "%s" -- removing it' % node_name)
                 failed_job_ids.append(node_name)
 

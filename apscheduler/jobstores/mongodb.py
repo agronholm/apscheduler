@@ -126,7 +126,7 @@ class MongoDBJobStore(BaseJobStore):
                                              sort=[('next_run_time', ASCENDING)]):
             try:
                 jobs.append(self._reconstitute_job(document['job_state']))
-            except:
+            except BaseException:
                 self._logger.exception('Unable to restore job "%s" -- removing it',
                                        document['_id'])
                 failed_job_ids.append(document['_id'])

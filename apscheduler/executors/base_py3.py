@@ -27,7 +27,7 @@ async def run_coroutine_job(job, jobstore_alias, run_times, logger_name):
         logger.info('Running job "%s" (scheduled at %s)', job, run_time)
         try:
             retval = await job.func(*job.args, **job.kwargs)
-        except:
+        except BaseException:
             exc, tb = sys.exc_info()[1:]
             formatted_tb = ''.join(format_tb(tb))
             events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,

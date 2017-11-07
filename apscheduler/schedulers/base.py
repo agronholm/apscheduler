@@ -821,7 +821,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             if event.code & mask:
                 try:
                     cb(event)
-                except:
+                except BaseException:
                     self._logger.exception('Error notifying listener')
 
     def _real_add_job(self, job, jobstore_alias, replace_existing):
@@ -944,7 +944,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     # Look up the job's executor
                     try:
                         executor = self._lookup_executor(job.executor)
-                    except:
+                    except BaseException:
                         self._logger.error(
                             'Executor lookup ("%s") failed for job "%s" -- removing it from the '
                             'job store', job.executor, job)
@@ -963,7 +963,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                             event = JobSubmissionEvent(EVENT_JOB_MAX_INSTANCES, job.id,
                                                        jobstore_alias, run_times)
                             events.append(event)
-                        except:
+                        except BaseException:
                             self._logger.exception('Error submitting job "%s" to executor "%s"',
                                                    job, job.executor)
                         else:

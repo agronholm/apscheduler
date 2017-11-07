@@ -31,7 +31,7 @@ class AsyncIOExecutor(BaseExecutor):
         def callback(f):
             try:
                 events = f.result()
-            except:
+            except BaseException:
                 self._run_job_error(job.id, *sys.exc_info()[1:])
             else:
                 self._run_job_success(job.id, events)
