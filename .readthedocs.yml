@@ -1,0 +1,13 @@
+type: sphinx
+python:
+  version: "3.5"
+  pip_install: true
+  extra_requirements:
+    - gevent
+    - mongodb
+    - redis
+    - rethinkdb
+    - sqlalchemy
+    - tornado
+    - twisted
+    - zookeeper

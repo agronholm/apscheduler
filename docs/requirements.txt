@@ -1,7 +1,0 @@
-gevent
-kazoo
-pymongo
-redis
-rethinkdb
-SQLAlchemy
-Twisted
