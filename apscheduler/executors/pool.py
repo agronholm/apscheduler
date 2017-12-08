@@ -1,7 +1,9 @@
 from abc import abstractmethod
 import concurrent.futures
+import traceback
 
 from apscheduler.executors.base import BaseExecutor, run_job
+import six
 
 
 class BasePoolExecutor(BaseExecutor):
@@ -14,10 +16,15 @@ class BasePoolExecutor(BaseExecutor):
         def callback(f):
             exc, tb = (f.exception_info() if hasattr(f, 'exception_info') else
                        (f.exception(), getattr(f.exception(), '__traceback__', None)))
-            if exc:
-                self._run_job_error(job.id, exc, tb)
-            else:
-                self._run_job_success(job.id, f.result())
+            try:
+                if exc:
+                    self._run_job_error(job.id, exc, tb)
+                else:
+                    self._run_job_success(job.id, f.result())
+            finally:
+                del tb
+                if six.PY3 and exc:
+                    traceback.clear_frames(exc.__traceback__)
 
         f = self._pool.submit(run_job, job, job._jobstore_alias, run_times, self._logger.name)
         f.add_done_callback(callback)
