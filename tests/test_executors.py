@@ -1,6 +1,7 @@
 from datetime import datetime
 from threading import Event
 from types import TracebackType
+import os
 import time
 
 import pytest
@@ -124,3 +125,48 @@ def test_run_job_error(monkeypatch, executor):
     assert str(exc_traceback[0]) == "dummy"
     if exc_traceback[1] is not None:
         assert isinstance(exc_traceback[1], TracebackType)
+
+
+_SIZE = 100 * (10 ** 6)  # ~ 100Mo
+
+
+def _memleak_job():
+    a = os.urandom(_SIZE)
+    a.fail()
+
+
+def _calculate_vms():
+    import psutil
+    process = psutil.Process(os.getpid())
+    all_processes = [process] + list(process.children())
+    return sum(p.memory_info().vms for p in all_processes)
+
+
+def test_submit_job_memleak(mock_scheduler, executor, create_job, freeze_time, timezone):
+    """
+    Test that executor does not suffer from memory leak when dealing with traceback objects.
+    See https://github.com/agronholm/apscheduler/issues/235
+    """
+    pytest.importorskip('psutil')
+
+    mock_scheduler._dispatch_event = MagicMock()
+    run_time = (freeze_time.current)
+    safe_job = create_job(func=success, max_instances=10, id='foo')
+    memleak_job = create_job(func=_memleak_job, max_instances=10, id='bar')
+    safe_job._jobstore_alias = 'test_jobstore'
+    memleak_job._jobstore_alias = 'test_jobstore'
+
+    # Spawn as many workers as possible to prevent sudden RAM consumption
+    for _ in range(10):
+        executor.submit_job(safe_job, [run_time])
+
+    # Calculate memory consumption before tasks
+    before = _calculate_vms()
+
+    for _ in range(10):
+        executor.submit_job(memleak_job, [run_time])
+
+    executor.shutdown()
+
+    after = _calculate_vms()
+    assert (after - before) < _SIZE
