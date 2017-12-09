@@ -26,6 +26,8 @@ class CronTrigger(BaseTrigger):
     :param datetime|str end_date: latest possible date/time to trigger on (inclusive)
     :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations (defaults
         to scheduler timezone)
+    :param int|None jitter: randomize the job execution time. Job will be advanced or delayed by
+        ``jitter`` seconds at most.
 
     .. note:: The first weekday is always **monday**.
     """
@@ -42,10 +44,11 @@ class CronTrigger(BaseTrigger):
         'second': BaseField
     }
 
-    __slots__ = 'timezone', 'start_date', 'end_date', 'fields'
+    __slots__ = 'timezone', 'start_date', 'end_date', 'fields', 'jitter'
 
     def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None,
-                 minute=None, second=None, start_date=None, end_date=None, timezone=None):
+                 minute=None, second=None, start_date=None, end_date=None, timezone=None,
+                 jitter=None):
         if timezone:
             self.timezone = astimezone(timezone)
         elif isinstance(start_date, datetime) and start_date.tzinfo:
@@ -57,6 +60,8 @@ class CronTrigger(BaseTrigger):
 
         self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date')
         self.end_date = convert_to_datetime(end_date, self.timezone, 'end_date')
+
+        self.jitter = jitter
 
         values = dict((key, value) for (key, value) in six.iteritems(locals())
                       if key in self.FIELD_NAMES and value is not None)
@@ -168,6 +173,8 @@ class CronTrigger(BaseTrigger):
                 return None
 
         if fieldnum >= 0:
+            if self.jitter is not None:
+                next_date = self._apply_jitter(next_date, self.jitter, now)
             return next_date
 
     def __getstate__(self):
@@ -176,7 +183,8 @@ class CronTrigger(BaseTrigger):
             'timezone': self.timezone,
             'start_date': self.start_date,
             'end_date': self.end_date,
-            'fields': self.fields
+            'fields': self.fields,
+            'jitter': self.jitter,
         }
 
     def __setstate__(self, state):
@@ -193,6 +201,7 @@ class CronTrigger(BaseTrigger):
         self.start_date = state['start_date']
         self.end_date = state['end_date']
         self.fields = state['fields']
+        self.jitter = state.get('jitter')
 
     def __str__(self):
         options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
@@ -202,5 +211,5 @@ class CronTrigger(BaseTrigger):
         options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
         if self.start_date:
             options.append("start_date='%s'" % datetime_repr(self.start_date))
-        return "<%s (%s, timezone='%s')>" % (
-            self.__class__.__name__, ', '.join(options), self.timezone)
+        return "<%s (%s, timezone='%s', jitter='%s')>" % (
+            self.__class__.__name__, ', '.join(options), self.timezone, self.jitter)

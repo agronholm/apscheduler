@@ -1,4 +1,6 @@
 from abc import ABCMeta, abstractmethod
+import datetime
+import random
 
 import six
 
@@ -17,3 +19,23 @@ class BaseTrigger(six.with_metaclass(ABCMeta)):
         :param datetime.datetime previous_fire_time: the previous time the trigger was fired
         :param datetime.datetime now: current datetime
         """
+
+    def _apply_jitter(self, next_fire_time, jitter, now):
+        """
+        Randomize ``next_fire_time`` by adding or subtracting a random value (the jitter). If the
+        resulting datetime is in the past, returns ``now``.
+
+        ``next_fire_time - jitter <= result <= next_fire_time + jitter``
+
+        :param datetime.datetime|None next_fire_time: next fire time without jitter applied. If
+            ``None``, returns ``None``.
+        :param int|None jitter: maximum number of seconds to add or subtract to
+            ``next_fire_time``. If ``None`` or ``0``, returns ``next_fire_time``
+        :param datetime.datetime now: current datetime
+        :return datetime.datetime|None: next fire time with a jitter.
+        """
+        if next_fire_time is None or not jitter:
+            return next_fire_time
+
+        next_fire_time += datetime.timedelta(seconds=random.uniform(-jitter, jitter))
+        return max(now, next_fire_time)
