@@ -142,12 +142,17 @@ def _calculate_vms():
     return sum(p.memory_info().vms for p in all_processes)
 
 
-def test_submit_job_memleak(mock_scheduler, executor, create_job, freeze_time, timezone):
+def test_submit_job_memleak(monkeypatch, mock_scheduler, executor, create_job, freeze_time):
     """
     Test that executor does not suffer from memory leak when dealing with traceback objects.
     See https://github.com/agronholm/apscheduler/issues/235
     """
+    import _pytest.logging
+
     pytest.importorskip('psutil')
+
+    # Patch LogCaptureHandler because it keeps record of traceback objects, preventing GC.
+    monkeypatch.setattr(_pytest.logging.LogCaptureHandler, 'emit', lambda *a, **k: None)
 
     mock_scheduler._dispatch_event = MagicMock()
     run_time = (freeze_time.current)
