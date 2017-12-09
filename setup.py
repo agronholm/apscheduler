@@ -56,7 +56,6 @@ setup(
         'testing': [
             'pytest',
             'pytest-cov',
-            'pytest-catchlog',
             'pytest-tornado'
         ],
         'testing:python_version == "2.7"': ['mock'],
