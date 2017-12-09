@@ -13,9 +13,9 @@ from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 
 try:
-    from unittest.mock import Mock, MagicMock
+    from unittest.mock import Mock, MagicMock, patch
 except ImportError:
-    from mock import Mock, MagicMock
+    from mock import Mock, MagicMock, patch
 
 
 @pytest.fixture
@@ -138,8 +138,9 @@ def test_run_job_memory_leak():
         raise Exception('dummy')
 
     fake_job = Mock(Job, func=func, args=(), kwargs={}, misfire_grace_time=1)
-    for _ in range(5):
-        run_job(fake_job, 'foo', [datetime.now(UTC)], __name__)
+    with patch('logging.getLogger'):
+        for _ in range(5):
+            run_job(fake_job, 'foo', [datetime.now(UTC)], __name__)
 
     foos = [x for x in gc.get_objects() if type(x) is FooBar]
     assert len(foos) == 0
