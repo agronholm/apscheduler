@@ -2,6 +2,7 @@ from datetime import datetime
 from threading import Event
 from types import TracebackType
 import os
+import sys
 import time
 
 import pytest
@@ -142,6 +143,10 @@ def _calculate_vms():
     return sum(p.memory_info().vms for p in all_processes)
 
 
+@pytest.mark.skipif(hasattr(sys, 'pypy_version_info'), reason="""\
+It's hard to predict when GC will happen on pypy.
+See http://doc.pypy.org/en/release-2.4.x/garbage_collection.html
+""")
 def test_submit_job_memleak(monkeypatch, mock_scheduler, executor, create_job, freeze_time):
     """
     Test that executor does not suffer from memory leak when dealing with traceback objects.
