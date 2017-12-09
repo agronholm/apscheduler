@@ -60,7 +60,10 @@ setup(
             'pytest-tornado'
         ],
         'testing:python_version == "2.7"': ['mock'],
-        'testing:python_version != "2.7"': ['pytest_asyncio < 0.6.0']
+        'testing:python_version != "2.7"': ['pytest_asyncio < 0.6.0'],
+        'testing-memleaks': [
+            'psutil',
+        ],
     },
     zip_safe=False,
     entry_points={
