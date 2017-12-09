@@ -23,7 +23,7 @@ class BaseTrigger(six.with_metaclass(ABCMeta)):
     def _apply_jitter(self, next_fire_time, jitter, now):
         """
         Randomize ``next_fire_time`` by adding or subtracting a random value (the jitter). If the
-        resulting datetime is in the past, returns ``now``.
+        resulting datetime is in the past, returns the initial ``next_fire_time`` without jitter.
 
         ``next_fire_time - jitter <= result <= next_fire_time + jitter``
 
@@ -37,5 +37,12 @@ class BaseTrigger(six.with_metaclass(ABCMeta)):
         if next_fire_time is None or not jitter:
             return next_fire_time
 
-        next_fire_time += datetime.timedelta(seconds=random.uniform(-jitter, jitter))
-        return max(now, next_fire_time)
+        next_fire_time_with_jitter = next_fire_time + datetime.timedelta(
+                seconds=random.uniform(-jitter, jitter))
+
+        if next_fire_time_with_jitter < now:
+            # Next fire time with jitter is in the past.
+            # Ignore jitter to avoid false misfire.
+            return next_fire_time
+
+        return next_fire_time_with_jitter
