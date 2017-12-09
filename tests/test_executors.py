@@ -123,7 +123,7 @@ def test_run_job_error(monkeypatch, executor):
     monkeypatch.setattr(executor, '_run_job_error', run_job_error)
     executor.submit_job(FauxJob(), [])
 
-    event.wait(2)
+    event.wait(5)
     assert str(exc_traceback[0]) == "dummy"
     if exc_traceback[1] is not None:
         assert isinstance(exc_traceback[1], TracebackType)
