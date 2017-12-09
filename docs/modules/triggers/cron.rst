@@ -110,5 +110,5 @@ The ``jitter`` option enables you to add a random component to the execution tim
 multiple servers and don't want them to run a job at the exact same moment or if you want to prevent jobs from running
 at sharp hours::
 
-    # Run the `job_function` every hour ±120 seconds.
+    # Run the `job_function` every sharp hour with an extra-delay picked randomly in a [-120,+120] seconds window.
     sched.add_job(job_function, 'cron', hour='*', jitter=120)
