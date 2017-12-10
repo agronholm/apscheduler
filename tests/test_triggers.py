@@ -337,12 +337,42 @@ class TestCronTrigger(object):
         for attr in CronTrigger.__slots__:
             assert getattr(trigger2, attr) == getattr(trigger, attr)
 
-    def test_jitter(self, timezone):
+    def test_jitter_produces_differrent_valid_results(self, timezone):
         trigger = CronTrigger(minute='*', jitter=5)
         now = timezone.localize(datetime(2017, 11, 12, 6, 55, 30))
+
+        results = set()
         for _ in range(0, 100):
             next_fire_time = trigger.get_next_fire_time(None, now)
+            results.add(next_fire_time)
             assert timedelta(seconds=25) <= (next_fire_time - now) <= timedelta(seconds=35)
+        assert 1 < len(results)
+
+    def test_jitter_with_timezone(self, timezone):
+        est = pytz.FixedOffset(-300)
+        cst = pytz.FixedOffset(-360)
+        trigger = CronTrigger(hour=11, minute='*/5', timezone=est, jitter=5)
+        start_date = cst.localize(datetime(2009, 9, 26, 10, 16))
+        correct_next_date = est.localize(datetime(2009, 9, 26, 11, 20))
+        for _ in range(0, 100):
+            assert abs(trigger.get_next_fire_time(None, start_date) -
+                       correct_next_date) <= timedelta(seconds=5)
+
+    @pytest.mark.parametrize('trigger_args, start_date, start_date_dst, correct_next_date', [
+        ({'hour': 8}, datetime(2013, 3, 9, 12), False, datetime(2013, 3, 10, 8)),
+        ({'hour': 8}, datetime(2013, 11, 2, 12), True, datetime(2013, 11, 3, 8)),
+        ({'minute': '*/30'}, datetime(2013, 3, 10, 1, 35), False, datetime(2013, 3, 10, 3)),
+        ({'minute': '*/30'}, datetime(2013, 11, 3, 1, 35), True, datetime(2013, 11, 3, 1))
+    ], ids=['absolute_spring', 'absolute_autumn', 'interval_spring', 'interval_autumn'])
+    def test_jitter_dst_change(self, trigger_args, start_date, start_date_dst, correct_next_date):
+        timezone = pytz.timezone('US/Eastern')
+        trigger = CronTrigger(timezone=timezone, jitter=5, **trigger_args)
+        start_date = timezone.localize(start_date, is_dst=start_date_dst)
+        correct_next_date = timezone.localize(correct_next_date, is_dst=not start_date_dst)
+
+        for _ in range(0, 100):
+            next_fire_time = trigger.get_next_fire_time(None, start_date)
+            assert abs(next_fire_time - correct_next_date) <= timedelta(seconds=5)
 
 
 class TestDateTrigger(object):
@@ -487,9 +517,29 @@ class TestIntervalTrigger(object):
         for attr in IntervalTrigger.__slots__:
             assert getattr(trigger2, attr) == getattr(trigger, attr)
 
-    def test_jitter(self, timezone):
+    def test_jitter_produces_different_valid_results(self, timezone):
         trigger = IntervalTrigger(seconds=5, timezone=timezone, jitter=3)
         now = datetime.now(timezone)
+
+        results = set()
         for _ in range(0, 100):
             next_fire_time = trigger.get_next_fire_time(None, now)
+            results.add(next_fire_time)
             assert timedelta(seconds=2) <= (next_fire_time - now) <= timedelta(seconds=8)
+        assert 1 < len(results)
+
+    @pytest.mark.parametrize('trigger_args, start_date, start_date_dst, correct_next_date', [
+        ({'hours': 1}, datetime(2013, 3, 10, 1, 35), False, datetime(2013, 3, 10, 3, 35)),
+        ({'hours': 1}, datetime(2013, 11, 3, 1, 35), True, datetime(2013, 11, 3, 1, 35))
+    ], ids=['interval_spring', 'interval_autumn'])
+    def test_jitter_dst_change(self, trigger_args, start_date, start_date_dst, correct_next_date):
+        timezone = pytz.timezone('US/Eastern')
+        epsilon = timedelta(seconds=1)
+        start_date = timezone.localize(start_date, is_dst=start_date_dst)
+        trigger = IntervalTrigger(timezone=timezone, start_date=start_date, jitter=5,
+                                  **trigger_args)
+        correct_next_date = timezone.localize(correct_next_date, is_dst=not start_date_dst)
+
+        for _ in range(0, 100):
+            next_fire_time = trigger.get_next_fire_time(None, start_date + epsilon)
+            assert abs(next_fire_time - correct_next_date) <= timedelta(seconds=5)
