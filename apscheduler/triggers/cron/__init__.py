@@ -178,7 +178,7 @@ class CronTrigger(BaseTrigger):
 
     def __getstate__(self):
         return {
-            'version': 1,
+            'version': 2,
             'timezone': self.timezone,
             'start_date': self.start_date,
             'end_date': self.end_date,
@@ -191,10 +191,10 @@ class CronTrigger(BaseTrigger):
         if isinstance(state, tuple):
             state = state[1]
 
-        if state.get('version', 1) > 1:
+        if state.get('version', 1) > 2:
             raise ValueError(
-                'Got serialized data for version %s of %s, but only version 1 can be handled' %
-                (state['version'], self.__class__.__name__))
+                'Got serialized data for version %s of %s, but only versions up to 2 can be '
+                'handled' % (state['version'], self.__class__.__name__))
 
         self.timezone = state['timezone']
         self.start_date = state['start_date']
