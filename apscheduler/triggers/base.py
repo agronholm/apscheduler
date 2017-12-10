@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-import datetime
+from datetime import timedelta
 import random
 
 import six
@@ -37,7 +37,7 @@ class BaseTrigger(six.with_metaclass(ABCMeta)):
         if next_fire_time is None or not jitter:
             return next_fire_time
 
-        next_fire_time_with_jitter = next_fire_time + datetime.timedelta(
+        next_fire_time_with_jitter = next_fire_time + timedelta(
                 seconds=random.uniform(-jitter, jitter))
 
         if next_fire_time_with_jitter < now:
