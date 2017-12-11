@@ -1,6 +1,7 @@
 """Fields represent CronTrigger options which map to :class:`~datetime.datetime` fields."""
 
 from calendar import monthrange
+import re
 
 import six
 
@@ -19,6 +20,7 @@ MAX_VALUES = {'year': 9999, 'month': 12, 'day': 31, 'week': 53, 'day_of_week': 6
               'minute': 59, 'second': 59}
 DEFAULT_VALUES = {'year': '*', 'month': 1, 'day': 1, 'week': '*', 'day_of_week': '*', 'hour': 0,
                   'minute': 0, 'second': 0}
+SEPARATOR = re.compile(' *, *')
 
 
 class BaseField(object):
@@ -52,12 +54,8 @@ class BaseField(object):
         self.expressions = []
 
         # Split a comma-separated expression list, if any
-        exprs = str(exprs).strip()
-        if ',' in exprs:
-            for expr in exprs.split(','):
-                self.compile_expression(expr)
-        else:
-            self.compile_expression(exprs)
+        for expr in SEPARATOR.split(str(exprs).strip()):
+            self.compile_expression(expr)
 
     def compile_expression(self, expr):
         for compiler in self.COMPILERS:

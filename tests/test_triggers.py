@@ -520,6 +520,10 @@ class TestIntervalTrigger(object):
         correct_next_date = eastern.localize(datetime(2013, 11, 3, 1), is_dst=False)
         assert str(trigger.get_next_fire_time(None, datetime_est)) == str(correct_next_date)
 
+    def test_space_in_expr(self, timezone):
+        trigger = CronTrigger(day='1-2, 4-7', timezone=timezone)
+        assert repr(trigger) == "<CronTrigger (day='1-2,4-7', timezone='Europe/Berlin')>"
+
     def test_repr(self, trigger):
         assert repr(trigger) == ("<IntervalTrigger (interval=datetime.timedelta(0, 1), "
                                  "start_date='2009-08-04 00:00:02 CEST', "

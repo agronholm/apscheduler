@@ -17,6 +17,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added support for creating a ``CronTrigger`` from a crontab expression
 
+* Allowed spaces around commas in ``CronTrigger`` fields
+
 * Fixed memory leak due to a cyclic reference when jobs raise exceptions
   (thanks to gilbsgilbs for help on solving this)
 
