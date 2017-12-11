@@ -96,6 +96,11 @@ class IntervalTrigger(BaseTrigger):
         return 'interval[%s]' % str(self.interval)
 
     def __repr__(self):
-        return "<%s (interval=%r, start_date='%s', timezone='%s', jitter='%s')>" % (
-            self.__class__.__name__, self.interval, datetime_repr(self.start_date), self.timezone,
-            self.jitter)
+        options = ['interval=%r' % self.interval, 'start_date=%r' % datetime_repr(self.start_date)]
+        if self.end_date:
+            options.append("end_date=%r" % datetime_repr(self.end_date))
+        if self.jitter:
+            options.append('jitter=%s' % self.jitter)
+
+        return "<%s (%s, timezone='%s')>" % (
+            self.__class__.__name__, ', '.join(options), self.timezone)

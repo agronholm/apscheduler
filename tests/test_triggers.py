@@ -103,7 +103,7 @@ class TestCronTrigger(object):
     def test_cron_trigger_1(self, timezone):
         trigger = CronTrigger(year='2009/2', month='1/3', day='5-13', timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2009/2', month='1/3', day='5-13', "
-                                 "timezone='Europe/Berlin', jitter='None')>")
+                                 "timezone='Europe/Berlin')>")
         assert str(trigger) == "cron[year='2009/2', month='1/3', day='5-13']"
         start_date = timezone.localize(datetime(2008, 12, 1))
         correct_next_date = timezone.localize(datetime(2009, 1, 5))
@@ -118,7 +118,7 @@ class TestCronTrigger(object):
     def test_cron_trigger_3(self, timezone):
         trigger = CronTrigger(year='2009', month='feb-dec', hour='8-10', timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2009', month='feb-dec', hour='8-10', "
-                                 "timezone='Europe/Berlin', jitter='None')>")
+                                 "timezone='Europe/Berlin')>")
         start_date = timezone.localize(datetime(2009, 1, 1))
         correct_next_date = timezone.localize(datetime(2009, 2, 1, 8))
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
@@ -126,7 +126,7 @@ class TestCronTrigger(object):
     def test_cron_trigger_4(self, timezone):
         trigger = CronTrigger(year='2012', month='2', day='last', timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2012', month='2', day='last', "
-                                 "timezone='Europe/Berlin', jitter='None')>")
+                                 "timezone='Europe/Berlin')>")
         start_date = timezone.localize(datetime(2012, 2, 1))
         correct_next_date = timezone.localize(datetime(2012, 2, 29))
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
@@ -140,12 +140,11 @@ class TestCronTrigger(object):
     def test_cron_zero_value(self, timezone):
         trigger = CronTrigger(year=2009, month=2, hour=0, timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2009', month='2', hour='0', "
-                                 "timezone='Europe/Berlin', jitter='None')>")
+                                 "timezone='Europe/Berlin')>")
 
     def test_cron_year_list(self, timezone):
         trigger = CronTrigger(year='2009,2008', timezone=timezone)
-        assert repr(trigger) == ("<CronTrigger (year='2009,2008', timezone='Europe/Berlin', "
-                                 "jitter='None')>")
+        assert repr(trigger) == "<CronTrigger (year='2009,2008', timezone='Europe/Berlin')>"
         assert str(trigger) == "cron[year='2009,2008']"
         start_date = timezone.localize(datetime(2009, 1, 1))
         correct_next_date = timezone.localize(datetime(2009, 1, 1))
@@ -156,7 +155,7 @@ class TestCronTrigger(object):
                               start_date='2009-02-03 11:00:00', timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2009', month='2', hour='8-10', "
                                  "start_date='2009-02-03 11:00:00 CET', "
-                                 "timezone='Europe/Berlin', jitter='None')>")
+                                 "timezone='Europe/Berlin')>")
         assert str(trigger) == "cron[year='2009', month='2', hour='8-10']"
         start_date = timezone.localize(datetime(2009, 1, 1))
         correct_next_date = timezone.localize(datetime(2009, 2, 4, 8))
@@ -187,7 +186,7 @@ class TestCronTrigger(object):
     def test_cron_weekday_overlap(self, timezone):
         trigger = CronTrigger(year=2009, month=1, day='6-10', day_of_week='2-4', timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2009', month='1', day='6-10', "
-                                 "day_of_week='2-4', timezone='Europe/Berlin', jitter='None')>")
+                                 "day_of_week='2-4', timezone='Europe/Berlin')>")
         assert str(trigger) == "cron[year='2009', month='1', day='6-10', day_of_week='2-4']"
         start_date = timezone.localize(datetime(2009, 1, 1))
         correct_next_date = timezone.localize(datetime(2009, 1, 7))
@@ -196,7 +195,7 @@ class TestCronTrigger(object):
     def test_cron_weekday_nomatch(self, timezone):
         trigger = CronTrigger(year=2009, month=1, day='6-10', day_of_week='0,6', timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2009', month='1', day='6-10', "
-                                 "day_of_week='0,6', timezone='Europe/Berlin', jitter='None')>")
+                                 "day_of_week='0,6', timezone='Europe/Berlin')>")
         assert str(trigger) == "cron[year='2009', month='1', day='6-10', day_of_week='0,6']"
         start_date = timezone.localize(datetime(2009, 1, 1))
         correct_next_date = None
@@ -205,7 +204,7 @@ class TestCronTrigger(object):
     def test_cron_weekday_positional(self, timezone):
         trigger = CronTrigger(year=2009, month=1, day='4th wed', timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2009', month='1', day='4th wed', "
-                                 "timezone='Europe/Berlin', jitter='None')>")
+                                 "timezone='Europe/Berlin')>")
         assert str(trigger) == "cron[year='2009', month='1', day='4th wed']"
         start_date = timezone.localize(datetime(2009, 1, 1))
         correct_next_date = timezone.localize(datetime(2009, 1, 28))
@@ -214,7 +213,7 @@ class TestCronTrigger(object):
     def test_week_1(self, timezone):
         trigger = CronTrigger(year=2009, month=2, week=8, timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2009', month='2', week='8', "
-                                 "timezone='Europe/Berlin', jitter='None')>")
+                                 "timezone='Europe/Berlin')>")
         assert str(trigger) == "cron[year='2009', month='2', week='8']"
         start_date = timezone.localize(datetime(2009, 1, 1))
         correct_next_date = timezone.localize(datetime(2009, 2, 16))
@@ -223,7 +222,7 @@ class TestCronTrigger(object):
     def test_week_2(self, timezone):
         trigger = CronTrigger(year=2009, week=15, day_of_week=2, timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2009', week='15', day_of_week='2', "
-                                 "timezone='Europe/Berlin', jitter='None')>")
+                                 "timezone='Europe/Berlin')>")
         assert str(trigger) == "cron[year='2009', week='15', day_of_week='2']"
         start_date = timezone.localize(datetime(2009, 1, 1))
         correct_next_date = timezone.localize(datetime(2009, 4, 8))
@@ -232,8 +231,7 @@ class TestCronTrigger(object):
     def test_cron_extra_coverage(self, timezone):
         # This test has no value other than patching holes in test coverage
         trigger = CronTrigger(day='6,8', timezone=timezone)
-        assert repr(trigger) == ("<CronTrigger (day='6,8', timezone='Europe/Berlin', "
-                                 "jitter='None')>")
+        assert repr(trigger) == "<CronTrigger (day='6,8', timezone='Europe/Berlin')>"
         assert str(trigger) == "cron[day='6,8']"
         start_date = timezone.localize(datetime(2009, 12, 31))
         correct_next_date = timezone.localize(datetime(2010, 1, 6))
@@ -249,8 +247,7 @@ class TestCronTrigger(object):
 
         """
         trigger = CronTrigger(hour='5-6', timezone=timezone)
-        assert repr(trigger) == ("<CronTrigger (hour='5-6', timezone='Europe/Berlin', "
-                                 "jitter='None')>")
+        assert repr(trigger) == "<CronTrigger (hour='5-6', timezone='Europe/Berlin')>"
         assert str(trigger) == "cron[hour='5-6']"
         start_date = timezone.localize(datetime(2009, 9, 25, 7))
         correct_next_date = timezone.localize(datetime(2009, 9, 26, 5))
@@ -288,7 +285,7 @@ class TestCronTrigger(object):
         alter_tz = pytz.FixedOffset(-600)
         trigger = CronTrigger(year=2009, week=15, day_of_week=2, timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2009', week='15', day_of_week='2', "
-                                 "timezone='Europe/Berlin', jitter='None')>")
+                                 "timezone='Europe/Berlin')>")
         assert str(trigger) == "cron[year='2009', week='15', day_of_week='2']"
         start_date = alter_tz.localize(datetime(2008, 12, 31, 22))
         correct_next_date = timezone.localize(datetime(2009, 4, 8))
@@ -346,6 +343,7 @@ class TestCronTrigger(object):
             next_fire_time = trigger.get_next_fire_time(None, now)
             results.add(next_fire_time)
             assert timedelta(seconds=25) <= (next_fire_time - now) <= timedelta(seconds=35)
+
         assert 1 < len(results)
 
     def test_jitter_with_timezone(self, timezone):
@@ -390,10 +388,10 @@ class TestCronTrigger(object):
     @pytest.mark.parametrize('expr, expected_repr', [
         ('* * * * *',
          "<CronTrigger (month='*', day='*', day_of_week='*', hour='*', minute='*', "
-         "timezone='Europe/Berlin', jitter='None')>"),
+         "timezone='Europe/Berlin')>"),
         ('0-14 * 14-28 jul fri',
          "<CronTrigger (month='jul', day='14-28', day_of_week='fri', hour='*', minute='0-14', "
-         "timezone='Europe/Berlin', jitter='None')>")
+         "timezone='Europe/Berlin')>")
     ], ids=['always', 'assorted'])
     def test_from_crontab(self, expr, expected_repr, timezone):
         trigger = CronTrigger.from_crontab(expr, timezone)
@@ -525,7 +523,7 @@ class TestIntervalTrigger(object):
     def test_repr(self, trigger):
         assert repr(trigger) == ("<IntervalTrigger (interval=datetime.timedelta(0, 1), "
                                  "start_date='2009-08-04 00:00:02 CEST', "
-                                 "timezone='Europe/Berlin', jitter='None')>")
+                                 "timezone='Europe/Berlin')>")
 
     def test_str(self, trigger):
         assert str(trigger) == "interval[0:00:01]"

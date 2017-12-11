@@ -229,6 +229,11 @@ class CronTrigger(BaseTrigger):
     def __repr__(self):
         options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
         if self.start_date:
-            options.append("start_date='%s'" % datetime_repr(self.start_date))
-        return "<%s (%s, timezone='%s', jitter='%s')>" % (
-            self.__class__.__name__, ', '.join(options), self.timezone, self.jitter)
+            options.append("start_date=%r" % datetime_repr(self.start_date))
+        if self.end_date:
+            options.append("end_date=%r" % datetime_repr(self.end_date))
+        if self.jitter:
+            options.append('jitter=%s' % self.jitter)
+
+        return "<%s (%s, timezone='%s')>" % (
+            self.__class__.__name__, ', '.join(options), self.timezone)
