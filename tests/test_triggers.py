@@ -387,6 +387,18 @@ class TestCronTrigger(object):
     def test_invalid_ranges(self, values, expected):
         pytest.raises(ValueError, CronTrigger, **values).match(expected)
 
+    @pytest.mark.parametrize('expr, expected_repr', [
+        ('* * * * *',
+         "<CronTrigger (month='*', day='*', day_of_week='*', hour='*', minute='*', "
+         "timezone='Europe/Berlin', jitter='None')>"),
+        ('0-14 * 14-28 jul fri',
+         "<CronTrigger (month='jul', day='14-28', day_of_week='fri', hour='*', minute='0-14', "
+         "timezone='Europe/Berlin', jitter='None')>")
+    ], ids=['always', 'assorted'])
+    def test_from_crontab(self, expr, expected_repr, timezone):
+        trigger = CronTrigger.from_crontab(expr, timezone)
+        assert repr(trigger) == expected_repr
+
 
 class TestDateTrigger(object):
     @pytest.mark.parametrize('run_date,alter_tz,previous,now,expected', [

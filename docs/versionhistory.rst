@@ -15,6 +15,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added support for named months (``january`` – ``december``) in ``CronTrigger`` month expressions
 
+* Added support for creating a ``CronTrigger`` from a crontab expression
+
 * Fixed memory leak due to a cyclic reference when jobs raise exceptions
   (thanks to gilbsgilbs for help on solving this)
 
