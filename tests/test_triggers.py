@@ -374,6 +374,19 @@ class TestCronTrigger(object):
             next_fire_time = trigger.get_next_fire_time(None, start_date)
             assert abs(next_fire_time - correct_next_date) <= timedelta(seconds=5)
 
+    @pytest.mark.parametrize('values, expected', [
+        (dict(day='*/31'), "Error validating expression '\*/31': the step value \(31\) is higher "
+                           "than the total range of the expression \(30\)"),
+        (dict(day='4-6/3'), "Error validating expression '4-6/3': the step value \(3\) is higher "
+                            "than the total range of the expression \(2\)"),
+        (dict(hour='0-24'), "Error validating expression '0-24': the last value \(24\) is higher "
+                            "than the maximum value \(23\)"),
+        (dict(day='0-3'), "Error validating expression '0-3': the first value \(0\) is lower than "
+                          "the minimum value \(1\)")
+    ], ids=['too_large_step_all', 'too_large_step_range', 'too_high_last', 'too_low_first'])
+    def test_invalid_ranges(self, values, expected):
+        pytest.raises(ValueError, CronTrigger, **values).match(expected)
+
 
 class TestDateTrigger(object):
     @pytest.mark.parametrize('run_date,alter_tz,previous,now,expected', [

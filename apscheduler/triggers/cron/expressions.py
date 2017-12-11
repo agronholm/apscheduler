@@ -20,6 +20,14 @@ class AllExpression(object):
         if self.step == 0:
             raise ValueError('Increment must be higher than 0')
 
+    def validate_range(self, field_name):
+        from apscheduler.triggers.cron.fields import MIN_VALUES, MAX_VALUES
+
+        value_range = MAX_VALUES[field_name] - MIN_VALUES[field_name]
+        if self.step and self.step > value_range:
+            raise ValueError('the step value ({}) is higher than the total range of the '
+                             'expression ({})'.format(self.step, value_range))
+
     def get_next_value(self, date, field):
         start = field.get_value(date)
         minval = field.get_min(date)
@@ -52,7 +60,7 @@ class RangeExpression(AllExpression):
         r'(?P<first>\d+)(?:-(?P<last>\d+))?(?:/(?P<step>\d+))?$')
 
     def __init__(self, first, last=None, step=None):
-        AllExpression.__init__(self, step)
+        super(RangeExpression, self).__init__(step)
         first = asint(first)
         last = asint(last)
         if last is None and step is None:
@@ -61,6 +69,21 @@ class RangeExpression(AllExpression):
             raise ValueError('The minimum value in a range must not be higher than the maximum')
         self.first = first
         self.last = last
+
+    def validate_range(self, field_name):
+        from apscheduler.triggers.cron.fields import MIN_VALUES, MAX_VALUES
+
+        super(RangeExpression, self).validate_range(field_name)
+        if self.first < MIN_VALUES[field_name]:
+            raise ValueError('the first value ({}) is lower than the minimum value ({})'
+                             .format(self.first, MIN_VALUES[field_name]))
+        if self.last is not None and self.last > MAX_VALUES[field_name]:
+            raise ValueError('the last value ({}) is higher than the maximum value ({})'
+                             .format(self.last, MAX_VALUES[field_name]))
+        value_range = (self.last or MAX_VALUES[field_name]) - self.first
+        if self.step and self.step > value_range:
+            raise ValueError('the step value ({}) is higher than the total range of the '
+                             'expression ({})'.format(self.step, value_range))
 
     def get_next_value(self, date, field):
         startval = field.get_value(date)
@@ -119,7 +142,7 @@ class WeekdayRangeExpression(RangeExpression):
         else:
             last_num = None
 
-        RangeExpression.__init__(self, first_num, last_num)
+        super(WeekdayRangeExpression, self).__init__(first_num, last_num)
 
     def __str__(self):
         if self.last != self.first and self.last is not None:
@@ -139,6 +162,7 @@ class WeekdayPositionExpression(AllExpression):
                           '|'.join(options), re.IGNORECASE)
 
     def __init__(self, option_name, weekday_name):
+        super(WeekdayPositionExpression, self).__init__(None)
         try:
             self.option_num = self.options.index(option_name.lower())
         except ValueError:
@@ -183,7 +207,7 @@ class LastDayOfMonthExpression(AllExpression):
     value_re = re.compile(r'last', re.IGNORECASE)
 
     def __init__(self):
-        pass
+        super(LastDayOfMonthExpression, self).__init__(None)
 
     def get_next_value(self, date, field):
         return monthrange(date.year, date.month)[1]

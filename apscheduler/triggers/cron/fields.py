@@ -2,6 +2,8 @@
 
 from calendar import monthrange
 
+import six
+
 from apscheduler.triggers.cron.expressions import (
     AllExpression, RangeExpression, WeekdayPositionExpression, LastDayOfMonthExpression,
     WeekdayRangeExpression)
@@ -13,7 +15,7 @@ __all__ = ('MIN_VALUES', 'MAX_VALUES', 'DEFAULT_VALUES', 'BaseField', 'WeekField
 
 MIN_VALUES = {'year': 1970, 'month': 1, 'day': 1, 'week': 1, 'day_of_week': 0, 'hour': 0,
               'minute': 0, 'second': 0}
-MAX_VALUES = {'year': 9999, 'month': 12, 'day:': 31, 'week': 53, 'day_of_week': 6, 'hour': 23,
+MAX_VALUES = {'year': 9999, 'month': 12, 'day': 31, 'week': 53, 'day_of_week': 6, 'hour': 23,
               'minute': 59, 'second': 59}
 DEFAULT_VALUES = {'year': '*', 'month': 1, 'day': 1, 'week': '*', 'day_of_week': '*', 'hour': 0,
                   'minute': 0, 'second': 0}
@@ -62,6 +64,13 @@ class BaseField(object):
             match = compiler.value_re.match(expr)
             if match:
                 compiled_expr = compiler(**match.groupdict())
+
+                try:
+                    compiled_expr.validate_range(self.name)
+                except ValueError as e:
+                    exc = ValueError('Error validating expression {!r}: {}'.format(expr, e))
+                    six.raise_from(exc, None)
+
                 self.expressions.append(compiled_expr)
                 return
 

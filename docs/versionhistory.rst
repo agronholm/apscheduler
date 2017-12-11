@@ -11,6 +11,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added the ``jitter`` options to ``IntervalTrigger`` and ``CronTrigger`` (thanks to gilbsgilbs)
 
+* Added better validation for the steps and ranges of different expressions in ``CronTrigger``
+
 * Fixed memory leak due to a cyclic reference when jobs raise exceptions
   (thanks to gilbsgilbs for help on solving this)
 
