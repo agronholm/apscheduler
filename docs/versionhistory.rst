@@ -13,6 +13,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added better validation for the steps and ranges of different expressions in ``CronTrigger``
 
+* Added support for named months (``january`` – ``december``) in ``CronTrigger`` month expressions
+
 * Fixed memory leak due to a cyclic reference when jobs raise exceptions
   (thanks to gilbsgilbs for help on solving this)
 

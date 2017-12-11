@@ -10,6 +10,7 @@ __all__ = ('AllExpression', 'RangeExpression', 'WeekdayRangeExpression',
 
 
 WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
 
 class AllExpression(object):
@@ -122,6 +123,37 @@ class RangeExpression(AllExpression):
             args.append(str(self.last))
         if self.step:
             args.append(str(self.step))
+        return "%s(%s)" % (self.__class__.__name__, ', '.join(args))
+
+
+class MonthRangeExpression(RangeExpression):
+    value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?', re.IGNORECASE)
+
+    def __init__(self, first, last=None):
+        try:
+            first_num = MONTHS.index(first.lower()) + 1
+        except ValueError:
+            raise ValueError('Invalid month name "%s"' % first)
+
+        if last:
+            try:
+                last_num = MONTHS.index(last.lower()) + 1
+            except ValueError:
+                raise ValueError('Invalid month name "%s"' % last)
+        else:
+            last_num = None
+
+        super(MonthRangeExpression, self).__init__(first_num, last_num)
+
+    def __str__(self):
+        if self.last != self.first and self.last is not None:
+            return '%s-%s' % (MONTHS[self.first - 1], MONTHS[self.last - 1])
+        return MONTHS[self.first - 1]
+
+    def __repr__(self):
+        args = ["'%s'" % MONTHS[self.first]]
+        if self.last != self.first and self.last is not None:
+            args.append("'%s'" % MONTHS[self.last - 1])
         return "%s(%s)" % (self.__class__.__name__, ', '.join(args))
 
 

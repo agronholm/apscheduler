@@ -6,7 +6,7 @@ import six
 
 from apscheduler.triggers.cron.expressions import (
     AllExpression, RangeExpression, WeekdayPositionExpression, LastDayOfMonthExpression,
-    WeekdayRangeExpression)
+    WeekdayRangeExpression, MonthRangeExpression)
 
 
 __all__ = ('MIN_VALUES', 'MAX_VALUES', 'DEFAULT_VALUES', 'BaseField', 'WeekField',
@@ -107,3 +107,7 @@ class DayOfWeekField(BaseField):
 
     def get_value(self, dateval):
         return dateval.weekday()
+
+
+class MonthField(BaseField):
+    COMPILERS = BaseField.COMPILERS + [MonthRangeExpression]

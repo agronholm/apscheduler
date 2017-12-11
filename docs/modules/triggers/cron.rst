@@ -53,6 +53,9 @@ Expression     Field Description
 ``x,y,z``      any   Fire on any matching expression; can combine any number of any of the above expressions
 ============== ===== =======================================================================================
 
+.. note:: The ``month`` and ``day_of_week`` fields accept abbreviated English month and weekday names
+    (``jan`` – ``dec`` and ``mon`` – ``sun``) respectively.
+
 
 Daylight saving time behavior
 -----------------------------

@@ -116,8 +116,8 @@ class TestCronTrigger(object):
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_cron_trigger_3(self, timezone):
-        trigger = CronTrigger(year='2009', month='2', hour='8-10', timezone=timezone)
-        assert repr(trigger) == ("<CronTrigger (year='2009', month='2', hour='8-10', "
+        trigger = CronTrigger(year='2009', month='feb-dec', hour='8-10', timezone=timezone)
+        assert repr(trigger) == ("<CronTrigger (year='2009', month='feb-dec', hour='8-10', "
                                  "timezone='Europe/Berlin', jitter='None')>")
         start_date = timezone.localize(datetime(2009, 1, 1))
         correct_next_date = timezone.localize(datetime(2009, 2, 1, 8))

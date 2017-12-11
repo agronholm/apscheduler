@@ -5,7 +5,7 @@ import six
 
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.cron.fields import (
-    BaseField, WeekField, DayOfMonthField, DayOfWeekField, DEFAULT_VALUES)
+    BaseField, MonthField, WeekField, DayOfMonthField, DayOfWeekField, DEFAULT_VALUES)
 from apscheduler.util import datetime_ceil, convert_to_datetime, datetime_repr, astimezone
 
 
@@ -34,7 +34,7 @@ class CronTrigger(BaseTrigger):
     FIELD_NAMES = ('year', 'month', 'day', 'week', 'day_of_week', 'hour', 'minute', 'second')
     FIELDS_MAP = {
         'year': BaseField,
-        'month': BaseField,
+        'month': MonthField,
         'week': WeekField,
         'day': DayOfMonthField,
         'day_of_week': DayOfWeekField,
