@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-from functools import wraps
+from functools import wraps, partial
 
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.util import maybe_ref
@@ -16,8 +16,9 @@ except ImportError:  # pragma: nocover
 
 def run_in_event_loop(func):
     @wraps(func)
-    def wrapper(self, *args):
-        self._eventloop.call_soon_threadsafe(func, self, *args)
+    def wrapper(self, *args, **kwargs):
+        wrapped = partial(func, self, *args, **kwargs)
+        self._eventloop.call_soon_threadsafe(wrapped)
     return wrapper
 
 

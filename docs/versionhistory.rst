@@ -22,6 +22,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Fixed memory leak due to a cyclic reference when jobs raise exceptions
   (thanks to gilbsgilbs for help on solving this)
 
+* Fixed passing ``wait=True`` to ``AsyncIOScheduler.shutdown()`` (although it doesn't do much)
+
 
 3.4.0
 -----
