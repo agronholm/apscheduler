@@ -24,6 +24,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Fixed passing ``wait=True`` to ``AsyncIOScheduler.shutdown()`` (although it doesn't do much)
 
+* Cancel all pending futures when ``AsyncIOExecutor`` is shut down
+
 
 3.4.0
 -----

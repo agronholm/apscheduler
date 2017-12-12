@@ -1,4 +1,5 @@
 """Contains test functions using Python 3.3+ syntax."""
+from asyncio import CancelledError
 from datetime import datetime
 
 import pytest
@@ -84,3 +85,18 @@ async def test_run_coroutine_job_tornado(tornado_scheduler, tornado_executor, ex
         assert str(events[0].exception) == 'dummy error'
     else:
         assert events[0].retval is True
+
+
+@pytest.mark.asyncio
+async def test_asyncio_executor_shutdown(asyncio_scheduler, asyncio_executor):
+    """Test that the AsyncIO executor cancels its pending tasks on shutdown."""
+    from asyncio import sleep
+
+    job = asyncio_scheduler.add_job(waiter, 'interval', seconds=1, args=[sleep, None])
+    asyncio_executor.submit_job(job, [datetime.now(utc)])
+    futures = asyncio_executor._pending_futures.copy()
+    assert len(futures) == 1
+
+    asyncio_executor.shutdown()
+    with pytest.raises(CancelledError):
+        await futures.pop()

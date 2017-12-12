@@ -26,9 +26,19 @@ class AsyncIOExecutor(BaseExecutor):
     def start(self, scheduler, alias):
         super(AsyncIOExecutor, self).start(scheduler, alias)
         self._eventloop = scheduler._eventloop
+        self._pending_futures = set()
+
+    def shutdown(self, wait=True):
+        # There is no way to honor wait=True without converting this method into a coroutine method
+        for f in self._pending_futures:
+            if not f.done():
+                f.cancel()
+
+        self._pending_futures.clear()
 
     def _do_submit_job(self, job, run_times):
         def callback(f):
+            self._pending_futures.discard(f)
             try:
                 events = f.result()
             except BaseException:
@@ -47,3 +57,4 @@ class AsyncIOExecutor(BaseExecutor):
                                                 self._logger.name)
 
         f.add_done_callback(callback)
+        self._pending_futures.add(f)
