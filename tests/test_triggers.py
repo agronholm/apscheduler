@@ -391,8 +391,11 @@ class TestCronTrigger(object):
          "timezone='Europe/Berlin')>"),
         ('0-14 * 14-28 jul fri',
          "<CronTrigger (month='jul', day='14-28', day_of_week='fri', hour='*', minute='0-14', "
+         "timezone='Europe/Berlin')>"),
+        (' 0-14   * 14-28   jul       fri',
+         "<CronTrigger (month='jul', day='14-28', day_of_week='fri', hour='*', minute='0-14', "
          "timezone='Europe/Berlin')>")
-    ], ids=['always', 'assorted'])
+    ], ids=['always', 'assorted', 'multiple_spaces_in_format'])
     def test_from_crontab(self, expr, expected_repr, timezone):
         trigger = CronTrigger.from_crontab(expr, timezone)
         assert repr(trigger) == expected_repr

@@ -95,7 +95,7 @@ class CronTrigger(BaseTrigger):
         :return: a :class:`~CronTrigger` instance
 
         """
-        values = expr.split(' ')
+        values = expr.split()
         if len(values) != 5:
             raise ValueError('Wrong number of fields; got {}, expected 5'.format(len(values)))
 
