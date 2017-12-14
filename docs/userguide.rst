@@ -454,6 +454,22 @@ Example::
     scheduler.add_listener(my_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
 
+Troubleshooting
+---------------
+
+If the scheduler isn't working as expected, it will be helpful to increase the logging level of the
+``apscheduler`` logger to the ``DEBUG`` level.
+
+If you do not yet have logging enabled in the first place, you can do this::
+
+    import logging
+
+    logging.basicConfig()
+    logging.getLogger('apscheduler').setLevel(logging.DEBUG)
+
+This should provide lots of useful information about what's going on inside the scheduler.
+
+
 Reporting bugs
 --------------
 
