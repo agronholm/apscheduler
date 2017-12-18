@@ -9,14 +9,14 @@ rules to get your changes accepted. This is to maintain the high quality of the 
 Contribution Process
 ====================
 
-1. Fork the project on Github
+1. Fork the project on GitHub
 2. Clone the fork to your local machine
 3. Make the changes to the project
 4. Run the test suite with tox (if you changed any code)
 5. Repeat steps 3-4 until the test suite passes
 6. Commit if you haven't already
-7. Push the changes to your Github fork
-8. Make a pull request on Github
+7. Push the changes to your GitHub fork
+8. Make a pull request on GitHub
 
 There is no need to update the change log -- this will be done prior to the next release at the
 latest. Should the test suite fail even before your changes (which should be rare), make sure
@@ -61,8 +61,8 @@ only maintain the coverage, but should test any new functionality or bug fixes r
 If you're fixing a bug, first make sure you have a test which fails against the unpatched codebase
 and succeeds against the fixed version. Naturally, the test suite has to pass on every Python
 version. If setting up all the required Python interpreters seems like too much trouble, make sure
-that it at least passes on the lowest supported versions of both Python 2 and 3. The full test
-suite is always run against each pull request, but it's a good idea to run the tests locally first.
+that it at least passes on the lowest supported Python version. The full test suite is always run
+against each pull request, but it's a good idea to run the tests locally first.
 
 .. _tox: https://tox.readthedocs.io/
 .. _flake8: http://flake8.pycqa.org/

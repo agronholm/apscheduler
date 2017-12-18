@@ -1,17 +1,10 @@
 from __future__ import absolute_import
-from functools import wraps, partial
+
+import asyncio
+from functools import partial, wraps
 
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.util import maybe_ref
-
-try:
-    import asyncio
-except ImportError:  # pragma: nocover
-    try:
-        import trollius as asyncio
-    except ImportError:
-        raise ImportError(
-            'AsyncIOScheduler requires either Python 3.4 or the asyncio package installed')
 
 
 def run_in_event_loop(func):

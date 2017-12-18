@@ -7,13 +7,8 @@ from calendar import timegm
 from functools import partial
 import re
 
-from pytz import timezone, utc
 import six
-
-try:
-    from inspect import signature
-except ImportError:  # pragma: nocover
-    from funcsigs import signature
+from pytz import timezone, utc
 
 try:
     from threading import TIMEOUT_MAX
@@ -290,14 +285,8 @@ def maybe_ref(ref):
     return ref_to_obj(ref)
 
 
-if six.PY2:
-    def repr_escape(string):
-        if isinstance(string, six.text_type):
-            return string.encode('ascii', 'backslashreplace')
-        return string
-else:
-    def repr_escape(string):
-        return string
+def repr_escape(string):
+    return string
 
 
 def check_callable_args(func, args, kwargs):

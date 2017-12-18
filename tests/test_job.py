@@ -1,18 +1,13 @@
 # coding: utf-8
 from datetime import datetime, timedelta
 from functools import partial
+from unittest.mock import MagicMock, patch
 
 import pytest
-import six
 
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.triggers.date import DateTrigger
-
-try:
-    from unittest.mock import MagicMock, patch
-except ImportError:
-    from mock import MagicMock, patch
 
 
 def dummyfunc():
@@ -241,11 +236,8 @@ def test_eq(create_job):
 
 
 def test_repr(job):
-    if six.PY2:
-        assert repr(job) == '<Job (id=t\\xe9st\\xefd name=n\\xe4m\\xe9)>'
-    else:
-        assert repr(job) == \
-            b'<Job (id=t\xc3\xa9st\xc3\xafd name=n\xc3\xa4m\xc3\xa9)>'.decode('utf-8')
+    assert repr(job) == \
+        b'<Job (id=t\xc3\xa9st\xc3\xafd name=n\xc3\xa4m\xc3\xa9)>'.decode('utf-8')
 
 
 @pytest.mark.parametrize('status, expected_status', [
@@ -261,11 +253,8 @@ def test_str(create_job, status, unicode, expected_status):
     elif status == 'pending':
         del job.next_run_time
 
-    if six.PY2 and not unicode:
-        expected = 'n\\xe4m\\xe9 (trigger: date[2011-04-03 18:40:00 CEST], %s)' % expected_status
-    else:
-        expected = b'n\xc3\xa4m\xc3\xa9 (trigger: date[2011-04-03 18:40:00 CEST], %s)'.\
-            decode('utf-8') % expected_status
+    expected = b'n\xc3\xa4m\xc3\xa9 (trigger: date[2011-04-03 18:40:00 CEST], %s)'.\
+        decode('utf-8') % expected_status
 
     result = job.__unicode__() if unicode else job.__str__()
     assert result == expected

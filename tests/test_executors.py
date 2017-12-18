@@ -1,21 +1,18 @@
+import gc
+import time
 from datetime import datetime
 from threading import Event
 from types import TracebackType
-import gc
-import time
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from pytz import UTC
 
-from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED, EVENT_JOB_EXECUTED
+from apscheduler.events import (EVENT_JOB_ERROR, EVENT_JOB_EXECUTED,
+                                EVENT_JOB_MISSED)
 from apscheduler.executors.base import MaxInstancesReachedError, run_job
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
-
-try:
-    from unittest.mock import Mock, MagicMock, patch
-except ImportError:
-    from mock import Mock, MagicMock, patch
 
 
 @pytest.fixture

@@ -24,9 +24,7 @@ If you have an application that runs on an AsyncIO event loop, you will want to 
    * - Default executor
      - :class:`~apscheduler.executors.asyncio.AsyncIOExecutor`
    * - External dependencies
-     - * Python >= 3.4: none
-       * Python 3.3: `asyncio <https://pypi.python.org/pypi/asyncio/>`_
-       * Python <= 3.2: `trollius <https://pypi.python.org/pypi/trollius/>`_
+     - * None
    * - Example
      - ``examples/schedulers/asyncio_.py``
        (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/asyncio_.py>`_).

@@ -1,15 +1,10 @@
 from __future__ import absolute_import
 
 import sys
+from asyncio import iscoroutinefunction
 
 from apscheduler.executors.base import BaseExecutor, run_job
-
-try:
-    from asyncio import iscoroutinefunction
-    from apscheduler.executors.base_py3 import run_coroutine_job
-except ImportError:
-    from trollius import iscoroutinefunction
-    run_coroutine_job = None
+from apscheduler.executors.base_py3 import run_coroutine_job
 
 
 class AsyncIOExecutor(BaseExecutor):

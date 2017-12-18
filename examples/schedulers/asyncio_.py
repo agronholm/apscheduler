@@ -3,15 +3,11 @@ Demonstrates how to use the asyncio compatible scheduler to schedule a job that 
 second intervals.
 """
 
-from datetime import datetime
+import asyncio
 import os
+from datetime import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
-try:
-    import asyncio
-except ImportError:
-    import trollius as asyncio
 
 
 def tick():

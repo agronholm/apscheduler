@@ -1,19 +1,17 @@
 from __future__ import absolute_import
 
 import os
+import pickle
 from datetime import datetime
 
 from pytz import utc
-from kazoo.exceptions import NoNodeError, NodeExistsError
 
-from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
-from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
-
-try:
-    import cPickle as pickle
-except ImportError:  # pragma: nocover
-    import pickle
+from apscheduler.jobstores.base import (BaseJobStore, ConflictingIdError,
+                                        JobLookupError)
+from apscheduler.util import (datetime_to_utc_timestamp, maybe_ref,
+                              utc_timestamp_to_datetime)
+from kazoo.exceptions import NodeExistsError, NoNodeError
 
 try:
     from kazoo.client import KazooClient
