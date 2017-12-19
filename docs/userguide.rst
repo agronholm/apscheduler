@@ -96,7 +96,7 @@ enough for most purposes. If your workload involves CPU intensive operations, yo
 using :class:`~apscheduler.executors.pool.ProcessPoolExecutor` instead to make use of multiple CPU
 cores. You could even use both at once, adding the process pool executor as a secondary executor.
 
-When you schedule a job, you need to choose a _trigger_ for it. The trigger determines the logic by
+When you schedule a job, you need to choose a *trigger* for it. The trigger determines the logic by
 which the dates/times are calculated when the job will be run. APScheduler comes with three
 built-in trigger types:
 
@@ -106,6 +106,10 @@ built-in trigger types:
   use when you want to run the job at fixed intervals of time
 * :mod:`~apscheduler.triggers.cron`:
   use when you want to run the job periodically at certain time(s) of day
+
+It is also possible to combine multiple triggers into one which fires either on times agreed on by
+all the participating triggers, or when any of the triggers would fire. For more information, see
+the documentation for :mod:`combining triggers <apscheduler.triggers.combining>`.
 
 You can find the plugin names of each job store, executor and trigger type on their respective API
 documentation pages.

@@ -9,6 +9,7 @@ from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.combining import AndTrigger, OrTrigger
 
 try:
     from unittest.mock import Mock
@@ -573,3 +574,75 @@ class TestIntervalTrigger(object):
         for _ in range(0, 100):
             next_fire_time = trigger.get_next_fire_time(None, start_date + epsilon)
             assert abs(next_fire_time - correct_next_date) <= timedelta(seconds=5)
+
+
+class TestAndTrigger(object):
+    @pytest.fixture
+    def trigger(self, timezone):
+        return AndTrigger([
+            CronTrigger(month='5-8', day='6-15',
+                        end_date=timezone.localize(datetime(2017, 8, 10))),
+            CronTrigger(month='6-9', day='*/3', end_date=timezone.localize(datetime(2017, 9, 7)))
+        ])
+
+    @pytest.mark.parametrize('start_time, expected', [
+        (datetime(2017, 8, 6), datetime(2017, 8, 7)),
+        (datetime(2017, 8, 10, 1), None)
+    ], ids=['firstmatch', 'end'])
+    def test_next_fire_time(self, trigger, timezone, start_time, expected):
+        expected = timezone.localize(expected) if expected else None
+        assert trigger.get_next_fire_time(None, timezone.localize(start_time)) == expected
+
+    def test_repr(self, trigger):
+        assert repr(trigger) == (
+            "<AndTrigger([<CronTrigger (month='5-8', day='6-15', "
+            "end_date='2017-08-10 00:00:00 CEST', timezone='Europe/Berlin')>, <CronTrigger "
+            "(month='6-9', day='*/3', end_date='2017-09-07 00:00:00 CEST', "
+            "timezone='Europe/Berlin')>])>")
+
+    def test_str(self, trigger):
+        assert str(trigger) == "and[cron[month='5-8', day='6-15'], cron[month='6-9', day='*/3']]"
+
+    def test_pickle(self, trigger):
+        """Test that the trigger is pickleable."""
+        data = pickle.dumps(trigger, 2)
+        trigger2 = pickle.loads(data)
+
+        for attr in AndTrigger.__slots__:
+            assert getattr(trigger2, attr) == getattr(trigger, attr)
+
+
+class TestOrTrigger(object):
+    @pytest.fixture
+    def trigger(self, timezone):
+        return OrTrigger([
+            CronTrigger(month='5-8', day='6-15',
+                        end_date=timezone.localize(datetime(2017, 8, 10))),
+            CronTrigger(month='6-9', day='*/3', end_date=timezone.localize(datetime(2017, 9, 7)))
+        ])
+
+    @pytest.mark.parametrize('start_time, expected', [
+        (datetime(2017, 8, 6), datetime(2017, 8, 6)),
+        (datetime(2017, 9, 7, 1), None)
+    ], ids=['earliest', 'end'])
+    def test_next_fire_time(self, trigger, timezone, start_time, expected):
+        expected = timezone.localize(expected) if expected else None
+        assert trigger.get_next_fire_time(None, timezone.localize(start_time)) == expected
+
+    def test_repr(self, trigger):
+        assert repr(trigger) == (
+            "<OrTrigger([<CronTrigger (month='5-8', day='6-15', "
+            "end_date='2017-08-10 00:00:00 CEST', timezone='Europe/Berlin')>, <CronTrigger "
+            "(month='6-9', day='*/3', end_date='2017-09-07 00:00:00 CEST', "
+            "timezone='Europe/Berlin')>])>")
+
+    def test_str(self, trigger):
+        assert str(trigger) == "or[cron[month='5-8', day='6-15'], cron[month='6-9', day='*/3']]"
+
+    def test_pickle(self, trigger):
+        """Test that the trigger is pickleable."""
+        data = pickle.dumps(trigger, 2)
+        trigger2 = pickle.loads(data)
+
+        for attr in OrTrigger.__slots__:
+            assert getattr(trigger2, attr) == getattr(trigger, attr)

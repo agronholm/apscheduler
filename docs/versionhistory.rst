@@ -11,6 +11,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added the ``jitter`` options to ``IntervalTrigger`` and ``CronTrigger`` (thanks to gilbsgilbs)
 
+* Added combining triggers (``AndTrigger`` and ``OrTrigger``)
+
 * Added better validation for the steps and ranges of different expressions in ``CronTrigger``
 
 * Added support for named months (``january`` – ``december``) in ``CronTrigger`` month expressions
