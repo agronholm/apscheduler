@@ -2,7 +2,7 @@ from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import obj_to_ref, ref_to_obj
 
 
-class BaseMultiTrigger(BaseTrigger):
+class BaseCombiningTrigger(BaseTrigger):
     __slots__ = 'triggers'
 
     def __init__(self, triggers):
@@ -32,7 +32,7 @@ class BaseMultiTrigger(BaseTrigger):
         return '<{}({})>'.format(self.__class__.__name__, self.triggers)
 
 
-class AndTrigger(BaseMultiTrigger):
+class AndTrigger(BaseCombiningTrigger):
     """
     Always returns the earliest next fire time that all the given triggers can agree on.
     The trigger is considered to be finished when any of the given triggers has finished its
@@ -60,7 +60,7 @@ class AndTrigger(BaseMultiTrigger):
         return 'and[{}]'.format(', '.join(str(trigger) for trigger in self.triggers))
 
 
-class OrTrigger(BaseMultiTrigger):
+class OrTrigger(BaseCombiningTrigger):
     """
     Always returns the earliest next fire time produced by any of the given triggers.
     The trigger is considered finished when all the given triggers have finished their schedules.
