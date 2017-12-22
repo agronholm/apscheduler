@@ -9,7 +9,7 @@ from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.triggers.combining import AndTrigger, OrTrigger
+from apscheduler.triggers.combining import AndTrigger, OrTrigger, BaseCombiningTrigger
 
 try:
     from unittest.mock import Mock
@@ -608,8 +608,8 @@ class TestAndTrigger(object):
         data = pickle.dumps(trigger, 2)
         trigger2 = pickle.loads(data)
 
-        for attr in AndTrigger.__slots__:
-            assert getattr(trigger2, attr) == getattr(trigger, attr)
+        for attr in BaseCombiningTrigger.__slots__:
+            assert repr(getattr(trigger2, attr)) == repr(getattr(trigger, attr))
 
 
 class TestOrTrigger(object):
@@ -644,5 +644,5 @@ class TestOrTrigger(object):
         data = pickle.dumps(trigger, 2)
         trigger2 = pickle.loads(data)
 
-        for attr in OrTrigger.__slots__:
-            assert getattr(trigger2, attr) == getattr(trigger, attr)
+        for attr in BaseCombiningTrigger.__slots__:
+            assert repr(getattr(trigger2, attr)) == repr(getattr(trigger, attr))
