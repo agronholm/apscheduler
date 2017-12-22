@@ -599,7 +599,7 @@ class TestAndTrigger(object):
         expected = timezone.localize(datetime(2017, 8, 7))
         for _ in range(100):
             next_fire_time = trigger.get_next_fire_time(None, start_time)
-            assert abs(expected.timestamp() - next_fire_time.timestamp()) <= 5
+            assert abs(expected - next_fire_time) <= timedelta(seconds=5)
 
     @pytest.mark.parametrize('jitter', [None, 5], ids=['nojitter', 'jitter'])
     def test_repr(self, trigger, jitter):
@@ -647,7 +647,7 @@ class TestOrTrigger(object):
         start_time = expected = timezone.localize(datetime(2017, 8, 6))
         for _ in range(100):
             next_fire_time = trigger.get_next_fire_time(None, start_time)
-            assert abs(expected.timestamp() - next_fire_time.timestamp()) <= 5
+            assert abs(expected - next_fire_time) <= timedelta(seconds=5)
 
     @pytest.mark.parametrize('jitter', [None, 5], ids=['nojitter', 'jitter'])
     def test_repr(self, trigger, jitter):
