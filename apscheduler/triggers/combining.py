@@ -3,16 +3,18 @@ from apscheduler.util import obj_to_ref, ref_to_obj
 
 
 class BaseCombiningTrigger(BaseTrigger):
-    __slots__ = 'triggers'
+    __slots__ = ('triggers', 'jitter')
 
-    def __init__(self, triggers):
+    def __init__(self, triggers, jitter=None):
         self.triggers = triggers
+        self.jitter = jitter
 
     def __getstate__(self):
         return {
             'version': 1,
             'triggers': [(obj_to_ref(trigger.__class__), trigger.__getstate__())
-                         for trigger in self.triggers]
+                         for trigger in self.triggers],
+            'jitter': self.jitter
         }
 
     def __setstate__(self, state):
@@ -21,6 +23,7 @@ class BaseCombiningTrigger(BaseTrigger):
                 'Got serialized data for version %s of %s, but only versions up to 1 can be '
                 'handled' % (state['version'], self.__class__.__name__))
 
+        self.jitter = state['jitter']
         self.triggers = []
         for clsref, state in state['triggers']:
             cls = ref_to_obj(clsref)
@@ -29,7 +32,8 @@ class BaseCombiningTrigger(BaseTrigger):
             self.triggers.append(trigger)
 
     def __repr__(self):
-        return '<{}({})>'.format(self.__class__.__name__, self.triggers)
+        return '<{}({}{})>'.format(self.__class__.__name__, self.triggers,
+                                   ', jitter={}'.format(self.jitter) if self.jitter else '')
 
 
 class AndTrigger(BaseCombiningTrigger):
@@ -41,6 +45,7 @@ class AndTrigger(BaseCombiningTrigger):
     Trigger alias: ``and``
 
     :param list triggers: triggers to combine
+    :param int|None jitter: advance or delay the job execution by ``jitter`` seconds at most.
     """
 
     __slots__ = ()
@@ -52,7 +57,7 @@ class AndTrigger(BaseCombiningTrigger):
             if None in fire_times:
                 return None
             elif min(fire_times) == max(fire_times):
-                return fire_times[0]
+                return self._apply_jitter(fire_times[0], self.jitter, now)
             else:
                 now = max(fire_times)
 
@@ -68,6 +73,7 @@ class OrTrigger(BaseCombiningTrigger):
     Trigger alias: ``or``
 
     :param list triggers: triggers to combine
+    :param int|None jitter: advance or delay the job execution by ``jitter`` seconds at most.
 
     .. note:: Triggers that depends on the previous fire time, such as the interval trigger, may
         seem to behave strangely since they are always passed the previous fire time produced by
@@ -80,7 +86,10 @@ class OrTrigger(BaseCombiningTrigger):
         fire_times = [trigger.get_next_fire_time(previous_fire_time, now)
                       for trigger in self.triggers]
         fire_times = [fire_time for fire_time in fire_times if fire_time is not None]
-        return min(fire_times) if fire_times else None
+        if fire_times:
+            return self._apply_jitter(min(fire_times), self.jitter, now)
+        else:
+            return None
 
     def __str__(self):
         return 'or[{}]'.format(', '.join(str(trigger) for trigger in self.triggers))

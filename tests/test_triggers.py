@@ -593,18 +593,31 @@ class TestAndTrigger(object):
         expected = timezone.localize(expected) if expected else None
         assert trigger.get_next_fire_time(None, timezone.localize(start_time)) == expected
 
-    def test_repr(self, trigger):
+    def test_jitter(self, trigger, timezone):
+        trigger.jitter = 5
+        start_time = timezone.localize(datetime(2017, 8, 6))
+        expected = timezone.localize(datetime(2017, 8, 7))
+        for _ in range(100):
+            next_fire_time = trigger.get_next_fire_time(None, start_time)
+            assert abs(expected.timestamp() - next_fire_time.timestamp()) <= 5
+
+    @pytest.mark.parametrize('jitter', [None, 5], ids=['nojitter', 'jitter'])
+    def test_repr(self, trigger, jitter):
+        trigger.jitter = jitter
+        jitter_part = ', jitter={}'.format(jitter) if jitter else ''
         assert repr(trigger) == (
             "<AndTrigger([<CronTrigger (month='5-8', day='6-15', "
             "end_date='2017-08-10 00:00:00 CEST', timezone='Europe/Berlin')>, <CronTrigger "
             "(month='6-9', day='*/3', end_date='2017-09-07 00:00:00 CEST', "
-            "timezone='Europe/Berlin')>])>")
+            "timezone='Europe/Berlin')>]{})>".format(jitter_part))
 
     def test_str(self, trigger):
         assert str(trigger) == "and[cron[month='5-8', day='6-15'], cron[month='6-9', day='*/3']]"
 
-    def test_pickle(self, trigger):
+    @pytest.mark.parametrize('jitter', [None, 5], ids=['nojitter', 'jitter'])
+    def test_pickle(self, trigger, jitter):
         """Test that the trigger is pickleable."""
+        trigger.jitter = jitter
         data = pickle.dumps(trigger, 2)
         trigger2 = pickle.loads(data)
 
@@ -629,18 +642,30 @@ class TestOrTrigger(object):
         expected = timezone.localize(expected) if expected else None
         assert trigger.get_next_fire_time(None, timezone.localize(start_time)) == expected
 
-    def test_repr(self, trigger):
+    def test_jitter(self, trigger, timezone):
+        trigger.jitter = 5
+        start_time = expected = timezone.localize(datetime(2017, 8, 6))
+        for _ in range(100):
+            next_fire_time = trigger.get_next_fire_time(None, start_time)
+            assert abs(expected.timestamp() - next_fire_time.timestamp()) <= 5
+
+    @pytest.mark.parametrize('jitter', [None, 5], ids=['nojitter', 'jitter'])
+    def test_repr(self, trigger, jitter):
+        trigger.jitter = jitter
+        jitter_part = ', jitter={}'.format(jitter) if jitter else ''
         assert repr(trigger) == (
             "<OrTrigger([<CronTrigger (month='5-8', day='6-15', "
             "end_date='2017-08-10 00:00:00 CEST', timezone='Europe/Berlin')>, <CronTrigger "
             "(month='6-9', day='*/3', end_date='2017-09-07 00:00:00 CEST', "
-            "timezone='Europe/Berlin')>])>")
+            "timezone='Europe/Berlin')>]{})>".format(jitter_part))
 
     def test_str(self, trigger):
         assert str(trigger) == "or[cron[month='5-8', day='6-15'], cron[month='6-9', day='*/3']]"
 
-    def test_pickle(self, trigger):
+    @pytest.mark.parametrize('jitter', [None, 5], ids=['nojitter', 'jitter'])
+    def test_pickle(self, trigger, jitter):
         """Test that the trigger is pickleable."""
+        trigger.jitter = jitter
         data = pickle.dumps(trigger, 2)
         trigger2 = pickle.loads(data)
 
