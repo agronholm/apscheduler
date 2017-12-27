@@ -129,7 +129,7 @@ class RedisJobStore(BaseJobStore):
         for job_id, job_state in job_states:
             try:
                 jobs.append(self._reconstitute_job(job_state))
-            except:
+            except BaseException:
                 self._logger.exception('Unable to restore job "%s" -- removing it', job_id)
                 failed_job_ids.append(job_id)
 

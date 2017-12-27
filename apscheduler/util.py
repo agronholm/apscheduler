@@ -4,6 +4,7 @@ from __future__ import division
 from datetime import date, datetime, time, timedelta, tzinfo
 from calendar import timegm
 import re
+from functools import partial
 
 from pytz import timezone, utc
 import six
@@ -32,6 +33,7 @@ class _Undefined(object):
 
     def __repr__(self):
         return '<undefined>'
+
 
 undefined = _Undefined()  #: a unique object that only signifies that no value is defined
 
@@ -229,20 +231,24 @@ def get_callable_name(func):
 
 def obj_to_ref(obj):
     """
-    Returns the path to the given object.
+    Returns the path to the given callable.
 
     :rtype: str
+    :raises TypeError: if the given object is not callable
+    :raises ValueError: if the given object is a :class:`~functools.partial`, lambda or a nested
+        function
 
     """
-    try:
-        ref = '%s:%s' % (obj.__module__, get_callable_name(obj))
-        obj2 = ref_to_obj(ref)
-        if obj != obj2:
-            raise ValueError
-    except Exception:
-        raise ValueError('Cannot determine the reference to %r' % obj)
+    if isinstance(obj, partial):
+        raise ValueError('Cannot create a reference to a partial()')
 
-    return ref
+    name = get_callable_name(obj)
+    if '<lambda>' in name:
+        raise ValueError('Cannot create a reference to a lambda')
+    if '<locals>' in name:
+        raise ValueError('Cannot create a reference to a nested function')
+
+    return '%s:%s' % (obj.__module__, name)
 
 
 def ref_to_obj(ref):

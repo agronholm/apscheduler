@@ -1,12 +1,103 @@
 import pickle
+import random
 from datetime import datetime, timedelta, date
 
 import pytest
 import pytz
 
+from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.combining import AndTrigger, OrTrigger, BaseCombiningTrigger
+
+try:
+    from unittest.mock import Mock
+except ImportError:
+    from mock import Mock
+
+
+class _DummyTriggerWithJitter(BaseTrigger):
+    def __init__(self, dt, jitter):
+        self.dt = dt
+        self.jitter = jitter
+
+    def get_next_fire_time(self, previous_fire_time, now):
+        return self._apply_jitter(self.dt, self.jitter, now)
+
+
+class TestJitter(object):
+    def test_jitter_disabled(self):
+        dt = datetime(2017, 5, 25, 14, 49, 50)
+        trigger = _DummyTriggerWithJitter(dt, None)
+
+        now = datetime(2017, 5, 25, 13, 40, 44)
+        assert trigger.get_next_fire_time(None, now) == dt
+
+    def test_jitter_with_none_next_fire_time(self):
+        trigger = _DummyTriggerWithJitter(None, 5)
+        now = datetime(2017, 5, 25, 13, 40, 44)
+        assert trigger.get_next_fire_time(None, now) is None
+
+    def test_jitter_positive(self, monkeypatch):
+        monkeypatch.setattr(random, 'uniform', lambda a, b: 30.)
+
+        now = datetime(2017, 5, 25, 13, 40, 44)
+        dt = datetime(2017, 5, 25, 14, 49, 50)
+        expected_dt = datetime(2017, 5, 25, 14, 50, 20)
+
+        trigger = _DummyTriggerWithJitter(dt, 60)
+        assert trigger.get_next_fire_time(None, now) == expected_dt
+
+    def test_jitter_in_past_but_initial_date_in_future(self, monkeypatch):
+        monkeypatch.setattr(random, 'uniform', lambda a, b: -30.)
+
+        now = datetime(2017, 5, 25, 13, 40, 44)
+        dt = datetime(2017, 5, 25, 13, 40, 47)
+        expected_dt = dt
+
+        trigger = _DummyTriggerWithJitter(dt, 60)
+        assert trigger.get_next_fire_time(None, now) == expected_dt
+
+    def test_jitter_in_future_but_initial_date_in_past(self, monkeypatch):
+        monkeypatch.setattr(random, 'uniform', lambda a, b: 30.)
+
+        now = datetime(2017, 5, 25, 13, 40, 44)
+        dt = datetime(2017, 5, 25, 13, 40, 30)
+        expected_dt = datetime(2017, 5, 25, 13, 41, 0)
+
+        trigger = _DummyTriggerWithJitter(dt, 60)
+        assert trigger.get_next_fire_time(None, now) == expected_dt
+
+    def test_jitter_misfire(self, monkeypatch):
+        monkeypatch.setattr(random, 'uniform', lambda a, b: -30.)
+
+        now = datetime(2017, 5, 25, 13, 40, 44)
+        dt = datetime(2017, 5, 25, 13, 40, 40)
+        expected_dt = dt
+
+        trigger = _DummyTriggerWithJitter(dt, 60)
+        assert trigger.get_next_fire_time(None, now) == expected_dt
+
+    def test_jitter_is_now(self, monkeypatch):
+        monkeypatch.setattr(random, 'uniform', lambda a, b: 4.)
+
+        now = datetime(2017, 5, 25, 13, 40, 44)
+        dt = datetime(2017, 5, 25, 13, 40, 40)
+        expected_dt = now
+
+        trigger = _DummyTriggerWithJitter(dt, 60)
+        assert trigger.get_next_fire_time(None, now) == expected_dt
+
+    def test_jitter(self):
+        now = datetime(2017, 5, 25, 13, 36, 44)
+        dt = datetime(2017, 5, 25, 13, 40, 45)
+        min_expected_dt = datetime(2017, 5, 25, 13, 40, 40)
+        max_expected_dt = datetime(2017, 5, 25, 13, 40, 50)
+
+        trigger = _DummyTriggerWithJitter(dt, 5)
+        for _ in range(0, 100):
+            assert min_expected_dt <= trigger.get_next_fire_time(None, now) <= max_expected_dt
 
 
 DST_TIMEZONE = 'Europe/Berlin'
@@ -31,8 +122,8 @@ class TestCronTrigger(object):
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_cron_trigger_3(self, timezone):
-        trigger = CronTrigger(year='2009', month='2', hour='8-10', timezone=timezone)
-        assert repr(trigger) == ("<CronTrigger (year='2009', month='2', hour='8-10', "
+        trigger = CronTrigger(year='2009', month='feb-dec', hour='8-10', timezone=timezone)
+        assert repr(trigger) == ("<CronTrigger (year='2009', month='feb-dec', hour='8-10', "
                                  "timezone='Europe/Berlin')>")
         start_date = timezone.localize(datetime(2009, 1, 1))
         correct_next_date = timezone.localize(datetime(2009, 2, 1, 8))
@@ -45,6 +136,12 @@ class TestCronTrigger(object):
         start_date = timezone.localize(datetime(2012, 2, 1))
         correct_next_date = timezone.localize(datetime(2012, 2, 29))
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
+
+    def test_start_end_times_string(self, timezone, monkeypatch):
+        monkeypatch.setattr('apscheduler.triggers.cron.get_localzone', Mock(return_value=timezone))
+        trigger = CronTrigger(start_date='2016-11-05 05:06:53', end_date='2017-11-05 05:11:32')
+        assert trigger.start_date == timezone.localize(datetime(2016, 11, 5, 5, 6, 53))
+        assert trigger.end_date == timezone.localize(datetime(2017, 11, 5, 5, 11, 32))
 
     def test_cron_zero_value(self, timezone):
         trigger = CronTrigger(year=2009, month=2, hour=0, timezone=timezone)
@@ -287,6 +384,72 @@ class TestCronTrigger(object):
         for attr in CronTrigger.__slots__:
             assert getattr(trigger2, attr) == getattr(trigger, attr)
 
+    def test_jitter_produces_differrent_valid_results(self, timezone):
+        trigger = CronTrigger(minute='*', jitter=5)
+        now = timezone.localize(datetime(2017, 11, 12, 6, 55, 30))
+
+        results = set()
+        for _ in range(0, 100):
+            next_fire_time = trigger.get_next_fire_time(None, now)
+            results.add(next_fire_time)
+            assert timedelta(seconds=25) <= (next_fire_time - now) <= timedelta(seconds=35)
+
+        assert 1 < len(results)
+
+    def test_jitter_with_timezone(self, timezone):
+        est = pytz.FixedOffset(-300)
+        cst = pytz.FixedOffset(-360)
+        trigger = CronTrigger(hour=11, minute='*/5', timezone=est, jitter=5)
+        start_date = cst.localize(datetime(2009, 9, 26, 10, 16))
+        correct_next_date = est.localize(datetime(2009, 9, 26, 11, 20))
+        for _ in range(0, 100):
+            assert abs(trigger.get_next_fire_time(None, start_date) -
+                       correct_next_date) <= timedelta(seconds=5)
+
+    @pytest.mark.parametrize('trigger_args, start_date, start_date_dst, correct_next_date', [
+        ({'hour': 8}, datetime(2013, 3, 9, 12), False, datetime(2013, 3, 10, 8)),
+        ({'hour': 8}, datetime(2013, 11, 2, 12), True, datetime(2013, 11, 3, 8)),
+        ({'minute': '*/30'}, datetime(2013, 3, 10, 1, 35), False, datetime(2013, 3, 10, 3)),
+        ({'minute': '*/30'}, datetime(2013, 11, 3, 1, 35), True, datetime(2013, 11, 3, 1))
+    ], ids=['absolute_spring', 'absolute_autumn', 'interval_spring', 'interval_autumn'])
+    def test_jitter_dst_change(self, trigger_args, start_date, start_date_dst, correct_next_date):
+        timezone = pytz.timezone('US/Eastern')
+        trigger = CronTrigger(timezone=timezone, jitter=5, **trigger_args)
+        start_date = timezone.localize(start_date, is_dst=start_date_dst)
+        correct_next_date = timezone.localize(correct_next_date, is_dst=not start_date_dst)
+
+        for _ in range(0, 100):
+            next_fire_time = trigger.get_next_fire_time(None, start_date)
+            assert abs(next_fire_time - correct_next_date) <= timedelta(seconds=5)
+
+    @pytest.mark.parametrize('values, expected', [
+        (dict(day='*/31'), "Error validating expression '\*/31': the step value \(31\) is higher "
+                           "than the total range of the expression \(30\)"),
+        (dict(day='4-6/3'), "Error validating expression '4-6/3': the step value \(3\) is higher "
+                            "than the total range of the expression \(2\)"),
+        (dict(hour='0-24'), "Error validating expression '0-24': the last value \(24\) is higher "
+                            "than the maximum value \(23\)"),
+        (dict(day='0-3'), "Error validating expression '0-3': the first value \(0\) is lower than "
+                          "the minimum value \(1\)")
+    ], ids=['too_large_step_all', 'too_large_step_range', 'too_high_last', 'too_low_first'])
+    def test_invalid_ranges(self, values, expected):
+        pytest.raises(ValueError, CronTrigger, **values).match(expected)
+
+    @pytest.mark.parametrize('expr, expected_repr', [
+        ('* * * * *',
+         "<CronTrigger (month='*', day='*', day_of_week='*', hour='*', minute='*', "
+         "timezone='Europe/Berlin')>"),
+        ('0-14 * 14-28 jul fri',
+         "<CronTrigger (month='jul', day='14-28', day_of_week='fri', hour='*', minute='0-14', "
+         "timezone='Europe/Berlin')>"),
+        (' 0-14   * 14-28   jul       fri',
+         "<CronTrigger (month='jul', day='14-28', day_of_week='fri', hour='*', minute='0-14', "
+         "timezone='Europe/Berlin')>")
+    ], ids=['always', 'assorted', 'multiple_spaces_in_format'])
+    def test_from_crontab(self, expr, expected_repr, timezone):
+        trigger = CronTrigger.from_crontab(expr, timezone)
+        assert repr(trigger) == expected_repr
+
 
 class TestDateTrigger(object):
     @pytest.mark.parametrize('run_date,alter_tz,previous,now,expected', [
@@ -350,6 +513,13 @@ class TestIntervalTrigger(object):
     def test_invalid_interval(self, timezone):
         pytest.raises(TypeError, IntervalTrigger, '1-6', timezone=timezone)
 
+    def test_start_end_times_string(self, timezone, monkeypatch):
+        monkeypatch.setattr('apscheduler.triggers.interval.get_localzone',
+                            Mock(return_value=timezone))
+        trigger = IntervalTrigger(start_date='2016-11-05 05:06:53', end_date='2017-11-05 05:11:32')
+        assert trigger.start_date == timezone.localize(datetime(2016, 11, 5, 5, 6, 53))
+        assert trigger.end_date == timezone.localize(datetime(2017, 11, 5, 5, 11, 32))
+
     def test_before(self, trigger, timezone):
         """Tests that if "start_date" is later than "now", it will return start_date."""
         now = trigger.start_date - timedelta(seconds=2)
@@ -403,6 +573,10 @@ class TestIntervalTrigger(object):
         correct_next_date = eastern.localize(datetime(2013, 11, 3, 1), is_dst=False)
         assert str(trigger.get_next_fire_time(None, datetime_est)) == str(correct_next_date)
 
+    def test_space_in_expr(self, timezone):
+        trigger = CronTrigger(day='1-2, 4-7', timezone=timezone)
+        assert repr(trigger) == "<CronTrigger (day='1-2,4-7', timezone='Europe/Berlin')>"
+
     def test_repr(self, trigger):
         assert repr(trigger) == ("<IntervalTrigger (interval=datetime.timedelta(0, 1), "
                                  "start_date='2009-08-04 00:00:02 CEST', "
@@ -415,9 +589,134 @@ class TestIntervalTrigger(object):
         """Test that the trigger is pickleable."""
 
         trigger = IntervalTrigger(weeks=2, days=6, minutes=13, seconds=2,
-                                  start_date=date(2016, 4, 3), timezone=timezone)
+                                  start_date=date(2016, 4, 3), timezone=timezone,
+                                  jitter=12)
         data = pickle.dumps(trigger, 2)
         trigger2 = pickle.loads(data)
 
         for attr in IntervalTrigger.__slots__:
             assert getattr(trigger2, attr) == getattr(trigger, attr)
+
+    def test_jitter_produces_different_valid_results(self, timezone):
+        trigger = IntervalTrigger(seconds=5, timezone=timezone, jitter=3)
+        now = datetime.now(timezone)
+
+        results = set()
+        for _ in range(0, 100):
+            next_fire_time = trigger.get_next_fire_time(None, now)
+            results.add(next_fire_time)
+            assert timedelta(seconds=2) <= (next_fire_time - now) <= timedelta(seconds=8)
+        assert 1 < len(results)
+
+    @pytest.mark.parametrize('trigger_args, start_date, start_date_dst, correct_next_date', [
+        ({'hours': 1}, datetime(2013, 3, 10, 1, 35), False, datetime(2013, 3, 10, 3, 35)),
+        ({'hours': 1}, datetime(2013, 11, 3, 1, 35), True, datetime(2013, 11, 3, 1, 35))
+    ], ids=['interval_spring', 'interval_autumn'])
+    def test_jitter_dst_change(self, trigger_args, start_date, start_date_dst, correct_next_date):
+        timezone = pytz.timezone('US/Eastern')
+        epsilon = timedelta(seconds=1)
+        start_date = timezone.localize(start_date, is_dst=start_date_dst)
+        trigger = IntervalTrigger(timezone=timezone, start_date=start_date, jitter=5,
+                                  **trigger_args)
+        correct_next_date = timezone.localize(correct_next_date, is_dst=not start_date_dst)
+
+        for _ in range(0, 100):
+            next_fire_time = trigger.get_next_fire_time(None, start_date + epsilon)
+            assert abs(next_fire_time - correct_next_date) <= timedelta(seconds=5)
+
+
+class TestAndTrigger(object):
+    @pytest.fixture
+    def trigger(self, timezone):
+        return AndTrigger([
+            CronTrigger(month='5-8', day='6-15',
+                        end_date=timezone.localize(datetime(2017, 8, 10))),
+            CronTrigger(month='6-9', day='*/3', end_date=timezone.localize(datetime(2017, 9, 7)))
+        ])
+
+    @pytest.mark.parametrize('start_time, expected', [
+        (datetime(2017, 8, 6), datetime(2017, 8, 7)),
+        (datetime(2017, 8, 10, 1), None)
+    ], ids=['firstmatch', 'end'])
+    def test_next_fire_time(self, trigger, timezone, start_time, expected):
+        expected = timezone.localize(expected) if expected else None
+        assert trigger.get_next_fire_time(None, timezone.localize(start_time)) == expected
+
+    def test_jitter(self, trigger, timezone):
+        trigger.jitter = 5
+        start_time = timezone.localize(datetime(2017, 8, 6))
+        expected = timezone.localize(datetime(2017, 8, 7))
+        for _ in range(100):
+            next_fire_time = trigger.get_next_fire_time(None, start_time)
+            assert abs(expected - next_fire_time) <= timedelta(seconds=5)
+
+    @pytest.mark.parametrize('jitter', [None, 5], ids=['nojitter', 'jitter'])
+    def test_repr(self, trigger, jitter):
+        trigger.jitter = jitter
+        jitter_part = ', jitter={}'.format(jitter) if jitter else ''
+        assert repr(trigger) == (
+            "<AndTrigger([<CronTrigger (month='5-8', day='6-15', "
+            "end_date='2017-08-10 00:00:00 CEST', timezone='Europe/Berlin')>, <CronTrigger "
+            "(month='6-9', day='*/3', end_date='2017-09-07 00:00:00 CEST', "
+            "timezone='Europe/Berlin')>]{})>".format(jitter_part))
+
+    def test_str(self, trigger):
+        assert str(trigger) == "and[cron[month='5-8', day='6-15'], cron[month='6-9', day='*/3']]"
+
+    @pytest.mark.parametrize('jitter', [None, 5], ids=['nojitter', 'jitter'])
+    def test_pickle(self, trigger, jitter):
+        """Test that the trigger is pickleable."""
+        trigger.jitter = jitter
+        data = pickle.dumps(trigger, 2)
+        trigger2 = pickle.loads(data)
+
+        for attr in BaseCombiningTrigger.__slots__:
+            assert repr(getattr(trigger2, attr)) == repr(getattr(trigger, attr))
+
+
+class TestOrTrigger(object):
+    @pytest.fixture
+    def trigger(self, timezone):
+        return OrTrigger([
+            CronTrigger(month='5-8', day='6-15',
+                        end_date=timezone.localize(datetime(2017, 8, 10))),
+            CronTrigger(month='6-9', day='*/3', end_date=timezone.localize(datetime(2017, 9, 7)))
+        ])
+
+    @pytest.mark.parametrize('start_time, expected', [
+        (datetime(2017, 8, 6), datetime(2017, 8, 6)),
+        (datetime(2017, 9, 7, 1), None)
+    ], ids=['earliest', 'end'])
+    def test_next_fire_time(self, trigger, timezone, start_time, expected):
+        expected = timezone.localize(expected) if expected else None
+        assert trigger.get_next_fire_time(None, timezone.localize(start_time)) == expected
+
+    def test_jitter(self, trigger, timezone):
+        trigger.jitter = 5
+        start_time = expected = timezone.localize(datetime(2017, 8, 6))
+        for _ in range(100):
+            next_fire_time = trigger.get_next_fire_time(None, start_time)
+            assert abs(expected - next_fire_time) <= timedelta(seconds=5)
+
+    @pytest.mark.parametrize('jitter', [None, 5], ids=['nojitter', 'jitter'])
+    def test_repr(self, trigger, jitter):
+        trigger.jitter = jitter
+        jitter_part = ', jitter={}'.format(jitter) if jitter else ''
+        assert repr(trigger) == (
+            "<OrTrigger([<CronTrigger (month='5-8', day='6-15', "
+            "end_date='2017-08-10 00:00:00 CEST', timezone='Europe/Berlin')>, <CronTrigger "
+            "(month='6-9', day='*/3', end_date='2017-09-07 00:00:00 CEST', "
+            "timezone='Europe/Berlin')>]{})>".format(jitter_part))
+
+    def test_str(self, trigger):
+        assert str(trigger) == "or[cron[month='5-8', day='6-15'], cron[month='6-9', day='*/3']]"
+
+    @pytest.mark.parametrize('jitter', [None, 5], ids=['nojitter', 'jitter'])
+    def test_pickle(self, trigger, jitter):
+        """Test that the trigger is pickleable."""
+        trigger.jitter = jitter
+        data = pickle.dumps(trigger, 2)
+        trigger2 = pickle.loads(data)
+
+        for attr in BaseCombiningTrigger.__slots__:
+            assert repr(getattr(trigger2, attr)) == repr(getattr(trigger, attr))

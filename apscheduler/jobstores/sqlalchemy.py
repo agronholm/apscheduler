@@ -25,18 +25,23 @@ class SQLAlchemyJobStore(BaseJobStore):
 
     Plugin alias: ``sqlalchemy``
 
-    :param str url: connection string (see `SQLAlchemy documentation
-        <http://docs.sqlalchemy.org/en/latest/core/engines.html?highlight=create_engine#database-urls>`_
-        on this)
-    :param engine: an SQLAlchemy Engine to use instead of creating a new one based on ``url``
+    :param str url: connection string (see
+        :ref:`SQLAlchemy documentation <sqlalchemy:database_urls>` on this)
+    :param engine: an SQLAlchemy :class:`~sqlalchemy.engine.Engine` to use instead of creating a
+        new one based on ``url``
     :param str tablename: name of the table to store jobs in
-    :param metadata: a :class:`~sqlalchemy.MetaData` instance to use instead of creating a new one
+    :param metadata: a :class:`~sqlalchemy.schema.MetaData` instance to use instead of creating a
+        new one
     :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the
         highest available
+    :param str tableschema: name of the (existing) schema in the target database where the table
+        should be
+    :param dict engine_options: keyword arguments to :func:`~sqlalchemy.create_engine`
+        (ignored if ``engine`` is given)
     """
 
     def __init__(self, url=None, engine=None, tablename='apscheduler_jobs', metadata=None,
-                 pickle_protocol=pickle.HIGHEST_PROTOCOL):
+                 pickle_protocol=pickle.HIGHEST_PROTOCOL, tableschema=None, engine_options=None):
         super(SQLAlchemyJobStore, self).__init__()
         self.pickle_protocol = pickle_protocol
         metadata = maybe_ref(metadata) or MetaData()
@@ -44,7 +49,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         if engine:
             self.engine = maybe_ref(engine)
         elif url:
-            self.engine = create_engine(url)
+            self.engine = create_engine(url, **(engine_options or {}))
         else:
             raise ValueError('Need either "engine" or "url" defined')
 
@@ -54,7 +59,8 @@ class SQLAlchemyJobStore(BaseJobStore):
             tablename, metadata,
             Column('id', Unicode(191, _warn_on_bytestring=False), primary_key=True),
             Column('next_run_time', Float(25), index=True),
-            Column('job_state', LargeBinary, nullable=False)
+            Column('job_state', LargeBinary, nullable=False),
+            schema=tableschema
         )
 
     def start(self, scheduler, alias):
@@ -133,7 +139,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         for row in self.engine.execute(selectable):
             try:
                 jobs.append(self._reconstitute_job(row.job_state))
-            except:
+            except BaseException:
                 self._logger.exception('Unable to restore job "%s" -- removing it', row.id)
                 failed_job_ids.add(row.id)
 

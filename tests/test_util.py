@@ -1,4 +1,5 @@
 # coding: utf-8
+import platform
 from datetime import date, datetime, timedelta, tzinfo
 from functools import partial
 from types import ModuleType
@@ -190,10 +191,22 @@ class TestGetCallableName(object):
 
 
 class TestObjToRef(object):
-    @pytest.mark.parametrize('input', [partial(DummyClass.meth)], ids=['partial/bound method'])
-    def test_no_ref_found(self, input):
-        exc = pytest.raises(ValueError, obj_to_ref, input)
-        assert 'Cannot determine the reference to ' in str(exc.value)
+    @pytest.mark.parametrize('obj, error', [
+        (partial(DummyClass.meth), 'Cannot create a reference to a partial()'),
+        (lambda: None, 'Cannot create a reference to a lambda')
+    ], ids=['partial', 'lambda'])
+    def test_errors(self, obj, error):
+        exc = pytest.raises(ValueError, obj_to_ref, obj)
+        assert str(exc.value) == error
+
+    @pytest.mark.skipif(sys.version_info[:2] < (3, 3),
+                        reason='Requires __qualname__ (Python 3.3+)')
+    def test_nested_function_error(self):
+        def nested():
+            pass
+
+        exc = pytest.raises(ValueError, obj_to_ref, nested)
+        assert str(exc.value) == 'Cannot create a reference to a nested function'
 
     @pytest.mark.parametrize('input,expected', [
         pytest.mark.skipif(sys.version_info[:2] == (3, 2),
@@ -302,6 +315,8 @@ class TestCheckCallableArgs(object):
         check_callable_args(object().__setattr__, ('blah', 1), {})
 
     @minpython(3, 4)
+    @pytest.mark.skipif(platform.python_implementation() == 'PyPy',
+                        reason='PyPy does not expose signatures of builtins')
     def test_positional_only_args(self):
         """
         Tests that an attempt to use keyword arguments for positional-only arguments raises an

@@ -1,18 +1,21 @@
 from datetime import datetime
 from threading import Event
 from types import TracebackType
+import gc
 import time
 
 import pytest
+from pytz import UTC
 
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED, EVENT_JOB_EXECUTED
-from apscheduler.executors.base import MaxInstancesReachedError
+from apscheduler.executors.base import MaxInstancesReachedError, run_job
+from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 
 try:
-    from unittest.mock import Mock, MagicMock
+    from unittest.mock import Mock, MagicMock, patch
 except ImportError:
-    from mock import Mock, MagicMock
+    from mock import Mock, MagicMock, patch
 
 
 @pytest.fixture
@@ -120,7 +123,24 @@ def test_run_job_error(monkeypatch, executor):
     monkeypatch.setattr(executor, '_run_job_error', run_job_error)
     executor.submit_job(FauxJob(), [])
 
-    event.wait(2)
+    event.wait(5)
     assert str(exc_traceback[0]) == "dummy"
     if exc_traceback[1] is not None:
         assert isinstance(exc_traceback[1], TracebackType)
+
+
+def test_run_job_memory_leak():
+    class FooBar(object):
+        pass
+
+    def func():
+        foo = FooBar()  # noqa: F841
+        raise Exception('dummy')
+
+    fake_job = Mock(Job, func=func, args=(), kwargs={}, misfire_grace_time=1)
+    with patch('logging.getLogger'):
+        for _ in range(5):
+            run_job(fake_job, 'foo', [datetime.now(UTC)], __name__)
+
+    foos = [x for x in gc.get_objects() if type(x) is FooBar]
+    assert len(foos) == 0

@@ -123,12 +123,21 @@ def run_job(job, jobstore_alias, run_times, logger_name):
         logger.info('Running job "%s" (scheduled at %s)', job, run_time)
         try:
             retval = job.func(*job.args, **job.kwargs)
-        except:
+        except BaseException:
             exc, tb = sys.exc_info()[1:]
             formatted_tb = ''.join(format_tb(tb))
             events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
                                             exception=exc, traceback=formatted_tb))
             logger.exception('Job "%s" raised an exception', job)
+
+            # This is to prevent cyclic references that would lead to memory leaks
+            if six.PY2:
+                sys.exc_clear()
+                del tb
+            else:
+                import traceback
+                traceback.clear_frames(tb)
+                del tb
         else:
             events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
                                             retval=retval))

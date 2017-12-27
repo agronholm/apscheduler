@@ -1,33 +1,70 @@
 sudo: required
-
 language: python
 
-services:
-  - redis
-  - docker
+stages:
+  - name: test
+  - name: deploy to pypi
+    if: type = push AND tag =~ ^v\d+\.\d+\.\d+
 
-python:
-  - "2.7"
-  - "3.3"
-  - "3.4"
-  - "3.5"
-  - "pypy"
+jobs:
+  include:
+    - env: TOXENV=pypy
+      python: pypy
+      after_success: skip
 
-before_install:
-  - docker pull mongo:latest
-  - docker pull rethinkdb:latest
-  - docker pull jplock/zookeeper
-  - docker run -d -p 127.0.0.1:27017:27017 mongo
-  - docker run -d -p 127.0.0.1:28015:28015 rethinkdb
-  - docker run -d -p 127.0.0.1:2181:2181 jplock/zookeeper
+    - env: TOXENV=pypy3
+      python: pypy3
+      after_success: skip
 
-install: pip install tox-travis coveralls
+    - env: TOXENV=py27
+      python: "2.7"
+
+    - env: TOXENV=py34
+      python: "3.4"
+
+    - env: TOXENV=py35
+      python: "3.5"
+
+    - env: TOXENV=py36
+      python: "3.6"
+
+    - env: TOXENV=flake8
+      sudo: false
+      python: "3.5"
+      before_install: skip
+      after_success: skip
+
+    - stage: deploy to PyPI
+      sudo: false
+      python: "3.5"
+      before_install: skip
+      install: pip install -U setuptools
+      script: skip
+      after_success: true
+      deploy:
+        provider: pypi
+        user: agronholm
+        password:
+          secure: YXuMMv+Ukr49mhiMzy8+bXDilRo52y6YrEzxlLnEksLlq0BNjgRcAsiDzo46k6xuxGxo7XsWaGEP6TBPwTR6eVgmWKjEPrnqyQepRV9Ibrw7+V7DzJn4pBZWX9Pg2oe3WMlYhooIvy6tRDfSaB8cc06/k0ftSNbzAjzpeVk8k0VyLRsBRBqOsrnzvqlRNOUWi0dlgGqhZvGkDMpmi+WVv6rW3y/VaV+vRK88luKHXUy48eMEGPnL3xCgr727es5qmAP9fDKVGKpXvpGzZyRoeMor2HQwj5AFt9DH4YoBbzJRJESSgI4DugtgGPG7Uz1Xx+TxZY609UbR1kju00Vl1KsnGBsxvR0okmItcTzIgp1IRg8MVDGc+duD3oCjlFQEynJL/RExY/yTQfN5rJFtV6nrHrMVgaL2N2dEVFV8zxGvmrptKRq2ujuJ5t2ssMkKAwXRxg2wXQwCjrxUDRMWd7VfRgGadTTdM6TzoeMo8vlL2FA/RvcFVSnfItrSS4ip2FyswzevVyCQMdblLlnlwFG5YTKMAfljd7JzkyA02IND/nFXGcJ3BsP4ciOXoa49PvD+qbNwqL+6v8I5wCYfPlpqfpf9um2SLDYDE6Ka44p1MvnF3me3oaegt2SX92eDvkZN1TICdOxQuvTTGEx7pW8wJS3opBVaQ7Pes5PHO60=
+        distributions: sdist bdist_wheel
+        on:
+          tags: true
+          repo: agronholm/apscheduler
+
+before_install: docker-compose up -d
+
+install: pip install tox
 
 script: tox
 
-after_success: coveralls
+after_success:
+  - pip install coveralls
+  - coveralls
 
 notifications:
+  webhooks:
+    urls:
+      - https://webhooks.gitter.im/e/f41346c0f7c22d4fe002
   irc:
     channels:
       - "chat.freenode.net#apscheduler"

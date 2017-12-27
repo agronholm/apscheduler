@@ -14,7 +14,7 @@ class DebugExecutor(BaseExecutor):
     def _do_submit_job(self, job, run_times):
         try:
             events = run_job(job, job._jobstore_alias, run_times, self._logger.name)
-        except:
+        except BaseException:
             self._run_job_error(job.id, *sys.exc_info()[1:])
         else:
             self._run_job_success(job.id, events)

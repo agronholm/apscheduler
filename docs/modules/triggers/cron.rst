@@ -53,6 +53,9 @@ Expression     Field Description
 ``x,y,z``      any   Fire on any matching expression; can combine any number of any of the above expressions
 ============== ===== =======================================================================================
 
+.. note:: The ``month`` and ``day_of_week`` fields accept abbreviated English month and weekday names
+    (``jan`` – ``dec`` and ``mon`` – ``sun``) respectively.
+
 
 Daylight saving time behavior
 -----------------------------
@@ -104,3 +107,14 @@ The :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job` decorator w
     @sched.scheduled_job('cron', id='my_job_id', day='last sun')
     def some_decorated_task():
         print("I am printed at 00:00:00 on the last Sunday of every month!")
+
+To schedule a job using a standard crontab expression::
+
+    sched.add_job(job_function, CronTrigger.from_crontab('0 0 1-15 may-aug *'))
+
+The ``jitter`` option enables you to add a random component to the execution time. This might be useful if you have
+multiple servers and don't want them to run a job at the exact same moment or if you want to prevent jobs from running
+at sharp hours::
+
+    # Run the `job_function` every sharp hour with an extra-delay picked randomly in a [-120,+120] seconds window.
+    sched.add_job(job_function, 'cron', hour='*', jitter=120)

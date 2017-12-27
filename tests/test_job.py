@@ -1,5 +1,6 @@
 # coding: utf-8
 from datetime import datetime, timedelta
+from functools import partial
 
 import pytest
 import six
@@ -120,9 +121,7 @@ def test_private_modify_func_ref(job):
 
 def test_private_modify_unreachable_func(job):
     """Tests that func_ref remains None if no reference to the target callable can be found."""
-    def func():
-        pass
-
+    func = partial(dummyfunc)
     job._modify(func=func)
     assert job.func is func
     assert job.func_ref is None

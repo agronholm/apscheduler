@@ -78,14 +78,14 @@ def zookeeperjobstore():
                         'rethinkdbjobstore', 'zookeeperjobstore'],
                 ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper'])
 def jobstore(request):
-    return request.getfuncargvalue(request.param)
+    return request.getfixturevalue(request.param)
 
 
 @pytest.fixture(params=['sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore',
                         'rethinkdbjobstore', 'zookeeperjobstore'],
                 ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper'])
 def persistent_jobstore(request):
-    return request.getfuncargvalue(request.param)
+    return request.getfixturevalue(request.param)
 
 
 @pytest.fixture

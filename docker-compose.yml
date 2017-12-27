@@ -1,0 +1,21 @@
+version: "2"
+services:
+  redis:
+    image: redis
+    ports:
+      - 127.0.0.1:6379:6379
+
+  mongodb:
+    image: mongo
+    ports:
+      - 127.0.0.1:27017:27017
+
+  rethinkdb:
+    image: rethinkdb
+    ports:
+      - 127.0.0.1:28015:28015
+
+  zookeeper:
+    image: zookeeper
+    ports:
+      - 127.0.0.1:2181:2181
