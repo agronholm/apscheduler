@@ -160,7 +160,6 @@ class CronTrigger(BaseTrigger):
                                                               is_dst=dateval.dst()))
 
     def _find_next_potential_fire_time(self, start_date):
-        next_date = start_date
         fieldnum = 0
         next_date = datetime_ceil(start_date).astimezone(self.timezone)
         while 0 <= fieldnum < len(self.fields):
@@ -187,8 +186,6 @@ class CronTrigger(BaseTrigger):
                 return None
 
         if fieldnum >= 0:
-            if self.jitter is not None:
-                next_date = self._apply_jitter(next_date, self.jitter, now)
             return next_date
 
     def get_next_fire_time(self, previous_fire_time, now):
@@ -221,6 +218,8 @@ class CronTrigger(BaseTrigger):
 
                 next_date = self._find_next_potential_fire_time(last_date)
 
+        if self.jitter is not None:
+            next_date = self._apply_jitter(next_date, self.jitter, now)
         return next_date
 
     def __getstate__(self):
