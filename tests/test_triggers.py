@@ -100,6 +100,11 @@ class TestJitter(object):
             assert min_expected_dt <= trigger.get_next_fire_time(None, now) <= max_expected_dt
 
 
+DST_TIMEZONE = 'Europe/Berlin'
+DST_AUTUMN = datetime(2015, 10, 25, 2)  # must be top of the hour. the following hour is repeated
+DST_SPRING = datetime(2016, 3, 27, 2)  # must be top of the hour. the following hour is skipped
+
+
 class TestCronTrigger(object):
     def test_cron_trigger_1(self, timezone):
         trigger = CronTrigger(year='2009/2', month='1/3', day='5-13', timezone=timezone)
@@ -292,24 +297,68 @@ class TestCronTrigger(object):
         correct_next_date = timezone.localize(datetime(2009, 4, 8))
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
-    @pytest.mark.parametrize('trigger_args, start_date, start_date_dst, correct_next_date', [
-        ({'hour': 8}, datetime(2013, 3, 9, 12), False, datetime(2013, 3, 10, 8)),
-        ({'hour': 8}, datetime(2013, 11, 2, 12), True, datetime(2013, 11, 3, 8)),
-        ({'minute': '*/30'}, datetime(2013, 3, 10, 1, 35), False, datetime(2013, 3, 10, 3)),
-        ({'minute': '*/30'}, datetime(2013, 11, 3, 1, 35), True, datetime(2013, 11, 3, 1))
-    ], ids=['absolute_spring', 'absolute_autumn', 'interval_spring', 'interval_autumn'])
-    def test_dst_change(self, trigger_args, start_date, start_date_dst, correct_next_date):
+    @pytest.mark.parametrize(
+        'trigger_args, start_date, start_date_dst, correct_next_date_dst, correct_next_date',
+        [
+            ({'hour': (DST_SPRING.hour + 12) % 24}, DST_SPRING - timedelta(hours=6), False,
+             True, DST_SPRING + timedelta(hours=12)),
+            ({'hour': (DST_AUTUMN.hour + 12) % 24}, DST_AUTUMN - timedelta(hours=6), True,
+             False, DST_AUTUMN + timedelta(hours=12)),
+            ({'minute': 30}, DST_AUTUMN - timedelta(hours=0.25), True,
+             True, DST_AUTUMN + timedelta(hours=0.5)),
+            ({'minute': 30}, DST_AUTUMN + timedelta(hours=0.75), True,
+             False, DST_AUTUMN + timedelta(hours=0.5)),
+            ({'minute': 30}, DST_AUTUMN + timedelta(hours=0.75), False,
+             False, DST_AUTUMN + timedelta(hours=1.5)),
+            ({'hour': '*'}, DST_SPRING - timedelta(hours=0.25), True,
+             False, DST_SPRING + timedelta(hours=1)),
+            ({'hour': DST_SPRING.hour, 'minute': 30}, DST_SPRING - timedelta(hours=6), True,
+             False, DST_SPRING + timedelta(hours=24.5)),
+            ({'minute': '*/30'}, DST_SPRING - timedelta(hours=0.25), False,
+             True, DST_SPRING + timedelta(hours=1)),
+            ({'minute': '*/30'}, DST_AUTUMN - timedelta(hours=0.25), True,
+             True, DST_AUTUMN),
+            ({'minute': '*/30'}, DST_AUTUMN + timedelta(hours=0.25), True,
+             True, DST_AUTUMN + timedelta(hours=0.5)),
+            ({'minute': '*/30'}, DST_AUTUMN + timedelta(hours=0.75), True,
+             False, DST_AUTUMN),
+        ],
+        ids=[
+            'absolute_spring', 'absolute_autumn',
+            'repeat_hour_enter', 'repeat_hour', 'repeat_hour_exit',
+            'interval_skipped_hour', 'absolute_skipped_hour',
+            'interval_spring', 'interval_autumn_enter',
+            'interval_autumn', 'interval_autumn_exit',
+        ],
+    )
+    def test_dst_change(self, trigger_args, start_date, start_date_dst,
+                        correct_next_date_dst, correct_next_date):
         """
         Making sure that CronTrigger works correctly when crossing the DST switch threshold.
-        Note that you should explicitly compare datetimes as strings to avoid the internal datetime
-        comparison which would test for equality in the UTC timezone.
+        Note that you should explicitly compare datetimes as strings to avoid the internal
+        datetime comparison which would test for equality in the UTC timezone.
 
         """
-        timezone = pytz.timezone('US/Eastern')
+        timezone = pytz.timezone(DST_TIMEZONE)
         trigger = CronTrigger(timezone=timezone, **trigger_args)
         start_date = timezone.localize(start_date, is_dst=start_date_dst)
-        correct_next_date = timezone.localize(correct_next_date, is_dst=not start_date_dst)
-        assert str(trigger.get_next_fire_time(None, start_date)) == str(correct_next_date)
+        correct_next_date = timezone.localize(correct_next_date, is_dst=correct_next_date_dst)
+        next_date = trigger.get_next_fire_time(None, start_date)
+        print('trigger', trigger, 'start', start_date, 'expected next',
+              correct_next_date, 'got next', next_date)
+        assert str(next_date) == str(correct_next_date)
+
+    def test_dst_missing_hour(self, timezone):
+        """
+        It might be that a CronTrigger can be configured to only ever fire in the missing
+        time period during the switch from standard to daylight saving time,
+        resulting in a trigger unable to fire.
+
+        """
+        trigger = CronTrigger(timezone=timezone, month=3, day='last sun', hour=2, minute=30)
+        start_date = timezone.localize(datetime(2006, 4, 1), is_dst=False)
+        next_date = trigger.get_next_fire_time(None, start_date)
+        assert next_date is None
 
     def test_timezone_change(self, timezone):
         """

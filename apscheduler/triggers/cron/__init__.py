@@ -156,16 +156,10 @@ class CronTrigger(BaseTrigger):
                 else:
                     values[field.name] = new_value
 
-        return self.timezone.localize(datetime(**values))
+        return self.timezone.normalize(self.timezone.localize(datetime(**values),
+                                                              is_dst=dateval.dst()))
 
-    def get_next_fire_time(self, previous_fire_time, now):
-        if previous_fire_time:
-            start_date = min(now, previous_fire_time + timedelta(microseconds=1))
-            if start_date == previous_fire_time:
-                start_date += timedelta(microseconds=1)
-        else:
-            start_date = max(now, self.start_date) if self.start_date else now
-
+    def _find_next_potential_fire_time(self, start_date):
         fieldnum = 0
         next_date = datetime_ceil(start_date).astimezone(self.timezone)
         while 0 <= fieldnum < len(self.fields):
@@ -192,9 +186,41 @@ class CronTrigger(BaseTrigger):
                 return None
 
         if fieldnum >= 0:
-            if self.jitter is not None:
-                next_date = self._apply_jitter(next_date, self.jitter, now)
             return next_date
+
+    def get_next_fire_time(self, previous_fire_time, now):
+        if previous_fire_time:
+            start_date = min(now, previous_fire_time + timedelta(microseconds=1))
+            if start_date == previous_fire_time:
+                start_date += timedelta(microseconds=1)
+        else:
+            start_date = max(now, self.start_date) if self.start_date else now
+
+        start_date = datetime_ceil(start_date).astimezone(self.timezone)
+
+        next_date = self._find_next_potential_fire_time(start_date)
+
+        # check if a switch from no dst to dst falls into the 24 hours before the next date
+        if (next_date and
+                next_date.dst() > self.timezone.normalize(next_date - timedelta(days=1)).dst()):
+            # perform a fixed point iteration to cope with "missing time"
+            # due to a switch from winter to summer time
+            last_date = None
+            loops = 0
+            while last_date != next_date:
+                if loops > 10 and next_date - start_date > timedelta(days=5*365):
+                    # if there's no valid fire time in the next ~5 years,
+                    # then give up and return "no next fire time"
+                    return None
+
+                last_date = next_date
+                loops += 1
+
+                next_date = self._find_next_potential_fire_time(last_date)
+
+        if self.jitter is not None:
+            next_date = self._apply_jitter(next_date, self.jitter, now)
+        return next_date
 
     def __getstate__(self):
         return {
