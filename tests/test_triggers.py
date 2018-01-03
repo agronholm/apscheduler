@@ -568,6 +568,15 @@ class TestIntervalTrigger(object):
             assert timedelta(seconds=2) <= (next_fire_time - now) <= timedelta(seconds=8)
         assert 1 < len(results)
 
+    def test_jitter_with_end_date(self, timezone):
+        now = timezone.localize(datetime(2017, 11, 12, 6, 55, 58))
+        end_date = timezone.localize(datetime(2017, 11, 12, 6, 56, 0))
+        trigger = IntervalTrigger(seconds=5, jitter=5, end_date=end_date)
+
+        for _ in range(0, 100):
+            next_fire_time = trigger.get_next_fire_time(None, now)
+            assert next_fire_time is None or next_fire_time <= end_date
+
     @pytest.mark.parametrize('trigger_args, start_date, start_date_dst, correct_next_date', [
         ({'hours': 1}, datetime(2013, 3, 10, 1, 35), False, datetime(2013, 3, 10, 3, 35)),
         ({'hours': 1}, datetime(2013, 11, 3, 1, 35), True, datetime(2013, 11, 3, 1, 35))
