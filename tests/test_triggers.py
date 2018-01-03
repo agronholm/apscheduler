@@ -347,6 +347,15 @@ class TestCronTrigger(object):
 
         assert 1 < len(results)
 
+    def test_jitter_with_end_date(self, timezone):
+        now = timezone.localize(datetime(2017, 11, 12, 6, 55, 30))
+        end_date = timezone.localize(datetime(2017, 11, 12, 6, 56, 0))
+        trigger = CronTrigger(minute='*', jitter=5, end_date=end_date)
+
+        for _ in range(0, 100):
+            next_fire_time = trigger.get_next_fire_time(None, now)
+            assert next_fire_time is None or next_fire_time <= end_date
+
     def test_jitter_with_timezone(self, timezone):
         est = pytz.FixedOffset(-300)
         cst = pytz.FixedOffset(-360)
