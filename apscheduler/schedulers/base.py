@@ -546,7 +546,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         if pending is not None:
             warnings.warn('The "pending" option is deprecated -- get_jobs() always returns '
-                          'pending jobs if the scheduler has been started and scheduled jobs '
+                          'scheduled jobs if the scheduler has been started and pending jobs '
                           'otherwise', DeprecationWarning)
 
         with self._jobstores_lock:
