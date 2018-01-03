@@ -19,7 +19,8 @@ from apscheduler.jobstores.base import ConflictingIdError, JobLookupError, BaseJ
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import asbool, asint, astimezone, maybe_ref, timedelta_seconds, undefined
+from apscheduler.util import (
+    asbool, asint, astimezone, maybe_ref, timedelta_seconds, undefined, TIMEOUT_MAX)
 from apscheduler.events import (
     SchedulerEvent, JobEvent, JobSubmissionEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN,
     EVENT_JOBSTORE_ADDED, EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_JOB_MODIFIED, EVENT_JOB_REMOVED,
@@ -999,7 +1000,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             wait_seconds = None
             self._logger.debug('No jobs; waiting until a job is added')
         else:
-            wait_seconds = max(timedelta_seconds(next_wakeup_time - now), 0)
+            wait_seconds = min(max(timedelta_seconds(next_wakeup_time - now), 0), TIMEOUT_MAX)
             self._logger.debug('Next wakeup is due at %s (in %f seconds)', next_wakeup_time,
                                wait_seconds)
 

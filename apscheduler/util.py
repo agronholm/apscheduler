@@ -1,10 +1,11 @@
 """This module contains several handy functions primarily meant for internal use."""
 
 from __future__ import division
+
 from datetime import date, datetime, time, timedelta, tzinfo
 from calendar import timegm
-import re
 from functools import partial
+import re
 
 from pytz import timezone, utc
 import six
@@ -21,7 +22,8 @@ except ImportError:
 
 __all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
            'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'get_callable_name',
-           'obj_to_ref', 'ref_to_obj', 'maybe_ref', 'repr_escape', 'check_callable_args')
+           'obj_to_ref', 'ref_to_obj', 'maybe_ref', 'repr_escape', 'check_callable_args',
+           'TIMEOUT_MAX')
 
 
 class _Undefined(object):

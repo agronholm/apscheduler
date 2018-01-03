@@ -4,6 +4,12 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.5.1
+-----
+
+* Fixed ``OverflowError`` on Windows when the wait time is too long
+
+
 3.5.0
 -----
 
