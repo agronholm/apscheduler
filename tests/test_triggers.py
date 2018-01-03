@@ -335,7 +335,7 @@ class TestCronTrigger(object):
         for attr in CronTrigger.__slots__:
             assert getattr(trigger2, attr) == getattr(trigger, attr)
 
-    def test_jitter_produces_differrent_valid_results(self, timezone):
+    def test_jitter_produces_different_valid_results(self, timezone):
         trigger = CronTrigger(minute='*', jitter=5)
         now = timezone.localize(datetime(2017, 11, 12, 6, 55, 30))
 
