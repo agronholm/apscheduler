@@ -558,12 +558,13 @@ class TestIntervalTrigger(object):
             assert getattr(trigger2, attr) == getattr(trigger, attr)
 
     def test_jitter_produces_different_valid_results(self, timezone):
-        trigger = IntervalTrigger(seconds=5, timezone=timezone, jitter=3)
+        epsilon = timedelta(seconds=1)
         now = datetime.now(timezone)
+        trigger = IntervalTrigger(seconds=5, timezone=timezone, start_date=now, jitter=3)
 
         results = set()
         for _ in range(0, 100):
-            next_fire_time = trigger.get_next_fire_time(None, now)
+            next_fire_time = trigger.get_next_fire_time(None, now + epsilon)
             results.add(next_fire_time)
             assert timedelta(seconds=2) <= (next_fire_time - now) <= timedelta(seconds=8)
         assert 1 < len(results)
