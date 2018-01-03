@@ -192,9 +192,8 @@ class CronTrigger(BaseTrigger):
                 return None
 
         if fieldnum >= 0:
-            if self.jitter is not None:
-                next_date = self._apply_jitter(next_date, self.jitter, now)
-            return next_date
+            next_date = self._apply_jitter(next_date, self.jitter, now)
+            return min(next_date, self.end_date) if self.end_date else next_date
 
     def __getstate__(self):
         return {

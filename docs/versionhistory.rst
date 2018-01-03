@@ -9,6 +9,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Fixed ``OverflowError`` on Windows when the wait time is too long
 
+* Fixed ``CronTrigger`` sometimes producing fire times beyond ``end_date`` when jitter is enabled
+  (thanks to gilbsgilbs for the tests)
+
 
 3.5.0
 -----

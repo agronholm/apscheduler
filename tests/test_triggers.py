@@ -373,6 +373,15 @@ class TestCronTrigger(object):
             next_fire_time = trigger.get_next_fire_time(None, start_date)
             assert abs(next_fire_time - correct_next_date) <= timedelta(seconds=5)
 
+    def test_jitter_with_end_date(self, timezone):
+        now = timezone.localize(datetime(2017, 11, 12, 6, 55, 30))
+        end_date = timezone.localize(datetime(2017, 11, 12, 6, 56, 0))
+        trigger = CronTrigger(minute='*', jitter=5, end_date=end_date)
+
+        for _ in range(0, 100):
+            next_fire_time = trigger.get_next_fire_time(None, now)
+            assert next_fire_time is None or next_fire_time <= end_date
+
     @pytest.mark.parametrize('values, expected', [
         (dict(day='*/31'), "Error validating expression '\*/31': the step value \(31\) is higher "
                            "than the total range of the expression \(30\)"),
@@ -574,6 +583,15 @@ class TestIntervalTrigger(object):
         for _ in range(0, 100):
             next_fire_time = trigger.get_next_fire_time(None, start_date + epsilon)
             assert abs(next_fire_time - correct_next_date) <= timedelta(seconds=5)
+
+    def test_jitter_with_end_date(self, timezone):
+        now = timezone.localize(datetime(2017, 11, 12, 6, 55, 58))
+        end_date = timezone.localize(datetime(2017, 11, 12, 6, 56, 0))
+        trigger = IntervalTrigger(seconds=5, jitter=5, end_date=end_date)
+
+        for _ in range(0, 100):
+            next_fire_time = trigger.get_next_fire_time(None, now)
+            assert next_fire_time is None or next_fire_time <= end_date
 
 
 class TestAndTrigger(object):
