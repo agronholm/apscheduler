@@ -24,7 +24,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 * Added better validation for the steps and ranges of different expressions in ``CronTrigger``
 
-* Added support for named months (``january`` – ``december``) in ``CronTrigger`` month expressions
+* Added support for named months (``jan`` – ``dec``) in ``CronTrigger`` month expressions
 
 * Added support for creating a ``CronTrigger`` from a crontab expression
 
