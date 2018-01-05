@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from pytz import NonExistentTimeError, AmbiguousTimeError
 from tzlocal import get_localzone
 import six
 
@@ -145,7 +146,7 @@ class CronTrigger(BaseTrigger):
         difference = datetime(**values) - dateval.replace(tzinfo=None)
         return self.timezone.normalize(dateval + difference), fieldnum
 
-    def _set_field_value(self, dateval, fieldnum, new_value):
+    def _set_field_value(self, dateval, fieldnum, new_value, is_dst=None):
         values = {}
         for i, field in enumerate(self.fields):
             if field.REAL:
@@ -156,7 +157,7 @@ class CronTrigger(BaseTrigger):
                 else:
                     values[field.name] = new_value
 
-        return self.timezone.localize(datetime(**values))
+        return self.timezone.localize(datetime(**values), is_dst=is_dst)
 
     def get_next_fire_time(self, previous_fire_time, now):
         if previous_fire_time:
@@ -179,8 +180,21 @@ class CronTrigger(BaseTrigger):
             elif next_value > curr_value:
                 # A valid, but higher than the starting value, was found
                 if field.REAL:
-                    next_date = self._set_field_value(next_date, fieldnum, next_value)
-                    fieldnum += 1
+                    try:
+                        next_date = self._set_field_value(next_date, fieldnum, next_value)
+                        fieldnum += 1
+                    except NonExistentTimeError:
+                        # Skip this field value
+                        next_date, fieldnum = self._increment_field_value(next_date, fieldnum)
+                    except AmbiguousTimeError:
+                        # Try this datetime with DST set unless it's earlier than
+                        # previous_run_time, in which case don't set DST
+                        next_date = self._set_field_value(next_date, fieldnum, next_value,
+                                                          is_dst=True)
+                        if previous_fire_time and next_date <= previous_fire_time:
+                            next_date = self._set_field_value(next_date, fieldnum, next_value,
+                                                              is_dst=False)
+                        fieldnum += 1
                 else:
                     next_date, fieldnum = self._increment_field_value(next_date, fieldnum)
             else:

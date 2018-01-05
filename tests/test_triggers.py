@@ -410,6 +410,31 @@ class TestCronTrigger(object):
         trigger = CronTrigger.from_crontab(expr, timezone)
         assert repr(trigger) == expected_repr
 
+    @pytest.mark.parametrize('args, now, expected', [
+        ({'minute': '*/5'}, datetime(2016, 3, 27, 1, 59), datetime(2016, 3, 27, 3)),
+        ({'hour': 2, 'minute': 30}, datetime(2016, 3, 26, 2, 31), datetime(2016, 3, 28, 2, 30))
+    ], ids=['jump_forward', 'skip_day'])
+    def test_dst_forward(self, args, now, expected, timezone):
+        trigger = CronTrigger(timezone=timezone, **args)
+        now = timezone.localize(now)
+        expected = timezone.localize(expected)
+        assert trigger.get_next_fire_time(None, now) == expected
+
+    @pytest.mark.parametrize('args, previous, previous_dst, expected, expected_dst', [
+        ({'minute': '*/5'}, datetime(2016, 10, 30, 2, 59), True, datetime(2016, 10, 30, 2), False),
+        ({'hour': 2, 'minute': 30}, datetime(2016, 10, 30, 2, 30), True,
+         datetime(2016, 10, 30, 2, 30), False),
+        ({'hour': 2, 'minute': 30}, datetime(2016, 10, 30, 1), True,
+         datetime(2016, 10, 30, 2, 30), True)
+    ], ids=['backward1', 'backward2', 'forward'])
+    def test_dst_backward(self, args, previous: datetime, previous_dst, expected, expected_dst,
+                          timezone):
+        trigger = CronTrigger(timezone=timezone, **args)
+        now = timezone.localize(datetime(2016, 10, 30, 4))
+        previous = timezone.localize(previous, is_dst=previous_dst)
+        expected = timezone.localize(expected, is_dst=expected_dst)
+        assert trigger.get_next_fire_time(previous, now) == expected
+
 
 class TestDateTrigger(object):
     @pytest.mark.parametrize('run_date,alter_tz,previous,now,expected', [
