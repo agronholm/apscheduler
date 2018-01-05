@@ -427,8 +427,7 @@ class TestCronTrigger(object):
         ({'hour': 2, 'minute': 30}, datetime(2016, 10, 30, 1), True,
          datetime(2016, 10, 30, 2, 30), True)
     ], ids=['backward1', 'backward2', 'forward'])
-    def test_dst_backward(self, args, previous: datetime, previous_dst, expected, expected_dst,
-                          timezone):
+    def test_dst_backward(self, args, previous, previous_dst, expected, expected_dst, timezone):
         trigger = CronTrigger(timezone=timezone, **args)
         now = timezone.localize(datetime(2016, 10, 30, 4))
         previous = timezone.localize(previous, is_dst=previous_dst)
