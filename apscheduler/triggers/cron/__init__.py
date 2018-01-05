@@ -187,11 +187,11 @@ class CronTrigger(BaseTrigger):
                         # Skip this field value
                         next_date, fieldnum = self._increment_field_value(next_date, fieldnum)
                     except AmbiguousTimeError:
-                        # Try this datetime with DST set unless it's earlier than
-                        # previous_run_time, in which case don't set DST
+                        # Try this datetime with DST set unless it's earlier than start_date,
+                        # in which case don't set DST
                         next_date = self._set_field_value(next_date, fieldnum, next_value,
                                                           is_dst=True)
-                        if previous_fire_time and next_date <= previous_fire_time:
+                        if next_date < start_date:
                             next_date = self._set_field_value(next_date, fieldnum, next_value,
                                                               is_dst=False)
                         fieldnum += 1
