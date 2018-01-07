@@ -8,6 +8,8 @@ import re
 import six
 from pytz import timezone, utc
 
+from inspect import signature
+
 try:
     from threading import TIMEOUT_MAX
 except ImportError:
