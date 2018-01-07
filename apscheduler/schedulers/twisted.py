@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from functools import wraps
 
 from apscheduler.schedulers.base import BaseScheduler

@@ -1,7 +1,5 @@
 """This module contains several handy functions primarily meant for internal use."""
 
-from __future__ import division
-
 from datetime import date, datetime, time, timedelta, tzinfo
 from calendar import timegm
 from functools import partial
