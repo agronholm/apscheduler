@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 import pickle
 from datetime import datetime
 
