@@ -1,8 +1,9 @@
-import asyncio
-from functools import partial, wraps
+from functools import wraps, partial
 
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.util import maybe_ref
+
+import asyncio
 
 
 def run_in_event_loop(func):

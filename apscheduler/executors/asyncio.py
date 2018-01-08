@@ -1,7 +1,8 @@
 import sys
-from asyncio import iscoroutinefunction
 
 from apscheduler.executors.base import BaseExecutor, run_job
+
+from asyncio import iscoroutinefunction
 from apscheduler.executors.base_py3 import run_coroutine_job
 
 

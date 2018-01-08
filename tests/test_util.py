@@ -1,20 +1,19 @@
 # coding: utf-8
 import platform
-import sys
 from datetime import date, datetime, timedelta, tzinfo
 from functools import partial
 from types import ModuleType
-from unittest.mock import Mock
 
 import pytest
 import pytz
+import sys
 
-from apscheduler.util import (asbool, asint, astimezone, check_callable_args,
-                              convert_to_datetime, datetime_ceil,
-                              datetime_repr, datetime_to_utc_timestamp,
-                              get_callable_name, maybe_ref, obj_to_ref,
-                              ref_to_obj, timedelta_seconds,
-                              utc_timestamp_to_datetime)
+from apscheduler.util import (
+    asint, asbool, astimezone, convert_to_datetime, datetime_to_utc_timestamp,
+    utc_timestamp_to_datetime, timedelta_seconds, datetime_ceil, get_callable_name, obj_to_ref,
+    ref_to_obj, maybe_ref, check_callable_args, datetime_repr)
+
+from unittest.mock import Mock
 
 
 class DummyClass(object):

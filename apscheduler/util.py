@@ -5,8 +5,8 @@ from calendar import timegm
 from functools import partial
 import re
 
-import six
 from pytz import timezone, utc
+import six
 
 from inspect import signature
 

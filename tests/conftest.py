@@ -1,7 +1,6 @@
 # coding: utf-8
-import sys
 from datetime import datetime
-from unittest.mock import Mock
+import sys
 
 import pytest
 import pytz
@@ -9,6 +8,8 @@ import pytz
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
+
+from unittest.mock import Mock
 
 
 def pytest_ignore_collect(path, config):

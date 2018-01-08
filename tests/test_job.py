@@ -1,13 +1,14 @@
 # coding: utf-8
 from datetime import datetime, timedelta
 from functools import partial
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.triggers.date import DateTrigger
+
+from unittest.mock import MagicMock, patch
 
 
 def dummyfunc():
