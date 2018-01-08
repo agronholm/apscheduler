@@ -1,13 +1,11 @@
 from __future__ import absolute_import
-
-import pickle
 import warnings
 
+from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
+from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
-from apscheduler.jobstores.base import (BaseJobStore, ConflictingIdError,
-                                        JobLookupError)
-from apscheduler.util import (datetime_to_utc_timestamp, maybe_ref,
-                              utc_timestamp_to_datetime)
+
+import pickle
 
 try:
     from bson.binary import Binary
