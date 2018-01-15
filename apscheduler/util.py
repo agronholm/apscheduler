@@ -7,7 +7,7 @@ from calendar import timegm
 from functools import partial
 import re
 
-from pytz import timezone, utc
+from pytz import timezone, utc, FixedOffset
 import six
 
 try:
@@ -94,8 +94,9 @@ def astimezone(obj):
 
 _DATE_REGEX = re.compile(
     r'(?P<year>\d{4})-(?P<month>\d{1,2})-(?P<day>\d{1,2})'
-    r'(?: (?P<hour>\d{1,2}):(?P<minute>\d{1,2}):(?P<second>\d{1,2})'
-    r'(?:\.(?P<microsecond>\d{1,6}))?)?')
+    r'(?:[ T](?P<hour>\d{1,2}):(?P<minute>\d{1,2}):(?P<second>\d{1,2})'
+    r'(?:\.(?P<microsecond>\d{1,6}))?'
+    r'(?P<timezone>Z|[+-]\d\d:\d\d)?)?$')
 
 
 def convert_to_datetime(input, tz, arg_name):
@@ -107,7 +108,9 @@ def convert_to_datetime(input, tz, arg_name):
     If the input is a string, it is parsed as a datetime with the given timezone.
 
     Date strings are accepted in three different forms: date only (Y-m-d), date with time
-    (Y-m-d H:M:S) or with date+time with microseconds (Y-m-d H:M:S.micro).
+    (Y-m-d H:M:S) or with date+time with microseconds (Y-m-d H:M:S.micro). Additionally you can
+    override the time zone by giving a specific offset in the format specified by ISO 8601:
+    Z (UTC), +HH:MM or -HH:MM.
 
     :param str|datetime input: the datetime or string to convert to a timezone aware datetime
     :param datetime.tzinfo tz: timezone to interpret ``input`` in
@@ -125,8 +128,17 @@ def convert_to_datetime(input, tz, arg_name):
         m = _DATE_REGEX.match(input)
         if not m:
             raise ValueError('Invalid date string')
-        values = [(k, int(v or 0)) for k, v in m.groupdict().items()]
-        values = dict(values)
+
+        values = m.groupdict()
+        tzname = values.pop('timezone')
+        if tzname == 'Z':
+            tz = utc
+        elif tzname:
+            hours, minutes = (int(x) for x in tzname[1:].split(':'))
+            sign = 1 if tzname[0] == '+' else -1
+            tz = FixedOffset(sign * (hours * 60 + minutes))
+
+        values = {k: int(v or 0) for k, v in values.items()}
         datetime_ = datetime(**values)
     else:
         raise TypeError('Unsupported type for %s: %s' % (arg_name, input.__class__.__name__))
