@@ -239,7 +239,7 @@ Starting the scheduler
 
 Starting the scheduler is done by simply calling
 :meth:`~apscheduler.schedulers.base.BaseScheduler.start` on the scheduler. For schedulers other
-than `~apscheduler.schedulers.blocking.BlockingScheduler`, this call will return immediately and
+than :class:`~apscheduler.schedulers.blocking.BlockingScheduler`, this call will return immediately and
 you can continue the initialization process of your application, possibly adding jobs to the
 scheduler.
 
