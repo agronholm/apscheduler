@@ -56,7 +56,7 @@ setup(
         'testing': [
             'pytest',
             'pytest-cov',
-            'pytest-tornado'
+            'pytest-tornado5'
         ],
         'testing:python_version == "2.7"': ['mock'],
         'testing:python_version != "2.7"': ['pytest_asyncio < 0.6.0']
