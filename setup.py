@@ -31,7 +31,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6'
     ],
-    keywords='这是我的测试11bench',
+    keywords='这是我的测试11bench，要合并到主',
     license='MIT',
     packages=find_packages(exclude=['tests']),
     setup_requires=[
