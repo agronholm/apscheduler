@@ -31,7 +31,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6'
     ],
-    keywords='scheduling cron',
+    keywords='这是我的测试bench',
     license='MIT',
     packages=find_packages(exclude=['tests']),
     setup_requires=[
