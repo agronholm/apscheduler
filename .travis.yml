@@ -65,9 +65,3 @@ notifications:
   webhooks:
     urls:
       - https://webhooks.gitter.im/e/f41346c0f7c22d4fe002
-  irc:
-    channels:
-      - "chat.freenode.net#apscheduler"
-    on_success: change
-    use_notice: true
-    skip_join: true
