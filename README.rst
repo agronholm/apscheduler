@@ -44,7 +44,8 @@ APScheduler also integrates with several common Python frameworks, like:
   `PyQt <http://www.riverbankcomputing.com/software/pyqt/intro>`_ or
   `PySide <http://qt-project.org/wiki/PySide>`_)
   
-There is an extension module wrapping around APScheduler for:
+There are extension modules wrapping around APScheduler for:
+
 * `Django <https://github.com/jarekwg/django-apscheduler>`_
 
 .. [#f1] The cutoff period for this is also configurable.
