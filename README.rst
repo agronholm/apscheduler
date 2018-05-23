@@ -40,9 +40,6 @@ APScheduler also integrates with several common Python frameworks, like:
 * `gevent <http://www.gevent.org/>`_
 * `Tornado <http://www.tornadoweb.org/>`_
 * `Twisted <http://twistedmatrix.com/>`_
-* `Qt <http://qt-project.org/>`_ (using either
-  `PyQt <http://www.riverbankcomputing.com/software/pyqt/intro>`_ or
-  `PySide <http://qt-project.org/wiki/PySide>`_)
 
 .. [#f1] The cutoff period for this is also configurable.
 

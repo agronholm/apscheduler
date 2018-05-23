@@ -1033,23 +1033,3 @@ class TestTwistedScheduler(SchedulerImplementationTestBase):
             reactor.callFromThread(scheduler.shutdown)
         reactor.callFromThread(reactor.stop)
         thread.join()
-
-
-@pytest.mark.skip
-class TestQtScheduler(SchedulerImplementationTestBase):
-    @pytest.fixture(scope='class')
-    def coreapp(self):
-        QtCore = pytest.importorskip('PySide.QtCore')
-        QtCore.QCoreApplication([])
-
-    @pytest.fixture
-    def scheduler(self, coreapp):
-        qt = pytest.importorskip('apscheduler.schedulers.qt')
-        return qt.QtScheduler()
-
-    def wait_event(self, queue):
-        from PySide.QtCore import QCoreApplication
-
-        while queue.empty():
-            QCoreApplication.processEvents()
-        return queue.get_nowait()
