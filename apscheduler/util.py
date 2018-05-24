@@ -9,9 +9,10 @@ import re
 
 from pytz import timezone, utc, FixedOffset
 
-__all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
-           'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'get_callable_name',
-           'obj_to_ref', 'ref_to_obj', 'maybe_ref', 'check_callable_args')
+__all__ = ('undefined', 'asint', 'asbool', 'astimezone', 'convert_to_datetime',
+           'datetime_to_utc_timestamp', 'utc_timestamp_to_datetime', 'timedelta_seconds',
+           'datetime_ceil', 'datetime_repr', 'get_callable_name', 'obj_to_ref', 'ref_to_obj',
+           'maybe_ref', 'check_callable_args')
 
 
 class _Undefined:
