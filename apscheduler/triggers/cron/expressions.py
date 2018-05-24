@@ -13,7 +13,7 @@ WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
 
-class AllExpression(object):
+class AllExpression:
     value_re = re.compile(r'\*(?:/(?P<step>\d+))?$')
 
     def __init__(self, step=None):
@@ -61,7 +61,7 @@ class RangeExpression(AllExpression):
         r'(?P<first>\d+)(?:-(?P<last>\d+))?(?:/(?P<step>\d+))?$')
 
     def __init__(self, first, last=None, step=None):
-        super(RangeExpression, self).__init__(step)
+        super().__init__(step)
         first = asint(first)
         last = asint(last)
         if last is None and step is None:
@@ -74,7 +74,7 @@ class RangeExpression(AllExpression):
     def validate_range(self, field_name):
         from apscheduler.triggers.cron.fields import MIN_VALUES, MAX_VALUES
 
-        super(RangeExpression, self).validate_range(field_name)
+        super().validate_range(field_name)
         if self.first < MIN_VALUES[field_name]:
             raise ValueError('the first value ({}) is lower than the minimum value ({})'
                              .format(self.first, MIN_VALUES[field_name]))
@@ -143,7 +143,7 @@ class MonthRangeExpression(RangeExpression):
         else:
             last_num = None
 
-        super(MonthRangeExpression, self).__init__(first_num, last_num)
+        super().__init__(first_num, last_num)
 
     def __str__(self):
         if self.last != self.first and self.last is not None:
@@ -174,7 +174,7 @@ class WeekdayRangeExpression(RangeExpression):
         else:
             last_num = None
 
-        super(WeekdayRangeExpression, self).__init__(first_num, last_num)
+        super().__init__(first_num, last_num)
 
     def __str__(self):
         if self.last != self.first and self.last is not None:
@@ -194,7 +194,7 @@ class WeekdayPositionExpression(AllExpression):
                           '|'.join(options), re.IGNORECASE)
 
     def __init__(self, option_name, weekday_name):
-        super(WeekdayPositionExpression, self).__init__(None)
+        super().__init__(None)
         try:
             self.option_num = self.options.index(option_name.lower())
         except ValueError:
@@ -224,7 +224,7 @@ class WeekdayPositionExpression(AllExpression):
             return target_day
 
     def __eq__(self, other):
-        return (super(WeekdayPositionExpression, self).__eq__(other) and
+        return (super().__eq__(other) and
                 self.option_num == other.option_num and self.weekday == other.weekday)
 
     def __str__(self):
@@ -239,7 +239,7 @@ class LastDayOfMonthExpression(AllExpression):
     value_re = re.compile(r'last', re.IGNORECASE)
 
     def __init__(self):
-        super(LastDayOfMonthExpression, self).__init__(None)
+        super().__init__(None)
 
     def get_next_value(self, date, field):
         return monthrange(date.year, date.month)[1]

@@ -1,6 +1,6 @@
-# coding: utf-8
-from datetime import datetime
 import sys
+from datetime import datetime
+from unittest.mock import Mock
 
 import pytest
 import pytz
@@ -8,35 +8,6 @@ import pytz
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
-
-try:
-    from unittest.mock import Mock
-except ImportError:
-    from mock import Mock
-
-
-def pytest_ignore_collect(path, config):
-    return path.basename.endswith('_py35.py') and sys.version_info < (3, 5)
-
-
-def minpython(*version):
-    version_str = '.'.join([str(num) for num in version])
-
-    def outer(func):
-        dec = pytest.mark.skipif(sys.version_info < version,
-                                 reason='Requires Python >= %s' % version_str)
-        return dec(func)
-    return outer
-
-
-def maxpython(*version):
-    version_str = '.'.join([str(num) for num in version])
-
-    def outer(func):
-        dec = pytest.mark.skipif(sys.version_info >= version,
-                                 reason='Requires Python < %s' % version_str)
-        return dec(func)
-    return outer
 
 
 @pytest.fixture

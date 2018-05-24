@@ -30,7 +30,7 @@ EVENT_ALL = (EVENT_SCHEDULER_STARTED | EVENT_SCHEDULER_SHUTDOWN | EVENT_SCHEDULE
              EVENT_JOB_ERROR | EVENT_JOB_MISSED | EVENT_JOB_SUBMITTED | EVENT_JOB_MAX_INSTANCES)
 
 
-class SchedulerEvent(object):
+class SchedulerEvent:
     """
     An event that concerns the scheduler itself.
 
@@ -39,7 +39,7 @@ class SchedulerEvent(object):
     """
 
     def __init__(self, code, alias=None):
-        super(SchedulerEvent, self).__init__()
+        super().__init__()
         self.code = code
         self.alias = alias
 
@@ -57,7 +57,7 @@ class JobEvent(SchedulerEvent):
     """
 
     def __init__(self, code, job_id, jobstore):
-        super(JobEvent, self).__init__(code)
+        super().__init__(code)
         self.code = code
         self.job_id = job_id
         self.jobstore = jobstore
@@ -71,7 +71,7 @@ class JobSubmissionEvent(JobEvent):
     """
 
     def __init__(self, code, job_id, jobstore, scheduled_run_times):
-        super(JobSubmissionEvent, self).__init__(code, job_id, jobstore)
+        super().__init__(code, job_id, jobstore)
         self.scheduled_run_times = scheduled_run_times
 
 
@@ -87,7 +87,7 @@ class JobExecutionEvent(JobEvent):
 
     def __init__(self, code, job_id, jobstore, scheduled_run_time, retval=None, exception=None,
                  traceback=None):
-        super(JobExecutionEvent, self).__init__(code, job_id, jobstore)
+        super().__init__(code, job_id, jobstore)
         self.scheduled_run_time = scheduled_run_time
         self.retval = retval
         self.exception = exception

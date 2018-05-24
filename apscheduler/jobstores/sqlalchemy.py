@@ -1,13 +1,8 @@
-from __future__ import absolute_import
+import pickle
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
-
-try:
-    import cPickle as pickle
-except ImportError:  # pragma: nocover
-    import pickle
 
 try:
     from sqlalchemy import (
@@ -42,7 +37,7 @@ class SQLAlchemyJobStore(BaseJobStore):
 
     def __init__(self, url=None, engine=None, tablename='apscheduler_jobs', metadata=None,
                  pickle_protocol=pickle.HIGHEST_PROTOCOL, tableschema=None, engine_options=None):
-        super(SQLAlchemyJobStore, self).__init__()
+        super().__init__()
         self.pickle_protocol = pickle_protocol
         metadata = maybe_ref(metadata) or MetaData()
 
@@ -64,7 +59,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         )
 
     def start(self, scheduler, alias):
-        super(SQLAlchemyJobStore, self).start(scheduler, alias)
+        super().start(scheduler, alias)
         self.jobs_t.create(self.engine, True)
 
     def lookup_job(self, job_id):

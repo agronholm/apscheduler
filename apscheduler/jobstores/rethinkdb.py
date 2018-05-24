@@ -1,13 +1,8 @@
-from __future__ import absolute_import
+import pickle
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
-
-try:
-    import cPickle as pickle
-except ImportError:  # pragma: nocover
-    import pickle
 
 try:
     from rethinkdb import RethinkDB
@@ -32,7 +27,7 @@ class RethinkDBJobStore(BaseJobStore):
 
     def __init__(self, database='apscheduler', table='jobs', client=None,
                  pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
-        super(RethinkDBJobStore, self).__init__()
+        super().__init__()
 
         if not database:
             raise ValueError('The "database" parameter must not be empty')
@@ -49,7 +44,7 @@ class RethinkDBJobStore(BaseJobStore):
         self.conn = None
 
     def start(self, scheduler, alias):
-        super(RethinkDBJobStore, self).start(scheduler, alias)
+        super().start(scheduler, alias)
 
         if self.client:
             self.conn = maybe_ref(self.client)

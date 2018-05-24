@@ -1,25 +1,18 @@
-# coding: utf-8
 import platform
+import sys
 from datetime import date, datetime, timedelta, tzinfo
 from functools import partial
 from types import ModuleType
+from unittest.mock import Mock
 
 import pytest
 import pytz
-import six
-import sys
 
 from apscheduler.job import Job
 from apscheduler.util import (
     asint, asbool, astimezone, convert_to_datetime, datetime_to_utc_timestamp,
     utc_timestamp_to_datetime, timedelta_seconds, datetime_ceil, get_callable_name, obj_to_ref,
-    ref_to_obj, maybe_ref, check_callable_args, datetime_repr, repr_escape)
-from tests.conftest import minpython, maxpython
-
-try:
-    from unittest.mock import Mock
-except ImportError:
-    from mock import Mock
+    ref_to_obj, maybe_ref, check_callable_args, datetime_repr)
 
 
 class DummyClass(object):
@@ -222,17 +215,17 @@ class TestObjToRef(object):
     @pytest.mark.parametrize('input,expected', [
         pytest.mark.skipif(sys.version_info[:2] == (3, 2),
                            reason="Unbound methods can't be resolved on Python 3.2")(
-            (DummyClass.meth, 'tests.test_util:DummyClass.meth')
+            (DummyClass.meth, 'test_util:DummyClass.meth')
         ),
-        (DummyClass.classmeth, 'tests.test_util:DummyClass.classmeth'),
+        (DummyClass.classmeth, 'test_util:DummyClass.classmeth'),
         pytest.mark.skipif(sys.version_info < (3, 3),
                            reason="Requires __qualname__ (Python 3.3+)")(
             (DummyClass.InnerDummyClass.innerclassmeth,
-             'tests.test_util:DummyClass.InnerDummyClass.innerclassmeth')
+             'test_util:DummyClass.InnerDummyClass.innerclassmeth')
         ),
         pytest.mark.skipif(sys.version_info < (3, 3),
                            reason="Requires __qualname__ (Python 3.3+)")(
-            (DummyClass.staticmeth, 'tests.test_util:DummyClass.staticmeth')
+            (DummyClass.staticmeth, 'test_util:DummyClass.staticmeth')
         ),
         pytest.mark.skipif(sys.version_info >= (3, 2),
                            reason="Unbound methods (Python 3.2) and __qualname__ (Python 3.3+)")(
@@ -274,15 +267,6 @@ class TestRefToObj(object):
 ], ids=['textref', 'direct'])
 def test_maybe_ref(input, expected):
     assert maybe_ref(input) == expected
-
-
-@pytest.mark.parametrize('input,expected', [
-    (b'T\xc3\xa9st'.decode('utf-8'), 'T\\xe9st' if six.PY2 else 'Tést'),
-    (1, 1)
-], ids=['string', 'int'])
-@maxpython(3)
-def test_repr_escape_py2(input, expected):
-    assert repr_escape(input) == expected
 
 
 class TestCheckCallableArgs(object):
@@ -330,7 +314,6 @@ class TestCheckCallableArgs(object):
         """Tests that a function where signature() fails is accepted."""
         check_callable_args(object().__setattr__, ('blah', 1), {})
 
-    @minpython(3, 4)
     @pytest.mark.skipif(platform.python_implementation() == 'PyPy',
                         reason='PyPy does not expose signatures of builtins')
     def test_positional_only_args(self):
@@ -344,7 +327,6 @@ class TestCheckCallableArgs(object):
         assert str(exc.value) == ('The following arguments cannot be given as keyword arguments: '
                                   'value')
 
-    @minpython(3)
     def test_unfulfilled_kwargs(self):
         """
         Tests that attempting to schedule a job where not all keyword-only arguments are fulfilled

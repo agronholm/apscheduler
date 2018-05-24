@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 
 from threading import Thread, Event
 
@@ -26,7 +25,7 @@ class BackgroundScheduler(BlockingScheduler):
 
     def _configure(self, config):
         self._daemon = asbool(config.pop('daemon', True))
-        super(BackgroundScheduler, self)._configure(config)
+        super()._configure(config)
 
     def start(self, *args, **kwargs):
         self._event = Event()
@@ -36,6 +35,6 @@ class BackgroundScheduler(BlockingScheduler):
         self._thread.start()
 
     def shutdown(self, *args, **kwargs):
-        super(BackgroundScheduler, self).shutdown(*args, **kwargs)
+        super().shutdown(*args, **kwargs)
         self._thread.join()
         del self._thread

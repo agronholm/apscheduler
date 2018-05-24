@@ -15,6 +15,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 3.6.0
 -----
 
+* Dropped support for Python 2.X and 3.4
+
 * Removed the Qt scheduler due to maintenance difficulties
 * Adapted ``RedisJobStore`` to v3.0 of the ``redis`` library
 * Adapted ``RethinkDBJobStore`` to v2.4 of the ``rethink`` library

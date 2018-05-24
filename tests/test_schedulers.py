@@ -1,9 +1,11 @@
 import logging
 from datetime import datetime, timedelta
+from io import StringIO
+from queue import Queue
 from threading import Thread
+from unittest.mock import MagicMock, patch
 
 import pytest
-import six
 from pytz import utc
 
 from apscheduler.events import (
@@ -21,16 +23,6 @@ from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRun
 from apscheduler.schedulers.base import BaseScheduler, STATE_RUNNING, STATE_STOPPED
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import undefined
-
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
-
-try:
-    from unittest.mock import MagicMock, patch
-except ImportError:
-    from mock import MagicMock, patch
 
 
 class DummyScheduler(BaseScheduler):
@@ -642,10 +634,10 @@ Jobstore other:
             'coalesce': False,
             'max_instances': 9
         }
-        assert set(six.iterkeys(scheduler._executors)) == set(['default', 'alter'])
+        assert set(scheduler._executors.keys()) == {'default', 'alter'}
         assert scheduler._executors['default'].args == {'arg1': '3', 'arg2': 'a'}
         assert scheduler._executors['alter'].args == {'arg': 'true'}
-        assert set(six.iterkeys(scheduler._jobstores)) == set(['default', 'bar'])
+        assert set(scheduler._jobstores.keys()) == {'default', 'bar'}
         assert scheduler._jobstores['default'].args == {'arg1': '3', 'arg2': 'a'}
         assert scheduler._jobstores['bar'].args == {'arg': 'false'}
 
@@ -877,7 +869,6 @@ class SchedulerImplementationTestBase(object):
 
     @pytest.fixture
     def eventqueue(self, scheduler):
-        from six.moves.queue import Queue
         events = Queue()
         scheduler.add_listener(events.put)
         return events

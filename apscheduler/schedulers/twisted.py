@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 
 from functools import wraps
 
@@ -34,11 +33,11 @@ class TwistedScheduler(BaseScheduler):
 
     def _configure(self, config):
         self._reactor = maybe_ref(config.pop('reactor', default_reactor))
-        super(TwistedScheduler, self)._configure(config)
+        super()._configure(config)
 
     @run_in_reactor
     def shutdown(self, wait=True):
-        super(TwistedScheduler, self).shutdown(wait)
+        super().shutdown(wait)
         self._stop_timer()
 
     def _start_timer(self, wait_seconds):

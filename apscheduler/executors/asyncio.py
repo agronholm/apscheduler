@@ -1,15 +1,7 @@
-from __future__ import absolute_import
-
+from asyncio import iscoroutinefunction
 import sys
 
-from apscheduler.executors.base import BaseExecutor, run_job
-
-try:
-    from asyncio import iscoroutinefunction
-    from apscheduler.executors.base_py3 import run_coroutine_job
-except ImportError:
-    from trollius import iscoroutinefunction
-    run_coroutine_job = None
+from apscheduler.executors.base import BaseExecutor, run_job, run_coroutine_job
 
 
 class AsyncIOExecutor(BaseExecutor):
@@ -24,7 +16,7 @@ class AsyncIOExecutor(BaseExecutor):
     """
 
     def start(self, scheduler, alias):
-        super(AsyncIOExecutor, self).start(scheduler, alias)
+        super().start(scheduler, alias)
         self._eventloop = scheduler._eventloop
         self._pending_futures = set()
 
@@ -47,11 +39,8 @@ class AsyncIOExecutor(BaseExecutor):
                 self._run_job_success(job.id, events)
 
         if iscoroutinefunction(job.func):
-            if run_coroutine_job is not None:
-                coro = run_coroutine_job(job, job._jobstore_alias, run_times, self._logger.name)
-                f = self._eventloop.create_task(coro)
-            else:
-                raise Exception('Executing coroutine based jobs is not supported with Trollius')
+            coro = run_coroutine_job(job, job._jobstore_alias, run_times, self._logger.name)
+            f = self._eventloop.create_task(coro)
         else:
             f = self._eventloop.run_in_executor(None, run_job, job, job._jobstore_alias, run_times,
                                                 self._logger.name)

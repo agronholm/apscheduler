@@ -1,14 +1,9 @@
-from __future__ import absolute_import
+import pickle
 import warnings
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
-
-try:
-    import cPickle as pickle
-except ImportError:  # pragma: nocover
-    import pickle
 
 try:
     from bson.binary import Binary
@@ -36,7 +31,7 @@ class MongoDBJobStore(BaseJobStore):
 
     def __init__(self, database='apscheduler', collection='jobs', client=None,
                  pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
-        super(MongoDBJobStore, self).__init__()
+        super().__init__()
         self.pickle_protocol = pickle_protocol
 
         if not database:
@@ -53,7 +48,7 @@ class MongoDBJobStore(BaseJobStore):
         self.collection = self.client[database][collection]
 
     def start(self, scheduler, alias):
-        super(MongoDBJobStore, self).start(scheduler, alias)
+        super().start(scheduler, alias)
         self.collection.ensure_index('next_run_time', sparse=True)
 
     @property

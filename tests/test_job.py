@@ -1,18 +1,12 @@
-# coding: utf-8
 from datetime import datetime, timedelta
 from functools import partial
+from unittest.mock import MagicMock, patch
 
 import pytest
-import six
 
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.triggers.date import DateTrigger
-
-try:
-    from unittest.mock import MagicMock, patch
-except ImportError:
-    from mock import MagicMock, patch
 
 
 def dummyfunc():
@@ -114,9 +108,9 @@ def test_private_modify_bad_func(job):
 
 def test_private_modify_func_ref(job):
     """Tests that the target callable can be given as a textual reference."""
-    job._modify(func='tests.test_job:dummyfunc')
+    job._modify(func='test_job:dummyfunc')
     assert job.func is dummyfunc
-    assert job.func_ref == 'tests.test_job:dummyfunc'
+    assert job.func_ref == 'test_job:dummyfunc'
 
 
 def test_private_modify_unreachable_func(job):
@@ -197,7 +191,7 @@ def test_private_modify_bad_argument(job):
 def test_getstate(job):
     state = job.__getstate__()
     assert state == dict(
-        version=1, trigger=job.trigger, executor='default', func='tests.test_job:dummyfunc',
+        version=1, trigger=job.trigger, executor='default', func='test_job:dummyfunc',
         name=b'n\xc3\xa4m\xc3\xa9'.decode('utf-8'), args=(), kwargs={},
         id=b't\xc3\xa9st\xc3\xafd'.decode('utf-8'), misfire_grace_time=1, coalesce=False,
         max_instances=1, next_run_time=None)
@@ -207,13 +201,13 @@ def test_setstate(job, timezone):
     trigger = DateTrigger('2010-12-14 13:05:00', timezone)
     state = dict(
         version=1, scheduler=MagicMock(), jobstore=MagicMock(), trigger=trigger,
-        executor='dummyexecutor', func='tests.test_job:dummyfunc', name='testjob.dummyfunc',
+        executor='dummyexecutor', func='test_job:dummyfunc', name='testjob.dummyfunc',
         args=[], kwargs={}, id='other_id', misfire_grace_time=2, coalesce=True, max_instances=2,
         next_run_time=None)
     job.__setstate__(state)
     assert job.id == 'other_id'
     assert job.func == dummyfunc
-    assert job.func_ref == 'tests.test_job:dummyfunc'
+    assert job.func_ref == 'test_job:dummyfunc'
     assert job.trigger == trigger
     assert job.executor == 'dummyexecutor'
     assert job.args == []
@@ -241,11 +235,7 @@ def test_eq(create_job):
 
 
 def test_repr(job):
-    if six.PY2:
-        assert repr(job) == '<Job (id=t\\xe9st\\xefd name=n\\xe4m\\xe9)>'
-    else:
-        assert repr(job) == \
-            b'<Job (id=t\xc3\xa9st\xc3\xafd name=n\xc3\xa4m\xc3\xa9)>'.decode('utf-8')
+    assert repr(job) == "<Job (id='téstïd' name='nämé')>"
 
 
 @pytest.mark.parametrize('status, expected_status', [
@@ -253,19 +243,12 @@ def test_repr(job):
     ('paused', 'paused'),
     ('pending', 'pending')
 ], ids=['scheduled', 'paused', 'pending'])
-@pytest.mark.parametrize('unicode', [False, True], ids=['nativestr', 'unicode'])
-def test_str(create_job, status, unicode, expected_status):
+def test_str(create_job, status, expected_status):
     job = create_job(func=dummyfunc)
     if status == 'scheduled':
         job.next_run_time = job.trigger.run_date
     elif status == 'pending':
         del job.next_run_time
 
-    if six.PY2 and not unicode:
-        expected = 'n\\xe4m\\xe9 (trigger: date[2011-04-03 18:40:00 CEST], %s)' % expected_status
-    else:
-        expected = b'n\xc3\xa4m\xc3\xa9 (trigger: date[2011-04-03 18:40:00 CEST], %s)'.\
-            decode('utf-8') % expected_status
-
-    result = job.__unicode__() if unicode else job.__str__()
-    assert result == expected
+    expected = 'nämé (trigger: date[2011-04-03 18:40:00 CEST], {})'.format(expected_status)
+    assert str(job) == expected

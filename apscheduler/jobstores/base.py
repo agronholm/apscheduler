@@ -1,21 +1,19 @@
 from abc import ABCMeta, abstractmethod
 import logging
 
-import six
-
 
 class JobLookupError(KeyError):
     """Raised when the job store cannot find a job for update or removal."""
 
     def __init__(self, job_id):
-        super(JobLookupError, self).__init__(u'No job by the id of %s was found' % job_id)
+        super().__init__(u'No job by the id of %s was found' % job_id)
 
 
 class ConflictingIdError(KeyError):
     """Raised when the uniqueness of job IDs is being violated."""
 
     def __init__(self, job_id):
-        super(ConflictingIdError, self).__init__(
+        super().__init__(
             u'Job identifier (%s) conflicts with an existing job' % job_id)
 
 
@@ -26,12 +24,12 @@ class TransientJobError(ValueError):
     """
 
     def __init__(self, job_id):
-        super(TransientJobError, self).__init__(
+        super().__init__(
             u'Job (%s) cannot be added to this job store because a reference to the callable '
             u'could not be determined.' % job_id)
 
 
-class BaseJobStore(six.with_metaclass(ABCMeta)):
+class BaseJobStore(metaclass=ABCMeta):
     """Abstract base class that defines the interface that every job store must implement."""
 
     _scheduler = None

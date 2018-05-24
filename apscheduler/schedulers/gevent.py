@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.schedulers.base import BaseScheduler
@@ -23,7 +22,7 @@ class GeventScheduler(BlockingScheduler):
         return self._greenlet
 
     def shutdown(self, *args, **kwargs):
-        super(GeventScheduler, self).shutdown(*args, **kwargs)
+        super().shutdown(*args, **kwargs)
         self._greenlet.join()
         del self._greenlet
 

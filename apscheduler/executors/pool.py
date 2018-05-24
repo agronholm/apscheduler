@@ -7,7 +7,7 @@ from apscheduler.executors.base import BaseExecutor, run_job
 class BasePoolExecutor(BaseExecutor):
     @abstractmethod
     def __init__(self, pool):
-        super(BasePoolExecutor, self).__init__()
+        super().__init__()
         self._pool = pool
 
     def _do_submit_job(self, job, run_times):
@@ -37,7 +37,7 @@ class ThreadPoolExecutor(BasePoolExecutor):
 
     def __init__(self, max_workers=10):
         pool = concurrent.futures.ThreadPoolExecutor(int(max_workers))
-        super(ThreadPoolExecutor, self).__init__(pool)
+        super().__init__(pool)
 
 
 class ProcessPoolExecutor(BasePoolExecutor):
@@ -51,4 +51,4 @@ class ProcessPoolExecutor(BasePoolExecutor):
 
     def __init__(self, max_workers=10):
         pool = concurrent.futures.ProcessPoolExecutor(int(max_workers))
-        super(ProcessPoolExecutor, self).__init__(pool)
+        super().__init__(pool)

@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 from functools import wraps, partial
 
 from apscheduler.schedulers.base import BaseScheduler
@@ -40,12 +39,12 @@ class AsyncIOScheduler(BaseScheduler):
 
     @run_in_event_loop
     def shutdown(self, wait=True):
-        super(AsyncIOScheduler, self).shutdown(wait)
+        super().shutdown(wait)
         self._stop_timer()
 
     def _configure(self, config):
         self._eventloop = maybe_ref(config.pop('event_loop', None)) or asyncio.get_event_loop()
-        super(AsyncIOScheduler, self)._configure(config)
+        super()._configure(config)
 
     def _start_timer(self, wait_seconds):
         self._stop_timer()

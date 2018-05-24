@@ -1,9 +1,6 @@
-from __future__ import absolute_import
-
-from threading import Event
+from threading import Event, TIMEOUT_MAX
 
 from apscheduler.schedulers.base import BaseScheduler, STATE_STOPPED
-from apscheduler.util import TIMEOUT_MAX
 
 
 class BlockingScheduler(BaseScheduler):
@@ -15,11 +12,11 @@ class BlockingScheduler(BaseScheduler):
 
     def start(self, *args, **kwargs):
         self._event = Event()
-        super(BlockingScheduler, self).start(*args, **kwargs)
+        super().start(*args, **kwargs)
         self._main_loop()
 
     def shutdown(self, wait=True):
-        super(BlockingScheduler, self).shutdown(wait)
+        super().shutdown(wait)
         self._event.set()
 
     def _main_loop(self):

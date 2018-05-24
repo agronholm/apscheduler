@@ -1,21 +1,22 @@
+import gc
+import time
+from asyncio import CancelledError
 from datetime import datetime
 from threading import Event
 from types import TracebackType
-import gc
-import time
+from unittest.mock import Mock, MagicMock, patch
 
 import pytest
-from pytz import UTC
+from pytz import UTC, utc
 
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED, EVENT_JOB_EXECUTED
+from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.executors.base import MaxInstancesReachedError, run_job
+from apscheduler.executors.tornado import TornadoExecutor
 from apscheduler.job import Job
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.base import BaseScheduler
-
-try:
-    from unittest.mock import Mock, MagicMock, patch
-except ImportError:
-    from mock import Mock, MagicMock, patch
+from apscheduler.schedulers.tornado import TornadoScheduler
 
 
 @pytest.fixture
@@ -144,3 +145,95 @@ def test_run_job_memory_leak():
 
     foos = [x for x in gc.get_objects() if type(x) is FooBar]
     assert len(foos) == 0
+
+
+@pytest.fixture
+def asyncio_scheduler(event_loop):
+    scheduler = AsyncIOScheduler(event_loop=event_loop)
+    scheduler.start(paused=True)
+    yield scheduler
+    scheduler.shutdown(False)
+
+
+@pytest.fixture
+def asyncio_executor(asyncio_scheduler):
+    executor = AsyncIOExecutor()
+    executor.start(asyncio_scheduler, 'default')
+    yield executor
+    executor.shutdown()
+
+
+@pytest.fixture
+def tornado_scheduler(io_loop):
+    scheduler = TornadoScheduler(io_loop=io_loop)
+    scheduler.start(paused=True)
+    yield scheduler
+    scheduler.shutdown(False)
+
+
+@pytest.fixture
+def tornado_executor(tornado_scheduler):
+    executor = TornadoExecutor()
+    executor.start(tornado_scheduler, 'default')
+    yield executor
+    executor.shutdown()
+
+
+async def waiter(sleep, exception):
+    await sleep(0.1)
+    if exception:
+        raise Exception('dummy error')
+    else:
+        return True
+
+
+@pytest.mark.parametrize('exception', [False, True])
+@pytest.mark.asyncio
+async def test_run_coroutine_job(asyncio_scheduler, asyncio_executor, exception):
+    from asyncio import Future, sleep
+
+    future = Future()
+    job = asyncio_scheduler.add_job(waiter, 'interval', seconds=1, args=[sleep, exception])
+    asyncio_executor._run_job_success = lambda job_id, events: future.set_result(events)
+    asyncio_executor._run_job_error = lambda job_id, exc, tb: future.set_exception(exc)
+    asyncio_executor.submit_job(job, [datetime.now(utc)])
+    events = await future
+    assert len(events) == 1
+    if exception:
+        assert str(events[0].exception) == 'dummy error'
+    else:
+        assert events[0].retval is True
+
+
+@pytest.mark.parametrize('exception', [False, True])
+@pytest.mark.gen_test
+async def test_run_coroutine_job_tornado(tornado_scheduler, tornado_executor, exception):
+    from tornado.concurrent import Future
+    from tornado.gen import sleep
+
+    future = Future()
+    job = tornado_scheduler.add_job(waiter, 'interval', seconds=1, args=[sleep, exception])
+    tornado_executor._run_job_success = lambda job_id, events: future.set_result(events)
+    tornado_executor._run_job_error = lambda job_id, exc, tb: future.set_exception(exc)
+    tornado_executor.submit_job(job, [datetime.now(utc)])
+    events = await future
+    assert len(events) == 1
+    if exception:
+        assert str(events[0].exception) == 'dummy error'
+    else:
+        assert events[0].retval is True
+
+
+@pytest.mark.asyncio
+async def test_asyncio_executor_shutdown(asyncio_scheduler, asyncio_executor):
+    """Test that the AsyncIO executor cancels its pending tasks on shutdown."""
+    from asyncio import sleep
+
+    job = asyncio_scheduler.add_job(waiter, 'interval', seconds=1, args=[sleep, None])
+    asyncio_executor.submit_job(job, [datetime.now(utc)])
+    futures = asyncio_executor._pending_futures.copy()
+    assert len(futures) == 1
+
+    asyncio_executor.shutdown()
+    with pytest.raises(CancelledError):
+        await futures.pop()

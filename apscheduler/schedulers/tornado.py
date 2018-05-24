@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 
 from datetime import timedelta
 from functools import wraps
@@ -35,12 +34,12 @@ class TornadoScheduler(BaseScheduler):
 
     @run_in_ioloop
     def shutdown(self, wait=True):
-        super(TornadoScheduler, self).shutdown(wait)
+        super().shutdown(wait)
         self._stop_timer()
 
     def _configure(self, config):
         self._ioloop = maybe_ref(config.pop('io_loop', None)) or IOLoop.current()
-        super(TornadoScheduler, self)._configure(config)
+        super()._configure(config)
 
     def _start_timer(self, wait_seconds):
         self._stop_timer()

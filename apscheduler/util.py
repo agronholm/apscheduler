@@ -1,36 +1,20 @@
 """This module contains several handy functions primarily meant for internal use."""
 
-from __future__ import division
-
 from datetime import date, datetime, time, timedelta, tzinfo
 from calendar import timegm
+from inspect import signature
 from functools import partial
 from inspect import isclass, ismethod
 import re
 
 from pytz import timezone, utc, FixedOffset
-import six
-
-try:
-    from inspect import signature
-except ImportError:  # pragma: nocover
-    from funcsigs import signature
-
-try:
-    from threading import TIMEOUT_MAX
-except ImportError:
-    TIMEOUT_MAX = 4294967  # Maximum value accepted by Event.wait() on Windows
 
 __all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
            'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'get_callable_name',
-           'obj_to_ref', 'ref_to_obj', 'maybe_ref', 'repr_escape', 'check_callable_args',
-           'TIMEOUT_MAX')
+           'obj_to_ref', 'ref_to_obj', 'maybe_ref', 'check_callable_args')
 
 
-class _Undefined(object):
-    def __nonzero__(self):
-        return False
-
+class _Undefined:
     def __bool__(self):
         return False
 
@@ -77,7 +61,7 @@ def astimezone(obj):
     :rtype: tzinfo
 
     """
-    if isinstance(obj, six.string_types):
+    if isinstance(obj, str):
         return timezone(obj)
     if isinstance(obj, tzinfo):
         if not hasattr(obj, 'localize') or not hasattr(obj, 'normalize'):
@@ -125,7 +109,7 @@ def convert_to_datetime(input, tz, arg_name):
         datetime_ = input
     elif isinstance(input, date):
         datetime_ = datetime.combine(input, time())
-    elif isinstance(input, six.string_types):
+    elif isinstance(input, str):
         m = _DATE_REGEX.match(input)
         if not m:
             raise ValueError('Invalid date string')
@@ -149,7 +133,7 @@ def convert_to_datetime(input, tz, arg_name):
     if tz is None:
         raise ValueError(
             'The "tz" argument must be specified if %s has no timezone information' % arg_name)
-    if isinstance(tz, six.string_types):
+    if isinstance(tz, str):
         tz = timezone(tz)
 
     try:
@@ -284,7 +268,7 @@ def ref_to_obj(ref):
     :type ref: str
 
     """
-    if not isinstance(ref, six.string_types):
+    if not isinstance(ref, str):
         raise TypeError('References must be strings')
     if ':' not in ref:
         raise ValueError('Invalid reference')
@@ -314,16 +298,6 @@ def maybe_ref(ref):
     return ref_to_obj(ref)
 
 
-if six.PY2:
-    def repr_escape(string):
-        if isinstance(string, six.text_type):
-            return string.encode('ascii', 'backslashreplace')
-        return string
-else:
-    def repr_escape(string):
-        return string
-
-
 def check_callable_args(func, args, kwargs):
     """
     Ensures that the given callable can be called with the given arguments.
@@ -348,7 +322,7 @@ def check_callable_args(func, args, kwargs):
         # signature() doesn't work against every kind of callable
         return
 
-    for param in six.itervalues(sig.parameters):
+    for param in sig.parameters.values():
         if param.kind == param.POSITIONAL_OR_KEYWORD:
             if param.name in unmatched_kwargs and unmatched_args:
                 pos_kwargs_conflicts.append(param.name)

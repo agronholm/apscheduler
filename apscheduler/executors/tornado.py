@@ -1,18 +1,10 @@
-from __future__ import absolute_import
-
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from inspect import iscoroutinefunction
 
 from tornado.gen import convert_yielded
 
-from apscheduler.executors.base import BaseExecutor, run_job
-
-try:
-    from inspect import iscoroutinefunction
-    from apscheduler.executors.base_py3 import run_coroutine_job
-except ImportError:
-    def iscoroutinefunction(func):
-        return False
+from apscheduler.executors.base import BaseExecutor, run_job, run_coroutine_job
 
 
 class TornadoExecutor(BaseExecutor):
@@ -28,11 +20,11 @@ class TornadoExecutor(BaseExecutor):
     """
 
     def __init__(self, max_workers=10):
-        super(TornadoExecutor, self).__init__()
+        super().__init__()
         self.executor = ThreadPoolExecutor(max_workers)
 
     def start(self, scheduler, alias):
-        super(TornadoExecutor, self).start(scheduler, alias)
+        super().start(scheduler, alias)
         self._ioloop = scheduler._ioloop
 
     def _do_submit_job(self, job, run_times):

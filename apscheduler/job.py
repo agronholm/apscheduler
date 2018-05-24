@@ -1,11 +1,9 @@
 from inspect import ismethod, isclass
 from uuid import uuid4
 
-import six
-
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import (
-    ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name, check_callable_args,
+    ref_to_obj, obj_to_ref, datetime_repr, get_callable_name, check_callable_args,
     convert_to_datetime)
 
 try:
@@ -14,7 +12,7 @@ except ImportError:
     from collections import Iterable, Mapping
 
 
-class Job(object):
+class Job:
     """
     Contains the options given when scheduling callables and its current schedule and other state.
     This class should never be instantiated by the user.
@@ -43,7 +41,7 @@ class Job(object):
                  'next_run_time')
 
     def __init__(self, scheduler, id=None, **kwargs):
-        super(Job, self).__init__()
+        super().__init__()
         self._scheduler = scheduler
         self._jobstore_alias = None
         self._modify(id=id or uuid4().hex, **kwargs)
@@ -146,7 +144,7 @@ class Job(object):
 
         if 'id' in changes:
             value = changes.pop('id')
-            if not isinstance(value, six.string_types):
+            if not isinstance(value, str):
                 raise TypeError("id must be a nonempty string")
             if hasattr(self, 'id'):
                 raise ValueError('The job ID may not be changed')
@@ -157,7 +155,7 @@ class Job(object):
             args = changes.pop('args') if 'args' in changes else self.args
             kwargs = changes.pop('kwargs') if 'kwargs' in changes else self.kwargs
 
-            if isinstance(func, six.string_types):
+            if isinstance(func, str):
                 func_ref = func
                 func = ref_to_obj(func)
             elif callable(func):
@@ -172,9 +170,9 @@ class Job(object):
             if not hasattr(self, 'name') and changes.get('name', None) is None:
                 changes['name'] = get_callable_name(func)
 
-            if isinstance(args, six.string_types) or not isinstance(args, Iterable):
+            if isinstance(args, str) or not isinstance(args, Iterable):
                 raise TypeError('args must be a non-string iterable')
-            if isinstance(kwargs, six.string_types) or not isinstance(kwargs, Mapping):
+            if isinstance(kwargs, str) or not isinstance(kwargs, Mapping):
                 raise TypeError('kwargs must be a dict-like object')
 
             check_callable_args(func, args, kwargs)
@@ -186,13 +184,13 @@ class Job(object):
 
         if 'name' in changes:
             value = changes.pop('name')
-            if not value or not isinstance(value, six.string_types):
+            if not value or not isinstance(value, str):
                 raise TypeError("name must be a nonempty string")
             approved['name'] = value
 
         if 'misfire_grace_time' in changes:
             value = changes.pop('misfire_grace_time')
-            if value is not None and (not isinstance(value, six.integer_types) or value <= 0):
+            if value is not None and (not isinstance(value, int) or value <= 0):
                 raise TypeError('misfire_grace_time must be either None or a positive integer')
             approved['misfire_grace_time'] = value
 
@@ -202,7 +200,7 @@ class Job(object):
 
         if 'max_instances' in changes:
             value = changes.pop('max_instances')
-            if not isinstance(value, six.integer_types) or value <= 0:
+            if not isinstance(value, int) or value <= 0:
                 raise TypeError('max_instances must be a positive integer')
             approved['max_instances'] = value
 
@@ -216,7 +214,7 @@ class Job(object):
 
         if 'executor' in changes:
             value = changes.pop('executor')
-            if not isinstance(value, six.string_types):
+            if not isinstance(value, str):
                 raise TypeError('executor must be a string')
             approved['executor'] = value
 
@@ -229,7 +227,7 @@ class Job(object):
             raise AttributeError('The following are not modifiable attributes of Job: %s' %
                                  ', '.join(changes))
 
-        for key, value in six.iteritems(approved):
+        for key, value in approved.items():
             setattr(self, key, value)
 
     def __getstate__(self):
@@ -286,12 +284,9 @@ class Job(object):
         return NotImplemented
 
     def __repr__(self):
-        return '<Job (id=%s name=%s)>' % (repr_escape(self.id), repr_escape(self.name))
+        return '<Job (id={self.id!r} name={self.name!r})>'.format(self=self)
 
     def __str__(self):
-        return repr_escape(self.__unicode__())
-
-    def __unicode__(self):
         if hasattr(self, 'next_run_time'):
             status = ('next run at: ' + datetime_repr(self.next_run_time) if
                       self.next_run_time else 'paused')
