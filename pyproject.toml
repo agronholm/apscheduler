@@ -1,0 +1,2 @@
+[build-system]
+requires = ["setuptools >= 36.2.7", "wheel", "setuptools_scm >= 1.7.0"]
