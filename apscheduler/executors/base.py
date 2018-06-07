@@ -10,6 +10,7 @@ import six
 
 from apscheduler.events import (
     JobExecutionEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED)
+from apscheduler.util import undefined
 
 
 class MaxInstancesReachedError(Exception):
@@ -111,7 +112,7 @@ def run_job(job, jobstore_alias, run_times, logger_name):
     for run_time in run_times:
         # See if the job missed its run time window, and handle
         # possible misfires accordingly
-        if job.misfire_grace_time is not None:
+        if job.misfire_grace_time is not undefined:
             difference = datetime.now(utc) - run_time
             grace_time = timedelta(seconds=job.misfire_grace_time)
             if difference > grace_time:
