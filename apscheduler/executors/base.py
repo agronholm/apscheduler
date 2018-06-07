@@ -12,6 +12,7 @@ from apscheduler.events import (
     JobExecutionEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED)
 from apscheduler.util import undefined
 
+
 class MaxInstancesReachedError(Exception):
     def __init__(self, job):
         super(MaxInstancesReachedError, self).__init__(
