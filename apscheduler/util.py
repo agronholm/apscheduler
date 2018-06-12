@@ -138,7 +138,9 @@ def convert_to_datetime(input, tz, arg_name):
             sign = 1 if tzname[0] == '+' else -1
             tz = FixedOffset(sign * (hours * 60 + minutes))
 
-        values = {k: int(v or 0) for k, v in values.items()}
+        for k, v in values.items():
+            values[k] = int(v or 0)
+        
         datetime_ = datetime(**values)
     else:
         raise TypeError('Unsupported type for %s: %s' % (arg_name, input.__class__.__name__))
