@@ -102,9 +102,15 @@ class TestConvertToDatetime(object):
         (datetime(2009, 8, 1, 5, 6, 12), datetime(2009, 8, 1, 5, 6, 12)),
         ('2009-8-1', datetime(2009, 8, 1)),
         ('2009-8-1 5:16:12', datetime(2009, 8, 1, 5, 16, 12)),
+        ('2009-8-1T5:16:12Z', datetime(2009, 8, 1, 5, 16, 12, tzinfo=pytz.utc)),
+        ('2009-8-1T5:16:12+02:30',
+         pytz.FixedOffset(150).localize(datetime(2009, 8, 1, 5, 16, 12))),
+        ('2009-8-1T5:16:12-05:30',
+         pytz.FixedOffset(-330).localize(datetime(2009, 8, 1, 5, 16, 12))),
         (pytz.FixedOffset(-60).localize(datetime(2009, 8, 1)),
          pytz.FixedOffset(-60).localize(datetime(2009, 8, 1)))
-    ], ids=['None', 'date', 'datetime', 'date as text', 'datetime as text', 'existing tzinfo'])
+    ], ids=['None', 'date', 'datetime', 'date as text', 'datetime as text', 'utc', 'tzoffset',
+            'negtzoffset', 'existing tzinfo'])
     def test_date(self, timezone, input, expected):
         returned = convert_to_datetime(input, timezone, None)
         if expected is not None:

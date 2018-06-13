@@ -55,8 +55,7 @@ setup(
         'testing': [
             'pytest',
             'pytest-cov',
-            'pytest-tornado',
-            'pytest_asyncio < 0.6.0',
+            'pytest-tornado5',
         ],
     },
     zip_safe=False,

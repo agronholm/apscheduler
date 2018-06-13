@@ -71,7 +71,6 @@ Getting help
 If you have problems or other questions, you can either:
 
 * Ask in the `apscheduler <https://gitter.im/apscheduler/Lobby>`_ room on Gitter
-* Ask on the ``#apscheduler`` channel on `Freenode IRC <http://freenode.net/irc_servers.shtml>`_
 * Ask on the `APScheduler Google group <http://groups.google.com/group/apscheduler>`_, or
 * Ask on `StackOverflow <http://stackoverflow.com/questions/tagged/apscheduler>`_ and tag your
   question with the ``apscheduler`` tag
