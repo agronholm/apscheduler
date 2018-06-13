@@ -11,10 +11,7 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.combining import AndTrigger, OrTrigger, BaseCombiningTrigger
 
-try:
-    from unittest.mock import Mock
-except ImportError:
-    from mock import Mock
+from unittest.mock import Mock
 
 
 class _DummyTriggerWithJitter(BaseTrigger):

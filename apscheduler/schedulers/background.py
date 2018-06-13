@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from threading import Thread, Event
 
 from apscheduler.schedulers.base import BaseScheduler

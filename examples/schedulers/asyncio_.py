@@ -8,10 +8,7 @@ import os
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-try:
-    import asyncio
-except ImportError:
-    import trollius as asyncio
+import asyncio
 
 
 def tick():

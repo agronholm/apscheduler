@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 from abc import ABCMeta, abstractmethod
 from collections import MutableMapping
 from threading import RLock

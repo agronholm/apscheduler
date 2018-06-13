@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import datetime_to_utc_timestamp
 

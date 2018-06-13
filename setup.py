@@ -24,15 +24,16 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6'
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3 :: Only',
     ],
     keywords='scheduling cron',
     license='MIT',
     packages=find_packages(exclude=['tests']),
+    python_requires='>=3.4',
     setup_requires=[
         'setuptools_scm'
     ],
@@ -43,8 +44,6 @@ setup(
         'tzlocal >= 1.2',
     ],
     extras_require={
-        ':python_version == "2.7"': ['futures', 'funcsigs'],
-        'asyncio:python_version == "2.7"': ['trollius'],
         'gevent': ['gevent'],
         'mongodb': ['pymongo >= 2.8'],
         'redis': ['redis'],
@@ -56,10 +55,8 @@ setup(
         'testing': [
             'pytest',
             'pytest-cov',
-            'pytest-tornado5'
+            'pytest-tornado5',
         ],
-        'testing:python_version == "2.7"': ['mock'],
-        'testing:python_version != "2.7"': ['pytest_asyncio < 0.6.0']
     },
     zip_safe=False,
     entry_points={

@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 from datetime import datetime
 
 from pytz import utc
@@ -8,10 +7,7 @@ from apscheduler.jobstores.base import BaseJobStore, JobLookupError, Conflicting
 from apscheduler.util import datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
-try:
-    import cPickle as pickle
-except ImportError:  # pragma: nocover
-    import pickle
+import pickle
 
 try:
     from redis import StrictRedis

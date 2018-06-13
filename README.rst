@@ -56,13 +56,13 @@ Documentation can be found `here <http://readthedocs.org/docs/apscheduler/en/lat
 Source
 ------
 
-The source can be browsed at `Github <https://github.com/agronholm/apscheduler>`_.
+The source can be browsed at `GitHub <https://github.com/agronholm/apscheduler>`_.
 
 
 Reporting bugs
 --------------
 
-A `bug tracker <https://github.com/agronholm/apscheduler/issues>`_ is provided by Github.
+A `bug tracker <https://github.com/agronholm/apscheduler/issues>`_ is provided by GitHub.
 
 
 Getting help

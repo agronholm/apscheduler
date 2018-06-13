@@ -12,10 +12,7 @@ from apscheduler.executors.base import MaxInstancesReachedError, run_job
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 
-try:
-    from unittest.mock import Mock, MagicMock, patch
-except ImportError:
-    from mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock, patch
 
 
 @pytest.fixture
