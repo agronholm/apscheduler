@@ -17,6 +17,7 @@ class IntervalTrigger(BaseTrigger):
     :param int hours: number of hours to wait
     :param int minutes: number of minutes to wait
     :param int seconds: number of seconds to wait
+    :param int milliseconds: number of milliseconds to wait
     :param datetime|str start_date: starting point for the interval calculation
     :param datetime|str end_date: latest possible date/time to trigger on
     :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
@@ -25,10 +26,10 @@ class IntervalTrigger(BaseTrigger):
 
     __slots__ = 'timezone', 'start_date', 'end_date', 'interval', 'interval_length', 'jitter'
 
-    def __init__(self, weeks=0, days=0, hours=0, minutes=0, seconds=0, start_date=None,
-                 end_date=None, timezone=None, jitter=None):
+    def __init__(self, weeks=0, days=0, hours=0, minutes=0, seconds=0, milliseconds=0,
+                 start_date=None, end_date=None, timezone=None, jitter=None):
         self.interval = timedelta(weeks=weeks, days=days, hours=hours, minutes=minutes,
-                                  seconds=seconds)
+                                  seconds=seconds, milliseconds=milliseconds)
         self.interval_length = timedelta_seconds(self.interval)
         if self.interval_length == 0:
             self.interval = timedelta(seconds=1)
