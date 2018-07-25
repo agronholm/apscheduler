@@ -11,3 +11,4 @@ docs/_build/
 build/
 virtualenv/
 example.sqlite
+.pytest_cache
