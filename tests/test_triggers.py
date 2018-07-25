@@ -549,8 +549,8 @@ class TestIntervalTrigger(object):
         """Test that the trigger is pickleable."""
 
         trigger = IntervalTrigger(weeks=2, days=6, minutes=13, seconds=2,
-                                  start_date=date(2016, 4, 3), timezone=timezone,
-                                  jitter=12)
+                                  milliseconds=534, start_date=date(2016, 4, 3),
+                                  timezone=timezone, jitter=12)
         data = pickle.dumps(trigger, 2)
         trigger2 = pickle.loads(data)
 
