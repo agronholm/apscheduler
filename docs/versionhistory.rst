@@ -10,6 +10,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Fixed scheduling of bound methods on persistent job stores (the workaround of scheduling
   ``YourClass.methodname`` along with an explicit ``self`` argument is no longer necessary as this
   is now done automatically for you)
+* Added the FAQ section to the docs
 
 
 3.5.1

@@ -458,6 +458,8 @@ Example::
     scheduler.add_listener(my_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
 
+.. _troubleshooting:
+
 Troubleshooting
 ---------------
 
@@ -473,6 +475,7 @@ If you do not yet have logging enabled in the first place, you can do this::
 
 This should provide lots of useful information about what's going on inside the scheduler.
 
+Also make sure that you check the :doc:`faq` section to see if your problem already has a solution.
 
 Reporting bugs
 --------------

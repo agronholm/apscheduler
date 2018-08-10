@@ -16,6 +16,7 @@ Table of Contents
   migration
   contributing
   extending
+  faq
 
 
 Indices and tables
