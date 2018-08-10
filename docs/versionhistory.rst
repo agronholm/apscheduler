@@ -11,6 +11,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   ``YourClass.methodname`` along with an explicit ``self`` argument is no longer necessary as this
   is now done automatically for you)
 * Added the FAQ section to the docs
+* Made ``BaseScheduler.start()`` raise a ``RuntimeError`` if running under uWSGI with threads
+  disabled
 
 
 3.5.1

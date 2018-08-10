@@ -127,10 +127,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         :param bool paused: if ``True``, don't start job processing until :meth:`resume` is called
         :raises SchedulerAlreadyRunningError: if the scheduler is already running
+        :raises RuntimeError: if running under uWSGI with threads disabled
 
         """
         if self.state != STATE_STOPPED:
             raise SchedulerAlreadyRunningError
+
+        self._check_uwsgi()
 
         with self._executors_lock:
             # Create a default executor if nothing else is configured
@@ -825,6 +828,14 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     cb(event)
                 except BaseException:
                     self._logger.exception('Error notifying listener')
+
+    def _check_uwsgi(self):
+        """Check if we're running under uWSGI with threads disabled."""
+        uwsgi_module = sys.modules.get('uwsgi')
+        if not getattr(uwsgi_module, 'has_threads', True):
+            raise RuntimeError('The scheduler seems to be running under uWSGI, but threads have '
+                               'been disabled. You must run uWSGI with the --enable-threads '
+                               'option for the scheduler to work.')
 
     def _real_add_job(self, job, jobstore_alias, replace_existing):
         """
