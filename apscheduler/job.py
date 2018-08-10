@@ -1,4 +1,5 @@
 from collections import Iterable, Mapping
+from inspect import ismethod
 from uuid import uuid4
 
 import six
@@ -235,13 +236,19 @@ class Job(object):
                 'be determined. Consider giving a textual reference (module:function name) '
                 'instead.' % (self.func,))
 
+        # Bound methods cannot survive serialization as-is, so store the "self" argument explicitly
+        if ismethod(self.func):
+            args = (self.func.__self__,) + tuple(self.args)
+        else:
+            args = self.args
+
         return {
             'version': 1,
             'id': self.id,
             'func': self.func_ref,
             'trigger': self.trigger,
             'executor': self.executor,
-            'args': self.args,
+            'args': args,
             'kwargs': self.kwargs,
             'name': self.name,
             'misfire_grace_time': self.misfire_grace_time,

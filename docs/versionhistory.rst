@@ -4,6 +4,14 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.5.2
+-----
+
+* Fixed scheduling of bound methods on persistent job stores (the workaround of scheduling
+  ``YourClass.methodname`` along with an explicit ``self`` argument is no longer necessary as this
+  is now done automatically for you)
+
+
 3.5.1
 -----
 
