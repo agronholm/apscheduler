@@ -409,6 +409,14 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         :rtype: Job
 
         """
+
+        # Check if job with `id` already exists if `id` is provided.
+        if id is not None and not replace_existing:
+            # `get_job` should return None if there is no job with this id
+            # else raise `ConflictingIdError`
+            if self.get_job(job_id=id, jobstore=jobstore) is not None:
+                raise ConflictingIdError(job_id=id)
+
         job_kwargs = {
             'trigger': self._create_trigger(trigger, trigger_args),
             'executor': executor,
