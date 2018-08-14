@@ -4,6 +4,12 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.5.3
+-----
+
+* Fixed callable name detection for methods in old style classes
+
+
 3.5.2
 -----
 

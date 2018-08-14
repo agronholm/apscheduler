@@ -5,6 +5,7 @@ from __future__ import division
 from datetime import date, datetime, time, timedelta, tzinfo
 from calendar import timegm
 from functools import partial
+from inspect import isclass
 import re
 
 from pytz import timezone, utc, FixedOffset
@@ -224,7 +225,7 @@ def get_callable_name(func):
     # class methods, bound and unbound methods
     f_self = getattr(func, '__self__', None) or getattr(func, 'im_self', None)
     if f_self and hasattr(func, '__name__'):
-        f_class = f_self if isinstance(f_self, type) else f_self.__class__
+        f_class = f_self if isclass(f_self) else f_self.__class__
     else:
         f_class = getattr(func, 'im_class', None)
 
