@@ -22,6 +22,10 @@ class DummyClass:
     def dummy_method(self, a, b):
         return a + b
 
+    @classmethod
+    def dummy_classmethod(cls, a, b):
+        return a + b
+
 
 @pytest.yield_fixture
 def memjobstore():
@@ -108,9 +112,15 @@ def create_add_job(timezone, create_job):
     return create
 
 
-def test_add_method_job(jobstore, create_add_job):
+def test_add_instance_method_job(jobstore, create_add_job):
     instance = DummyClass()
     initial_job = create_add_job(jobstore, instance.dummy_method, kwargs={'a': 1, 'b': 2})
+    job = jobstore.lookup_job(initial_job.id)
+    assert job.func(*job.args, **job.kwargs) == 3
+
+
+def test_add_class_method_job(jobstore, create_add_job):
+    initial_job = create_add_job(jobstore, DummyClass.dummy_classmethod, kwargs={'a': 1, 'b': 2})
     job = jobstore.lookup_job(initial_job.id)
     assert job.func(*job.args, **job.kwargs) == 3
 

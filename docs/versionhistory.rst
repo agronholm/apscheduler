@@ -7,6 +7,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 3.5.3
 -----
 
+* Fixed regression introduced in 3.5.2: Class methods were mistaken for instance methods and thus
+  were broken during serialization
 * Fixed callable name detection for methods in old style classes
 
 
