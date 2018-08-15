@@ -1,5 +1,4 @@
 sudo: required
-dist: xenial
 language: python
 
 stages:
@@ -30,6 +29,7 @@ jobs:
       python: "3.6"
 
     - env: TOXENV=py37
+      dist: xenial
       python: "3.7"
 
     - env: TOXENV=flake8
