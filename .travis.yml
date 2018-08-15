@@ -31,6 +31,7 @@ jobs:
     - env: TOXENV=py37
       dist: xenial
       python: "3.7"
+      before_install: docker-compose up -d mongodb rethinkdb zookeeper
 
     - env: TOXENV=flake8
       sudo: false
