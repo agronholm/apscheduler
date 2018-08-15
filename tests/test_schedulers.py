@@ -1,4 +1,5 @@
 import logging
+import sys
 from datetime import datetime, timedelta
 from threading import Thread
 
@@ -728,8 +729,10 @@ Jobstore other:
         assert str(exc.value) == 'Expected a trigger instance or string, got int instead'
 
     def test_create_trigger_bad_plugin_type(self, scheduler):
+        mock_plugin = MagicMock()
+        mock_plugin.load.configure_mock(return_value=object)
         scheduler._trigger_classes = {}
-        scheduler._trigger_plugins = {'dummy': MagicMock(return_value=object)}
+        scheduler._trigger_plugins = {'dummy': mock_plugin}
         exc = pytest.raises(TypeError, scheduler._create_trigger, 'dummy', {})
         assert str(exc.value) == 'The trigger entry point does not point to a trigger class'
 
@@ -968,6 +971,7 @@ class TestAsyncIOScheduler(SchedulerImplementationTestBase):
         thread.join()
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 7), reason='Gevent does not yet work on Python 3.7+')
 class TestGeventScheduler(SchedulerImplementationTestBase):
     @pytest.fixture
     def scheduler(self):

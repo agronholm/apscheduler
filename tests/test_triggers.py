@@ -1,5 +1,6 @@
 import pickle
 import random
+import sys
 from datetime import datetime, timedelta, date
 
 import pytest
@@ -538,9 +539,14 @@ class TestIntervalTrigger(object):
         assert repr(trigger) == "<CronTrigger (day='1-2,4-7', timezone='Europe/Berlin')>"
 
     def test_repr(self, trigger):
-        assert repr(trigger) == ("<IntervalTrigger (interval=datetime.timedelta(0, 1), "
+        if sys.version_info[:2] < (3, 7):
+            timedelta_args = '0, 1'
+        else:
+            timedelta_args = 'seconds=1'
+
+        assert repr(trigger) == ("<IntervalTrigger (interval=datetime.timedelta({}), "
                                  "start_date='2009-08-04 00:00:02 CEST', "
-                                 "timezone='Europe/Berlin')>")
+                                 "timezone='Europe/Berlin')>".format(timedelta_args))
 
     def test_str(self, trigger):
         assert str(trigger) == "interval[0:00:01]"
