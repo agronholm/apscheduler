@@ -195,4 +195,5 @@ latex_documents = [
 #latex_use_modindex = True
 
 intersphinx_mapping = {'python': ('https://docs.python.org/', None),
-                       'sqlalchemy': ('http://docs.sqlalchemy.org/en/latest/', None)}
+                       'sqlalchemy': ('http://docs.sqlalchemy.org/en/latest/', None),
+                       'peewee': ('http://docs.peewee-orm.com/en/latest/', None)}

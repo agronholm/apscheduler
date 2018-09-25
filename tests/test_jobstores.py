@@ -83,16 +83,28 @@ def zookeeperjobstore():
     store.shutdown()
 
 
+@pytest.yield_fixture
+def peeweejobstore(tmpdir):
+    db_path = tmpdir.join('apscheduler_unittest.sqlite')
+    peewee = pytest.importorskip('apscheduler.jobstores.peewee')
+    store = peewee.PeeweeJobStore(str(db_path), peewee.Databases.SQLITE)
+    store.start(None, 'peewee')
+    yield store
+    store.shutdown()
+    db_path.remove()
+
+
 @pytest.fixture(params=['memjobstore', 'sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore',
-                        'rethinkdbjobstore', 'zookeeperjobstore'],
-                ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper'])
+                        'rethinkdbjobstore', 'zookeeperjobstore', 'peeweejobstore'],
+                ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper',
+                     'peewee'])
 def jobstore(request):
     return request.getfixturevalue(request.param)
 
 
 @pytest.fixture(params=['sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore',
-                        'rethinkdbjobstore', 'zookeeperjobstore'],
-                ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper'])
+                        'rethinkdbjobstore', 'zookeeperjobstore', 'peeweejobstore'],
+                ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper', 'peewee'])
 def persistent_jobstore(request):
     return request.getfixturevalue(request.param)
 
@@ -169,6 +181,10 @@ def test_get_next_run_time(jobstore, create_add_job, timezone):
     create_add_job(jobstore, dummy_job3, datetime(2013, 8, 14))
     create_add_job(jobstore, dummy_job3, datetime(2013, 7, 11), paused=True)
     assert jobstore.get_next_run_time() == timezone.localize(datetime(2013, 8, 14))
+
+
+def test_get_next_run_time_no_jobs(jobstore):
+    assert not jobstore.get_next_run_time()
 
 
 def test_add_job_conflicting_id(jobstore, create_add_job):
@@ -250,7 +266,7 @@ def test_one_job_fails_to_load(persistent_jobstore, create_add_job, monkeypatch,
     job2 = create_add_job(persistent_jobstore, dummy_job2, datetime(2014, 2, 26))
     create_add_job(persistent_jobstore, dummy_job3, datetime(2013, 8, 14))
 
-    # Make the dummy_job2 function disappear
+    # Make the dummy_job3 function disappear
     monkeypatch.delitem(globals(), 'dummy_job3')
 
     jobs = persistent_jobstore.get_all_jobs()
@@ -304,6 +320,10 @@ def test_repr_redisjobstore(redisjobstore):
 def test_repr_zookeeperjobstore(zookeeperjobstore):
     class_sig = "<ZooKeeperJobStore (client=<kazoo.client.KazooClient"
     assert repr(zookeeperjobstore).startswith(class_sig)
+
+
+def test_repr_peeweejobstore(peeweejobstore):
+    assert repr(peeweejobstore).startswith('<PeeweeJobStore (database=')
 
 
 def test_memstore_close(memjobstore, create_add_job):
@@ -385,3 +405,20 @@ def test_zookeeper_null_path():
     zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
     exc = pytest.raises(ValueError, zookeeper.ZooKeeperJobStore, path='')
     assert '"path"' in str(exc.value)
+
+
+def test_peewee_engine_ref():
+    global peewee_database
+    peewee = pytest.importorskip('apscheduler.jobstores.peewee')
+    peewee_database = peewee.SqliteDatabase(':memory:')
+    try:
+        peewee.PeeweeJobStore(database_ref='%s:peewee_database' % __name__)
+    finally:
+        peewee_database.close()
+        del peewee_database
+
+
+def test_peewee_missing_engine():
+    peewee = pytest.importorskip('apscheduler.jobstores.peewee')
+    exc = pytest.raises(ValueError, peewee.PeeweeJobStore)
+    assert 'Need either' in str(exc.value)
