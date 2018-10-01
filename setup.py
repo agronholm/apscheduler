@@ -48,6 +48,7 @@ setup(
         'asyncio:python_version == "2.7"': ['trollius'],
         'gevent': ['gevent'],
         'mongodb': ['pymongo >= 2.8'],
+        'peewee': ['peewee >= 3.0.18'],
         'redis': ['redis'],
         'rethinkdb': ['rethinkdb'],
         'sqlalchemy': ['sqlalchemy >= 0.8'],
@@ -87,7 +88,8 @@ setup(
             'mongodb = apscheduler.jobstores.mongodb:MongoDBJobStore [mongodb]',
             'rethinkdb = apscheduler.jobstores.rethinkdb:RethinkDBJobStore [rethinkdb]',
             'redis = apscheduler.jobstores.redis:RedisJobStore [redis]',
-            'zookeeper = apscheduler.jobstores.zookeeper:ZooKeeperJobStore [zookeeper]'
+            'zookeeper = apscheduler.jobstores.zookeeper:ZooKeeperJobStore [zookeeper]',
+            'peewee = apscheduler.jobstores.peewee:PeeweeJobStore [peewee]'
         ]
     }
 )
