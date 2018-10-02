@@ -294,4 +294,4 @@ class Job(object):
         else:
             status = 'pending'
 
-        return u'%s (trigger: %s, %s)' % (self.name, self.trigger, status)
+        return u'%s (func: %s, trigger: %s, %s)' % (self.id, self.name, self.trigger, status)
