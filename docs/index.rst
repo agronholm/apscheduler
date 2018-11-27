@@ -17,6 +17,7 @@ Table of Contents
   contributing
   extending
   faq
+  py-modindex
 
 
 Indices and tables
