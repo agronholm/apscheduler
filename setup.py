@@ -61,7 +61,11 @@ setup(
         ],
         'testing:python_version == "2.7"': ['mock'],
         'testing:python_version == "3.4"': ['pytest_asyncio < 0.6'],
-        'testing:python_version >= "3.5"': ['pytest_asyncio']
+        'testing:python_version >= "3.5"': ['pytest_asyncio'],
+        'docs': [
+            'sphinx',
+            'sphinxcontrib-fulltoc',
+        ],
     },
     zip_safe=False,
     entry_points={

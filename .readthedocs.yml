@@ -11,3 +11,4 @@ python:
     - tornado
     - twisted
     - zookeeper
+    - docs
