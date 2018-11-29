@@ -18,9 +18,3 @@ Table of Contents
   extending
   faq
   py-modindex
-
-
-Indices and tables
-==================
-
-* :ref:`API reference <modindex>`
