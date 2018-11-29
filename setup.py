@@ -64,7 +64,7 @@ setup(
         'testing:python_version >= "3.5"': ['pytest_asyncio'],
         'docs': [
             'sphinx',
-            'sphinxcontrib-fulltoc',
+            'sphinx-rtd-theme',
         ],
     },
     zip_safe=False,
