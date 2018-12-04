@@ -1,4 +1,9 @@
-from collections import Iterable, Mapping
+try:
+    # Importing ABCs from collections instead of collections.abc
+    # will stop working in Python 3.8.
+    from collections.abc import Iterable, Mapping
+except ImportError:
+    from collections import Iterable, Mapping
 from inspect import ismethod, isclass
 from uuid import uuid4
 
