@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 from abc import ABCMeta, abstractmethod
-from collections import MutableMapping
 from threading import RLock
 from datetime import datetime, timedelta
 from logging import getLogger
@@ -26,6 +25,11 @@ from apscheduler.events import (
     EVENT_JOBSTORE_ADDED, EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_JOB_MODIFIED, EVENT_JOB_REMOVED,
     EVENT_JOB_ADDED, EVENT_EXECUTOR_ADDED, EVENT_EXECUTOR_REMOVED, EVENT_ALL_JOBS_REMOVED,
     EVENT_JOB_SUBMITTED, EVENT_JOB_MAX_INSTANCES, EVENT_SCHEDULER_RESUMED, EVENT_SCHEDULER_PAUSED)
+
+try:
+    from collections.abc import MutableMapping
+except ImportError:
+    from collections import MutableMapping
 
 #: constant indicating a scheduler's stopped state
 STATE_STOPPED = 0
