@@ -1,4 +1,3 @@
-from collections import Iterable, Mapping
 from inspect import ismethod, isclass
 from uuid import uuid4
 
@@ -9,6 +8,10 @@ from apscheduler.util import (
     ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name, check_callable_args,
     convert_to_datetime)
 
+try:
+    from collections.abc import Iterable, Mapping
+except ImportError:
+    from collections import Iterable, Mapping
 
 class Job(object):
     """
