@@ -384,14 +384,14 @@ class TestCronTrigger(object):
             assert next_fire_time is None or next_fire_time <= end_date
 
     @pytest.mark.parametrize('values, expected', [
-        (dict(day='*/31'), "Error validating expression '\*/31': the step value \(31\) is higher "
-                           "than the total range of the expression \(30\)"),
-        (dict(day='4-6/3'), "Error validating expression '4-6/3': the step value \(3\) is higher "
-                            "than the total range of the expression \(2\)"),
-        (dict(hour='0-24'), "Error validating expression '0-24': the last value \(24\) is higher "
-                            "than the maximum value \(23\)"),
-        (dict(day='0-3'), "Error validating expression '0-3': the first value \(0\) is lower than "
-                          "the minimum value \(1\)")
+        (dict(day='*/31'), r"Error validating expression '\*/31': the step value \(31\) is higher "
+                           r"than the total range of the expression \(30\)"),
+        (dict(day='4-6/3'), r"Error validating expression '4-6/3': the step value \(3\) is higher "
+                            r"than the total range of the expression \(2\)"),
+        (dict(hour='0-24'), r"Error validating expression '0-24': the last value \(24\) is higher "
+                            r"than the maximum value \(23\)"),
+        (dict(day='0-3'), r"Error validating expression '0-3': the first value \(0\) is lower "
+                          r"than the minimum value \(1\)")
     ], ids=['too_large_step_all', 'too_large_step_range', 'too_high_last', 'too_low_first'])
     def test_invalid_ranges(self, values, expected):
         pytest.raises(ValueError, CronTrigger, **values).match(expected)

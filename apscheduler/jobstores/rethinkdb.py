@@ -75,7 +75,7 @@ class RethinkDBJobStore(BaseJobStore):
     def get_next_run_time(self):
         results = list(
             self.table
-            .filter(r.row['next_run_time'] != None)  # flake8: noqa
+            .filter(r.row['next_run_time'] != None)  # noqa
             .order_by(r.asc('next_run_time'))
             .map(lambda x: x['next_run_time'])
             .limit(1)
@@ -130,14 +130,14 @@ class RethinkDBJobStore(BaseJobStore):
     def _get_jobs(self, predicate=None):
         jobs = []
         failed_job_ids = []
-        query = (self.table.filter(r.row['next_run_time'] != None).filter(predicate) if
+        query = (self.table.filter(r.row['next_run_time'] != None).filter(predicate) if  # noqa
                  predicate else self.table)
         query = query.order_by('next_run_time', 'id').pluck('id', 'job_state')
 
         for document in query.run(self.conn):
             try:
                 jobs.append(self._reconstitute_job(document['job_state']))
-            except:
+            except Exception:
                 self._logger.exception('Unable to restore job "%s" -- removing it', document['id'])
                 failed_job_ids.append(document['id'])
 

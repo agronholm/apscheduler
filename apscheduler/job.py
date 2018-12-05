@@ -13,6 +13,7 @@ try:
 except ImportError:
     from collections import Iterable, Mapping
 
+
 class Job(object):
     """
     Contains the options given when scheduling callables and its current schedule and other state.
