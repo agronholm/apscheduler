@@ -1,52 +1,59 @@
+dist: xenial
 sudo: required
 language: python
 cache: pip
+python: "3.6"
 
 stages:
+  - name: static analysis
   - name: test
   - name: deploy to pypi
     if: type = push AND tag =~ ^v\d+\.\d+\.\d+
 
 jobs:
   include:
-    - env: TOXENV=pypy
+    - stage: static analysis
+      env: TOXENV=flake8
+      sudo: false
+      before_install: skip
+      after_success: skip
+
+    - stage: test
+      env: TOXENV=pypy
       python: pypy
       after_success: skip
 
-    - env: TOXENV=pypy3
-      python: pypy3
+    - stage: test
+      env: TOXENV=pypy3
+      python: pypy3.5
       after_success: skip
 
-    - env: TOXENV=py27
+    - stage: test
+      env: TOXENV=py27
       python: "2.7"
 
-    - env: TOXENV=py34
+    - stage: test
+      env: TOXENV=py34
       python: "3.4"
 
-    - env: TOXENV=py35
+    - stage: test
+      env: TOXENV=py35
       python: "3.5"
 
-    - env: TOXENV=py36
+    - stage: test
+      env: TOXENV=py36
       python: "3.6"
 
-    - env: TOXENV=py37
-      dist: xenial
+    - stage: test
+      env: TOXENV=py37
       python: "3.7"
-      before_install: docker-compose up -d mongodb rethinkdb zookeeper
 
-    - env: TOXENV=flake8
+    - stage: deploy to pypi
       sudo: false
-      python: "3.5"
       before_install: skip
-      after_success: skip
-
-    - stage: deploy to PyPI
-      sudo: false
-      python: "3.5"
-      before_install: skip
-      install: pip install -U setuptools
+      install: true
       script: skip
-      after_success: true
+      after_success: skip
       deploy:
         provider: pypi
         user: agronholm
@@ -55,7 +62,6 @@ jobs:
         distributions: sdist bdist_wheel
         on:
           tags: true
-          repo: agronholm/apscheduler
 
 before_install: docker-compose up -d
 
