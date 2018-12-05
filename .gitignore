@@ -3,6 +3,7 @@
 .idea/
 .coverage
 .cache/
+.pytest_cache/
 .tox/
 .eggs/
 *.egg-info/
