@@ -48,7 +48,7 @@ setup(
         'asyncio:python_version == "2.7"': ['trollius'],
         'gevent': ['gevent'],
         'mongodb': ['pymongo >= 2.8'],
-        'redis': ['redis'],
+        'redis': ['redis >= 3.0'],
         'rethinkdb': ['rethinkdb'],
         'sqlalchemy': ['sqlalchemy >= 0.8'],
         'tornado': ['tornado >= 4.3'],

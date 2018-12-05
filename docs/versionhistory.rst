@@ -4,6 +4,12 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+UNRELEASED
+----------
+
+* Adapted ``RedisJobStore`` to v3.0 of the ``redis`` library
+
+
 3.5.3
 -----
 

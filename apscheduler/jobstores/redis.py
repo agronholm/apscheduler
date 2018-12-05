@@ -14,7 +14,7 @@ except ImportError:  # pragma: nocover
     import pickle
 
 try:
-    from redis import StrictRedis
+    from redis import Redis
 except ImportError:  # pragma: nocover
     raise ImportError('RedisJobStore requires redis installed')
 
@@ -47,7 +47,7 @@ class RedisJobStore(BaseJobStore):
         self.pickle_protocol = pickle_protocol
         self.jobs_key = jobs_key
         self.run_times_key = run_times_key
-        self.redis = StrictRedis(db=int(db), **connect_args)
+        self.redis = Redis(db=int(db), **connect_args)
 
     def lookup_job(self, job_id):
         job_state = self.redis.hget(self.jobs_key, job_id)
@@ -81,7 +81,9 @@ class RedisJobStore(BaseJobStore):
             pipe.hset(self.jobs_key, job.id, pickle.dumps(job.__getstate__(),
                                                           self.pickle_protocol))
             if job.next_run_time:
-                pipe.zadd(self.run_times_key, datetime_to_utc_timestamp(job.next_run_time), job.id)
+                pipe.zadd(self.run_times_key,
+                          {job.id: datetime_to_utc_timestamp(job.next_run_time)})
+
             pipe.execute()
 
     def update_job(self, job):
@@ -92,9 +94,11 @@ class RedisJobStore(BaseJobStore):
             pipe.hset(self.jobs_key, job.id, pickle.dumps(job.__getstate__(),
                                                           self.pickle_protocol))
             if job.next_run_time:
-                pipe.zadd(self.run_times_key, datetime_to_utc_timestamp(job.next_run_time), job.id)
+                pipe.zadd(self.run_times_key,
+                          {job.id: datetime_to_utc_timestamp(job.next_run_time)})
             else:
                 pipe.zrem(self.run_times_key, job.id)
+
             pipe.execute()
 
     def remove_job(self, job_id):
