@@ -20,12 +20,12 @@ jobs:
 
     - stage: test
       env: TOXENV=pypy
-      python: pypy
+      python: pypy2.7-6.0
       after_success: skip
 
     - stage: test
       env: TOXENV=pypy3
-      python: pypy3.5
+      python: pypy3.5-6.0
       after_success: skip
 
     - stage: test
