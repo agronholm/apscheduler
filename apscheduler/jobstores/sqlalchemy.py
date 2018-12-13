@@ -106,7 +106,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         }).where(self.jobs_t.c.id == job.id)
         result = self.engine.execute(update)
         if result.rowcount == 0:
-            raise JobLookupError(id)
+            raise JobLookupError(job.id)
 
     def remove_job(self, job_id):
         delete = self.jobs_t.delete().where(self.jobs_t.c.id == job_id)
