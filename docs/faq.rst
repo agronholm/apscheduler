@@ -29,6 +29,16 @@ chance to run the scheduled job.
 If you're having any other issue, then enabling debug logging as instructed in the
 :ref:`troubleshooting` section should shed some light into the problem.
 
+Why am I getting a ValueError?
+=====================================
+You're receiving an error like the following::
+
+   ValueError: This Job cannot be serialized since the reference to its callable (<bound method xxxxxxxx.on_crn_field_submission                    
+   of <__main__.xxxxxxx object at xxxxxxxxxxxxx>>) could not be determined. Consider giving a textual reference (module:function 
+   name) instead.  
+
+This means that the function you are attempting to schedule is nested within a class or within another fucntion. Functions to be scheduled must reside at module level, and must be importable. Try moving your function into a module (not ``__init__.py``) and make sure it is not nested within a class or other function.
+
 How can I use APScheduler with uWSGI?
 =====================================
 
