@@ -598,14 +598,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         jobstore_alias = None
         with self._jobstores_lock:
+            # Check if the job is among the pending jobs
             if self.state == STATE_STOPPED:
-                # Check if the job is among the pending jobs
-                if self.state == STATE_STOPPED:
-                    for i, (job, alias, replace_existing) in enumerate(self._pending_jobs):
-                        if job.id == job_id and jobstore in (None, alias):
-                            del self._pending_jobs[i]
-                            jobstore_alias = alias
-                            break
+                for i, (job, alias, replace_existing) in enumerate(self._pending_jobs):
+                    if job.id == job_id and jobstore in (None, alias):
+                        del self._pending_jobs[i]
+                        jobstore_alias = alias
+                        break
             else:
                 # Otherwise, try to remove it from each store until it succeeds or we run out of
                 # stores to check
