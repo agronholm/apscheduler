@@ -29,6 +29,36 @@ chance to run the scheduled job.
 If you're having any other issue, then enabling debug logging as instructed in the
 :ref:`troubleshooting` section should shed some light into the problem.
 
+Why am I getting a ValueError?
+==============================
+
+If you're receiving an error like the following::
+
+   ValueError: This Job cannot be serialized since the reference to its callable (<bound method xxxxxxxx.on_crn_field_submission
+   of <__main__.xxxxxxx object at xxxxxxxxxxxxx>>) could not be determined. Consider giving a textual reference (module:function
+   name) instead.
+
+This means that the function you are attempting to schedule has one of the following problems:
+
+* It is a lambda function (e.g. ``lambda x: x + 1``)
+* It is a bound method (function tied to a particular instance of some class)
+* It is a nested function (function inside another function)
+* You are trying to schedule a function that is not tied to any actual module (such as a function
+  defined in the REPL, hence ``__main__`` as the module name)
+
+In these cases, it is impossible for the scheduler to determine a "lookup path" to find that
+specific function instance in situations where, for example, the scheduler process is restarted,
+or a process pool worker is being sent the related job object.
+
+Common workarounds for these problems include:
+
+* Converting a lambda to a regular function
+* Moving a nested function to the module level or to class level as either a class method or a
+  static method
+* In case of a bound method, passing the unbound version (``YourClass.method_name``) as the target
+  function to ``add_job()`` with the class instance as the first argument (so it gets passed as the
+  ``self`` argument)
+
 How can I use APScheduler with uWSGI?
 =====================================
 
