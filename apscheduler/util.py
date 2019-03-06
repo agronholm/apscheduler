@@ -332,7 +332,7 @@ def check_callable_args(func, args, kwargs):
     has_varargs = has_var_kwargs = False
 
     try:
-        sig = signature(func)
+        sig = signature(func, follow_wrapped=False)
     except ValueError:
         # signature() doesn't work against every kind of callable
         return
