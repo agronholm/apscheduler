@@ -1,5 +1,4 @@
 import logging
-import sys
 from datetime import datetime, timedelta
 from threading import Thread
 
@@ -971,7 +970,6 @@ class TestAsyncIOScheduler(SchedulerImplementationTestBase):
         thread.join()
 
 
-@pytest.mark.skipif(sys.version_info >= (3, 7), reason='Gevent does not yet work on Python 3.7+')
 class TestGeventScheduler(SchedulerImplementationTestBase):
     @pytest.fixture
     def scheduler(self):
