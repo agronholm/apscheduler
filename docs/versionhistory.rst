@@ -4,8 +4,8 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
-UNRELEASED
-----------
+3.6.0
+-----
 
 * Adapted ``RedisJobStore`` to v3.0 of the ``redis`` library
 * Adapted ``RethinkDBJobStore`` to v2.4 of the ``rethink`` library
