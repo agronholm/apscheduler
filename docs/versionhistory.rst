@@ -8,6 +8,7 @@ UNRELEASED
 ----------
 
 * Adapted ``RedisJobStore`` to v3.0 of the ``redis`` library
+* Adapted ``RethinkDBJobStore`` to v2.4 of the ``rethink`` library
 * Fixed ``DeprecationWarnings`` about ``collections.abc`` on Python 3.7 (PR by Roman Levin)
 
 3.5.3

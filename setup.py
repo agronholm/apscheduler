@@ -49,7 +49,7 @@ setup(
         'gevent': ['gevent'],
         'mongodb': ['pymongo >= 2.8'],
         'redis': ['redis >= 3.0'],
-        'rethinkdb': ['rethinkdb'],
+        'rethinkdb': ['rethinkdb >= 2.4.0'],
         'sqlalchemy': ['sqlalchemy >= 0.8'],
         'tornado': ['tornado >= 4.3'],
         'twisted': ['twisted'],

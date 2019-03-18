@@ -49,7 +49,7 @@ def rethinkdbjobstore():
     store = rethinkdb.RethinkDBJobStore(database='apscheduler_unittest')
     store.start(None, 'rethinkdb')
     yield store
-    rethinkdb.r.db_drop('apscheduler_unittest').run(store.conn)
+    store.r.db_drop('apscheduler_unittest').run(store.conn)
     store.shutdown()
 
 
