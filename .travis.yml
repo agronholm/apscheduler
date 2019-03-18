@@ -13,44 +13,43 @@ jobs:
   include:
     - stage: static analysis
       env: TOXENV=flake8
-      before_install: skip
-      after_success: skip
 
-    - stage: test
+    - &test
+      stage: test
       env: TOXENV=pypy
       python: pypy2.7-6.0
-      after_success: skip
+      before_install: docker-compose up -d
+      after_success:
+        - pip install coveralls
+        - coveralls
 
-    - stage: test
+    - <<: *test
       env: TOXENV=pypy3
       python: pypy3.5-6.0
-      after_success: skip
 
-    - stage: test
+    - <<: *test
       env: TOXENV=py27
       python: "2.7"
 
-    - stage: test
+    - <<: *test
       env: TOXENV=py34
       python: "3.4"
 
-    - stage: test
+    - <<: *test
       env: TOXENV=py35
       python: "3.5"
 
-    - stage: test
+    - <<: *test
       env: TOXENV=py36
       python: "3.6"
 
-    - stage: test
+    - <<: *test
       env: TOXENV=py37
       python: "3.7"
 
     - stage: deploy to pypi
-      before_install: skip
       install: true
       script: skip
-      after_success: skip
       deploy:
         provider: pypi
         user: agronholm
@@ -60,15 +59,9 @@ jobs:
         on:
           tags: true
 
-before_install: docker-compose up -d
-
 install: pip install tox
 
 script: tox
-
-after_success:
-  - pip install coveralls
-  - coveralls
 
 notifications:
   webhooks:
