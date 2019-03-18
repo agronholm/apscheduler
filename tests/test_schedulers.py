@@ -869,7 +869,7 @@ class SchedulerImplementationTestBase(object):
     def executor(self, scheduler):
         scheduler.add_executor(DebugExecutor())
 
-    @pytest.yield_fixture
+    @pytest.fixture
     def start_scheduler(self, request, scheduler):
         yield scheduler.start
         if scheduler.running:
@@ -930,7 +930,7 @@ class TestBlockingScheduler(SchedulerImplementationTestBase):
         from apscheduler.schedulers.blocking import BlockingScheduler
         return BlockingScheduler()
 
-    @pytest.yield_fixture
+    @pytest.fixture
     def start_scheduler(self, request, scheduler):
         thread = Thread(target=scheduler.start)
         yield thread.start
@@ -958,7 +958,7 @@ class TestAsyncIOScheduler(SchedulerImplementationTestBase):
         asyncio = pytest.importorskip('apscheduler.schedulers.asyncio')
         return asyncio.AsyncIOScheduler(event_loop=event_loop)
 
-    @pytest.yield_fixture
+    @pytest.fixture
     def start_scheduler(self, request, event_loop, scheduler):
         event_loop.call_soon_threadsafe(scheduler.start)
         thread = Thread(target=event_loop.run_forever)
@@ -1000,7 +1000,7 @@ class TestTornadoScheduler(SchedulerImplementationTestBase):
         tornado = pytest.importorskip('apscheduler.schedulers.tornado')
         return tornado.TornadoScheduler(io_loop=io_loop)
 
-    @pytest.yield_fixture
+    @pytest.fixture
     def start_scheduler(self, request, io_loop, scheduler):
         io_loop.add_callback(scheduler.start)
         thread = Thread(target=io_loop.start)
@@ -1023,7 +1023,7 @@ class TestTwistedScheduler(SchedulerImplementationTestBase):
         twisted = pytest.importorskip('apscheduler.schedulers.twisted')
         return twisted.TwistedScheduler(reactor=reactor)
 
-    @pytest.yield_fixture
+    @pytest.fixture
     def start_scheduler(self, request, reactor, scheduler):
         reactor.callFromThread(scheduler.start)
         thread = Thread(target=reactor.run, args=(False,))

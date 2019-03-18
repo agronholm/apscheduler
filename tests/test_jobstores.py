@@ -27,12 +27,12 @@ class DummyClass:
         return a + b
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def memjobstore():
     yield MemoryJobStore()
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def sqlalchemyjobstore(tmpdir):
     db_path = tmpdir.join('apscheduler_unittest.sqlite')
     sqlalchemy = pytest.importorskip('apscheduler.jobstores.sqlalchemy')
@@ -43,7 +43,7 @@ def sqlalchemyjobstore(tmpdir):
     db_path.remove()
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def rethinkdbjobstore():
     rethinkdb = pytest.importorskip('apscheduler.jobstores.rethinkdb')
     store = rethinkdb.RethinkDBJobStore(database='apscheduler_unittest')
@@ -53,7 +53,7 @@ def rethinkdbjobstore():
     store.shutdown()
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def mongodbjobstore():
     mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
     store = mongodb.MongoDBJobStore(database='apscheduler_unittest')
@@ -63,7 +63,7 @@ def mongodbjobstore():
     store.shutdown()
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def redisjobstore():
     redis = pytest.importorskip('apscheduler.jobstores.redis')
     store = redis.RedisJobStore()
@@ -73,7 +73,7 @@ def redisjobstore():
     store.shutdown()
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def zookeeperjobstore():
     zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
     store = zookeeper.ZooKeeperJobStore(path='/apscheduler_unittest')
