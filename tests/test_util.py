@@ -9,6 +9,7 @@ import pytz
 import six
 import sys
 
+from apscheduler.job import Job
 from apscheduler.util import (
     asint, asbool, astimezone, convert_to_datetime, datetime_to_utc_timestamp,
     utc_timestamp_to_datetime, timedelta_seconds, datetime_ceil, get_callable_name, obj_to_ref,
@@ -40,6 +41,10 @@ class DummyClass(object):
         @classmethod
         def innerclassmeth(cls):
             pass
+
+
+class InheritedDummyClass(Job):
+    pass
 
 
 class TestAsint(object):
@@ -229,8 +234,13 @@ class TestObjToRef(object):
                            reason="Requires __qualname__ (Python 3.3+)")(
             (DummyClass.staticmeth, 'tests.test_util:DummyClass.staticmeth')
         ),
+        pytest.mark.skipif(sys.version_info >= (3, 2),
+                           reason="Unbound methods (Python 3.2) and __qualname__ (Python 3.3+)")(
+            (InheritedDummyClass.pause, 'tests.test_util:InheritedDummyClass.pause')
+        ),
         (timedelta, 'datetime:timedelta'),
-    ], ids=['unbound method', 'class method', 'inner class method', 'static method', 'timedelta'])
+    ], ids=['unbound method', 'class method', 'inner class method', 'static method',
+            'inherited class method', 'timedelta'])
     def test_valid_refs(self, input, expected):
         assert obj_to_ref(input) == expected
 
