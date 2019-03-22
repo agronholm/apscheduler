@@ -91,6 +91,7 @@ def test_submit_job(mock_scheduler, executor, create_job, freeze_time, timezone,
     assert event.code == event_code
     assert event.job_id == 'foo'
     assert event.jobstore == 'test_jobstore'
+    assert event.actual_start_time <= datetime.now(UTC)
 
     if event_code == EVENT_JOB_EXECUTED:
         assert event.retval == 5

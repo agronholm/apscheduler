@@ -15,12 +15,20 @@ async def run_coroutine_job(job, jobstore_alias, run_times, logger_name):
     logger = logging.getLogger(logger_name)
     for run_time in run_times:
         # See if the job missed its run time window, and handle possible misfires accordingly
+        actual_start_time = datetime.now(utc)  # record actual start time for events
         if job.misfire_grace_time is not None:
             difference = datetime.now(utc) - run_time
             grace_time = timedelta(seconds=job.misfire_grace_time)
             if difference > grace_time:
-                events.append(JobExecutionEvent(EVENT_JOB_MISSED, job.id, jobstore_alias,
-                                                run_time))
+                events.append(
+                    JobExecutionEvent(
+                        EVENT_JOB_MISSED,
+                        job.id,
+                        jobstore_alias,
+                        run_time,
+                        actual_start_time,
+                    )
+                )
                 logger.warning('Run time of job "%s" was missed by %s', job, difference)
                 continue
 
@@ -29,13 +37,30 @@ async def run_coroutine_job(job, jobstore_alias, run_times, logger_name):
             retval = await job.func(*job.args, **job.kwargs)
         except BaseException:
             exc, tb = sys.exc_info()[1:]
-            formatted_tb = ''.join(format_tb(tb))
-            events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
-                                            exception=exc, traceback=formatted_tb))
+            formatted_tb = "".join(format_tb(tb))
+            events.append(
+                JobExecutionEvent(
+                    EVENT_JOB_ERROR,
+                    job.id,
+                    jobstore_alias,
+                    run_time,
+                    actual_start_time,
+                    exception=exc,
+                    traceback=formatted_tb,
+                )
+            )
             logger.exception('Job "%s" raised an exception', job)
         else:
-            events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
-                                            retval=retval))
+            events.append(
+                JobExecutionEvent(
+                    EVENT_JOB_EXECUTED,
+                    job.id,
+                    jobstore_alias,
+                    run_time,
+                    actual_start_time,
+                    retval=retval,
+                )
+            )
             logger.info('Job "%s" executed successfully', job)
 
     return events
