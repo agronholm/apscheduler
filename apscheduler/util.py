@@ -5,7 +5,7 @@ from __future__ import division
 from datetime import date, datetime, time, timedelta, tzinfo
 from calendar import timegm
 from functools import partial
-from inspect import isclass
+from inspect import isclass, ismethod
 import re
 
 from pytz import timezone, utc, FixedOffset
@@ -263,7 +263,18 @@ def obj_to_ref(obj):
     if '<locals>' in name:
         raise ValueError('Cannot create a reference to a nested function')
 
-    return '%s:%s' % (obj.__module__, name)
+    if ismethod(obj):
+        if hasattr(obj, 'im_self') and obj.im_self:
+            # bound method
+            module = obj.im_self.__module__
+        elif hasattr(obj, 'im_class') and obj.im_class:
+            # unbound method
+            module = obj.im_class.__module__
+        else:
+            module = obj.__module__
+    else:
+        module = obj.__module__
+    return '%s:%s' % (module, name)
 
 
 def ref_to_obj(ref):
