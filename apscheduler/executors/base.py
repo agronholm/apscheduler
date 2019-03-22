@@ -126,7 +126,7 @@ def run_job(job, jobstore_alias, run_times, logger_name):
             retval = job.func(*job.args, **job.kwargs)
         except BaseException:
             exc, tb = sys.exc_info()[1:]
-            formatted_tb = "".join(format_tb(tb))
+            formatted_tb = ''.join(format_tb(tb))
             events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
                                             actual_start_time, exception=exc, traceback=formatted_tb))
             logger.exception('Job "%s" raised an exception', job)
