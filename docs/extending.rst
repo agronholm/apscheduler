@@ -24,7 +24,7 @@ this::
   scheduler.add_job(target, trigger)
 
 You can also register it as a plugin so you can use the alternate form of
-``add_jobstore``::
+``add_job``::
 
   scheduler.add_job(target, 'my_trigger', arg1='foo')
 
