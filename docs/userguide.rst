@@ -106,6 +106,8 @@ built-in trigger types:
   use when you want to run the job at fixed intervals of time
 * :mod:`~apscheduler.triggers.cron`:
   use when you want to run the job periodically at certain time(s) of day
+* :mod:`~apscheduler.triggers.calendarinterval`:
+  use when you want to run the job on calendar-based intervals, at a specific time of day
 
 It is also possible to combine multiple triggers into one which fires either on times agreed on by
 all the participating triggers, or when any of the triggers would fire. For more information, see
