@@ -26,7 +26,8 @@ class QtScheduler(BaseScheduler):
     def _start_timer(self, wait_seconds):
         self._stop_timer()
         if wait_seconds is not None:
-            self._timer = QTimer.singleShot(wait_seconds * 1000, self._process_jobs)
+            wait_time = min(wait_seconds * 1000, 2147483647)
+            self._timer = QTimer.singleShot(wait_time, self._process_jobs)
 
     def _stop_timer(self):
         if self._timer:
