@@ -918,6 +918,7 @@ class SchedulerImplementationTestBase(object):
                                             start_scheduler):
         """Tests that job can receive scheduled run time (the "provide_scheduled_run_time"
         add_job parameter) """
+        freeze_time.set_increment(timedelta(seconds=0.2))
         start_scheduler()
         assert self.wait_event(eventqueue).code == EVENT_JOBSTORE_ADDED
         assert self.wait_event(eventqueue).code == EVENT_SCHEDULER_STARTED
