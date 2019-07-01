@@ -40,7 +40,7 @@ class Job(object):
 
     __slots__ = ('_scheduler', '_jobstore_alias', 'id', 'trigger', 'executor', 'func', 'func_ref',
                  'args', 'kwargs', 'name', 'misfire_grace_time', 'coalesce', 'max_instances',
-                 'next_run_time')
+                 'next_run_time', 'provide_scheduled_run_time')
 
     def __init__(self, scheduler, id=None, **kwargs):
         super(Job, self).__init__()
@@ -155,6 +155,10 @@ class Job(object):
         if 'func' in changes or 'args' in changes or 'kwargs' in changes:
             func = changes.pop('func') if 'func' in changes else self.func
             args = changes.pop('args') if 'args' in changes else self.args
+            provide_scheduled_run_time = changes.pop('provide_scheduled_run_time') \
+                if 'provide_scheduled_run_time' in changes \
+                else self.provide_scheduled_run_time
+
             kwargs = changes.pop('kwargs') if 'kwargs' in changes else self.kwargs
 
             if isinstance(func, six.string_types):
@@ -177,8 +181,19 @@ class Job(object):
             if isinstance(kwargs, six.string_types) or not isinstance(kwargs, Mapping):
                 raise TypeError('kwargs must be a dict-like object')
 
-            check_callable_args(func, args, kwargs)
+            if not isinstance(provide_scheduled_run_time, type(True)):
+                raise TypeError('provide_scheduled_run_time must be a boolean')
 
+            if "scheduled_run_time" in kwargs:
+                raise Exception("'scheduled_run_time' is a reserved parameter name")
+
+            if provide_scheduled_run_time:
+                kwargs["scheduled_run_time"] = "dummy"
+            check_callable_args(func, args, kwargs)
+            if provide_scheduled_run_time:
+                kwargs.pop("scheduled_run_time")
+
+            approved['provide_scheduled_run_time'] = provide_scheduled_run_time
             approved['func'] = func
             approved['func_ref'] = func_ref
             approved['args'] = args
@@ -248,7 +263,7 @@ class Job(object):
             args = self.args
 
         return {
-            'version': 1,
+            'version': 2,
             'id': self.id,
             'func': self.func_ref,
             'trigger': self.trigger,
@@ -259,13 +274,20 @@ class Job(object):
             'misfire_grace_time': self.misfire_grace_time,
             'coalesce': self.coalesce,
             'max_instances': self.max_instances,
-            'next_run_time': self.next_run_time
+            'next_run_time': self.next_run_time,
+            "provide_scheduled_run_time": self.provide_scheduled_run_time
         }
 
     def __setstate__(self, state):
-        if state.get('version', 1) > 1:
+        version = state.get('version', 1)
+        if version > 2:
             raise ValueError('Job has version %s, but only version 1 can be handled' %
                              state['version'])
+
+        if version < 2:
+            self.provide_scheduled_run_time = False
+        else:
+            self.provide_scheduled_run_time = state["provide_scheduled_run_time"]
 
         self.id = state['id']
         self.func_ref = state['func']

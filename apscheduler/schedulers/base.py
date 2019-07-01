@@ -370,7 +370,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     def add_job(self, func, trigger=None, args=None, kwargs=None, id=None, name=None,
                 misfire_grace_time=undefined, coalesce=undefined, max_instances=undefined,
                 next_run_time=undefined, jobstore='default', executor='default',
-                replace_existing=False, **trigger_args):
+                replace_existing=False, provide_scheduled_run_time=False, **trigger_args):
         """
         add_job(func, trigger=None, args=None, kwargs=None, id=None, \
             name=None, misfire_grace_time=undefined, coalesce=undefined, \
@@ -427,7 +427,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             'misfire_grace_time': misfire_grace_time,
             'coalesce': coalesce,
             'max_instances': max_instances,
-            'next_run_time': next_run_time
+            'next_run_time': next_run_time,
+            'provide_scheduled_run_time': provide_scheduled_run_time
         }
         job_kwargs = dict((key, value) for key, value in six.iteritems(job_kwargs) if
                           value is not undefined)

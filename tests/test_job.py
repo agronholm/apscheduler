@@ -146,6 +146,21 @@ def test_private_modify_bad_kwargs(job):
     assert str(exc.value) == 'kwargs must be a dict-like object'
 
 
+def test_modify_scheduled_run_time_in_kwargs(create_job):
+    def test_f(scheduled_run_time):
+        return None
+    job = create_job(func=test_f, provide_scheduled_run_time=True)
+    exc = pytest.raises(Exception, job._modify, kwargs={"scheduled_run_time": "dummy"})
+    assert str(exc.value) == "'scheduled_run_time' is a reserved parameter name"
+
+
+def test_modify_bad_provide_scheduled_run_time(create_job):
+    def test_f(scheduled_run_time):
+        return None
+    exc = pytest.raises(Exception, create_job, func=test_f, provide_scheduled_run_time="dummy")
+    assert str(exc.value) == 'provide_scheduled_run_time must be a boolean'
+
+
 @pytest.mark.parametrize('value', [1, ''], ids=['integer', 'empty string'])
 def test_private_modify_bad_name(job, value):
     """
@@ -197,10 +212,10 @@ def test_private_modify_bad_argument(job):
 def test_getstate(job):
     state = job.__getstate__()
     assert state == dict(
-        version=1, trigger=job.trigger, executor='default', func='tests.test_job:dummyfunc',
+        version=2, trigger=job.trigger, executor='default', func='tests.test_job:dummyfunc',
         name=b'n\xc3\xa4m\xc3\xa9'.decode('utf-8'), args=(), kwargs={},
         id=b't\xc3\xa9st\xc3\xafd'.decode('utf-8'), misfire_grace_time=1, coalesce=False,
-        max_instances=1, next_run_time=None)
+        max_instances=1, next_run_time=None, provide_scheduled_run_time=False)
 
 
 def test_setstate(job, timezone):

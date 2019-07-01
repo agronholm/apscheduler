@@ -914,6 +914,27 @@ class SchedulerImplementationTestBase(object):
         assert event.retval == 3
         assert self.wait_event(eventqueue).code == EVENT_JOB_REMOVED
 
+    def test_job_provide_scheduled_run_time(self, scheduler, freeze_time, eventqueue,
+                                            start_scheduler):
+        """Tests that job can receive scheduled run time (the "provide_scheduled_run_time"
+        add_job parameter) """
+        start_scheduler()
+        assert self.wait_event(eventqueue).code == EVENT_JOBSTORE_ADDED
+        assert self.wait_event(eventqueue).code == EVENT_SCHEDULER_STARTED
+
+        def test_func(scheduled_run_time):
+            return scheduled_run_time
+
+        scheduler.add_job(test_func,
+                          provide_scheduled_run_time=True,
+                          run_date=freeze_time.get())
+
+        assert self.wait_event(eventqueue).code == EVENT_JOB_ADDED
+        event = self.wait_event(eventqueue)
+
+        assert event.code == EVENT_JOB_EXECUTED
+        assert event.retval == event.scheduled_run_time
+
     def test_shutdown(self, scheduler, eventqueue, start_scheduler):
         """Tests that shutting down the scheduler emits the proper event."""
         start_scheduler()

@@ -120,6 +120,9 @@ def run_job(job, jobstore_alias, run_times, logger_name):
                 logger.warning('Run time of job "%s" was missed by %s', job, difference)
                 continue
 
+        if job.provide_scheduled_run_time:
+            job.kwargs["scheduled_run_time"] = run_time
+
         logger.info('Running job "%s" (scheduled at %s)', job, run_time)
         try:
             retval = job.func(*job.args, **job.kwargs)
