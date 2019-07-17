@@ -426,8 +426,7 @@ class TestCronTrigger(object):
          "timezone='Europe/Berlin')>")
     ], ids=['always', 'assorted', 'multiple_spaces_in_format',
             'yearly', 'monthly', 'weekly', 'daily', 'hourly',
-            'omitted_fields'
-    ])
+            'omitted_fields'])
     def test_from_crontab(self, expr, expected_repr, timezone):
         trigger = CronTrigger.from_crontab(expr, timezone)
         assert repr(trigger) == expected_repr
@@ -440,6 +439,24 @@ class TestCronTrigger(object):
     def test_from_crontab_strict(self, expr, expected_repr, timezone):
         trigger = CronTrigger.from_crontab(expr, timezone, strict=True)
         assert repr(trigger) == expected_repr
+
+    @pytest.mark.parametrize('expr, expected_str, next_date', [
+        ('0 8 ? feb wed',
+         "cron[month='feb', day_of_week='wed', hour='8', minute='0']",
+         (2019, 2, 6, 8, 0, 0)),
+        ('0 8 10-20 feb fri',
+         "cron[month='feb', day='10-20', day_of_week='fri', hour='8', minute='0']",
+         (2019, 2, 1, 8, 0, 0)),
+        ('0 8 5-10 feb thu',
+         "cron[month='feb', day='5-10', day_of_week='thu', hour='8', minute='0']",
+         (2019, 2, 5, 8, 0, 0))
+    ], ids=['any wednesday', 'day 10-20 and fridays', 'day 5-10 and thursdays'])
+    def test_from_crontab_strict_weekdays(self, expr, expected_str, next_date, timezone):
+        trigger = CronTrigger.from_crontab(expr, timezone=timezone, strict=True)
+        assert str(trigger) == expected_str
+        start_date = timezone.localize(datetime(2019, 1, 1))
+        correct_next_date = timezone.localize(datetime(*next_date))
+        assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
 
 class TestDateTrigger(object):

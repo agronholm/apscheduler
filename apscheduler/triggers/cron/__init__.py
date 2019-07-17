@@ -34,6 +34,7 @@ class CronTrigger(BaseTrigger):
     """
 
     FIELD_NAMES = ('year', 'month', 'day', 'week', 'day_of_week', 'hour', 'minute', 'second')
+    FIELD_INDEX = {name: idx for idx, name in enumerate(FIELD_NAMES)}
     FIELDS_MAP = {
         'year': BaseField,
         'month': MonthField,
@@ -185,7 +186,7 @@ class CronTrigger(BaseTrigger):
 
         return self.timezone.localize(datetime(**values))
 
-    def get_next_fire_time(self, previous_fire_time, now):
+    def _get_next_fire_time(self, previous_fire_time, now, skip_field=None):
         if previous_fire_time:
             start_date = min(now, previous_fire_time + timedelta(microseconds=1))
             if start_date == previous_fire_time:
@@ -196,6 +197,10 @@ class CronTrigger(BaseTrigger):
         fieldnum = 0
         next_date = datetime_ceil(start_date).astimezone(self.timezone)
         while 0 <= fieldnum < len(self.fields):
+            if skip_field == fieldnum:
+                fieldnum += 1
+                continue
+
             field = self.fields[fieldnum]
             curr_value = field.get_value(next_date)
             next_value = field.get_next_value(next_date)
@@ -221,6 +226,24 @@ class CronTrigger(BaseTrigger):
         if fieldnum >= 0:
             next_date = self._apply_jitter(next_date, self.jitter, now)
             return min(next_date, self.end_date) if self.end_date else next_date
+
+    def _get_next_fire_time_posix(self, previous_fire_time, now):
+        dom = self.fields[self.FIELD_INDEX['day']]
+        dow = self.fields[self.FIELD_INDEX['day_of_week']]
+
+        if dom.is_default or dow.is_default:
+            return self._get_next_fire_time(previous_fire_time, now)
+
+        next1 = self._get_next_fire_time(previous_fire_time, now, self.FIELD_INDEX['day'])
+        next2 = self._get_next_fire_time(previous_fire_time, now, self.FIELD_INDEX['day_of_week'])
+
+        return next1 if next1 < next2 else next2
+
+    def get_next_fire_time(self, previous_fire_time, now):
+        if self.standard == 'POSIX.1-2017':
+            return self._get_next_fire_time_posix(previous_fire_time, now)
+        else:
+            return self._get_next_fire_time(previous_fire_time, now)
 
     def __getstate__(self):
         return {
