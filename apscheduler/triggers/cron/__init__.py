@@ -128,6 +128,9 @@ class CronTrigger(BaseTrigger):
             if values[idx] != '?'
         }
 
+        if kwargs.get('day') == 'L':
+            kwargs['day'] = 'last'
+
         return cls(timezone=timezone, standard=standard, **kwargs)
 
     def _increment_field_value(self, dateval, fieldnum):
