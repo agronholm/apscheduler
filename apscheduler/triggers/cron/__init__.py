@@ -121,8 +121,13 @@ class CronTrigger(BaseTrigger):
         if not strict:
             standard = None
 
-        return cls(minute=values[0], hour=values[1], day=values[2], month=values[3],
-                   day_of_week=values[4], timezone=timezone, standard=standard)
+        kwargs = {
+            key: values[idx]
+            for idx, key in enumerate(('minute', 'hour', 'day', 'month', 'day_of_week'))
+            if values[idx] != '?'
+        }
+
+        return cls(timezone=timezone, standard=standard, **kwargs)
 
     def _increment_field_value(self, dateval, fieldnum):
         """

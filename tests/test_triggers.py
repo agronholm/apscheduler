@@ -420,9 +420,13 @@ class TestCronTrigger(object):
          "timezone='Europe/Berlin')>"),
         ('@hourly',
          "<CronTrigger (month='*', day='*', day_of_week='*', hour='*', minute='0', "
+         "timezone='Europe/Berlin')>"),
+        ('20 ? 1 ? ?',
+         "<CronTrigger (day='1', minute='20', "
          "timezone='Europe/Berlin')>")
     ], ids=['always', 'assorted', 'multiple_spaces_in_format',
-            'yearly', 'monthly', 'weekly', 'daily', 'hourly'
+            'yearly', 'monthly', 'weekly', 'daily', 'hourly',
+            'omitted_fields'
     ])
     def test_from_crontab(self, expr, expected_repr, timezone):
         trigger = CronTrigger.from_crontab(expr, timezone)
