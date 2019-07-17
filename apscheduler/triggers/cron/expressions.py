@@ -133,9 +133,9 @@ class RangeExpression(AllExpression):
 
 
 class MonthRangeExpression(RangeExpression):
-    value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?', re.IGNORECASE)
+    value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?(?:/(?P<step>\d+))?$', re.IGNORECASE)
 
-    def __init__(self, first, last=None, standard=None):
+    def __init__(self, first, last=None, step=None, standard=None):
         try:
             first_num = MONTHS.index(first.lower()) + 1
         except ValueError:
@@ -149,17 +149,24 @@ class MonthRangeExpression(RangeExpression):
         else:
             last_num = None
 
-        super(MonthRangeExpression, self).__init__(first_num, last_num, standard=standard)
+        super(MonthRangeExpression, self).__init__(first_num, last_num, step, standard=standard)
 
     def __str__(self):
         if self.last != self.first and self.last is not None:
-            return '%s-%s' % (MONTHS[self.first - 1], MONTHS[self.last - 1])
-        return MONTHS[self.first - 1]
+            range = '%s-%s' % (MONTHS[self.first - 1], MONTHS[self.last - 1])
+        else:
+            range = MONTHS[self.first - 1]
+
+        if self.step:
+            return '%s/%d' % (range, self.step)
+        return range
 
     def __repr__(self):
         args = ["'%s'" % MONTHS[self.first]]
         if self.last != self.first and self.last is not None:
             args.append("'%s'" % MONTHS[self.last - 1])
+        if self.step:
+            args.append(str(self.step))
         return "%s(%s)" % (self.__class__.__name__, ', '.join(args))
 
 

@@ -230,6 +230,15 @@ class TestCronTrigger(object):
         correct_next_date = timezone.localize(datetime(2009, 1, 2))
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
+    def test_cron_month_name_range_step(self, timezone):
+        trigger = CronTrigger(year=2009, month='feb-aug/3', timezone=timezone)
+        assert repr(trigger) == ("<CronTrigger (year='2009', month='feb-aug/3', "
+                                 "timezone='Europe/Berlin')>")
+        assert str(trigger) == "cron[year='2009', month='feb-aug/3']"
+        start_date = timezone.localize(datetime(2009, 1, 1))
+        correct_next_date = timezone.localize(datetime(2009, 2, 1))
+        assert trigger.get_next_fire_time(None, start_date) == correct_next_date
+
     def test_week_1(self, timezone):
         trigger = CronTrigger(year=2009, month=2, week=8, timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2009', month='2', week='8', "
