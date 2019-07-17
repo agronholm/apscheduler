@@ -428,6 +428,15 @@ class TestCronTrigger(object):
         trigger = CronTrigger.from_crontab(expr, timezone)
         assert repr(trigger) == expected_repr
 
+    @pytest.mark.parametrize('expr, expected_repr', [
+        ('* * * * *',
+         "<CronTrigger (month='*', day='*', day_of_week='*', hour='*', minute='*', "
+         "standard='POSIX.1-2017', timezone='Europe/Berlin')>"),
+    ], ids=['always'])
+    def test_from_crontab_strict(self, expr, expected_repr, timezone):
+        trigger = CronTrigger.from_crontab(expr, timezone, strict=True)
+        assert repr(trigger) == expected_repr
+
 
 class TestDateTrigger(object):
     @pytest.mark.parametrize('run_date,alter_tz,previous,now,expected', [

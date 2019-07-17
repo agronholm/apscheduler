@@ -27,6 +27,8 @@ class CronTrigger(BaseTrigger):
     :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations (defaults
         to scheduler timezone)
     :param int|None jitter: advance or delay the job execution by ``jitter`` seconds at most.
+    :param str standard: (None|'POSIX.1-2017') Apply time constraints as specified in standard (
+        defaults to None)
 
     .. note:: The first weekday is always **monday**.
     """
@@ -51,11 +53,11 @@ class CronTrigger(BaseTrigger):
         '@hourly': '0 * * * *',
     }
 
-    __slots__ = 'timezone', 'start_date', 'end_date', 'fields', 'jitter'
+    __slots__ = 'timezone', 'start_date', 'end_date', 'fields', 'jitter', 'standard'
 
     def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None,
                  minute=None, second=None, start_date=None, end_date=None, timezone=None,
-                 jitter=None):
+                 jitter=None, standard=None):
         if timezone:
             self.timezone = astimezone(timezone)
         elif isinstance(start_date, datetime) and start_date.tzinfo:
@@ -69,6 +71,7 @@ class CronTrigger(BaseTrigger):
         self.end_date = convert_to_datetime(end_date, self.timezone, 'end_date')
 
         self.jitter = jitter
+        self.standard = standard
 
         values = dict((key, value) for (key, value) in six.iteritems(locals())
                       if key in self.FIELD_NAMES and value is not None)
@@ -91,7 +94,7 @@ class CronTrigger(BaseTrigger):
             self.fields.append(field)
 
     @classmethod
-    def from_crontab(cls, expr, timezone=None):
+    def from_crontab(cls, expr, timezone=None, strict=False, standard='POSIX.1-2017'):
         """
         Create a :class:`~CronTrigger` from a standard crontab expression.
 
@@ -102,6 +105,9 @@ class CronTrigger(BaseTrigger):
         :param str expr: minute, hour, day of month, month, day of week. Or a macro.
         :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations (
             defaults to scheduler timezone)
+        :param bool strict: Parse expr according to a given standard (defaults to False)
+        :param str standard: When strict is true, which standard should be used (
+            defaults to 'POSIX.1-2017')
         :return: a :class:`~CronTrigger` instance
 
         """
@@ -112,8 +118,11 @@ class CronTrigger(BaseTrigger):
         if len(values) != 5:
             raise ValueError('Wrong number of fields; got {}, expected 5'.format(len(values)))
 
+        if not strict:
+            standard = None
+
         return cls(minute=values[0], hour=values[1], day=values[2], month=values[3],
-                   day_of_week=values[4], timezone=timezone)
+                   day_of_week=values[4], timezone=timezone, standard=standard)
 
     def _increment_field_value(self, dateval, fieldnum):
         """
@@ -210,12 +219,13 @@ class CronTrigger(BaseTrigger):
 
     def __getstate__(self):
         return {
-            'version': 2,
+            'version': 3 if self.standard else 2,
             'timezone': self.timezone,
             'start_date': self.start_date,
             'end_date': self.end_date,
             'fields': self.fields,
             'jitter': self.jitter,
+            'standard': self.standard
         }
 
     def __setstate__(self, state):
@@ -223,9 +233,9 @@ class CronTrigger(BaseTrigger):
         if isinstance(state, tuple):
             state = state[1]
 
-        if state.get('version', 1) > 2:
+        if state.get('version', 1) > 3:
             raise ValueError(
-                'Got serialized data for version %s of %s, but only versions up to 2 can be '
+                'Got serialized data for version %s of %s, but only versions up to 3 can be '
                 'handled' % (state['version'], self.__class__.__name__))
 
         self.timezone = state['timezone']
@@ -233,6 +243,7 @@ class CronTrigger(BaseTrigger):
         self.end_date = state['end_date']
         self.fields = state['fields']
         self.jitter = state.get('jitter')
+        self.standard = state.get('standard')
 
     def __str__(self):
         options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
@@ -246,6 +257,8 @@ class CronTrigger(BaseTrigger):
             options.append("end_date=%r" % datetime_repr(self.end_date))
         if self.jitter:
             options.append('jitter=%s' % self.jitter)
+        if self.standard:
+            options.append('standard=%r' % self.standard)
 
         return "<%s (%s, timezone='%s')>" % (
             self.__class__.__name__, ', '.join(options), self.timezone)
