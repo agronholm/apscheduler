@@ -43,6 +43,14 @@ class CronTrigger(BaseTrigger):
         'second': BaseField
     }
 
+    MACROS = {
+        '@yearly': '0 0 1 1 *',
+        '@monthly': '0 0 1 * *',
+        '@weekly': '0 0 * * 0',
+        '@daily': '0 0 * * *',
+        '@hourly': '0 * * * *',
+    }
+
     __slots__ = 'timezone', 'start_date', 'end_date', 'fields', 'jitter'
 
     def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None,
@@ -88,13 +96,18 @@ class CronTrigger(BaseTrigger):
         Create a :class:`~CronTrigger` from a standard crontab expression.
 
         See https://en.wikipedia.org/wiki/Cron for more information on the format accepted here.
+        Some common macros is also supported. Available macros:
+          @yearl, @monthly, @weekly, @daily and @hourly.
 
-        :param expr: minute, hour, day of month, month, day of week
+        :param str expr: minute, hour, day of month, month, day of week. Or a macro.
         :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations (
             defaults to scheduler timezone)
         :return: a :class:`~CronTrigger` instance
 
         """
+        if expr in cls.MACROS:
+            expr = cls.MACROS[expr]
+
         values = expr.split()
         if len(values) != 5:
             raise ValueError('Wrong number of fields; got {}, expected 5'.format(len(values)))

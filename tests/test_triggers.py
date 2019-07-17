@@ -405,8 +405,25 @@ class TestCronTrigger(object):
          "timezone='Europe/Berlin')>"),
         (' 0-14   * 14-28   jul       fri',
          "<CronTrigger (month='jul', day='14-28', day_of_week='fri', hour='*', minute='0-14', "
+         "timezone='Europe/Berlin')>"),
+        ('@yearly',
+         "<CronTrigger (month='1', day='1', day_of_week='*', hour='0', minute='0', "
+         "timezone='Europe/Berlin')>"),
+        ('@monthly',
+         "<CronTrigger (month='*', day='1', day_of_week='*', hour='0', minute='0', "
+         "timezone='Europe/Berlin')>"),
+        ('@weekly',
+         "<CronTrigger (month='*', day='*', day_of_week='0', hour='0', minute='0', "
+         "timezone='Europe/Berlin')>"),
+        ('@daily',
+         "<CronTrigger (month='*', day='*', day_of_week='*', hour='0', minute='0', "
+         "timezone='Europe/Berlin')>"),
+        ('@hourly',
+         "<CronTrigger (month='*', day='*', day_of_week='*', hour='*', minute='0', "
          "timezone='Europe/Berlin')>")
-    ], ids=['always', 'assorted', 'multiple_spaces_in_format'])
+    ], ids=['always', 'assorted', 'multiple_spaces_in_format',
+            'yearly', 'monthly', 'weekly', 'daily', 'hourly'
+    ])
     def test_from_crontab(self, expr, expected_repr, timezone):
         trigger = CronTrigger.from_crontab(expr, timezone)
         assert repr(trigger) == expected_repr
