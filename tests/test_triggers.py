@@ -418,9 +418,12 @@ class TestCronTrigger(object):
         (dict(hour='0-24'), r"Error validating expression '0-24': the last value \(24\) is higher "
                             r"than the maximum value \(23\)"),
         (dict(day='0-3'), r"Error validating expression '0-3': the first value \(0\) is lower "
-                          r"than the minimum value \(1\)")
-    ], ids=['too_large_step_all', 'too_large_step_range', 'too_high_last', 'too_low_first'])
-    def test_invalid_ranges(self, values, expected):
+                          r"than the minimum value \(1\)"),
+        (dict(day='lasts'), r'Unrecognized expression "lasts" for field "day"'),
+        (dict(day='3rd mon here'), r'Unrecognized expression "3rd mon here" for field "day"')
+    ], ids=['too_large_step_all', 'too_large_step_range', 'too_high_last', 'too_low_first',
+            'invalid_day_lasts', 'invalid_weekday_position'])
+    def test_invalid_parameters(self, values, expected):
         pytest.raises(ValueError, CronTrigger, **values).match(expected)
 
     @pytest.mark.parametrize('expr, expected_repr', [

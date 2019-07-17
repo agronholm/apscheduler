@@ -211,7 +211,7 @@ class WeekdayRangeExpression(RangeExpression):
 
 class WeekdayPositionExpression(AllExpression):
     options = ['1st', '2nd', '3rd', '4th', '5th', 'last']
-    value_re = re.compile(r'(?P<option_name>%s) +(?P<weekday_name>(?:\d+|\w+))' %
+    value_re = re.compile(r'(?P<option_name>%s) +(?P<weekday_name>(?:\d+|\w+))$' %
                           '|'.join(options), re.IGNORECASE)
 
     def __init__(self, option_name, weekday_name, standard=None):
@@ -258,7 +258,7 @@ class WeekdayPositionExpression(AllExpression):
 
 
 class LastDayOfMonthExpression(AllExpression):
-    value_re = re.compile(r'last', re.IGNORECASE)
+    value_re = re.compile(r'last$', re.IGNORECASE)
 
     def __init__(self, standard=None):
         super(LastDayOfMonthExpression, self).__init__(None, standard=standard)
