@@ -133,7 +133,10 @@ class RangeExpression(AllExpression):
 
 
 class MonthRangeExpression(RangeExpression):
-    value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?(?:/(?P<step>\d+))?$', re.IGNORECASE)
+    value_re = re.compile(
+        r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?(?:/(?P<step>\d+))?$',
+        re.IGNORECASE
+    )
 
     def __init__(self, first, last=None, step=None, standard=None):
         try:
@@ -171,7 +174,10 @@ class MonthRangeExpression(RangeExpression):
 
 
 class WeekdayRangeExpression(RangeExpression):
-    value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?(?:/(?P<step>\d+))?$', re.IGNORECASE)
+    value_re = re.compile(
+        r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?(?:/(?P<step>\d+))?$',
+        re.IGNORECASE
+    )
 
     def __init__(self, first, last=None, step=None, standard=None):
         self.weekdays = weekdays(standard)
@@ -211,21 +217,40 @@ class WeekdayRangeExpression(RangeExpression):
 
 class WeekdayPositionExpression(AllExpression):
     options = ['1st', '2nd', '3rd', '4th', '5th', 'last']
-    value_re = re.compile(r'(?P<option_name>%s) +(?P<weekday_name>(?:\d+|\w+))$' %
-                          '|'.join(options), re.IGNORECASE)
+    value_re = re.compile(r'(:?%s)$' %
+                          '|'.join([
+                              r'(:?(?P<option_name>%s) +(?P<weekday_name>(?:\d+|\w+)))' %
+                              '|'.join(options),
+                              r'(:?(?P<weekday_name2>(?:\d+|\w+))#(?P<option_name2>[1-5L]))'
+                          ]), re.IGNORECASE)
 
-    def __init__(self, option_name, weekday_name, standard=None):
+    def __init__(self, option_name=None, weekday_name=None,
+                 option_name2=None, weekday_name2=None, standard=None):
         super(WeekdayPositionExpression, self).__init__(None, standard=standard)
-        try:
-            self.option_num = self.options.index(option_name.lower())
-        except ValueError:
-            raise ValueError('Invalid weekday position "%s"' % option_name)
+
+        if option_name2:
+            weekday_name = weekday_name2
+            self.option_num = 5 if option_name2.upper() == 'L' else int(option_name2) - 1
+            if self.option_num > 5 or self.option_num < 0:
+                raise ValueError('Invalid weekday position "%s"' % option_name2)
+        else:
+            try:
+                self.option_num = self.options.index(option_name.lower())
+            except ValueError:
+                raise ValueError('Invalid weekday position "%s"' % option_name)
 
         self.weekdays = weekdays(standard)
-        try:
-            self.weekday = self.weekdays.index(weekday_name.lower())
-        except ValueError:
-            raise ValueError('Invalid weekday name "%s"' % weekday_name)
+        if len(weekday_name) == 1:
+            self.weekday = int(weekday_name)
+            if self.weekday > 6:
+                raise ValueError('Invalid weekday "%s"' % weekday_name)
+        else:
+            try:
+                self.weekday = self.weekdays.index(weekday_name.lower())
+            except ValueError:
+                raise ValueError('Invalid weekday name "%s"' % weekday_name)
+
+        print(locals(), self.value_re)
 
     def get_next_value(self, date, field):
         # Figure out the weekday of the month's first day and the number of days in that month

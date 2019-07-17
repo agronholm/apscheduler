@@ -426,6 +426,14 @@ class TestCronTrigger(object):
     def test_invalid_parameters(self, values, expected):
         pytest.raises(ValueError, CronTrigger, **values).match(expected)
 
+    @pytest.mark.parametrize('values, expected', [
+        (dict(expr='* * 1-10 * mon#2'),
+         r"Conflict: day_of_week expression 'mon#2' would go into "
+         r"the day field, which already have the expression '1-10'")
+    ], ids=['conflicting_days'])
+    def test_invalid_crontab_parameters(self, values, expected):
+        pytest.raises(ValueError, CronTrigger.from_crontab, **values).match(expected)
+
     @pytest.mark.parametrize('expr, expected_repr', [
         ('* * * * *',
          "<CronTrigger (month='*', day='*', day_of_week='*', hour='*', minute='*', "
@@ -455,10 +463,15 @@ class TestCronTrigger(object):
          "<CronTrigger (day='1', minute='20', "
          "timezone='Europe/Berlin')>"),
         ('? ? L ? ?',
-         "<CronTrigger (day='last', timezone='Europe/Berlin')>")
+         "<CronTrigger (day='last', timezone='Europe/Berlin')>"),
+        ('? ? ? ? mon#1',
+         "<CronTrigger (day='1st mon', timezone='Europe/Berlin')>"),
+        ('? ? ? ? 2#L',
+         "<CronTrigger (day='last wed', timezone='Europe/Berlin')>")
     ], ids=['always', 'assorted', 'multiple_spaces_in_format',
             'yearly', 'monthly', 'weekly', 'daily', 'hourly',
-            'omitted_fields', 'last_day_in_month'])
+            'omitted_fields', 'last_day_in_month', 'first_monday',
+            'last_wednesday'])
     def test_from_crontab(self, expr, expected_repr, timezone):
         trigger = CronTrigger.from_crontab(expr, timezone)
         assert repr(trigger) == expected_repr

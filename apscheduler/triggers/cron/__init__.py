@@ -131,6 +131,17 @@ class CronTrigger(BaseTrigger):
         if kwargs.get('day') == 'L':
             kwargs['day'] = 'last'
 
+        if '#' in kwargs.get('day_of_week', ''):
+            if kwargs.get('day', '*') != '*':
+                # arguably, the WeekdayPositionExpression belongs to the day_of_week field
+                # rather than the day field...
+                raise ValueError(
+                    'Conflict: day_of_week expression {day_of_week!r} would go into the day field,'
+                    ' which already have the expression {day!r}'
+                    .format(**kwargs)
+                )
+            kwargs['day'] = kwargs.pop('day_of_week')
+
         return cls(timezone=timezone, standard=standard, **kwargs)
 
     def _increment_field_value(self, dateval, fieldnum):
