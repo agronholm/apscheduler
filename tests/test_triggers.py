@@ -212,6 +212,24 @@ class TestCronTrigger(object):
         correct_next_date = timezone.localize(datetime(2009, 1, 28))
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
+    def test_cron_weekday_step(self, timezone):
+        trigger = CronTrigger(year=2009, month=1, day_of_week='0-4/2', timezone=timezone)
+        assert repr(trigger) == ("<CronTrigger (year='2009', month='1', day_of_week='0-4/2', "
+                                 "timezone='Europe/Berlin')>")
+        assert str(trigger) == "cron[year='2009', month='1', day_of_week='0-4/2']"
+        start_date = timezone.localize(datetime(2009, 1, 1))
+        correct_next_date = timezone.localize(datetime(2009, 1, 2))
+        assert trigger.get_next_fire_time(None, start_date) == correct_next_date
+
+    def test_cron_weekday_name_step(self, timezone):
+        trigger = CronTrigger(year=2009, month=1, day_of_week='mon-fri/2', timezone=timezone)
+        assert repr(trigger) == ("<CronTrigger (year='2009', month='1', day_of_week='mon-fri/2', "
+                                 "timezone='Europe/Berlin')>")
+        assert str(trigger) == "cron[year='2009', month='1', day_of_week='mon-fri/2']"
+        start_date = timezone.localize(datetime(2009, 1, 1))
+        correct_next_date = timezone.localize(datetime(2009, 1, 2))
+        assert trigger.get_next_fire_time(None, start_date) == correct_next_date
+
     def test_week_1(self, timezone):
         trigger = CronTrigger(year=2009, month=2, week=8, timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2009', month='2', week='8', "

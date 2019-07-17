@@ -164,9 +164,9 @@ class MonthRangeExpression(RangeExpression):
 
 
 class WeekdayRangeExpression(RangeExpression):
-    value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?', re.IGNORECASE)
+    value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?(?:/(?P<step>\d+))?$', re.IGNORECASE)
 
-    def __init__(self, first, last=None, standard=None):
+    def __init__(self, first, last=None, step=None, standard=None):
         self.weekdays = weekdays(standard)
         try:
             first_num = self.weekdays.index(first.lower())
@@ -181,17 +181,24 @@ class WeekdayRangeExpression(RangeExpression):
         else:
             last_num = None
 
-        super(WeekdayRangeExpression, self).__init__(first_num, last_num, standard=standard)
+        super(WeekdayRangeExpression, self).__init__(first_num, last_num, step, standard=standard)
 
     def __str__(self):
         if self.last != self.first and self.last is not None:
-            return '%s-%s' % (self.weekdays[self.first], self.weekdays[self.last])
-        return self.weekdays[self.first]
+            range = '%s-%s' % (self.weekdays[self.first], self.weekdays[self.last])
+        else:
+            range = self.weekdays[self.first]
+
+        if self.step:
+            return '%s/%d' % (range, self.step)
+        return range
 
     def __repr__(self):
         args = ["'%s'" % self.weekdays[self.first]]
         if self.last != self.first and self.last is not None:
             args.append("'%s'" % self.weekdays[self.last])
+        if self.step:
+            args.append(str(self.step))
         return "%s(%s)" % (self.__class__.__name__, ', '.join(args))
 
 
