@@ -33,6 +33,8 @@ illustrate this behavior.
 .. note:: The behavior for omitted fields was changed in APScheduler 2.0.
           Omitted fields previously always defaulted to ``*``.
 
+When the value of the ``standard`` parameter is ``'POSIX.1-2017'``, the behaviour reflects more closely to that of crontab. Most notably, when specifying both ``day`` and ``day_of_week``, the job fill execute on either a matching date, or a matching weekday.
+
 
 Expression types
 ----------------
@@ -111,6 +113,12 @@ The :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job` decorator w
 To schedule a job using a standard crontab expression::
 
     sched.add_job(job_function, CronTrigger.from_crontab('0 0 1-15 may-aug *'))
+
+    # To be more crontab compliant, you may provide strict=True
+
+    # Runs at midnight every day between the 1st and 15th, and also on
+    # weekdays Monday through Friday on all other days (notice the day of week numbering, 0 is for Sunday)
+    sched.add_job(job_function, CronTrigger.from_crontab('0 0 1-15 * 1-5', strict=True))
 
 The ``jitter`` option enables you to add a random component to the execution time. This might be useful if you have
 multiple servers and don't want them to run a job at the exact same moment or if you want to prevent jobs from running

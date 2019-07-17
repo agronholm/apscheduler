@@ -27,9 +27,10 @@ class BaseField(object):
     REAL = True
     COMPILERS = [AllExpression, RangeExpression]
 
-    def __init__(self, name, exprs, is_default=False):
+    def __init__(self, name, exprs, is_default=False, standard=None):
         self.name = name
         self.is_default = is_default
+        self.standard = standard
         self.compile_expressions(exprs)
 
     def get_min(self, dateval):
@@ -61,7 +62,7 @@ class BaseField(object):
         for compiler in self.COMPILERS:
             match = compiler.value_re.match(expr)
             if match:
-                compiled_expr = compiler(**match.groupdict())
+                compiled_expr = compiler(standard=self.standard, **match.groupdict())
 
                 try:
                     compiled_expr.validate_range(self.name)
@@ -104,6 +105,10 @@ class DayOfWeekField(BaseField):
     COMPILERS = BaseField.COMPILERS + [WeekdayRangeExpression]
 
     def get_value(self, dateval):
+        if self.standard == 'POSIX.1-2017':
+            # 0=Sunday
+            return dateval.isoweekday() % 7
+
         return dateval.weekday()
 
 

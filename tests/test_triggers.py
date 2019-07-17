@@ -449,8 +449,12 @@ class TestCronTrigger(object):
          (2019, 2, 1, 8, 0, 0)),
         ('0 8 5-10 feb thu',
          "cron[month='feb', day='5-10', day_of_week='thu', hour='8', minute='0']",
-         (2019, 2, 5, 8, 0, 0))
-    ], ids=['any wednesday', 'day 10-20 and fridays', 'day 5-10 and thursdays'])
+         (2019, 2, 5, 8, 0, 0)),
+        ('0 8 * mar 1-5',
+         "cron[month='mar', day='*', day_of_week='1-5', hour='8', minute='0']",
+         (2019, 3, 1, 8, 0, 0))
+    ], ids=['any wednesday', 'day 10-20 and fridays', 'day 5-10 and thursdays',
+            'weekdays-offset'])
     def test_from_crontab_strict_weekdays(self, expr, expected_str, next_date, timezone):
         trigger = CronTrigger.from_crontab(expr, timezone=timezone, strict=True)
         assert str(trigger) == expected_str

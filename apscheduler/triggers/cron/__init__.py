@@ -91,7 +91,7 @@ class CronTrigger(BaseTrigger):
                 is_default = True
 
             field_class = self.FIELDS_MAP[field_name]
-            field = field_class(field_name, exprs, is_default)
+            field = field_class(field_name, exprs, is_default, standard=self.standard)
             self.fields.append(field)
 
     @classmethod
