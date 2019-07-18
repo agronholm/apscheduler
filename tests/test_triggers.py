@@ -212,6 +212,16 @@ class TestCronTrigger(object):
         correct_next_date = timezone.localize(datetime(2009, 1, 28))
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
+    def test_cron_weekday_positional_2(self, timezone):
+        trigger = CronTrigger(month='*/3', day='mon#1', hour='6', minute='0',
+                              standard='POSIX.1-2017', timezone=timezone)
+        assert repr(trigger) == ("<CronTrigger (month='*/3', day='1st mon', hour='6', minute='0', "
+                                 "standard='POSIX.1-2017', timezone='Europe/Berlin')>")
+        assert str(trigger) == "cron[month='*/3', day='1st mon', hour='6', minute='0']"
+        start_date = timezone.localize(datetime(2019, 7, 18))
+        correct_next_date = timezone.localize(datetime(2019, 10, 7, 6, 0, 0))
+        assert trigger.get_next_fire_time(None, start_date) == correct_next_date
+
     def test_cron_weekday_step(self, timezone):
         trigger = CronTrigger(year=2009, month=1, day_of_week='0-4/2', timezone=timezone)
         assert repr(trigger) == ("<CronTrigger (year='2009', month='1', day_of_week='0-4/2', "

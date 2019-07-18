@@ -255,6 +255,8 @@ class WeekdayPositionExpression(AllExpression):
     def get_next_value(self, date, field):
         # Figure out the weekday of the month's first day and the number of days in that month
         first_day_wday, last_day = monthrange(date.year, date.month)
+        if self.standard == 'POSIX.1-2017':
+            first_day_wday = (first_day_wday + 1) % 7
 
         # Calculate which day of the month is the first of the target weekdays
         first_hit_day = self.weekday - first_day_wday + 1
