@@ -1,5 +1,4 @@
 from datetime import timedelta, datetime, date, time
-from typing import Optional
 
 from pytz.exceptions import AmbiguousTimeError, NonExistentTimeError
 
