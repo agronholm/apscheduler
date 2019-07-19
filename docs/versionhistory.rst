@@ -4,6 +4,13 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+UNRELEASED
+----------
+
+* Dropped support for Python 2.X and 3.4
+* Removed the Qt scheduler due to maintenance difficulties
+
+
 3.6.1
 -----
 
@@ -15,9 +22,6 @@ APScheduler, see the :doc:`migration section <migration>`.
 3.6.0
 -----
 
-* Dropped support for Python 2.X and 3.4
-
-* Removed the Qt scheduler due to maintenance difficulties
 * Adapted ``RedisJobStore`` to v3.0 of the ``redis`` library
 * Adapted ``RethinkDBJobStore`` to v2.4 of the ``rethink`` library
 * Fixed ``DeprecationWarnings`` about ``collections.abc`` on Python 3.7 (PR by Roman Levin)
