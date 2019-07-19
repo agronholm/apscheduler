@@ -4,12 +4,21 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.6.1
+-----
+
+* Fixed OverflowError on Qt scheduler when the wait time is very long
+* Fixed methods inherited from base class could not be executed by processpool executor
+  (PR by Yang Jian)
+
+
 3.6.0
 -----
 
 * Adapted ``RedisJobStore`` to v3.0 of the ``redis`` library
 * Adapted ``RethinkDBJobStore`` to v2.4 of the ``rethink`` library
 * Fixed ``DeprecationWarnings`` about ``collections.abc`` on Python 3.7 (PR by Roman Levin)
+
 
 3.5.3
 -----
