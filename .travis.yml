@@ -1,7 +1,6 @@
 dist: xenial
 language: python
 cache: pip
-python: "3.6"
 
 stages:
   - name: static analysis
@@ -35,6 +34,10 @@ jobs:
     - <<: *test
       env: TOXENV=py37
       python: "3.7"
+
+    - <<: *test
+      env: TOXENV=py38
+      python: "3.8-dev"
 
     - stage: deploy to pypi
       install: true
