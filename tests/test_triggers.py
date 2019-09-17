@@ -596,6 +596,12 @@ class TestIntervalTrigger(object):
             assert next_fire_time is None or next_fire_time <= end_date
 
 
+class TestIntervalTriggerWithStrStartTime(TestIntervalTrigger):
+    @pytest.fixture()
+    def trigger(self):
+        return IntervalTrigger(seconds=1, start_date='2009-08-04T00:00:02+02:00')
+
+
 class TestAndTrigger(object):
     @pytest.fixture
     def trigger(self, timezone):
