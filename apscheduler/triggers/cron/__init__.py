@@ -88,18 +88,18 @@ class CronTrigger(BaseTrigger):
 
         See https://en.wikipedia.org/wiki/Cron for more information on the format accepted here.
 
-        :param expr: minute, hour, day of month, month, day of week
+        :param expr:seconds, minute, hour, day of month, month, day of week
         :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations (
             defaults to scheduler timezone)
         :return: a :class:`~CronTrigger` instance
 
         """
         values = expr.split()
-        if len(values) != 5:
-            raise ValueError('Wrong number of fields; got {}, expected 5'.format(len(values)))
+        if len(values) != 6:
+            raise ValueError('Wrong number of fields; got {}, expected 6'.format(len(values)))
 
-        return cls(minute=values[0], hour=values[1], day=values[2], month=values[3],
-                   day_of_week=values[4], timezone=timezone)
+        return cls(second=values[0],minute=values[1], hour=values[2], day=values[3], month=values[4],
+                   day_of_week=values[5], timezone=timezone)
 
     def _increment_field_value(self, dateval, fieldnum):
         """
