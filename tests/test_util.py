@@ -13,7 +13,9 @@ from apscheduler.job import Job
 from apscheduler.util import (
     asint, asbool, astimezone, convert_to_datetime, datetime_to_utc_timestamp,
     utc_timestamp_to_datetime, timedelta_seconds, datetime_ceil, get_callable_name, obj_to_ref,
-    ref_to_obj, maybe_ref, check_callable_args, datetime_repr, repr_escape)
+    ref_to_obj, maybe_ref, check_callable_args, datetime_repr, repr_escape,
+    iscoroutinefunction_partial
+)
 from tests.conftest import minpython, maxpython
 
 try:
@@ -355,3 +357,22 @@ class TestCheckCallableArgs(object):
         exc = pytest.raises(ValueError, check_callable_args, func, [1], {})
         assert str(exc.value) == ('The following keyword-only arguments have not been supplied in '
                                   'kwargs: y')
+
+
+def not_a_coro(x):
+    pass
+
+
+async def a_coro(x):
+    pass
+
+
+class TestIsCoroutineFunctionPartial(object):
+    def test_non_coro(self):
+        assert iscoroutinefunction_partial(not_a_coro) is False
+
+    def test_coro(self):
+        assert iscoroutinefunction_partial(a_coro) is True
+
+    def test_coro_partial(self):
+        assert iscoroutinefunction_partial(partial(a_coro, 1)) is True

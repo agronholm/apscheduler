@@ -5,7 +5,7 @@ from __future__ import division
 from datetime import date, datetime, time, timedelta, tzinfo
 from calendar import timegm
 from functools import partial
-from inspect import isclass, ismethod
+from inspect import isclass, ismethod, iscoroutinefunction
 import re
 
 from pytz import timezone, utc, FixedOffset
@@ -409,3 +409,9 @@ def check_callable_args(func, args, kwargs):
         raise ValueError(
             'The target callable does not accept the following keyword arguments: %s' %
             ', '.join(unmatched_kwargs))
+
+
+def iscoroutinefunction_partial(f):
+    while isinstance(f, partial):
+        f = f.func
+    return iscoroutinefunction(f)
