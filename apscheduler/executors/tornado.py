@@ -14,6 +14,8 @@ except ImportError:
     def iscoroutinefunction(func):
         return False
 
+from apscheduler.util import iscoroutinefunction_partial
+
 
 class TornadoExecutor(BaseExecutor):
     """
@@ -44,7 +46,7 @@ class TornadoExecutor(BaseExecutor):
             else:
                 self._run_job_success(job.id, events)
 
-        if iscoroutinefunction(job.func):
+        if iscoroutinefunction_partial(job.func):
             f = run_coroutine_job(job, job._jobstore_alias, run_times, self._logger.name)
         else:
             f = self.executor.submit(run_job, job, job._jobstore_alias, run_times,
