@@ -5,7 +5,8 @@ from __future__ import division
 from datetime import date, datetime, time, timedelta, tzinfo
 from calendar import timegm
 from functools import partial
-from inspect import isclass, ismethod, iscoroutinefunction
+from inspect import isclass, ismethod
+import asyncio
 import re
 
 from pytz import timezone, utc, FixedOffset
@@ -414,4 +415,7 @@ def check_callable_args(func, args, kwargs):
 def iscoroutinefunction_partial(f):
     while isinstance(f, partial):
         f = f.func
-    return iscoroutinefunction(f)
+
+    # The asyncio version of iscoroutinefunction includes testing for @coroutine
+    # decorations vs. the inspect version which does not.
+    return asyncio.iscoroutinefunction(f)

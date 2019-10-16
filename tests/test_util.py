@@ -359,20 +359,20 @@ class TestCheckCallableArgs(object):
                                   'kwargs: y')
 
 
-def not_a_coro(x):
-    pass
-
-
-async def a_coro(x):
-    pass
-
-
 class TestIsCoroutineFunctionPartial(object):
+    @staticmethod
+    def not_a_coro(x):
+        pass
+
+    @staticmethod
+    async def a_coro(x):
+        pass
+
     def test_non_coro(self):
-        assert iscoroutinefunction_partial(not_a_coro) is False
+        assert not iscoroutinefunction_partial(self.not_a_coro)
 
     def test_coro(self):
-        assert iscoroutinefunction_partial(a_coro) is True
+        assert iscoroutinefunction_partial(self.a_coro)
 
     def test_coro_partial(self):
-        assert iscoroutinefunction_partial(partial(a_coro, 1)) is True
+        assert iscoroutinefunction_partial(partial(self.a_coro, 1))
