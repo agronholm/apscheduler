@@ -8,13 +8,11 @@ from tornado.gen import convert_yielded
 from apscheduler.executors.base import BaseExecutor, run_job
 
 try:
-    from inspect import iscoroutinefunction
     from apscheduler.executors.base_py3 import run_coroutine_job
+    from apscheduler.util import iscoroutinefunction_partial
 except ImportError:
-    def iscoroutinefunction(func):
+    def iscoroutinefunction_partial(func):
         return False
-
-from apscheduler.util import iscoroutinefunction_partial
 
 
 class TornadoExecutor(BaseExecutor):
