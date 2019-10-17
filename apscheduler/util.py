@@ -6,7 +6,6 @@ from datetime import date, datetime, time, timedelta, tzinfo
 from calendar import timegm
 from functools import partial
 from inspect import isclass, ismethod
-import asyncio
 import re
 
 from pytz import timezone, utc, FixedOffset
@@ -21,6 +20,11 @@ try:
     from threading import TIMEOUT_MAX
 except ImportError:
     TIMEOUT_MAX = 4294967  # Maximum value accepted by Event.wait() on Windows
+
+try:
+    from asyncio import iscoroutinefunction
+except ImportError:
+    from trollius import iscoroutinefunction
 
 __all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
            'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'get_callable_name',
@@ -418,4 +422,4 @@ def iscoroutinefunction_partial(f):
 
     # The asyncio version of iscoroutinefunction includes testing for @coroutine
     # decorations vs. the inspect version which does not.
-    return asyncio.iscoroutinefunction(f)
+    return iscoroutinefunction(f)
