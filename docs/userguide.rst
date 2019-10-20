@@ -97,7 +97,7 @@ using :class:`~apscheduler.executors.pool.ProcessPoolExecutor` instead to make u
 cores. You could even use both at once, adding the process pool executor as a secondary executor.
 
 When you schedule a job, you need to choose a *trigger* for it. The trigger determines the logic by
-which the dates/times are calculated when the job will be run. APScheduler comes with three
+which the dates/times are calculated when the job will be run. APScheduler comes with four
 built-in trigger types:
 
 * :mod:`~apscheduler.triggers.date`:
