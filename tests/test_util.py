@@ -220,27 +220,23 @@ class TestObjToRef(object):
         assert str(exc.value) == 'Cannot create a reference to a nested function'
 
     @pytest.mark.parametrize('input,expected', [
-        pytest.mark.skipif(sys.version_info[:2] == (3, 2),
-                           reason="Unbound methods can't be resolved on Python 3.2")(
-            (DummyClass.meth, 'tests.test_util:DummyClass.meth')
-        ),
+        (DummyClass.meth, 'tests.test_util:DummyClass.meth'),
         (DummyClass.classmeth, 'tests.test_util:DummyClass.classmeth'),
-        pytest.mark.skipif(sys.version_info < (3, 3),
-                           reason="Requires __qualname__ (Python 3.3+)")(
-            (DummyClass.InnerDummyClass.innerclassmeth,
-             'tests.test_util:DummyClass.InnerDummyClass.innerclassmeth')
+        pytest.param(
+            DummyClass.InnerDummyClass.innerclassmeth,
+            'tests.test_util:DummyClass.InnerDummyClass.innerclassmeth',
+            marks=[pytest.mark.skipif(sys.version_info < (3, 3),
+                                      reason="Requires __qualname__ (Python 3.3+)")]
         ),
-        pytest.mark.skipif(sys.version_info < (3, 3),
-                           reason="Requires __qualname__ (Python 3.3+)")(
-            (DummyClass.staticmeth, 'tests.test_util:DummyClass.staticmeth')
-        ),
-        pytest.mark.skipif(sys.version_info >= (3, 2),
-                           reason="Unbound methods (Python 3.2) and __qualname__ (Python 3.3+)")(
-            (InheritedDummyClass.pause, 'tests.test_util:InheritedDummyClass.pause')
+        pytest.param(
+            DummyClass.staticmeth,
+            'tests.test_util:DummyClass.staticmeth',
+            marks=[pytest.mark.skipif(sys.version_info < (3, 3),
+                                      reason="Requires __qualname__ (Python 3.3+)")]
         ),
         (timedelta, 'datetime:timedelta'),
-    ], ids=['unbound method', 'class method', 'inner class method', 'static method',
-            'inherited class method', 'timedelta'])
+    ], ids=['class method', 'inner class method', 'static method', 'inherited class method',
+            'timedelta'])
     def test_valid_refs(self, input, expected):
         assert obj_to_ref(input) == expected
 
