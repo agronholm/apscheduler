@@ -4,6 +4,13 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.6.2
+-----
+
+* Fixed handling of :func:`~functools.partial` wrapped coroutine functions in ``AsyncIOExecutor``
+  and ``TornadoExecutor`` (PR by shipmints)
+
+
 3.6.1
 -----
 
