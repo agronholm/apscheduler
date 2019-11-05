@@ -4,6 +4,12 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.6.3
+-----
+
+* Fixed Python 2.7 accidentally depending on the ``trollius`` package (regression from v3.6.2)
+
+
 3.6.2
 -----
 

@@ -24,7 +24,11 @@ except ImportError:
 try:
     from asyncio import iscoroutinefunction
 except ImportError:
-    from trollius import iscoroutinefunction
+    try:
+        from trollius import iscoroutinefunction
+    except ImportError:
+        def iscoroutinefunction(func):
+            return False
 
 __all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
            'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'get_callable_name',
