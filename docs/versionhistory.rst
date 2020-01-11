@@ -4,6 +4,13 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+UNRELEASED
+----------
+
+* Ensure that jitter is always non-negative to prevent triggers from firing more often than
+  intended
+
+
 3.6.3
 -----
 

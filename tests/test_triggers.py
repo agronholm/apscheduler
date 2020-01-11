@@ -50,32 +50,12 @@ class TestJitter(object):
         trigger = _DummyTriggerWithJitter(dt, 60)
         assert trigger.get_next_fire_time(None, now) == expected_dt
 
-    def test_jitter_in_past_but_initial_date_in_future(self, monkeypatch):
-        monkeypatch.setattr(random, 'uniform', lambda a, b: -30.)
-
-        now = datetime(2017, 5, 25, 13, 40, 44)
-        dt = datetime(2017, 5, 25, 13, 40, 47)
-        expected_dt = dt
-
-        trigger = _DummyTriggerWithJitter(dt, 60)
-        assert trigger.get_next_fire_time(None, now) == expected_dt
-
     def test_jitter_in_future_but_initial_date_in_past(self, monkeypatch):
         monkeypatch.setattr(random, 'uniform', lambda a, b: 30.)
 
         now = datetime(2017, 5, 25, 13, 40, 44)
         dt = datetime(2017, 5, 25, 13, 40, 30)
         expected_dt = datetime(2017, 5, 25, 13, 41, 0)
-
-        trigger = _DummyTriggerWithJitter(dt, 60)
-        assert trigger.get_next_fire_time(None, now) == expected_dt
-
-    def test_jitter_misfire(self, monkeypatch):
-        monkeypatch.setattr(random, 'uniform', lambda a, b: -30.)
-
-        now = datetime(2017, 5, 25, 13, 40, 44)
-        dt = datetime(2017, 5, 25, 13, 40, 40)
-        expected_dt = dt
 
         trigger = _DummyTriggerWithJitter(dt, 60)
         assert trigger.get_next_fire_time(None, now) == expected_dt
