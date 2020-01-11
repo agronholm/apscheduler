@@ -59,7 +59,7 @@ jobs:
         on:
           tags: true
 
-install: pip install tox tox-pip-version
+install: pip install tox
 
 script: tox
 
