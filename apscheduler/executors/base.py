@@ -162,9 +162,14 @@ async def run_coroutine_job(job, jobstore_alias, run_times, logger_name):
         except BaseException:
             exc, tb = sys.exc_info()[1:]
             formatted_tb = ''.join(format_tb(tb))
+
+            # Remove ref cycle
+            exc = exc.with_traceback(None)
+            del tb
+
             events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
                                             exception=exc, traceback=formatted_tb))
-            logger.exception('Job "%s" raised an exception', job)
+            logger.error('Job "%s" raised an exception.\n%s', job, traceback.format_exc())
         else:
             events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
                                             retval=retval))

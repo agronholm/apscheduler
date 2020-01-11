@@ -205,6 +205,42 @@ async def test_run_coroutine_job(asyncio_scheduler, asyncio_executor, exception)
         assert events[0].retval is True
 
 
+def test_run_coroutine_job__gc():
+    import sys
+    import asyncio
+    from datetime import datetime
+    from apscheduler.job import Job
+    from apscheduler.executors.base import run_coroutine_job
+
+    obj = object()
+
+    async def error_fn():
+        a = [obj]
+        assert False
+
+    job = Job(scheduler=None)
+    job.func = error_fn
+    job.misfire_grace_time = 1000
+    job.name = 'mock'
+    job.args = ()
+    job.kwargs = {}
+    job.trigger = None
+
+    pre_ref_count = sys.getrefcount(obj)
+
+    asyncio.get_event_loop() \
+        .run_until_complete(
+        run_coroutine_job(
+            job,
+            jobstore_alias=None,
+            run_times=[datetime.now().astimezone()],
+            logger_name=__name__))
+
+    post_ref_count = sys.getrefcount(obj)
+
+    assert pre_ref_count == post_ref_count
+
+
 @pytest.mark.parametrize('exception', [False, True])
 @pytest.mark.gen_test
 async def test_run_coroutine_job_tornado(tornado_scheduler, tornado_executor, exception):
