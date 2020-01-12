@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from traceback import format_tb
 
 from pytz import utc
+import six
 
 from apscheduler.events import (
     JobExecutionEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED)
@@ -33,6 +34,15 @@ async def run_coroutine_job(job, jobstore_alias, run_times, logger_name):
             events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
                                             exception=exc, traceback=formatted_tb))
             logger.exception('Job "%s" raised an exception', job)
+
+            # This is to prevent cyclic references that would lead to memory leaks
+            if six.PY2:
+                sys.exc_clear()
+                del tb
+            else:
+                import traceback
+                traceback.clear_frames(tb)
+                del tb
         else:
             events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
                                             retval=retval))
