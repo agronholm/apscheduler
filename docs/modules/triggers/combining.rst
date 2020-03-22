@@ -28,8 +28,8 @@ Run ``job_function`` every 2 hours, but only on Saturdays and Sundays::
                           CronTrigger(day_of_week='sat,sun')])
     scheduler.add_job(job_function, trigger)
 
-Run ``job_function`` every Monday at 2pm and every Tuesday at 3pm::
+Run ``job_function`` every Monday at 2am and every Tuesday at 3pm::
 
     trigger = OrTrigger([CronTrigger(day_of_week='mon', hour=2),
-                         CronTrigger(day_of_week='tue', hour=3)])
+                         CronTrigger(day_of_week='tue', hour=15)])
     scheduler.add_job(job_function, trigger)
