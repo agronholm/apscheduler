@@ -34,7 +34,7 @@ def memjobstore():
 
 @pytest.fixture
 def sqlalchemyjobstore(tmpdir):
-    db_path = tmpdir.join('apscheduler_unittest.sqlite')
+    db_path = tmpdir.join('apscheduler_sqlalchemy_unittest.sqlite')
     sqlalchemy = pytest.importorskip('apscheduler.jobstores.sqlalchemy')
     store = sqlalchemy.SQLAlchemyJobStore(url='sqlite:///%s' % db_path)
     store.start(None, 'sqlalchemy')
@@ -42,6 +42,15 @@ def sqlalchemyjobstore(tmpdir):
     store.shutdown()
     db_path.remove()
 
+@pytest.fixture
+def sqlitejobstore(tmpdir):
+    db_path = tmpdir.join('apscheduler_sqlite_unittest.sqlite')
+    sqlite = pytest.importorskip('apscheduler.jobstores.sqlite')
+    store = sqlite.SQLiteJobStore(url='sqlite:///%s' % db_path)
+    store.start(None, 'sqlite')
+    yield store
+    store.shutdown()
+    db_path.remove()
 
 @pytest.fixture
 def rethinkdbjobstore():
@@ -84,15 +93,15 @@ def zookeeperjobstore():
 
 
 @pytest.fixture(params=['memjobstore', 'sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore',
-                        'rethinkdbjobstore', 'zookeeperjobstore'],
-                ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper'])
+                        'rethinkdbjobstore', 'zookeeperjobstore', 'sqlitejobstore'],
+                ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper', 'sqlite'])
 def jobstore(request):
     return request.getfixturevalue(request.param)
 
 
 @pytest.fixture(params=['sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore',
-                        'rethinkdbjobstore', 'zookeeperjobstore'],
-                ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper'])
+                        'rethinkdbjobstore', 'zookeeperjobstore', 'sqlitejobstore'],
+                ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper', 'sqlite'])
 def persistent_jobstore(request):
     return request.getfixturevalue(request.param)
 
@@ -293,6 +302,10 @@ def test_repr_sqlalchemyjobstore(sqlalchemyjobstore):
     assert repr(sqlalchemyjobstore).startswith('<SQLAlchemyJobStore (url=')
 
 
+def test_repr_sqlalchemyjobstore(sqlitejobstore):
+    assert repr(sqlitejobstore).startswith('<SQLiteJobStore (url=')
+
+
 def test_repr_mongodbjobstore(mongodbjobstore):
     assert repr(mongodbjobstore).startswith("<MongoDBJobStore (client=MongoClient(")
 
@@ -311,6 +324,11 @@ def test_memstore_close(memjobstore, create_add_job):
     memjobstore.shutdown()
     assert not memjobstore.get_all_jobs()
 
+
+def test_sqlitestore_close(sqlitejobstore, create_add_job):
+    create_add_job(sqlitestore, dummy_job, datetime(2016, 5, 3))
+    sqlitestore.shutdown()
+    assert not sqlitestore.get_all_jobs()
 
 def test_sqlalchemy_engine_ref():
     global sqla_engine
