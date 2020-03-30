@@ -1,7 +1,7 @@
 import pickle
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
-from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
+from apscheduler.util import datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 import sqlite3
 
@@ -34,34 +34,44 @@ class SQLiteJobStore(BaseJobStore):
         self.tablename = tablename
         self.url = url
 
-        self.conn = sqlite3.connect(url)
-        self.cursor = self.conn.cursor()
-
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS :tablename (
-                        id INTEGER NOT NULL PRIMARY KEY,
-                        next_run_time REAL,
-                        job_state BLOB NOT NULL
-                    )""", {'tablename': tablename}) 
-        self.cursor.execute("CREATE INDEX next_run_time_index :tablename (next_run_time)", {'tablename': tablename})
 
     def start(self, scheduler, alias):
         super().start(scheduler, alias)
 
+        conn = sqlite3.connect(self.url)
+        cursor = conn.cursor()
+
+        cursor.execute("""CREATE TABLE IF NOT EXISTS """ + self.tablename + """(
+                        id TEXT NOT NULL PRIMARY KEY,
+                        next_run_time REAL,
+                        job_state BLOB NOT NULL
+                    )""")
+        cursor.execute("CREATE INDEX next_run_time_index ON " + self.tablename + " (next_run_time)")
+        conn.close()
+
+
     def lookup_job(self, job_id):
-        self.cursor.execute("SELECT job_state FROM :tablename WHERE id=:job_id", {'tablename': self.tablename, 'job_id': job_id})
-        job_state = self.cursor.fetchone()
-        return self._reconstitute_job(job_state) if job_state else None
+        conn = sqlite3.connect(self.url)
+        cursor = conn.cursor()
+        cursor.execute("SELECT job_state FROM " + self.tablename + " WHERE id=:job_id", {'job_id': job_id})
+        job_state = cursor.fetchone()
+        conn.close()
+        return self._reconstitute_job(job_state[0]) if job_state else None
 
     def get_due_jobs(self, now):
         timestamp = datetime_to_utc_timestamp(now)
-        return self._get_jobs("next_run_time <= " + timestamp)
+        return self._get_jobs("next_run_time <= " + str(timestamp))
 
     def get_next_run_time(self):
-        self.cursor.execute("""SELECT TOP 1 next_run_time FROM :tablename
+        conn = sqlite3.connect(self.url)
+        cursor = conn.cursor()
+        cursor.execute("""SELECT next_run_time FROM """ + self.tablename + """
                 WHERE next_run_time IS NOT NULL
-                ORDER BY next_run_time""")
-        next_run_time = self.cursor.fetchone() 
-        return utc_timestamp_to_datetime(next_run_time)
+                ORDER BY next_run_time ASC
+                LIMIT 1""")
+        next_run_time = cursor.fetchone()
+        conn.close()
+        return utc_timestamp_to_datetime(next_run_time[0]) if next_run_time else None
 
     def get_all_jobs(self):
         jobs = self._get_jobs()
@@ -69,32 +79,47 @@ class SQLiteJobStore(BaseJobStore):
         return jobs
 
     def add_job(self, job):
+        conn = sqlite3.connect(self.url)
+        cursor = conn.cursor()
         try:
-            with self.conn:
-                self.cursor.execute("INSERT INTO :tablename VALUES (:id, :next_run_time, :job_state)", {'tablenmae': self.tablename, 'id': job.id, 'next_run_time': datetime_to_utc_timestamp(job.next_run_time), 'job_state': pickle.dumps(job.__getstate__(), self.pickle_protocol)})
+            with conn:
+                cursor.execute("INSERT INTO " + self.tablename + " VALUES (:id, :next_run_time, :job_state)", {'id': job.id, 'next_run_time': datetime_to_utc_timestamp(job.next_run_time), 'job_state': pickle.dumps(job.__getstate__(), self.pickle_protocol)})
+            conn.close()
         except sqlite3.IntegrityError:
+            conn.close()
             raise ConflictingIdError(job.id)
 
     def update_job(self, job):
+        conn = sqlite3.connect(self.url)
+        cursor = conn.cursor()
         try:
-            with self.conn:
-                self.cursor.execute("""UPADTE :tablename SET next_run_time = :next_run_time, job_state = :job_state WHERE id = :id""", {'tablenmae': self.tablename, 'id': job.id, 'next_run_time': datetime_to_utc_timestamp(job.next_run_time), 'job_state': pickle.dumps(job.__getstate__(), self.pickle_protocol)})
-        except sqlite3.Error:
+            with conn:
+                cursor.execute("""UPDATE """ + self.tablename + """ SET next_run_time = :next_run_time, job_state = :job_state WHERE id = :id""", {'id': job.id, 'next_run_time': datetime_to_utc_timestamp(job.next_run_time), 'job_state': pickle.dumps(job.__getstate__(), self.pickle_protocol)})
+            conn.close()
+        except :
+            conn.close()
             raise JobLookupError(job.id)
 
     def remove_job(self, job_id):
+        conn = sqlite3.connect(self.url)
+        cursor = conn.cursor()
         try:
-            with self.conn:
-                self.cursor.execute("""DELETE from :tablename WHERE id = :id""", {'tablenmae': self.tablename, 'id': job_id})
-        except sqlite3.Error:
+            with conn:
+                cursor.execute("""DELETE FROM """ + self.tablename + """ WHERE id = :id""", {'id': job_id})
+            conn.close()
+        except :
+            conn.close()
             raise JobLookupError(job_id)
 
     def remove_all_jobs(self):
-        with self.conn:
-            self.cursor.execute("""DELETE from :tablename""", {'tablenmae': self.tablename})
+        conn = sqlite3.connect(self.url)
+        cursor = conn.cursor()
+        with conn:
+            cursor.execute("""DELETE FROM """ + self.tablename)
+        conn.close()
 
     def shutdown(self):
-        self.conn.close()
+        pass
 
     def _reconstitute_job(self, job_state):
         job_state = pickle.loads(job_state)
@@ -110,9 +135,11 @@ class SQLiteJobStore(BaseJobStore):
         if conditions != "":
             conditions = " WHERE " + conditions
 
-        self.cursor.execute("SELECT id, job_state FROM :tablename" + conditions, {'tablename': self.tablename})
+        conn = sqlite3.connect(self.url)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, job_state FROM " + self.tablename + " " + conditions + " ORDER BY next_run_time ASC")
         failed_job_ids = [] 
-        for row in self.cursor.fetchall(): 
+        for row in cursor.fetchall(): 
             try:
                 job_state = row[1]
                 jobs.append(self._reconstitute_job(job_state))
@@ -123,9 +150,10 @@ class SQLiteJobStore(BaseJobStore):
 
         # Remove all the jobs we failed to restore
         if failed_job_ids:
-            failed_job_ids_dicts = map(lambda x: {'tablename': self.tablename, 'id': x}, failed_job_ids)
-            with self.conn:
-                self.cursor.executemany("DELETE from :tablename WHERE id = :id", failed_job_id_dicts) 
+            failed_job_ids_dicts = map(lambda x: {'id': x}, failed_job_ids)
+            with conn:
+                cursor.executemany("DELETE FROM " + self.tablename + " WHERE id = :id", failed_job_ids_dicts)
+        conn.close()
         return jobs
 
     def __repr__(self):

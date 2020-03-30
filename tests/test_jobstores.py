@@ -46,7 +46,7 @@ def sqlalchemyjobstore(tmpdir):
 def sqlitejobstore(tmpdir):
     db_path = tmpdir.join('apscheduler_sqlite_unittest.sqlite')
     sqlite = pytest.importorskip('apscheduler.jobstores.sqlite')
-    store = sqlite.SQLiteJobStore(url='sqlite:///%s' % db_path)
+    store = sqlite.SQLiteJobStore(url=db_path)
     store.start(None, 'sqlite')
     yield store
     store.shutdown()
@@ -302,7 +302,7 @@ def test_repr_sqlalchemyjobstore(sqlalchemyjobstore):
     assert repr(sqlalchemyjobstore).startswith('<SQLAlchemyJobStore (url=')
 
 
-def test_repr_sqlalchemyjobstore(sqlitejobstore):
+def test_repr_sqllitejobstore(sqlitejobstore):
     assert repr(sqlitejobstore).startswith('<SQLiteJobStore (url=')
 
 
@@ -324,11 +324,6 @@ def test_memstore_close(memjobstore, create_add_job):
     memjobstore.shutdown()
     assert not memjobstore.get_all_jobs()
 
-
-def test_sqlitestore_close(sqlitejobstore, create_add_job):
-    create_add_job(sqlitestore, dummy_job, datetime(2016, 5, 3))
-    sqlitestore.shutdown()
-    assert not sqlitestore.get_all_jobs()
 
 def test_sqlalchemy_engine_ref():
     global sqla_engine
