@@ -42,15 +42,17 @@ def sqlalchemyjobstore(tmpdir):
     store.shutdown()
     db_path.remove()
 
+
 @pytest.fixture
 def sqlitejobstore(tmpdir):
     db_path = tmpdir.join('apscheduler_sqlite_unittest.sqlite')
     sqlite = pytest.importorskip('apscheduler.jobstores.sqlite')
-    store = sqlite.SQLiteJobStore(url=db_path)
+    store = sqlite.SQLiteJobStore(db_path=db_path)
     store.start(None, 'sqlite')
     yield store
     store.shutdown()
     db_path.remove()
+
 
 @pytest.fixture
 def rethinkdbjobstore():
@@ -94,7 +96,8 @@ def zookeeperjobstore():
 
 @pytest.fixture(params=['memjobstore', 'sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore',
                         'rethinkdbjobstore', 'zookeeperjobstore', 'sqlitejobstore'],
-                ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper', 'sqlite'])
+                ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper',
+                     'sqlite'])
 def jobstore(request):
     return request.getfixturevalue(request.param)
 
@@ -303,7 +306,7 @@ def test_repr_sqlalchemyjobstore(sqlalchemyjobstore):
 
 
 def test_repr_sqllitejobstore(sqlitejobstore):
-    assert repr(sqlitejobstore).startswith('<SQLiteJobStore (url=')
+    assert repr(sqlitejobstore).startswith('<SQLiteJobStore (db_path=')
 
 
 def test_repr_mongodbjobstore(mongodbjobstore):
