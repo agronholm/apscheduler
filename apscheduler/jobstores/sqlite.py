@@ -92,23 +92,19 @@ class SQLiteJobStore(BaseJobStore):
     def update_job(self, job):
         conn = sqlite3.connect(self.url)
         cursor = conn.cursor()
-        try:
-            with conn:
-                cursor.execute("""UPDATE """ + self.tablename + """ SET next_run_time = :next_run_time, job_state = :job_state WHERE id = :id""", {'id': job.id, 'next_run_time': datetime_to_utc_timestamp(job.next_run_time), 'job_state': pickle.dumps(job.__getstate__(), self.pickle_protocol)})
-            conn.close()
-        except :
-            conn.close()
+        with conn:
+            updated_rows_count = cursor.execute("""UPDATE """ + self.tablename + """ SET next_run_time = :next_run_time, job_state = :job_state WHERE id = :id""", {'id': job.id, 'next_run_time': datetime_to_utc_timestamp(job.next_run_time), 'job_state': pickle.dumps(job.__getstate__(), self.pickle_protocol)}).rowcount
+        conn.close()
+        if updated_rows_count == 0:
             raise JobLookupError(job.id)
 
     def remove_job(self, job_id):
         conn = sqlite3.connect(self.url)
         cursor = conn.cursor()
-        try:
-            with conn:
-                cursor.execute("""DELETE FROM """ + self.tablename + """ WHERE id = :id""", {'id': job_id})
-            conn.close()
-        except :
-            conn.close()
+        with conn:
+            deleted_rows_count = cursor.execute("""DELETE FROM """ + self.tablename + """ WHERE id = :id""", {'id': job_id}).rowcount
+        conn.close()
+        if deleted_rows_count == 0:
             raise JobLookupError(job_id)
 
     def remove_all_jobs(self):
