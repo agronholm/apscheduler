@@ -362,7 +362,7 @@ class BaseScheduler(metaclass=ABCMeta):
 
     def add_job(self, func, trigger=None, args=None, kwargs=None, id=None, name=None,
                 misfire_grace_time=undefined, coalesce=undefined, max_instances=undefined,
-                next_run_time=undefined, jobstore='default', executor='default',
+                next_run_time=undefined, job_extra: dict = None, jobstore='default', executor='default',
                 replace_existing=False, **trigger_args):
         """
         add_job(func, trigger=None, args=None, kwargs=None, id=None, \
@@ -402,6 +402,7 @@ class BaseScheduler(metaclass=ABCMeta):
             job
         :param datetime next_run_time: when to first run the job, regardless of the trigger (pass
             ``None`` to add the job as paused)
+        :param dict job_extra: when provide custom job class, constructor argument should pass here
         :param str|unicode jobstore: alias of the job store to store the job in
         :param str|unicode executor: alias of the executor to run the job with
         :param bool replace_existing: ``True`` to replace an existing job with the same ``id``
@@ -420,11 +421,12 @@ class BaseScheduler(metaclass=ABCMeta):
             'misfire_grace_time': misfire_grace_time,
             'coalesce': coalesce,
             'max_instances': max_instances,
-            'next_run_time': next_run_time
+            'next_run_time': next_run_time,
+            **(job_extra or {})
         }
         job_kwargs = dict((key, value) for key, value in job_kwargs.items() if
                           value is not undefined)
-        job = Job(self, **job_kwargs)
+        job = self._job_class(self, **job_kwargs)
 
         # Don't really add jobs to job stores before the scheduler is up and running
         with self._jobstores_lock:
@@ -691,6 +693,10 @@ class BaseScheduler(metaclass=ABCMeta):
         self.jobstore_retry_interval = float(config.pop('jobstore_retry_interval', 10))
 
         # Set the job defaults
+        self._job_class = config.get('job_class', Job)
+        assert issubclass(self._job_class, Job), \
+            "job_class {} is not apscheduler.job.Job".format(self._job_class.__name__)
+
         job_defaults = config.get('job_defaults', {})
         self._job_defaults = {
             'misfire_grace_time': asint(job_defaults.get('misfire_grace_time', 1)),
