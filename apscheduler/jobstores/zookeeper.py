@@ -1,4 +1,3 @@
-import os
 import pickle
 from datetime import datetime
 
@@ -143,7 +142,7 @@ class ZooKeeperJobStore(BaseJobStore):
         all_ids = self.client.get_children(self.path)
         for node_name in all_ids:
             try:
-                node_path = self.path + "/" +node_name
+                node_path = self.path + "/" + node_name
                 content, _ = self.client.get(node_path)
                 doc = pickle.loads(content)
                 job_def = {
