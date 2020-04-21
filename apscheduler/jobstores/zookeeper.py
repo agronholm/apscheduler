@@ -1,6 +1,5 @@
 from __future__ import absolute_import
 
-import os
 from datetime import datetime
 
 from pytz import utc
@@ -65,7 +64,7 @@ class ZooKeeperJobStore(BaseJobStore):
 
     def lookup_job(self, job_id):
         self._ensure_paths()
-        node_path = os.path.join(self.path, job_id)
+        node_path = self.path + "/" + str(job_id)
         try:
             content, _ = self.client.get(node_path)
             doc = pickle.loads(content)
@@ -92,7 +91,7 @@ class ZooKeeperJobStore(BaseJobStore):
 
     def add_job(self, job):
         self._ensure_paths()
-        node_path = os.path.join(self.path,  str(job.id))
+        node_path = self.path + "/" + str(job.id)
         value = {
             'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
             'job_state': job.__getstate__()
@@ -105,7 +104,7 @@ class ZooKeeperJobStore(BaseJobStore):
 
     def update_job(self, job):
         self._ensure_paths()
-        node_path = os.path.join(self.path,  str(job.id))
+        node_path = self.path + "/" + str(job.id)
         changes = {
             'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
             'job_state': job.__getstate__()
@@ -118,7 +117,7 @@ class ZooKeeperJobStore(BaseJobStore):
 
     def remove_job(self, job_id):
         self._ensure_paths()
-        node_path = os.path.join(self.path,  str(job_id))
+        node_path = self.path + "/" + str(job_id)
         try:
             self.client.delete(node_path)
         except NoNodeError:
@@ -151,7 +150,7 @@ class ZooKeeperJobStore(BaseJobStore):
         all_ids = self.client.get_children(self.path)
         for node_name in all_ids:
             try:
-                node_path = os.path.join(self.path, node_name)
+                node_path = self.path + "/" + node_name
                 content, _ = self.client.get(node_path)
                 doc = pickle.loads(content)
                 job_def = {
