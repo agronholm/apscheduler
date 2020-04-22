@@ -4,6 +4,13 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+**UNRELEASED**
+--------------
+
+* Fixed Zookeeper job store using backslashes instead of forward slashes for paths
+  on Windows (PR by Laurel-rao)
+
+
 3.6.3
 -----
 
