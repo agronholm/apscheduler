@@ -1,14 +1,17 @@
-type: sphinx
+version: 2
+formats: [htmlzip, pdf]
 python:
-  version: "3.5"
-  pip_install: true
-  extra_requirements:
-    - gevent
-    - mongodb
-    - redis
-    - rethinkdb
-    - sqlalchemy
-    - tornado
-    - twisted
-    - zookeeper
-    - doc
+   version: 3.6
+   install:
+      - method: pip
+        path: .
+        extra_requirements:
+          - gevent
+          - mongodb
+          - redis
+          - rethinkdb
+          - sqlalchemy
+          - tornado
+          - twisted
+          - zookeeper
+          - doc
