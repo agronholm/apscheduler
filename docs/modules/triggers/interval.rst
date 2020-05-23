@@ -17,11 +17,11 @@ Introduction
 
 This method schedules jobs to be run periodically, on selected intervals.
 
-You can also specify the starting date and ending dates for the schedule through the ``start_date`` and ``end_date``
+You can also specify the starting date and ending dates for the schedule through the ``start_time`` and ``end_time``
 parameters, respectively. They can be given as a date/datetime object or text (in the
 `ISO 8601 <https://en.wikipedia.org/wiki/ISO_8601>`_ format).
 
-If the start date is in the past, the trigger will not fire many times retroactively but instead calculates the next
+If the start time is in the past, the trigger will not fire many times retroactively but instead calculates the next
 run time from the current time, based on the past start time.
 
 
@@ -46,10 +46,10 @@ Examples
     sched.start()
 
 
-You can use ``start_date`` and ``end_date`` to limit the total time in which the schedule runs::
+You can use ``start_time`` and ``end_time`` to limit the total time in which the schedule runs::
 
     # The same as before, but starts on 2010-10-10 at 9:30 and stops on 2014-06-15 at 11:00
-    sched.add_job(job_function, 'interval', hours=2, start_date='2010-10-10 09:30:00', end_date='2014-06-15 11:00:00')
+    sched.add_job(job_function, 'interval', hours=2, start_time='2010-10-10 09:30:00', end_time='2014-06-15 11:00:00')
 
 
 The :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job` decorator works nicely too::
@@ -59,11 +59,3 @@ The :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job` decorator w
     @sched.scheduled_job('interval', id='my_job_id', hours=2)
     def job_function():
         print("Hello World")
-
-
-The ``jitter`` option enables you to add a random component to the execution time. This might be useful if you have
-multiple servers and don't want them to run a job at the exact same moment or if you want to prevent multiple jobs
-with similar options from always running concurrently::
-
-    # Run the `job_function` every hour with an extra-delay picked randomly in a [-120,+120] seconds window.
-    sched.add_job(job_function, 'interval', hours=1, jitter=120)

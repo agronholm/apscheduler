@@ -1,90 +1,78 @@
 """This module contains the expressions applicable for CronTrigger's fields."""
 
-from calendar import monthrange
 import re
+from calendar import monthrange
+from datetime import datetime
+from typing import Optional, Union
 
-from apscheduler.util import asint
-
-__all__ = ('AllExpression', 'RangeExpression', 'WeekdayRangeExpression',
-           'WeekdayPositionExpression', 'LastDayOfMonthExpression')
-
+from ...validators import as_int
 
 WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
 
 class AllExpression:
+    __slots__ = 'step'
+
     value_re = re.compile(r'\*(?:/(?P<step>\d+))?$')
 
-    def __init__(self, step=None):
-        self.step = asint(step)
+    def __init__(self, step: Union[str, int, None] = None):
+        self.step = as_int(step)
         if self.step == 0:
-            raise ValueError('Increment must be higher than 0')
+            raise ValueError('Step must be higher than 0')
 
-    def validate_range(self, field_name):
-        from apscheduler.triggers.cron.fields import MIN_VALUES, MAX_VALUES
-
-        value_range = MAX_VALUES[field_name] - MIN_VALUES[field_name]
+    def validate_range(self, field_name: str, min_value: int, max_value: int) -> None:
+        value_range = max_value - min_value
         if self.step and self.step > value_range:
-            raise ValueError('the step value ({}) is higher than the total range of the '
-                             'expression ({})'.format(self.step, value_range))
+            raise ValueError(f'the step value ({self.step}) is higher than the total range of the '
+                             f'expression ({value_range})')
 
-    def get_next_value(self, date, field):
-        start = field.get_value(date)
-        minval = field.get_min(date)
-        maxval = field.get_max(date)
+    def get_next_value(self, dateval: datetime, field) -> Optional[int]:
+        start = field.get_value(dateval)
+        minval = field.get_min(dateval)
+        maxval = field.get_max(dateval)
         start = max(start, minval)
 
         if not self.step:
-            next = start
+            nextval = start
         else:
             distance_to_next = (self.step - (start - minval)) % self.step
-            next = start + distance_to_next
+            nextval = start + distance_to_next
 
-        if next <= maxval:
-            return next
-
-    def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.step == other.step
+        return nextval if nextval <= maxval else None
 
     def __str__(self):
-        if self.step:
-            return '*/%d' % self.step
-        return '*'
-
-    def __repr__(self):
-        return "%s(%s)" % (self.__class__.__name__, self.step)
+        return f'*/{self.step}' if self.step else '*'
 
 
 class RangeExpression(AllExpression):
-    value_re = re.compile(
-        r'(?P<first>\d+)(?:-(?P<last>\d+))?(?:/(?P<step>\d+))?$')
+    __slots__ = 'first', 'last'
 
-    def __init__(self, first, last=None, step=None):
+    value_re = re.compile(r'(?P<first>\d+)(?:-(?P<last>\d+))?(?:/(?P<step>\d+))?$')
+
+    def __init__(self, first: Union[str, int], last: Union[str, int, None] = None,
+                 step: Union[str, int, None] = None):
         super().__init__(step)
-        first = asint(first)
-        last = asint(last)
-        if last is None and step is None:
-            last = first
-        if last is not None and first > last:
+        self.first = as_int(first)
+        self.last = as_int(last)
+
+        if self.last is None and self.step is None:
+            self.last = self.first
+        if self.last is not None and self.first > self.last:
             raise ValueError('The minimum value in a range must not be higher than the maximum')
-        self.first = first
-        self.last = last
 
-    def validate_range(self, field_name):
-        from apscheduler.triggers.cron.fields import MIN_VALUES, MAX_VALUES
-
-        super().validate_range(field_name)
-        if self.first < MIN_VALUES[field_name]:
-            raise ValueError('the first value ({}) is lower than the minimum value ({})'
-                             .format(self.first, MIN_VALUES[field_name]))
-        if self.last is not None and self.last > MAX_VALUES[field_name]:
-            raise ValueError('the last value ({}) is higher than the maximum value ({})'
-                             .format(self.last, MAX_VALUES[field_name]))
-        value_range = (self.last or MAX_VALUES[field_name]) - self.first
+    def validate_range(self, field_name: str, min_value: int, max_value: int) -> None:
+        super().validate_range(field_name, min_value, max_value)
+        if self.first < min_value:
+            raise ValueError(f'the first value ({self.first}) is lower than the minimum value '
+                             f'({min_value})')
+        if self.last is not None and self.last > max_value:
+            raise ValueError(f'the last value ({self.last}) is higher than the maximum value '
+                             f'({max_value})')
+        value_range = (self.last or max_value) - self.first
         if self.step and self.step > value_range:
-            raise ValueError('the step value ({}) is higher than the total range of the '
-                             'expression ({})'.format(self.step, value_range))
+            raise ValueError(f'the step value ({self.step}) is higher than the total range of the '
+                             f'expression ({value_range})')
 
     def get_next_value(self, date, field):
         startval = field.get_value(date)
@@ -103,43 +91,34 @@ class RangeExpression(AllExpression):
 
         return nextval if nextval <= maxval else None
 
-    def __eq__(self, other):
-        return (isinstance(other, self.__class__) and self.first == other.first and
-                self.last == other.last)
-
     def __str__(self):
         if self.last != self.first and self.last is not None:
-            range = '%d-%d' % (self.first, self.last)
+            rangeval = f'{self.first}-{self.last}'
         else:
-            range = str(self.first)
+            rangeval = str(self.first)
 
         if self.step:
-            return '%s/%d' % (range, self.step)
-        return range
+            return f'{rangeval}/{self.step}'
 
-    def __repr__(self):
-        args = [str(self.first)]
-        if self.last != self.first and self.last is not None or self.step:
-            args.append(str(self.last))
-        if self.step:
-            args.append(str(self.step))
-        return "%s(%s)" % (self.__class__.__name__, ', '.join(args))
+        return rangeval
 
 
 class MonthRangeExpression(RangeExpression):
+    __slots__ = ()
+
     value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?', re.IGNORECASE)
 
     def __init__(self, first, last=None):
         try:
             first_num = MONTHS.index(first.lower()) + 1
         except ValueError:
-            raise ValueError('Invalid month name "%s"' % first)
+            raise ValueError(f'Invalid month name {first!r}') from None
 
         if last:
             try:
                 last_num = MONTHS.index(last.lower()) + 1
             except ValueError:
-                raise ValueError('Invalid month name "%s"' % last)
+                raise ValueError(f'Invalid month name {last!r}') from None
         else:
             last_num = None
 
@@ -147,30 +126,27 @@ class MonthRangeExpression(RangeExpression):
 
     def __str__(self):
         if self.last != self.first and self.last is not None:
-            return '%s-%s' % (MONTHS[self.first - 1], MONTHS[self.last - 1])
-        return MONTHS[self.first - 1]
+            return f'{MONTHS[self.first - 1]}-{MONTHS[self.last - 1]}'
 
-    def __repr__(self):
-        args = ["'%s'" % MONTHS[self.first]]
-        if self.last != self.first and self.last is not None:
-            args.append("'%s'" % MONTHS[self.last - 1])
-        return "%s(%s)" % (self.__class__.__name__, ', '.join(args))
+        return MONTHS[self.first - 1]
 
 
 class WeekdayRangeExpression(RangeExpression):
+    __slots__ = ()
+
     value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?', re.IGNORECASE)
 
-    def __init__(self, first, last=None):
+    def __init__(self, first: str, last: Optional[str] = None):
         try:
             first_num = WEEKDAYS.index(first.lower())
         except ValueError:
-            raise ValueError('Invalid weekday name "%s"' % first)
+            raise ValueError(f'Invalid weekday name {first!r}') from None
 
         if last:
             try:
                 last_num = WEEKDAYS.index(last.lower())
             except ValueError:
-                raise ValueError('Invalid weekday name "%s"' % last)
+                raise ValueError(f'Invalid weekday name {last!r}') from None
         else:
             last_num = None
 
@@ -178,36 +154,29 @@ class WeekdayRangeExpression(RangeExpression):
 
     def __str__(self):
         if self.last != self.first and self.last is not None:
-            return '%s-%s' % (WEEKDAYS[self.first], WEEKDAYS[self.last])
-        return WEEKDAYS[self.first]
+            return f'{WEEKDAYS[self.first]}-{WEEKDAYS[self.last]}'
 
-    def __repr__(self):
-        args = ["'%s'" % WEEKDAYS[self.first]]
-        if self.last != self.first and self.last is not None:
-            args.append("'%s'" % WEEKDAYS[self.last])
-        return "%s(%s)" % (self.__class__.__name__, ', '.join(args))
+        return WEEKDAYS[self.first]
 
 
 class WeekdayPositionExpression(AllExpression):
+    __slots__ = 'option_num', 'weekday'
+
     options = ['1st', '2nd', '3rd', '4th', '5th', 'last']
     value_re = re.compile(r'(?P<option_name>%s) +(?P<weekday_name>(?:\d+|\w+))' %
                           '|'.join(options), re.IGNORECASE)
 
-    def __init__(self, option_name, weekday_name):
+    def __init__(self, option_name: str, weekday_name: str):
         super().__init__(None)
-        try:
-            self.option_num = self.options.index(option_name.lower())
-        except ValueError:
-            raise ValueError('Invalid weekday position "%s"' % option_name)
-
+        self.option_num = self.options.index(option_name.lower())
         try:
             self.weekday = WEEKDAYS.index(weekday_name.lower())
         except ValueError:
-            raise ValueError('Invalid weekday name "%s"' % weekday_name)
+            raise ValueError(f'Invalid weekday name {weekday_name!r}') from None
 
-    def get_next_value(self, date, field):
+    def get_next_value(self, dateval: datetime, field) -> Optional[int]:
         # Figure out the weekday of the month's first day and the number of days in that month
-        first_day_wday, last_day = monthrange(date.year, date.month)
+        first_day_wday, last_day = monthrange(dateval.year, dateval.month)
 
         # Calculate which day of the month is the first of the target weekdays
         first_hit_day = self.weekday - first_day_wday + 1
@@ -220,32 +189,25 @@ class WeekdayPositionExpression(AllExpression):
         else:
             target_day = first_hit_day + ((last_day - first_hit_day) // 7) * 7
 
-        if target_day <= last_day and target_day >= date.day:
+        if last_day >= target_day >= dateval.day:
             return target_day
-
-    def __eq__(self, other):
-        return (super().__eq__(other) and
-                self.option_num == other.option_num and self.weekday == other.weekday)
+        else:
+            return None
 
     def __str__(self):
-        return '%s %s' % (self.options[self.option_num], WEEKDAYS[self.weekday])
-
-    def __repr__(self):
-        return "%s('%s', '%s')" % (self.__class__.__name__, self.options[self.option_num],
-                                   WEEKDAYS[self.weekday])
+        return f'{self.options[self.option_num]} {WEEKDAYS[self.weekday]}'
 
 
 class LastDayOfMonthExpression(AllExpression):
+    __slots__ = ()
+
     value_re = re.compile(r'last', re.IGNORECASE)
 
     def __init__(self):
         super().__init__(None)
 
-    def get_next_value(self, date, field):
-        return monthrange(date.year, date.month)[1]
+    def get_next_value(self, dateval: datetime, field):
+        return monthrange(dateval.year, dateval.month)[1]
 
     def __str__(self):
         return 'last'
-
-    def __repr__(self):
-        return "%s()" % self.__class__.__name__

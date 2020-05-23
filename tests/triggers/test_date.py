@@ -1,0 +1,15 @@
+from datetime import datetime
+
+from apscheduler.triggers.date import DateTrigger
+
+
+def test_run_time(timezone, serializer):
+    run_time = timezone.localize(datetime(2020, 5, 14, 11, 56, 12))
+    trigger = DateTrigger(run_time)
+    if serializer:
+        payload = serializer.serialize(trigger)
+        trigger = serializer.deserialize(payload)
+
+    assert trigger.next() == run_time
+    assert trigger.next() is None
+    assert repr(trigger) == "DateTrigger('2020-05-14T11:56:12+02:00')"

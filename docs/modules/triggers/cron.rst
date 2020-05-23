@@ -19,8 +19,8 @@ This is the most powerful of the built-in triggers in APScheduler. You can speci
 on each field, and when determining the next execution time, it finds the earliest possible time that satisfies the
 conditions in every field. This behavior resembles the "Cron" utility found in most UNIX-like operating systems.
 
-You can also specify the starting date and ending dates for the cron-style schedule through the ``start_date`` and
-``end_date`` parameters, respectively. They can be given as a date/datetime object or text (in the
+You can also specify the starting date and ending dates for the cron-style schedule through the ``start_time`` and
+``end_time`` parameters, respectively. They can be given as a date/datetime object or text (in the
 `ISO 8601 <https://en.wikipedia.org/wiki/ISO_8601>`_ format).
 
 Unlike with crontab expressions, you can omit fields that you don't need. Fields greater than the least significant
@@ -96,10 +96,10 @@ Examples
     sched.start()
 
 
-You can use ``start_date`` and ``end_date`` to limit the total time in which the schedule runs::
+You can use ``start_time`` and ``end_time`` to limit the total time in which the schedule runs::
 
     # Runs from Monday to Friday at 5:30 (am) until 2014-05-30 00:00:00
-    sched.add_job(job_function, 'cron', day_of_week='mon-fri', hour=5, minute=30, end_date='2014-05-30')
+    sched.add_job(job_function, 'cron', day_of_week='mon-fri', hour=5, minute=30, end_time='2014-05-30')
 
 
 The :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job` decorator works nicely too::
@@ -111,10 +111,3 @@ The :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job` decorator w
 To schedule a job using a standard crontab expression::
 
     sched.add_job(job_function, CronTrigger.from_crontab('0 0 1-15 may-aug *'))
-
-The ``jitter`` option enables you to add a random component to the execution time. This might be useful if you have
-multiple servers and don't want them to run a job at the exact same moment or if you want to prevent jobs from running
-at sharp hours::
-
-    # Run the `job_function` every sharp hour with an extra-delay picked randomly in a [-120,+120] seconds window.
-    sched.add_job(job_function, 'cron', hour='*', jitter=120)

@@ -1,51 +1,46 @@
-from datetime import datetime
+from datetime import datetime, tzinfo
+from typing import Optional, Union
 
-from tzlocal import get_localzone
+from dateutil.parser import parse
 
-from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import convert_to_datetime, datetime_repr, astimezone
+from ..abc import Trigger
+from ..validators import require_state_version, as_aware_datetime, as_timezone
 
 
-class DateTrigger(BaseTrigger):
+class DateTrigger(Trigger):
     """
-    Triggers once on the given datetime. If ``run_date`` is left empty, current time is used.
+    Triggers once on the given date/time.
 
-    :param datetime|str run_date: the date/time to run the job at
-    :param datetime.tzinfo|str timezone: time zone for ``run_date`` if it doesn't have one already
+    :param run_time: the date/time to run the job at
+    :param timezone: time zone to use to convert ``run_time`` into a timezone aware datetime, if it
+        isn't already (defaults to the local time zone)
     """
 
-    __slots__ = 'run_date'
+    __slots__ = 'run_time', '_completed'
 
-    def __init__(self, run_date=None, timezone=None):
-        timezone = astimezone(timezone) or get_localzone()
-        if run_date is not None:
-            self.run_date = convert_to_datetime(run_date, timezone, 'run_date')
+    def __init__(self, run_time: datetime, timezone: Union[str, tzinfo, None] = None):
+        timezone = as_timezone(timezone or run_time.tzinfo)
+        self.run_time = as_aware_datetime(run_time, timezone)
+        self._completed = False
+
+    def next(self) -> Optional[datetime]:
+        if not self._completed:
+            self._completed = True
+            return self.run_time
         else:
-            self.run_date = datetime.now(timezone)
-
-    def get_next_fire_time(self, previous_fire_time, now):
-        return self.run_date if previous_fire_time is None else None
+            return None
 
     def __getstate__(self):
         return {
             'version': 1,
-            'run_date': self.run_date
+            'run_time': self.run_time.isoformat(),
+            'completed': self._completed
         }
 
     def __setstate__(self, state):
-        # This is for compatibility with APScheduler 3.0.x
-        if isinstance(state, tuple):
-            state = state[1]
-
-        if state.get('version', 1) > 1:
-            raise ValueError(
-                'Got serialized data for version %s of %s, but only version 1 can be handled' %
-                (state['version'], self.__class__.__name__))
-
-        self.run_date = state['run_date']
-
-    def __str__(self):
-        return 'date[%s]' % datetime_repr(self.run_date)
+        require_state_version(self, state, 1)
+        self.run_time = parse(state['run_time'])
+        self._completed = state['completed']
 
     def __repr__(self):
-        return "<%s (run_date='%s')>" % (self.__class__.__name__, datetime_repr(self.run_date))
+        return f'DateTrigger({self.run_time.isoformat()!r})'

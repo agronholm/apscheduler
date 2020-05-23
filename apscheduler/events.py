@@ -5,6 +5,10 @@ __all__ = ('EVENT_SCHEDULER_STARTED', 'EVENT_SCHEDULER_SHUTDOWN', 'EVENT_SCHEDUL
            'EVENT_JOB_ERROR', 'EVENT_JOB_MISSED', 'EVENT_JOB_SUBMITTED', 'EVENT_JOB_MAX_INSTANCES',
            'SchedulerEvent', 'JobEvent', 'JobExecutionEvent', 'JobSubmissionEvent')
 
+from datetime import datetime
+from typing import Optional
+
+from dataclasses import dataclass
 
 EVENT_SCHEDULER_STARTED = EVENT_SCHEDULER_START = 2 ** 0
 EVENT_SCHEDULER_SHUTDOWN = 2 ** 1
@@ -28,6 +32,23 @@ EVENT_ALL = (EVENT_SCHEDULER_STARTED | EVENT_SCHEDULER_SHUTDOWN | EVENT_SCHEDULE
              EVENT_JOBSTORE_ADDED | EVENT_JOBSTORE_REMOVED | EVENT_ALL_JOBS_REMOVED |
              EVENT_JOB_ADDED | EVENT_JOB_REMOVED | EVENT_JOB_MODIFIED | EVENT_JOB_EXECUTED |
              EVENT_JOB_ERROR | EVENT_JOB_MISSED | EVENT_JOB_SUBMITTED | EVENT_JOB_MAX_INSTANCES)
+
+
+@dataclass
+class Event:
+    type: int
+    scheduler_id: str
+
+
+@dataclass
+class ScheduleEvent(Event):
+    schedule_id: str
+    next_fire_time: Optional[datetime]
+
+
+@dataclass
+class JobEent(Event):
+    job_id: str
 
 
 class SchedulerEvent:

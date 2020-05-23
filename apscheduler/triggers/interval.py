@@ -1,106 +1,100 @@
-from datetime import timedelta, datetime
-from math import ceil
+from datetime import timedelta, datetime, tzinfo
+from typing import Optional, Union
 
-from tzlocal import get_localzone
-
-from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import convert_to_datetime, timedelta_seconds, datetime_repr, astimezone
+from ..abc import Trigger
+from ..validators import require_state_version, as_timezone, as_aware_datetime, as_timestamp
 
 
-class IntervalTrigger(BaseTrigger):
+class IntervalTrigger(Trigger):
     """
-    Triggers on specified intervals, starting on ``start_date`` if specified, ``datetime.now()`` +
-    interval otherwise.
+    Triggers on specified intervals.
 
-    :param int weeks: number of weeks to wait
-    :param int days: number of days to wait
-    :param int hours: number of hours to wait
-    :param int minutes: number of minutes to wait
-    :param int seconds: number of seconds to wait
-    :param datetime|str start_date: starting point for the interval calculation
-    :param datetime|str end_date: latest possible date/time to trigger on
-    :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
-    :param int|None jitter: advance or delay the job execution by ``jitter`` seconds at most.
+    The first trigger time is on ``start_time`` which is the  moment the trigger was created unless
+    specifically overridden. If ``end_time`` is specified, the last trigger time will be at or
+    before that time. If no ``end_time`` has been given, the trigger will produce new trigger times
+    as long as the resulting datetimes are valid datetimes in Python.
+
+    :param weeks: number of weeks to wait
+    :param days: number of days to wait
+    :param hours: number of hours to wait
+    :param minutes: number of minutes to wait
+    :param seconds: number of seconds to wait
+    :param microseconds: number of microseconds to wait
+    :param start_time: first trigger date/time
+    :param end_time: latest possible date/time to trigger on
+    :param timezone: time zone to use for normalizing calculated datetimes (defaults to the local
+        timezone)
     """
 
-    __slots__ = 'timezone', 'start_date', 'end_date', 'interval', 'interval_length', 'jitter'
+    __slots__ = ('weeks', 'days', 'hours', 'minutes', 'seconds', 'microseconds', 'start_time',
+                 'end_time', 'timezone', '_interval', '_last_fire_time')
 
-    def __init__(self, weeks=0, days=0, hours=0, minutes=0, seconds=0, start_date=None,
-                 end_date=None, timezone=None, jitter=None):
-        self.interval = timedelta(weeks=weeks, days=days, hours=hours, minutes=minutes,
-                                  seconds=seconds)
-        self.interval_length = timedelta_seconds(self.interval)
-        if self.interval_length == 0:
-            self.interval = timedelta(seconds=1)
-            self.interval_length = 1
+    def __init__(self, *, weeks: int = 0, days: int = 0, hours: int = 0, minutes: int = 0,
+                 seconds: int = 0, microseconds: int = 0, start_time: Optional[datetime] = None,
+                 end_time: Optional[datetime] = None, timezone: Union[str, tzinfo, None] = None):
+        self.weeks = weeks
+        self.days = days
+        self.hours = hours
+        self.minutes = minutes
+        self.seconds = seconds
+        self.microseconds = microseconds
+        self.timezone = as_timezone(timezone)
+        self.start_time = as_aware_datetime(start_time or datetime.now(), self.timezone)
+        self.end_time = as_aware_datetime(end_time, self.timezone)
+        self._interval = timedelta(weeks=self.weeks, days=self.days, hours=self.hours,
+                                   minutes=self.minutes, seconds=self.seconds,
+                                   microseconds=self.microseconds)
+        self._last_fire_time = None
 
-        if timezone:
-            self.timezone = astimezone(timezone)
-        elif isinstance(start_date, datetime) and start_date.tzinfo:
-            self.timezone = start_date.tzinfo
-        elif isinstance(end_date, datetime) and end_date.tzinfo:
-            self.timezone = end_date.tzinfo
+        if self._interval.total_seconds() <= 0:
+            raise ValueError('The time interval must be positive')
+
+        if self.end_time and self.end_time < self.start_time:
+            raise ValueError('end_time cannot be earlier than start_time')
+
+    def next(self) -> Optional[datetime]:
+        if self._last_fire_time is None:
+            self._last_fire_time = self.start_time
         else:
-            self.timezone = get_localzone()
+            self._last_fire_time = self.timezone.normalize(self._last_fire_time + self._interval)
 
-        start_date = start_date or (datetime.now(self.timezone) + self.interval)
-        self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date')
-        self.end_date = convert_to_datetime(end_date, self.timezone, 'end_date')
-
-        self.jitter = jitter
-
-    def get_next_fire_time(self, previous_fire_time, now):
-        if previous_fire_time:
-            next_fire_time = previous_fire_time + self.interval
-        elif self.start_date > now:
-            next_fire_time = self.start_date
+        if self.end_time is None or self._last_fire_time <= self.end_time:
+            return self._last_fire_time
         else:
-            timediff_seconds = timedelta_seconds(now - self.start_date)
-            next_interval_num = int(ceil(timediff_seconds / self.interval_length))
-            next_fire_time = self.start_date + self.interval * next_interval_num
-
-        if self.jitter is not None:
-            next_fire_time = self._apply_jitter(next_fire_time, self.jitter, now)
-
-        if not self.end_date or next_fire_time <= self.end_date:
-            return self.timezone.normalize(next_fire_time)
+            return None
 
     def __getstate__(self):
         return {
-            'version': 2,
-            'timezone': self.timezone,
-            'start_date': self.start_date,
-            'end_date': self.end_date,
-            'interval': self.interval,
-            'jitter': self.jitter,
+            'version': 1,
+            'interval': [self.weeks, self.days, self.hours, self.minutes, self.seconds,
+                         self.microseconds],
+            'timezone': self.timezone.zone,
+            'start_time': as_timestamp(self.start_time),
+            'end_time': as_timestamp(self.end_time),
+            'last_fire_time': as_timestamp(self._last_fire_time)
         }
 
     def __setstate__(self, state):
-        # This is for compatibility with APScheduler 3.0.x
-        if isinstance(state, tuple):
-            state = state[1]
-
-        if state.get('version', 1) > 2:
-            raise ValueError(
-                'Got serialized data for version %s of %s, but only versions up to 2 can be '
-                'handled' % (state['version'], self.__class__.__name__))
-
-        self.timezone = state['timezone']
-        self.start_date = state['start_date']
-        self.end_date = state['end_date']
-        self.interval = state['interval']
-        self.interval_length = timedelta_seconds(self.interval)
-        self.jitter = state.get('jitter')
-
-    def __str__(self):
-        return 'interval[%s]' % str(self.interval)
+        require_state_version(self, state, 1)
+        self.weeks, self.days, self.hours, self.minutes, self.seconds, self.microseconds = \
+            state['interval']
+        self.timezone = as_timezone(state['timezone'])
+        self.start_time = as_aware_datetime(state['start_time'], self.timezone)
+        self.end_time = as_aware_datetime(state['end_time'], self.timezone)
+        self._interval = timedelta(weeks=self.weeks, days=self.days, hours=self.hours,
+                                   minutes=self.minutes, seconds=self.seconds,
+                                   microseconds=self.microseconds)
+        self._last_fire_time = as_aware_datetime(state['last_fire_time'], self.timezone)
 
     def __repr__(self):
-        options = ['interval=%r' % self.interval, 'start_date=%r' % datetime_repr(self.start_date)]
-        if self.end_date:
-            options.append("end_date=%r" % datetime_repr(self.end_date))
-        if self.jitter:
-            options.append('jitter=%s' % self.jitter)
+        fields = []
+        for field in 'weeks', 'days', 'hours', 'minutes', 'seconds', 'microseconds':
+            value = getattr(self, field)
+            if value > 0:
+                fields.append(f'{field}={value}')
 
-        return "<%s (%s, timezone='%s')>" % (
-            self.__class__.__name__, ', '.join(options), self.timezone)
+        fields.append(f'start_time={self.start_time.isoformat()!r}')
+        if self.end_time:
+            fields.append(f'end_time={self.end_time.isoformat()!r}')
+
+        return f'IntervalTrigger({", ".join(fields)})'

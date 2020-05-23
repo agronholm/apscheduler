@@ -1,18 +1,14 @@
 import platform
 import sys
-from datetime import date, datetime, timedelta, tzinfo
+from datetime import datetime, timedelta
 from functools import partial
 from types import ModuleType
-from unittest.mock import Mock
 
 import pytest
 import pytz
 
-from apscheduler.job import Job
 from apscheduler.util import (
-    asint, asbool, astimezone, convert_to_datetime, datetime_to_utc_timestamp,
-    utc_timestamp_to_datetime, timedelta_seconds, datetime_ceil, get_callable_name, obj_to_ref,
-    ref_to_obj, maybe_ref, check_callable_args, datetime_repr)
+    datetime_ceil, get_callable_name, obj_to_ref, ref_to_obj, maybe_ref, check_callable_args)
 
 
 class DummyClass(object):
@@ -36,126 +32,10 @@ class DummyClass(object):
             pass
 
 
-class InheritedDummyClass(Job):
-    pass
-
-
-class TestAsint(object):
-    @pytest.mark.parametrize('value', ['5s', 'shplse'], ids=['digit first', 'text'])
-    def test_invalid_value(self, value):
-        pytest.raises(ValueError, asint, value)
-
-    def test_number(self):
-        assert asint('539') == 539
-
-    def test_none(self):
-        assert asint(None) is None
-
-
-class TestAsbool(object):
-    @pytest.mark.parametrize(
-        'value',
-        [' True', 'true ', 'Yes', ' yes ', '1  ', True],
-        ids=['capital true', 'lowercase true', 'capital yes', 'lowercase yes', 'one', 'True'])
-    def test_true(self, value):
-        assert asbool(value) is True
-
-    @pytest.mark.parametrize(
-        'value',
-        [' False', 'false ', 'No', ' no ', '0  ', False],
-        ids=['capital', 'lowercase false', 'capital no', 'lowercase no', 'zero', 'False'])
-    def test_false(self, value):
-        assert asbool(value) is False
-
-    def test_bad_value(self):
-        pytest.raises(ValueError, asbool, 'yep')
-
-
-class TestAstimezone(object):
-    def test_str(self):
-        value = astimezone('Europe/Helsinki')
-        assert isinstance(value, tzinfo)
-
-    def test_tz(self):
-        tz = pytz.timezone('Europe/Helsinki')
-        value = astimezone(tz)
-        assert tz is value
-
-    def test_none(self):
-        assert astimezone(None) is None
-
-    def test_bad_timezone_type(self):
-        exc = pytest.raises(TypeError, astimezone, tzinfo())
-        assert 'Only timezones from the pytz library are supported' in str(exc.value)
-
-    def test_bad_local_timezone(self):
-        zone = Mock(tzinfo, localize=None, normalize=None, zone='local')
-        exc = pytest.raises(ValueError, astimezone, zone)
-        assert 'Unable to determine the name of the local timezone' in str(exc.value)
-
-    def test_bad_value(self):
-        exc = pytest.raises(TypeError, astimezone, 4)
-        assert 'Expected tzinfo, got int instead' in str(exc.value)
-
-
-class TestConvertToDatetime(object):
-    @pytest.mark.parametrize('input,expected', [
-        (None, None),
-        (date(2009, 8, 1), datetime(2009, 8, 1)),
-        (datetime(2009, 8, 1, 5, 6, 12), datetime(2009, 8, 1, 5, 6, 12)),
-        ('2009-8-1', datetime(2009, 8, 1)),
-        ('2009-8-1 5:16:12', datetime(2009, 8, 1, 5, 16, 12)),
-        ('2009-8-1T5:16:12Z', datetime(2009, 8, 1, 5, 16, 12, tzinfo=pytz.utc)),
-        ('2009-8-1T5:16:12+02:30',
-         pytz.FixedOffset(150).localize(datetime(2009, 8, 1, 5, 16, 12))),
-        ('2009-8-1T5:16:12-05:30',
-         pytz.FixedOffset(-330).localize(datetime(2009, 8, 1, 5, 16, 12))),
-        (pytz.FixedOffset(-60).localize(datetime(2009, 8, 1)),
-         pytz.FixedOffset(-60).localize(datetime(2009, 8, 1)))
-    ], ids=['None', 'date', 'datetime', 'date as text', 'datetime as text', 'utc', 'tzoffset',
-            'negtzoffset', 'existing tzinfo'])
-    def test_date(self, timezone, input, expected):
-        returned = convert_to_datetime(input, timezone, None)
-        if expected is not None:
-            assert isinstance(returned, datetime)
-            expected = timezone.localize(expected) if not expected.tzinfo else expected
-
-        assert returned == expected
-
-    def test_invalid_input_type(self, timezone):
-        exc = pytest.raises(TypeError, convert_to_datetime, 92123, timezone, 'foo')
-        assert str(exc.value) == 'Unsupported type for foo: int'
-
-    def test_invalid_input_value(self, timezone):
-        exc = pytest.raises(ValueError, convert_to_datetime, '19700-12-1', timezone, None)
-        assert str(exc.value) == 'Invalid date string'
-
-    def test_missing_timezone(self):
-        exc = pytest.raises(ValueError, convert_to_datetime, '2009-8-1', None, 'argname')
-        assert str(exc.value) == ('The "tz" argument must be specified if argname has no timezone '
-                                  'information')
-
-    def test_text_timezone(self):
-        returned = convert_to_datetime('2009-8-1', 'UTC', None)
-        assert returned == datetime(2009, 8, 1, tzinfo=pytz.utc)
-
-    def test_bad_timezone(self):
-        exc = pytest.raises(TypeError, convert_to_datetime, '2009-8-1', tzinfo(), None)
-        assert str(exc.value) == ('Only pytz timezones are supported (need the localize() and '
-                                  'normalize() methods)')
-
-
-def test_datetime_to_utc_timestamp(timezone):
-    dt = timezone.localize(datetime(2014, 3, 12, 5, 40, 13, 254012))
-    timestamp = datetime_to_utc_timestamp(dt)
-    dt2 = utc_timestamp_to_datetime(timestamp)
-    assert dt2 == dt
-
-
-def test_timedelta_seconds():
-    delta = timedelta(minutes=2, seconds=30)
-    seconds = timedelta_seconds(delta)
-    assert seconds == 150
+class InheritedDummyClass(DummyClass):
+    @classmethod
+    def classmeth(cls):
+        pass
 
 
 @pytest.mark.parametrize('input,expected', [
@@ -166,22 +46,13 @@ def test_datetime_ceil(input, expected):
     assert datetime_ceil(input) == expected
 
 
-@pytest.mark.parametrize('input,expected', [
-    (None, 'None'),
-    (pytz.timezone('Europe/Helsinki').localize(datetime(2014, 5, 30, 7, 12, 20)),
-     '2014-05-30 07:12:20 EEST')
-], ids=['None', 'datetime+tzinfo'])
-def test_datetime_repr(input, expected):
-    assert datetime_repr(input) == expected
-
-
 class TestGetCallableName(object):
     @pytest.mark.parametrize('input,expected', [
-        (asint, 'asint'),
+        (open, 'open'),
         (DummyClass.staticmeth, 'DummyClass.staticmeth' if
          hasattr(DummyClass, '__qualname__') else 'staticmeth'),
         (DummyClass.classmeth, 'DummyClass.classmeth'),
-        (DummyClass.meth, 'meth' if sys.version_info[:2] == (3, 2) else 'DummyClass.meth'),
+        (DummyClass.meth, 'DummyClass.meth'),
         (DummyClass().meth, 'DummyClass.meth'),
         (DummyClass, 'DummyClass'),
         (DummyClass(), 'DummyClass')
@@ -216,7 +87,7 @@ class TestObjToRef(object):
         (DummyClass.InnerDummyClass.innerclassmeth,
          'test_util:DummyClass.InnerDummyClass.innerclassmeth'),
         (DummyClass.staticmeth, 'test_util:DummyClass.staticmeth'),
-        (InheritedDummyClass.pause, 'tests.test_util:InheritedDummyClass.pause'),
+        (InheritedDummyClass.classmeth, 'test_util:InheritedDummyClass.classmeth'),
         (timedelta, 'datetime:timedelta'),
     ], ids=['unbound method', 'class method', 'inner class method', 'static method',
             'inherited class method', 'timedelta'])

@@ -1,123 +1,107 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
+from typing import Optional, Union, Tuple, Sequence, ClassVar, List
 
-from tzlocal import get_localzone
-
-from apscheduler.triggers.base import BaseTrigger
-from apscheduler.triggers.cron.fields import (
+from .fields import (
     BaseField, MonthField, WeekField, DayOfMonthField, DayOfWeekField, DEFAULT_VALUES)
-from apscheduler.util import datetime_ceil, convert_to_datetime, datetime_repr, astimezone
+from ...abc import Trigger
+from ...util import datetime_ceil
+from ...validators import require_state_version, as_timezone, as_aware_datetime, as_timestamp
 
 
-class CronTrigger(BaseTrigger):
+class CronTrigger(Trigger):
     """
-    Triggers when current time matches all specified time constraints,
-    similarly to how the UNIX cron scheduler works.
+    Triggers when current time matches all specified time constraints, similarly to how the UNIX
+    cron scheduler works.
 
-    :param int|str year: 4-digit year
-    :param int|str month: month (1-12)
-    :param int|str day: day of the (1-31)
-    :param int|str week: ISO week (1-53)
-    :param int|str day_of_week: number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun)
-    :param int|str hour: hour (0-23)
-    :param int|str minute: minute (0-59)
-    :param int|str second: second (0-59)
-    :param datetime|str start_date: earliest possible date/time to trigger on (inclusive)
-    :param datetime|str end_date: latest possible date/time to trigger on (inclusive)
-    :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations (defaults
-        to scheduler timezone)
-    :param int|None jitter: advance or delay the job execution by ``jitter`` seconds at most.
+    :param year: 4-digit year
+    :param month: month (1-12)
+    :param day: day of the (1-31)
+    :param week: ISO week (1-53)
+    :param day_of_week: number or name of weekday (0-7 or sun,mon,tue,wed,thu,fri,sat,sun)
+    :param hour: hour (0-23)
+    :param minute: minute (0-59)
+    :param second: second (0-59)
+    :param start_time: earliest possible date/time to trigger on (defaults to current time)
+    :param end_time: latest possible date/time to trigger on
+    :param timezone: time zone to use for the date/time calculations
+        (defaults to the local timezone)
 
     .. note:: The first weekday is always **monday**.
     """
 
-    FIELD_NAMES = ('year', 'month', 'day', 'week', 'day_of_week', 'hour', 'minute', 'second')
-    FIELDS_MAP = {
-        'year': BaseField,
-        'month': MonthField,
-        'week': WeekField,
-        'day': DayOfMonthField,
-        'day_of_week': DayOfWeekField,
-        'hour': BaseField,
-        'minute': BaseField,
-        'second': BaseField
-    }
+    __slots__ = 'timezone', 'start_time', 'end_time', '_fields', '_last_fire_time'
 
-    __slots__ = 'timezone', 'start_date', 'end_date', 'fields', 'jitter'
+    FIELDS_MAP: ClassVar[List] = [
+        ('year', BaseField),
+        ('month', MonthField),
+        ('day', DayOfMonthField),
+        ('week', WeekField),
+        ('day_of_week', DayOfWeekField),
+        ('hour', BaseField),
+        ('minute', BaseField),
+        ('second', BaseField)
+    ]
 
-    def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None,
-                 minute=None, second=None, start_date=None, end_date=None, timezone=None,
-                 jitter=None):
-        if timezone:
-            self.timezone = astimezone(timezone)
-        elif isinstance(start_date, datetime) and start_date.tzinfo:
-            self.timezone = start_date.tzinfo
-        elif isinstance(end_date, datetime) and end_date.tzinfo:
-            self.timezone = end_date.tzinfo
-        else:
-            self.timezone = get_localzone()
+    def __init__(self, *, year: Union[int, str, None] = None, month: Union[int, str, None] = None,
+                 day: Union[int, str, None] = None, week: Union[int, str, None] = None,
+                 day_of_week: Union[int, str, None] = None, hour: Union[int, str, None] = None,
+                 minute: Union[int, str, None] = None, second: Union[int, str, None] = None,
+                 start_time: Union[datetime, str, None] = None,
+                 end_time: Union[datetime, str, None] = None,
+                 timezone: Union[str, tzinfo, None] = None):
+        self.timezone = as_timezone(timezone)
+        self.start_time = (as_aware_datetime(start_time, self.timezone)
+                           or datetime.now(self.timezone))
+        self.end_time = as_aware_datetime(end_time, self.timezone)
+        self._set_fields([year, month, day, week, day_of_week, hour, minute, second])
+        self._last_fire_time: Optional[datetime] = None
 
-        self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date')
-        self.end_date = convert_to_datetime(end_date, self.timezone, 'end_date')
+    def _set_fields(self, values: Sequence[Union[int, str, None]]) -> None:
+        self._fields = []
+        assigned_values = {field_name: value
+                           for (field_name, _), value in zip(self.FIELDS_MAP, values)
+                           if value is not None}
+        for field_name, field_class in self.FIELDS_MAP:
+            exprs = assigned_values.pop(field_name, None)
+            if exprs is None:
+                exprs = '*' if assigned_values else DEFAULT_VALUES[field_name]
 
-        self.jitter = jitter
-
-        values = dict((key, value) for (key, value) in locals().items()
-                      if key in self.FIELD_NAMES and value is not None)
-        self.fields = []
-        assign_defaults = False
-        for field_name in self.FIELD_NAMES:
-            if field_name in values:
-                exprs = values.pop(field_name)
-                is_default = False
-                assign_defaults = not values
-            elif assign_defaults:
-                exprs = DEFAULT_VALUES[field_name]
-                is_default = True
-            else:
-                exprs = '*'
-                is_default = True
-
-            field_class = self.FIELDS_MAP[field_name]
-            field = field_class(field_name, exprs, is_default)
-            self.fields.append(field)
+            field = field_class(field_name, exprs)
+            self._fields.append(field)
 
     @classmethod
-    def from_crontab(cls, expr, timezone=None):
+    def from_crontab(cls, expr: str, timezone: Union[str, tzinfo, None] = None) -> 'CronTrigger':
         """
         Create a :class:`~CronTrigger` from a standard crontab expression.
 
         See https://en.wikipedia.org/wiki/Cron for more information on the format accepted here.
 
         :param expr: minute, hour, day of month, month, day of week
-        :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations (
-            defaults to scheduler timezone)
-        :return: a :class:`~CronTrigger` instance
+        :param timezone: time zone to use for the date/time calculations
+            (defaults to local timezone if omitted)
 
         """
         values = expr.split()
         if len(values) != 5:
-            raise ValueError('Wrong number of fields; got {}, expected 5'.format(len(values)))
+            raise ValueError(f'Wrong number of fields; got {len(values)}, expected 5')
 
         return cls(minute=values[0], hour=values[1], day=values[2], month=values[3],
                    day_of_week=values[4], timezone=timezone)
 
-    def _increment_field_value(self, dateval, fieldnum):
+    def _increment_field_value(self, dateval: datetime, fieldnum: int) -> Tuple[datetime, int]:
         """
         Increments the designated field and resets all less significant fields to their minimum
         values.
 
-        :type dateval: datetime
-        :type fieldnum: int
         :return: a tuple containing the new date, and the number of the field that was actually
             incremented
-        :rtype: tuple
         """
 
         values = {}
         i = 0
-        while i < len(self.fields):
-            field = self.fields[i]
-            if not field.REAL:
+        while i < len(self._fields):
+            field = self._fields[i]
+            if not field.real:
                 if i == fieldnum:
                     fieldnum -= 1
                     i -= 1
@@ -146,8 +130,8 @@ class CronTrigger(BaseTrigger):
 
     def _set_field_value(self, dateval, fieldnum, new_value):
         values = {}
-        for i, field in enumerate(self.fields):
-            if field.REAL:
+        for i, field in enumerate(self._fields):
+            if field.real:
                 if i < fieldnum:
                     values[field.name] = field.get_value(dateval)
                 elif i > fieldnum:
@@ -157,81 +141,64 @@ class CronTrigger(BaseTrigger):
 
         return self.timezone.localize(datetime(**values))
 
-    def get_next_fire_time(self, previous_fire_time, now):
-        if previous_fire_time:
-            start_date = min(now, previous_fire_time + timedelta(microseconds=1))
-            if start_date == previous_fire_time:
-                start_date += timedelta(microseconds=1)
+    def next(self) -> Optional[datetime]:
+        if self._last_fire_time:
+            start_time = self._last_fire_time + timedelta(microseconds=1)
         else:
-            start_date = max(now, self.start_date) if self.start_date else now
+            start_time = self.start_time
 
         fieldnum = 0
-        next_date = datetime_ceil(start_date).astimezone(self.timezone)
-        while 0 <= fieldnum < len(self.fields):
-            field = self.fields[fieldnum]
-            curr_value = field.get_value(next_date)
-            next_value = field.get_next_value(next_date)
+        next_time = datetime_ceil(start_time).astimezone(self.timezone)
+        while 0 <= fieldnum < len(self._fields):
+            field = self._fields[fieldnum]
+            curr_value = field.get_value(next_time)
+            next_value = field.get_next_value(next_time)
 
             if next_value is None:
                 # No valid value was found
-                next_date, fieldnum = self._increment_field_value(next_date, fieldnum - 1)
+                next_time, fieldnum = self._increment_field_value(next_time, fieldnum - 1)
             elif next_value > curr_value:
                 # A valid, but higher than the starting value, was found
-                if field.REAL:
-                    next_date = self._set_field_value(next_date, fieldnum, next_value)
+                if field.real:
+                    next_time = self._set_field_value(next_time, fieldnum, next_value)
                     fieldnum += 1
                 else:
-                    next_date, fieldnum = self._increment_field_value(next_date, fieldnum)
+                    next_time, fieldnum = self._increment_field_value(next_time, fieldnum)
             else:
                 # A valid value was found, no changes necessary
                 fieldnum += 1
 
             # Return if the date has rolled past the end date
-            if self.end_date and next_date > self.end_date:
+            if self.end_time and next_time > self.end_time:
                 return None
 
         if fieldnum >= 0:
-            next_date = self._apply_jitter(next_date, self.jitter, now)
-            return min(next_date, self.end_date) if self.end_date else next_date
+            self._last_fire_time = next_time
+            return next_time
 
     def __getstate__(self):
         return {
-            'version': 2,
-            'timezone': self.timezone,
-            'start_date': self.start_date,
-            'end_date': self.end_date,
-            'fields': self.fields,
-            'jitter': self.jitter,
+            'version': 1,
+            'timezone': self.timezone.zone,
+            'fields': [str(f) for f in self._fields],
+            'start_time': as_timestamp(self.start_time),
+            'end_time': as_timestamp(self.end_time),
+            'last_fire_time': as_timestamp(self._last_fire_time)
         }
 
     def __setstate__(self, state):
-        # This is for compatibility with APScheduler 3.0.x
-        if isinstance(state, tuple):
-            state = state[1]
-
-        if state.get('version', 1) > 2:
-            raise ValueError(
-                'Got serialized data for version %s of %s, but only versions up to 2 can be '
-                'handled' % (state['version'], self.__class__.__name__))
-
-        self.timezone = state['timezone']
-        self.start_date = state['start_date']
-        self.end_date = state['end_date']
-        self.fields = state['fields']
-        self.jitter = state.get('jitter')
-
-    def __str__(self):
-        options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
-        return 'cron[%s]' % (', '.join(options))
+        require_state_version(self, state, 1)
+        self.timezone = as_timezone(state['timezone'])
+        self.start_time = as_aware_datetime(state['start_time'], self.timezone)
+        self.end_time = as_aware_datetime(state['end_time'], self.timezone)
+        self._last_fire_time = as_aware_datetime(state['last_fire_time'], self.timezone)
+        self._set_fields(state['fields'])
 
     def __repr__(self):
-        options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
-        if self.start_date:
-            options.append("start_date=%r" % datetime_repr(self.start_date))
-        if self.end_date:
-            options.append("end_date=%r" % datetime_repr(self.end_date))
-        if self.jitter:
-            options.append('jitter=%s' % self.jitter)
+        fields = [f'{field.name}={str(field)!r}' for field in self._fields]
+        fields.append(f'start_time={self.start_time.isoformat()!r}')
+        if self.end_time:
+            fields.append(f'end_time={self.end_time.isoformat()!r}')
 
-        return "<%s (%s, timezone='%s')>" % (
-            self.__class__.__name__, ', '.join(options), self.timezone)
+        fields.append(f'timezone={self.timezone.zone!r}')
+        return f'CronTrigger({", ".join(fields)})'

@@ -1,18 +1,10 @@
 """This module contains several handy functions primarily meant for internal use."""
 
-from datetime import date, datetime, time, timedelta, tzinfo
-from calendar import timegm
-from inspect import signature
-from functools import partial
-from inspect import isclass, ismethod
 import re
-
-from pytz import timezone, utc, FixedOffset
-
-__all__ = ('undefined', 'asint', 'asbool', 'astimezone', 'convert_to_datetime',
-           'datetime_to_utc_timestamp', 'utc_timestamp_to_datetime', 'timedelta_seconds',
-           'datetime_ceil', 'datetime_repr', 'get_callable_name', 'obj_to_ref', 'ref_to_obj',
-           'maybe_ref', 'check_callable_args')
+from datetime import datetime, timedelta
+from functools import partial
+from inspect import signature, isclass, ismethod
+from typing import Tuple, Any
 
 
 class _Undefined:
@@ -26,58 +18,6 @@ class _Undefined:
 undefined = _Undefined()  #: a unique object that only signifies that no value is defined
 
 
-def asint(text):
-    """
-    Safely converts a string to an integer, returning ``None`` if the string is ``None``.
-
-    :type text: str
-    :rtype: int
-
-    """
-    if text is not None:
-        return int(text)
-
-
-def asbool(obj):
-    """
-    Interprets an object as a boolean value.
-
-    :rtype: bool
-
-    """
-    if isinstance(obj, str):
-        obj = obj.strip().lower()
-        if obj in ('true', 'yes', 'on', 'y', 't', '1'):
-            return True
-        if obj in ('false', 'no', 'off', 'n', 'f', '0'):
-            return False
-        raise ValueError('Unable to interpret value "%s" as boolean' % obj)
-    return bool(obj)
-
-
-def astimezone(obj):
-    """
-    Interprets an object as a timezone.
-
-    :rtype: tzinfo
-
-    """
-    if isinstance(obj, str):
-        return timezone(obj)
-    if isinstance(obj, tzinfo):
-        if not hasattr(obj, 'localize') or not hasattr(obj, 'normalize'):
-            raise TypeError('Only timezones from the pytz library are supported')
-        if obj.zone == 'local':
-            raise ValueError(
-                'Unable to determine the name of the local timezone -- you must explicitly '
-                'specify the name of the local timezone. Please refrain from using timezones like '
-                'EST to prevent problems with daylight saving time. Instead, use a locale based '
-                'timezone name (such as Europe/Helsinki).')
-        return obj
-    if obj is not None:
-        raise TypeError('Expected tzinfo, got %s instead' % obj.__class__.__name__)
-
-
 _DATE_REGEX = re.compile(
     r'(?P<year>\d{4})-(?P<month>\d{1,2})-(?P<day>\d{1,2})'
     r'(?:[ T](?P<hour>\d{1,2}):(?P<minute>\d{1,2}):(?P<second>\d{1,2})'
@@ -85,115 +25,11 @@ _DATE_REGEX = re.compile(
     r'(?P<timezone>Z|[+-]\d\d:\d\d)?)?$')
 
 
-def convert_to_datetime(input, tz, arg_name):
-    """
-    Converts the given object to a timezone aware datetime object.
-
-    If a timezone aware datetime object is passed, it is returned unmodified.
-    If a native datetime object is passed, it is given the specified timezone.
-    If the input is a string, it is parsed as a datetime with the given timezone.
-
-    Date strings are accepted in three different forms: date only (Y-m-d), date with time
-    (Y-m-d H:M:S) or with date+time with microseconds (Y-m-d H:M:S.micro). Additionally you can
-    override the time zone by giving a specific offset in the format specified by ISO 8601:
-    Z (UTC), +HH:MM or -HH:MM.
-
-    :param str|datetime input: the datetime or string to convert to a timezone aware datetime
-    :param datetime.tzinfo tz: timezone to interpret ``input`` in
-    :param str arg_name: the name of the argument (used in an error message)
-    :rtype: datetime
-
-    """
-    if input is None:
-        return
-    elif isinstance(input, datetime):
-        datetime_ = input
-    elif isinstance(input, date):
-        datetime_ = datetime.combine(input, time())
-    elif isinstance(input, str):
-        m = _DATE_REGEX.match(input)
-        if not m:
-            raise ValueError('Invalid date string')
-
-        values = m.groupdict()
-        tzname = values.pop('timezone')
-        if tzname == 'Z':
-            tz = utc
-        elif tzname:
-            hours, minutes = (int(x) for x in tzname[1:].split(':'))
-            sign = 1 if tzname[0] == '+' else -1
-            tz = FixedOffset(sign * (hours * 60 + minutes))
-
-        values = {k: int(v or 0) for k, v in values.items()}
-        datetime_ = datetime(**values)
-    else:
-        raise TypeError('Unsupported type for %s: %s' % (arg_name, input.__class__.__name__))
-
-    if datetime_.tzinfo is not None:
-        return datetime_
-    if tz is None:
-        raise ValueError(
-            'The "tz" argument must be specified if %s has no timezone information' % arg_name)
-    if isinstance(tz, str):
-        tz = timezone(tz)
-
-    try:
-        return tz.localize(datetime_, is_dst=None)
-    except AttributeError:
-        raise TypeError(
-            'Only pytz timezones are supported (need the localize() and normalize() methods)')
-
-
-def datetime_to_utc_timestamp(timeval):
-    """
-    Converts a datetime instance to a timestamp.
-
-    :type timeval: datetime
-    :rtype: float
-
-    """
-    if timeval is not None:
-        return timegm(timeval.utctimetuple()) + timeval.microsecond / 1000000
-
-
-def utc_timestamp_to_datetime(timestamp):
-    """
-    Converts the given timestamp to a datetime instance.
-
-    :type timestamp: float
-    :rtype: datetime
-
-    """
-    if timestamp is not None:
-        return datetime.fromtimestamp(timestamp, utc)
-
-
-def timedelta_seconds(delta):
-    """
-    Converts the given timedelta to seconds.
-
-    :type delta: timedelta
-    :rtype: float
-
-    """
-    return delta.days * 24 * 60 * 60 + delta.seconds + \
-        delta.microseconds / 1000000.0
-
-
-def datetime_ceil(dateval):
-    """
-    Rounds the given datetime object upwards.
-
-    :type dateval: datetime
-
-    """
+def datetime_ceil(dateval: datetime):
+    """Round the given datetime object upwards."""
     if dateval.microsecond > 0:
         return dateval + timedelta(seconds=1, microseconds=-dateval.microsecond)
     return dateval
-
-
-def datetime_repr(dateval):
-    return dateval.strftime('%Y-%m-%d %H:%M:%S %Z') if dateval else 'None'
 
 
 def get_callable_name(func):
@@ -384,3 +220,14 @@ def check_callable_args(func, args, kwargs):
         raise ValueError(
             'The target callable does not accept the following keyword arguments: %s' %
             ', '.join(unmatched_kwargs))
+
+
+def marshal_object(obj) -> Tuple[str, Any]:
+    return f'{obj.__class__.__module__}:{obj.__class__.__qualname__}', obj.__getstate__()
+
+
+def unmarshal_object(ref: str, state):
+    cls = ref_to_obj(ref)
+    instance = cls.__new__(cls)
+    instance.__setstate__(state)
+    return instance
