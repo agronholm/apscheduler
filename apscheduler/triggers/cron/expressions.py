@@ -11,6 +11,13 @@ WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
 
+def get_weekday_index(weekday: str) -> int:
+    try:
+        return WEEKDAYS.index(weekday.lower())
+    except ValueError:
+        raise ValueError(f'Invalid weekday name {weekday!r}') from None
+
+
 class AllExpression:
     __slots__ = 'step'
 
@@ -137,19 +144,8 @@ class WeekdayRangeExpression(RangeExpression):
     value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?', re.IGNORECASE)
 
     def __init__(self, first: str, last: Optional[str] = None):
-        try:
-            first_num = WEEKDAYS.index(first.lower())
-        except ValueError:
-            raise ValueError(f'Invalid weekday name {first!r}') from None
-
-        if last:
-            try:
-                last_num = WEEKDAYS.index(last.lower())
-            except ValueError:
-                raise ValueError(f'Invalid weekday name {last!r}') from None
-        else:
-            last_num = None
-
+        first_num = get_weekday_index(first)
+        last_num = get_weekday_index(last) if last else None
         super().__init__(first_num, last_num)
 
     def __str__(self):

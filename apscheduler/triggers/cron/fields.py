@@ -3,15 +3,15 @@
 import re
 from calendar import monthrange
 from datetime import datetime
-from typing import Sequence, ClassVar, Any, Union, Optional
+from typing import Sequence, ClassVar, Any, Union, Optional, List
 
 from .expressions import (
     AllExpression, RangeExpression, WeekdayPositionExpression, LastDayOfMonthExpression,
-    WeekdayRangeExpression, MonthRangeExpression)
+    WeekdayRangeExpression, MonthRangeExpression, WEEKDAYS, get_weekday_index)
 
 MIN_VALUES = {'year': 1970, 'month': 1, 'day': 1, 'week': 1, 'day_of_week': 0, 'hour': 0,
               'minute': 0, 'second': 0}
-MAX_VALUES = {'year': 9999, 'month': 12, 'day': 31, 'week': 53, 'day_of_week': 6, 'hour': 23,
+MAX_VALUES = {'year': 9999, 'month': 12, 'day': 31, 'week': 53, 'day_of_week': 7, 'hour': 23,
               'minute': 59, 'second': 59}
 DEFAULT_VALUES = {'year': '*', 'month': 1, 'day': 1, 'week': '*', 'day_of_week': '*', 'hour': 0,
                   'minute': 0, 'second': 0}
@@ -31,8 +31,9 @@ class BaseField:
 
     def __init__(self, name: str, exprs: Union[int, str]):
         self.name = name
-        self.expressions = [self.compile_expression(expr)
-                            for expr in SEPARATOR.split(str(exprs).strip())]
+        self.expressions: List = []
+        for expr in SEPARATOR.split(str(exprs).strip()):
+            self.append_expression(expr)
 
     def get_min(self, dateval: datetime) -> int:
         return MIN_VALUES[self.name]
@@ -52,7 +53,7 @@ class BaseField:
 
         return smallest
 
-    def compile_expression(self, expr: str):
+    def append_expression(self, expr: str) -> None:
         for compiler in self.compilers:
             match = compiler.value_re.match(expr)
             if match:
@@ -64,7 +65,8 @@ class BaseField:
                 except ValueError as exc:
                     raise ValueError(f'Error validating expression {expr!r}: {exc}') from exc
 
-                return compiled_expr
+                self.expressions.append(compiled_expr)
+                return
 
         raise ValueError(f'Unrecognized expression {expr!r} for field {self.name!r}')
 
@@ -90,6 +92,35 @@ class DayOfMonthField(BaseField,
 
 class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpression,)):
     __slots__ = ()
+
+    def append_expression(self, expr: str) -> None:
+        # Convert numeric weekday expressions into textual ones
+        match = RangeExpression.value_re.match(expr)
+        if match:
+            groups = match.groups()
+            first = int(groups[0]) - 1
+            first = 6 if first < 0 else first
+            if groups[1]:
+                last = int(groups[1]) - 1
+                last = 6 if last < 0 else last
+            else:
+                last = first
+
+            expr = f'{WEEKDAYS[first]}-{WEEKDAYS[last]}'
+
+        # For expressions like Sun-Tue or Sat-Mon, add two expressions that together cover the
+        # expected weekdays
+        match = WeekdayRangeExpression.value_re.match(expr)
+        if match and match.groups()[1]:
+            groups = match.groups()
+            first_index = get_weekday_index(groups[0])
+            last_index = get_weekday_index(groups[1])
+            if first_index > last_index:
+                super().append_expression(f'{WEEKDAYS[0]}-{groups[1]}')
+                super().append_expression(f'{groups[0]}-{WEEKDAYS[-1]}')
+                return
+
+        super().append_expression(expr)
 
     def get_value(self, dateval: datetime) -> int:
         return dateval.weekday()

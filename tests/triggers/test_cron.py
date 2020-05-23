@@ -113,16 +113,17 @@ def test_cron_trigger_4(timezone, serializer):
                              "start_time='2012-02-01T00:00:00+01:00', timezone='Europe/Berlin')")
 
 
-def test_weekday_overlap(timezone, serializer):
+@pytest.mark.parametrize('expr', ['3-5', 'wed-fri'], ids=['numeric', 'text'])
+def test_weekday_overlap(timezone, serializer, expr):
     start_time = timezone.localize(datetime(2009, 1, 1))
-    trigger = CronTrigger(year=2009, month=1, day='6-10', day_of_week='2-4', start_time=start_time,
+    trigger = CronTrigger(year=2009, month=1, day='6-10', day_of_week=expr, start_time=start_time,
                           timezone=timezone)
     if serializer:
         trigger = serializer.deserialize(serializer.serialize(trigger))
 
     assert trigger.next() == timezone.localize(datetime(2009, 1, 7))
     assert repr(trigger) == ("CronTrigger(year='2009', month='1', day='6-10', week='*', "
-                             "day_of_week='2-4', hour='0', minute='0', second='0', "
+                             "day_of_week='wed-fri', hour='0', minute='0', second='0', "
                              "start_time='2009-01-01T00:00:00+01:00', timezone='Europe/Berlin')")
 
 
@@ -183,16 +184,17 @@ def test_month_rollover(timezone, serializer):
     assert trigger.next() == timezone.localize(datetime(2016, 4, 30))
 
 
-def test_weekday_nomatch(timezone, serializer):
+@pytest.mark.parametrize('weekday', ['1,0', 'mon,sun'], ids=['numeric', 'text'])
+def test_weekday_nomatch(timezone, serializer, weekday):
     start_time = timezone.localize(datetime(2009, 1, 1))
-    trigger = CronTrigger(year=2009, month=1, day='6-10', day_of_week='0,6', start_time=start_time,
-                          timezone=timezone)
+    trigger = CronTrigger(year=2009, month=1, day='6-10', day_of_week=weekday,
+                          start_time=start_time, timezone=timezone)
     if serializer:
         trigger = serializer.deserialize(serializer.serialize(trigger))
 
     assert trigger.next() is None
     assert repr(trigger) == ("CronTrigger(year='2009', month='1', day='6-10', week='*', "
-                             "day_of_week='0,6', hour='0', minute='0', second='0', "
+                             "day_of_week='mon,sun', hour='0', minute='0', second='0', "
                              "start_time='2009-01-01T00:00:00+01:00', timezone='Europe/Berlin')")
 
 
@@ -240,9 +242,10 @@ def test_week_1(timezone, serializer):
                              "start_time='2009-01-01T00:00:00+01:00', timezone='Europe/Berlin')")
 
 
-def test_week_2(timezone, serializer):
+@pytest.mark.parametrize('weekday', [3, 'wed'], ids=['numeric', 'text'])
+def test_week_2(timezone, serializer, weekday):
     start_time = timezone.localize(datetime(2009, 1, 1))
-    trigger = CronTrigger(year=2009, week=15, day_of_week=2, start_time=start_time,
+    trigger = CronTrigger(year=2009, week=15, day_of_week=weekday, start_time=start_time,
                           timezone=timezone)
     if serializer:
         trigger = serializer.deserialize(serializer.serialize(trigger))
@@ -250,7 +253,7 @@ def test_week_2(timezone, serializer):
     assert trigger.next() == timezone.localize(datetime(2009, 4, 8))
     assert trigger.next() is None
     assert repr(trigger) == ("CronTrigger(year='2009', month='*', day='*', week='15', "
-                             "day_of_week='2', hour='0', minute='0', second='0', "
+                             "day_of_week='wed', hour='0', minute='0', second='0', "
                              "start_time='2009-01-01T00:00:00+01:00', timezone='Europe/Berlin')")
 
 
@@ -305,8 +308,25 @@ def test_year_list(timezone, serializer):
     (' 0-14   * 14-28   jul       fri',
      "CronTrigger(year='*', month='jul', day='14-28', week='*', day_of_week='fri', hour='*', "
      "minute='0-14', second='0', start_time='2020-05-19T19:53:22+02:00', "
-     "timezone='Europe/Berlin')")
-], ids=['always', 'assorted', 'multiple_spaces_in_format'])
+     "timezone='Europe/Berlin')"),
+    ('* * * * 1-5',
+     "CronTrigger(year='*', month='*', day='*', week='*', day_of_week='mon-fri', hour='*', "
+     "minute='*', second='0', start_time='2020-05-19T19:53:22+02:00', "
+     "timezone='Europe/Berlin')"),
+    ('* * * * 0-3',
+     "CronTrigger(year='*', month='*', day='*', week='*', day_of_week='mon-wed,sun', hour='*', "
+     "minute='*', second='0', start_time='2020-05-19T19:53:22+02:00', "
+     "timezone='Europe/Berlin')"),
+    ('* * * * 6-1',
+     "CronTrigger(year='*', month='*', day='*', week='*', day_of_week='mon,sat-sun', hour='*', "
+     "minute='*', second='0', start_time='2020-05-19T19:53:22+02:00', "
+     "timezone='Europe/Berlin')"),
+    ('* * * * 6-7',
+     "CronTrigger(year='*', month='*', day='*', week='*', day_of_week='sat-sun', hour='*', "
+     "minute='*', second='0', start_time='2020-05-19T19:53:22+02:00', "
+     "timezone='Europe/Berlin')"),
+], ids=['always', 'assorted', 'multiple_spaces_in_format', 'working_week', 'sunday_first',
+        'saturday_first', 'weekend'])
 def test_from_crontab(expr, expected_repr, timezone, serializer):
     trigger = CronTrigger.from_crontab(expr, timezone)
     trigger.start_time = timezone.localize(datetime(2020, 5, 19, 19, 53, 22))
