@@ -1,0 +1,27 @@
+name: Publish packages to PyPI
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9][a-b][0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]rc[0-9]+"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.x
+    - name: Install dependencies
+      run: pip install pep517
+    - name: Create packages
+      run: python -m pep517.build --source --binary --out-dir dist/
+    - name: Upload packages
+      uses: pypa/gh-action-pypi-publish@v1.1.0
+      with:
+        user: __token__
+        password: ${{ secrets.pypi_password }}
