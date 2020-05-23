@@ -4,6 +4,9 @@
 .. image:: https://coveralls.io/repos/github/agronholm/apscheduler/badge.svg?branch=master
   :target: https://coveralls.io/github/agronholm/apscheduler?branch=master
   :alt: Code Coverage
+.. image:: https://readthedocs.org/projects/apscheduler/badge/?version=latest
+  :target: https://apscheduler.readthedocs.io/en/latest/?badge=latest
+  :alt: Documentation
 
 Advanced Python Scheduler (APScheduler) is a Python library that lets you schedule your Python code
 to be executed later, either just once or periodically. You can add new jobs or remove old ones on
