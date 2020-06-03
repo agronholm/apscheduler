@@ -38,7 +38,7 @@ class Job(object):
         :ref:`missed-job-executions` section in the documentation for an in-depth explanation.
     """
 
-    __slots__ = ('_scheduler', '_jobstore_alias', 'id', 'trigger', 'executor', 'func', 'func_ref',
+    __slots__ = ('_scheduler', '_jobstore_alias', 'id', 'instance_id', 'trigger', 'executor', 'func', 'func_ref',
                  'args', 'kwargs', 'name', 'misfire_grace_time', 'coalesce', 'max_instances',
                  'next_run_time')
 
@@ -47,6 +47,7 @@ class Job(object):
         self._scheduler = scheduler
         self._jobstore_alias = None
         self._modify(id=id or uuid4().hex, **kwargs)
+        self.instance_id = None # when job selected to run, the id was setted
 
     def modify(self, **changes):
         """

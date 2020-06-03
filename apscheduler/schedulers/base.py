@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import uuid
 from abc import ABCMeta, abstractmethod
 from threading import RLock
 from datetime import datetime, timedelta
@@ -485,7 +486,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             if jobstore:
                 self._lookup_jobstore(jobstore).update_job(job)
 
-        self._dispatch_event(JobEvent(EVENT_JOB_MODIFIED, job_id, jobstore))
+        self._dispatch_event(JobEvent(EVENT_JOB_MODIFIED, job_id, job.instance_id, jobstore))
 
         # Wake up the scheduler since the job's next run time may have been changed
         if self.state == STATE_RUNNING:
@@ -597,6 +598,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         """
         jobstore_alias = None
+        removed_job_instance_ids = []
         with self._jobstores_lock:
             # Check if the job is among the pending jobs
             if self.state == STATE_STOPPED:
@@ -604,6 +606,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     if job.id == job_id and jobstore in (None, alias):
                         del self._pending_jobs[i]
                         jobstore_alias = alias
+                        removed_job_instance_ids.append(job.instance_id)
                         break
             else:
                 # Otherwise, try to remove it from each store until it succeeds or we run out of
@@ -621,7 +624,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             raise JobLookupError(job_id)
 
         # Notify listeners that a job has been removed
-        event = JobEvent(EVENT_JOB_REMOVED, job_id, jobstore_alias)
+        event = JobEvent(EVENT_JOB_REMOVED, job_id, ', '.join(removed_job_instance_ids), jobstore_alias) # TODO remove job_instance_id[]
         self._dispatch_event(event)
 
         self._logger.info('Removed job %s', job_id)
@@ -875,7 +878,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         job._jobstore_alias = jobstore_alias
 
         # Notify listeners that a new job has been added
-        event = JobEvent(EVENT_JOB_ADDED, job.id, jobstore_alias)
+        event = JobEvent(EVENT_JOB_ADDED, job.id, job.instance_id, jobstore_alias)
         self._dispatch_event(event)
 
         self._logger.info('Added job "%s" to job store "%s"', job.name, jobstore_alias)
@@ -971,19 +974,20 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     run_times = run_times[-1:] if run_times and job.coalesce else run_times
                     if run_times:
                         try:
+                            job.instance_id = str(uuid.uuid4())
                             executor.submit_job(job, run_times)
                         except MaxInstancesReachedError:
                             self._logger.warning(
                                 'Execution of job "%s" skipped: maximum number of running '
                                 'instances reached (%d)', job, job.max_instances)
-                            event = JobSubmissionEvent(EVENT_JOB_MAX_INSTANCES, job.id,
+                            event = JobSubmissionEvent(EVENT_JOB_MAX_INSTANCES, job.id, job.instance_id,
                                                        jobstore_alias, run_times)
                             events.append(event)
                         except BaseException:
                             self._logger.exception('Error submitting job "%s" to executor "%s"',
                                                    job, job.executor)
                         else:
-                            event = JobSubmissionEvent(EVENT_JOB_SUBMITTED, job.id, jobstore_alias,
+                            event = JobSubmissionEvent(EVENT_JOB_SUBMITTED, job.id, job.instance_id, jobstore_alias,
                                                        run_times)
                             events.append(event)
 

@@ -5,7 +5,6 @@ __all__ = ('EVENT_SCHEDULER_STARTED', 'EVENT_SCHEDULER_SHUTDOWN', 'EVENT_SCHEDUL
            'EVENT_JOB_ERROR', 'EVENT_JOB_MISSED', 'EVENT_JOB_SUBMITTED', 'EVENT_JOB_MAX_INSTANCES',
            'SchedulerEvent', 'JobEvent', 'JobExecutionEvent', 'JobSubmissionEvent')
 
-
 EVENT_SCHEDULER_STARTED = EVENT_SCHEDULER_START = 2 ** 0
 EVENT_SCHEDULER_SHUTDOWN = 2 ** 1
 EVENT_SCHEDULER_PAUSED = 2 ** 2
@@ -56,10 +55,11 @@ class JobEvent(SchedulerEvent):
     :ivar jobstore: alias of the job store containing the job in question
     """
 
-    def __init__(self, code, job_id, jobstore):
+    def __init__(self, code, job_id, job_instance_id, jobstore):
         super(JobEvent, self).__init__(code)
         self.code = code
         self.job_id = job_id
+        self.job_instance_id = job_instance_id
         self.jobstore = jobstore
 
 
@@ -70,8 +70,8 @@ class JobSubmissionEvent(JobEvent):
     :ivar scheduled_run_times: a list of datetimes when the job was intended to run
     """
 
-    def __init__(self, code, job_id, jobstore, scheduled_run_times):
-        super(JobSubmissionEvent, self).__init__(code, job_id, jobstore)
+    def __init__(self, code, job_id, job_instance_id, jobstore, scheduled_run_times):
+        super(JobSubmissionEvent, self).__init__(code, job_id, job_instance_id, jobstore)
         self.scheduled_run_times = scheduled_run_times
 
 
@@ -85,9 +85,9 @@ class JobExecutionEvent(JobEvent):
     :ivar traceback: a formatted traceback for the exception
     """
 
-    def __init__(self, code, job_id, jobstore, scheduled_run_time, retval=None, exception=None,
+    def __init__(self, code, job_id, job_instance_id, jobstore, scheduled_run_time, retval=None, exception=None,
                  traceback=None):
-        super(JobExecutionEvent, self).__init__(code, job_id, jobstore)
+        super(JobExecutionEvent, self).__init__(code, job_id, job_instance_id, jobstore)
         self.scheduled_run_time = scheduled_run_time
         self.retval = retval
         self.exception = exception
