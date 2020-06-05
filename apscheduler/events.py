@@ -5,6 +5,8 @@ __all__ = ('EVENT_SCHEDULER_STARTED', 'EVENT_SCHEDULER_SHUTDOWN', 'EVENT_SCHEDUL
            'EVENT_JOB_ERROR', 'EVENT_JOB_MISSED', 'EVENT_JOB_SUBMITTED', 'EVENT_JOB_MAX_INSTANCES',
            'SchedulerEvent', 'JobEvent', 'JobExecutionEvent', 'JobSubmissionEvent')
 
+from datetime import datetime
+
 EVENT_SCHEDULER_STARTED = EVENT_SCHEDULER_START = 2 ** 0
 EVENT_SCHEDULER_SHUTDOWN = 2 ** 1
 EVENT_SCHEDULER_PAUSED = 2 ** 2
@@ -41,6 +43,7 @@ class SchedulerEvent(object):
         super(SchedulerEvent, self).__init__()
         self.code = code
         self.alias = alias
+        self.event_tm = datetime.now()
 
     def __repr__(self):
         return '<%s (code=%d)>' % (self.__class__.__name__, self.code)
