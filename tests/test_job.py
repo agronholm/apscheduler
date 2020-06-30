@@ -58,11 +58,13 @@ def test_remove(job):
     job.remove()
     job._scheduler.remove_job.assert_called_once_with(job.id, None)
 
+
 def test_weakref(create_job):
     job = create_job(func=dummyfunc)
     ref = weakref.ref(job)
     del job
     assert ref() is None
+
 
 def test_pending(job):
     """
