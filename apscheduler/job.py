@@ -40,7 +40,7 @@ class Job(object):
 
     __slots__ = ('_scheduler', '_jobstore_alias', 'id', 'trigger', 'executor', 'func', 'func_ref',
                  'args', 'kwargs', 'name', 'misfire_grace_time', 'coalesce', 'max_instances',
-                 'next_run_time')
+                 'next_run_time', '__weakref__')
 
     def __init__(self, scheduler, id=None, **kwargs):
         super(Job, self).__init__()
