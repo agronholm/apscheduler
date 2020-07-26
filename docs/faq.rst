@@ -125,3 +125,40 @@ incomplete list:
 .. _aiohttp: https://pypi.org/project/aiohttp/
 .. _apschedulerweb: https://github.com/marwinxxii/apschedulerweb
 .. _Nextdoor scheduler: https://github.com/Nextdoor/ndscheduler
+
+Can I have parent-child relationship between jobs?
+====================================================
+
+Short Answer: No, there is no inbuilt way to achieve this.
+
+Workaround:
+
+If there is need to have a parent child relationship between jobs, where the existance of the 
+child job might only make sense if the parent exists. You can add the ID of the parent job as a name 
+of child job (all of your child jobs can share the same name), now this relationship is a part of 
+schedule and you can use it as you wish.
+
+Example:
+
+Adding Child Jobs::
+
+    def AddParent(ref_id):   
+        p_job=scheduler.add_job(AddParentChild,'interval', minutes=2, name="parent",args=[ref_id])
+        StoreJobID(ref_id,p_job.id)
+
+
+    def AddParentChild(ref_id):
+        #Do whatever you need to do here before adding child jobs
+        JobID=GetJobID(ref_id)
+        scheduler.add_job(ChildFunc,'interval', hours=2, name=JobID)
+
+
+Deleting Parent & Child Jobs::
+
+    def DeleteChildAndParent(JobID):
+        scheduler.pause_job(JobID,None)
+        child_jobs=list(filter(lambda j:j.name==JobID, scheduler.get_jobs()))
+        for j in child_jobs:
+            scheduler.remove_job(j.id)
+        return scheduler.remove_job(JobID)
+
