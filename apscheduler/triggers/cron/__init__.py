@@ -15,9 +15,9 @@ class CronTrigger(Trigger):
 
     :param year: 4-digit year
     :param month: month (1-12)
-    :param day: day of the (1-31)
+    :param day: day of the month (1-31)
     :param week: ISO week (1-53)
-    :param day_of_week: number or name of weekday (0-7 or sun,mon,tue,wed,thu,fri,sat,sun)
+    :param day_of_week: number or name of weekday (0-7 or sun,mon,tue,wed,thu,fri,sat)
     :param hour: hour (0-23)
     :param minute: minute (0-59)
     :param second: second (0-59)
