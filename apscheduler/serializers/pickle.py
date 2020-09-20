@@ -1,6 +1,5 @@
-from pickle import dumps, loads
-
 from dataclasses import dataclass
+from pickle import dumps, loads
 
 from ..abc import Serializer
 

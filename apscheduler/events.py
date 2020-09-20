@@ -1,115 +1,72 @@
-__all__ = ('EVENT_SCHEDULER_STARTED', 'EVENT_SCHEDULER_SHUTDOWN', 'EVENT_SCHEDULER_PAUSED',
-           'EVENT_SCHEDULER_RESUMED', 'EVENT_EXECUTOR_ADDED', 'EVENT_EXECUTOR_REMOVED',
-           'EVENT_JOBSTORE_ADDED', 'EVENT_JOBSTORE_REMOVED', 'EVENT_ALL_JOBS_REMOVED',
-           'EVENT_JOB_ADDED', 'EVENT_JOB_REMOVED', 'EVENT_JOB_MODIFIED', 'EVENT_JOB_EXECUTED',
-           'EVENT_JOB_ERROR', 'EVENT_JOB_MISSED', 'EVENT_JOB_SUBMITTED', 'EVENT_JOB_MAX_INSTANCES',
-           'SchedulerEvent', 'JobEvent', 'JobExecutionEvent', 'JobSubmissionEvent')
-
-from datetime import datetime
-from typing import Optional
-
 from dataclasses import dataclass
-
-EVENT_SCHEDULER_STARTED = EVENT_SCHEDULER_START = 2 ** 0
-EVENT_SCHEDULER_SHUTDOWN = 2 ** 1
-EVENT_SCHEDULER_PAUSED = 2 ** 2
-EVENT_SCHEDULER_RESUMED = 2 ** 3
-EVENT_EXECUTOR_ADDED = 2 ** 4
-EVENT_EXECUTOR_REMOVED = 2 ** 5
-EVENT_JOBSTORE_ADDED = 2 ** 6
-EVENT_JOBSTORE_REMOVED = 2 ** 7
-EVENT_ALL_JOBS_REMOVED = 2 ** 8
-EVENT_JOB_ADDED = 2 ** 9
-EVENT_JOB_REMOVED = 2 ** 10
-EVENT_JOB_MODIFIED = 2 ** 11
-EVENT_JOB_EXECUTED = 2 ** 12
-EVENT_JOB_ERROR = 2 ** 13
-EVENT_JOB_MISSED = 2 ** 14
-EVENT_JOB_SUBMITTED = 2 ** 15
-EVENT_JOB_MAX_INSTANCES = 2 ** 16
-EVENT_ALL = (EVENT_SCHEDULER_STARTED | EVENT_SCHEDULER_SHUTDOWN | EVENT_SCHEDULER_PAUSED |
-             EVENT_SCHEDULER_RESUMED | EVENT_EXECUTOR_ADDED | EVENT_EXECUTOR_REMOVED |
-             EVENT_JOBSTORE_ADDED | EVENT_JOBSTORE_REMOVED | EVENT_ALL_JOBS_REMOVED |
-             EVENT_JOB_ADDED | EVENT_JOB_REMOVED | EVENT_JOB_MODIFIED | EVENT_JOB_EXECUTED |
-             EVENT_JOB_ERROR | EVENT_JOB_MISSED | EVENT_JOB_SUBMITTED | EVENT_JOB_MAX_INSTANCES)
+from datetime import datetime
+from typing import Any, Optional, Set
 
 
-@dataclass
+@dataclass(frozen=True)
 class Event:
-    type: int
-    scheduler_id: str
+    timestamp: datetime
 
 
-@dataclass
-class ScheduleEvent(Event):
-    schedule_id: str
-    next_fire_time: Optional[datetime]
-
-
-@dataclass
-class JobEent(Event):
+@dataclass(frozen=True)
+class ExecutorEvent(Event):
     job_id: str
+    task_id: str
+    schedule_id: Optional[str]
+    scheduled_start_time: Optional[datetime]
 
 
-class SchedulerEvent:
-    """
-    An event that concerns the scheduler itself.
-
-    :ivar code: the type code of this event
-    :ivar alias: alias of the job store or executor that was added or removed (if applicable)
-    """
-
-    def __init__(self, code, alias=None):
-        super().__init__()
-        self.code = code
-        self.alias = alias
-
-    def __repr__(self):
-        return '<%s (code=%d)>' % (self.__class__.__name__, self.code)
+@dataclass(frozen=True)
+class JobSubmissionFailed(ExecutorEvent):
+    exception: BaseException
+    formatted_traceback: str
 
 
-class JobEvent(SchedulerEvent):
-    """
-    An event that concerns a job.
-
-    :ivar code: the type code of this event
-    :ivar job_id: identifier of the job in question
-    :ivar jobstore: alias of the job store containing the job in question
-    """
-
-    def __init__(self, code, job_id, jobstore):
-        super().__init__(code)
-        self.code = code
-        self.job_id = job_id
-        self.jobstore = jobstore
+@dataclass(frozen=True)
+class JobAdded(ExecutorEvent):
+    pass
 
 
-class JobSubmissionEvent(JobEvent):
-    """
-    An event that concerns the submission of a job to its executor.
-
-    :ivar scheduled_run_times: a list of datetimes when the job was intended to run
-    """
-
-    def __init__(self, code, job_id, jobstore, scheduled_run_times):
-        super().__init__(code, job_id, jobstore)
-        self.scheduled_run_times = scheduled_run_times
+@dataclass(frozen=True)
+class JobUpdated(ExecutorEvent):
+    pass
 
 
-class JobExecutionEvent(JobEvent):
-    """
-    An event that concerns the running of a job within its executor.
+@dataclass(frozen=True)
+class JobDeadlineMissed(ExecutorEvent):
+    start_deadline: datetime
 
-    :ivar scheduled_run_time: the time when the job was scheduled to be run
-    :ivar retval: the return value of the successfully executed job
-    :ivar exception: the exception raised by the job
-    :ivar traceback: a formatted traceback for the exception
-    """
 
-    def __init__(self, code, job_id, jobstore, scheduled_run_time, retval=None, exception=None,
-                 traceback=None):
-        super().__init__(code, job_id, jobstore)
-        self.scheduled_run_time = scheduled_run_time
-        self.retval = retval
-        self.exception = exception
-        self.traceback = traceback
+@dataclass(frozen=True)
+class JobSuccessful(ExecutorEvent):
+    start_time: datetime
+    start_deadline: Optional[datetime]
+    return_value: Any
+
+
+@dataclass(frozen=True)
+class JobFailed(ExecutorEvent):
+    start_time: datetime
+    start_deadline: Optional[datetime]
+    formatted_traceback: str
+    exception: Optional[BaseException] = None
+
+
+@dataclass(frozen=True)
+class DataStoreEvent(Event):
+    schedule_ids: Set[str]
+
+
+@dataclass(frozen=True)
+class SchedulesAdded(DataStoreEvent):
+    earliest_next_fire_time: Optional[datetime]
+
+
+@dataclass(frozen=True)
+class SchedulesUpdated(DataStoreEvent):
+    earliest_next_fire_time: Optional[datetime]
+
+
+@dataclass(frozen=True)
+class SchedulesRemoved(DataStoreEvent):
+    pass

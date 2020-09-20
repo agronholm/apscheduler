@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta, tzinfo
-from typing import Optional, Union, Tuple, Sequence, ClassVar, List
+from typing import ClassVar, List, Optional, Sequence, Tuple, Union
 
-from .fields import (
-    BaseField, MonthField, WeekField, DayOfMonthField, DayOfWeekField, DEFAULT_VALUES)
 from ...abc import Trigger
 from ...util import datetime_ceil
-from ...validators import require_state_version, as_timezone, as_aware_datetime, as_timestamp
+from ...validators import as_aware_datetime, as_timestamp, as_timezone, require_state_version
+from .fields import (
+    DEFAULT_VALUES, BaseField, DayOfMonthField, DayOfWeekField, MonthField, WeekField)
 
 
 class CronTrigger(Trigger):

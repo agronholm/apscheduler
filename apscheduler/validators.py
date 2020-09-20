@@ -1,12 +1,11 @@
-from datetime import datetime, timedelta, tzinfo, date, timezone
-from typing import Dict, Any, Optional, Union
+from datetime import date, datetime, timedelta, timezone, tzinfo
+from typing import Any, Dict, Optional, Union
 
 import pytz
-from dateutil.parser import parse
-from tzlocal import get_localzone
-
 from apscheduler.abc import Trigger
 from apscheduler.exceptions import DeserializationError
+from dateutil.parser import parse
+from tzlocal import get_localzone
 
 
 def as_int(value) -> Optional[int]:

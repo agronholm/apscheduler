@@ -3,7 +3,6 @@ from unittest.mock import Mock
 
 import pytest
 import pytz
-
 from apscheduler.serializers.cbor import CBORSerializer
 from apscheduler.serializers.json import JSONSerializer
 from apscheduler.serializers.pickle import PickleSerializer

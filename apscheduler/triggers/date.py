@@ -4,7 +4,7 @@ from typing import Optional, Union
 from dateutil.parser import parse
 
 from ..abc import Trigger
-from ..validators import require_state_version, as_aware_datetime, as_timezone
+from ..validators import as_aware_datetime, as_timezone, require_state_version
 
 
 class DateTrigger(Trigger):

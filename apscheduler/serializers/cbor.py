@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Dict, Any
+from typing import Any, Dict
 
-from cbor2 import dumps, loads, CBOREncodeTypeError, CBORTag
+from cbor2 import CBOREncodeTypeError, CBORTag, dumps, loads
 
 from ..abc import Serializer
 from ..util import marshal_object, unmarshal_object

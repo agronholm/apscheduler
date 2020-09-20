@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
 import pytest
-
 from apscheduler.exceptions import MaxIterationsReached
 from apscheduler.triggers.combining import AndTrigger, OrTrigger
 from apscheduler.triggers.date import DateTrigger

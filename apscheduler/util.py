@@ -3,8 +3,8 @@
 import re
 from datetime import datetime, timedelta
 from functools import partial
-from inspect import signature, isclass, ismethod
-from typing import Tuple, Any
+from inspect import isclass, ismethod, signature
+from typing import Any, Tuple
 
 
 class _Undefined:

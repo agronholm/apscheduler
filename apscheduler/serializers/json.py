@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from json import dumps, loads
-from typing import Dict, Any
+from typing import Any, Dict
 
 from ..abc import Serializer
 from ..util import marshal_object, unmarshal_object
@@ -36,7 +36,7 @@ class JSONSerializer(Serializer):
         return dumps(obj, ensure_ascii=False, **self.dump_options).encode('utf-8')
 
     def deserialize(self, serialized: bytes):
-        return loads(serialized, encoding='utf-8', **self.load_options)
+        return loads(serialized, **self.load_options)
 
     def serialize_to_unicode(self, obj) -> str:
         return dumps(obj, ensure_ascii=False, **self.dump_options)

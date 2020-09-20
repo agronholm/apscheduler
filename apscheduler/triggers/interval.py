@@ -1,8 +1,8 @@
-from datetime import timedelta, datetime, tzinfo
+from datetime import datetime, timedelta, tzinfo
 from typing import Optional, Union
 
 from ..abc import Trigger
-from ..validators import require_state_version, as_timezone, as_aware_datetime, as_timestamp
+from ..validators import as_aware_datetime, as_timestamp, as_timezone, require_state_version
 
 
 class IntervalTrigger(Trigger):

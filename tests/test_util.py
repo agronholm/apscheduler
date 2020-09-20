@@ -5,10 +5,8 @@ from functools import partial
 from types import ModuleType
 
 import pytest
-import pytz
-
 from apscheduler.util import (
-    datetime_ceil, get_callable_name, obj_to_ref, ref_to_obj, maybe_ref, check_callable_args)
+    check_callable_args, datetime_ceil, get_callable_name, maybe_ref, obj_to_ref, ref_to_obj)
 
 
 class DummyClass(object):

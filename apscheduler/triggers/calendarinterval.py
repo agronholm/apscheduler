@@ -1,12 +1,11 @@
-from datetime import timedelta, datetime, date, time, tzinfo
+from datetime import date, datetime, time, timedelta, tzinfo
 from typing import Optional, Union
 
 from pytz.exceptions import AmbiguousTimeError, NonExistentTimeError
 
 from ..abc import Trigger
 from ..validators import (
-    require_state_version, as_timezone, as_date, as_aware_datetime,
-    as_timestamp, as_ordinal_date)
+    as_aware_datetime, as_date, as_ordinal_date, as_timestamp, as_timezone, require_state_version)
 
 
 class CalendarIntervalTrigger(Trigger):

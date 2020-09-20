@@ -1,11 +1,11 @@
 from abc import abstractmethod
 from datetime import datetime, timedelta
-from typing import Sequence, Optional, List, Union, Dict, Any
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 from ..abc import Trigger
 from ..exceptions import MaxIterationsReached
 from ..util import marshal_object, unmarshal_object
-from ..validators import as_timedelta, as_positive_integer, as_list, require_state_version
+from ..validators import as_list, as_positive_integer, as_timedelta, require_state_version
 
 
 class BaseCombiningTrigger(Trigger):

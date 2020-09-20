@@ -1,12 +1,13 @@
 from abc import ABCMeta, abstractmethod
-from base64 import b64encode, b64decode
+from base64 import b64decode, b64encode
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import (
-    Callable, Iterable, Iterator, Mapping, Any, NoReturn, Optional, Union, AsyncIterable, Dict,
-    FrozenSet, List, Set)
+    Any, AsyncContextManager, Callable, Dict, FrozenSet, Iterable, Iterator, List, Mapping,
+    Optional, Set)
+from uuid import uuid4
 
-from .events import Event
+from apscheduler.events import Event
 
 
 class Trigger(Iterator[datetime], metaclass=ABCMeta):
@@ -45,36 +46,46 @@ class Trigger(Iterator[datetime], metaclass=ABCMeta):
 @dataclass
 class Task:
     id: str
-    func: Callable
-    max_instances: Optional[int] = None
-    metadata_arg: Optional[str] = None
-    stateful: bool = False
-    misfire_grace_time: Optional[timedelta] = None
+    func: Callable = field(compare=False)
+    max_instances: Optional[int] = field(compare=False, default=None)
+    metadata_arg: Optional[str] = field(compare=False, default=None)
+    stateful: bool = field(compare=False, default=False)
+    misfire_grace_time: Optional[timedelta] = field(compare=False, default=None)
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class Schedule:
     id: str
-    task_id: str
-    trigger: Trigger
-    args: tuple = ()
-    kwargs: Dict[str, Any] = field(default_factory=dict)
-    coalesce: bool = True
-    misfire_grace_time: Optional[timedelta] = None
-    tags: Optional[FrozenSet[str]] = frozenset()
-    last_fire_time: Optional[datetime] = field(init=False, default=None)
-    next_fire_time: Optional[datetime] = field(init=False, default=None)
+    task_id: str = field(compare=False)
+    trigger: Trigger = field(compare=False)
+    args: tuple = field(compare=False)
+    kwargs: Dict[str, Any] = field(compare=False)
+    coalesce: bool = field(compare=False)
+    misfire_grace_time: Optional[timedelta] = field(compare=False)
+    tags: FrozenSet[str] = field(compare=False)
+    next_fire_time: Optional[datetime] = field(compare=False, default=None)
+    last_fire_time: Optional[datetime] = field(init=False, compare=False, default=None)
+
+    @property
+    def next_deadline(self) -> Optional[datetime]:
+        if self.next_fire_time and self.misfire_grace_time:
+            return self.next_fire_time + self.misfire_grace_time
+
+        return None
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class Job:
-    func_ref: str
-    args: Optional[tuple] = None
-    kwargs: Optional[Dict[str, Any]] = None
-    schedule_id: Optional[str] = None
-    scheduled_start_time: Optional[datetime] = None
-    start_deadline: Optional[datetime] = None
-    tags: Optional[FrozenSet[str]] = frozenset()
+    id: str = field(init=False, default_factory=lambda: str(uuid4()))
+    task_id: str = field(compare=False)
+    func: Callable = field(compare=False)
+    args: tuple = field(compare=False)
+    kwargs: Dict[str, Any] = field(compare=False)
+    schedule_id: Optional[str] = field(compare=False, default=None)
+    scheduled_start_time: Optional[datetime] = field(compare=False, default=None)
+    start_deadline: Optional[datetime] = field(compare=False, default=None)
+    tags: Optional[FrozenSet[str]] = field(compare=False, default_factory=frozenset)
+    started_at: Optional[datetime] = field(init=False, compare=False, default=None)
 
 
 class Serializer(metaclass=ABCMeta):
@@ -95,37 +106,62 @@ class Serializer(metaclass=ABCMeta):
         return self.deserialize(b64decode(serialized))
 
 
-class DataStore(metaclass=ABCMeta):
+class EventSource(metaclass=ABCMeta):
+    __slots__ = ()
+
+    @abstractmethod
+    async def subscribe(self, callback: Callable[[Event], Any]) -> None:
+        """
+        Subscribe to events from this event source.
+
+        :param callback: callable to be called with the event object when an event is published
+        :return: an async iterable yielding event objects
+        """
+
+
+class DataStore(EventSource):
     __slots__ = ()
 
     async def __aenter__(self):
-        await self.start()
         return self
 
-    async def __aexit__(self):
-        await self.stop()
-
-    async def start(self) -> None:
-        pass
-
-    async def stop(self) -> None:
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
         pass
 
     @abstractmethod
-    async def add_or_update_schedule(self, schedule: Schedule) -> None:
-        """Add or update the given schedule in the store."""
+    async def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
+        """
+        Get schedules from the data store.
+
+        :param ids: a specific set of schedule IDs to return, or ``None`` to return all schedules
+        :return: the list of matching schedules, in unspecified order
+        """
 
     @abstractmethod
-    async def remove_schedule(self, schedule_id: str) -> None:
-        """Remove the designated schedule from the store."""
+    async def add_or_replace_schedules(self, schedules: Iterable[Schedule]) -> None:
+        """
+        Add or update the given schedule in the data store.
+
+        :param schedules: schedules to be added or updated
+        """
 
     @abstractmethod
-    async def remove_all_schedules(self) -> None:
-        """Remove all schedules from the store."""
+    async def update_schedules(self, updates: Mapping[str, Dict[str, Any]]) -> Set[str]:
+        """
+        Update one or more existing schedules.
+
+        :param updates: mapping of schedule ID to attribute names to be updated
+        :return: the set of schedule IDs that were modified by this operation.
+        """
 
     @abstractmethod
-    async def get_all_schedules(self) -> List[Schedule]:
-        """Get a list of all schedules, sorted on the "id" attribute."""
+    async def remove_schedules(self, ids: Optional[Set[str]] = None) -> None:
+        """
+        Remove schedules from the data store.
+
+        :param ids: a specific set of schedule IDs to remove, or ``None`` in which case all
+            schedules are removed
+        """
 
     @abstractmethod
     async def get_next_fire_time(self) -> Optional[datetime]:
@@ -136,7 +172,9 @@ class DataStore(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    async def acquire_due_schedules(self, scheduler_id: str) -> List[Schedule]:
+    async def acquire_due_schedules(
+            self, scheduler_id: str,
+            max_scheduled_time: datetime) -> AsyncContextManager[List[Schedule]]:
         """
         Acquire an undefined amount of due schedules not claimed by any other scheduler.
 
@@ -145,32 +183,52 @@ class DataStore(metaclass=ABCMeta):
         release the claim on them.
         """
 
+    # @abstractmethod
+    # async def release_due_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
+    #     """
+    #     Update the given schedules and release the claim on them held by this scheduler.
+    #
+    #     This method should do the following:
+    #
+    #     #. Remove any of the schedules in the store that have no next fire time
+    #     #. Update the schedules that do have a next fire time
+    #     #. Release any locks held on the schedules by this scheduler
+    #
+    #     :param scheduler_id: identifier of the scheduler
+    #     :param schedules: schedules previously acquired using :meth:`acquire_due_schedules`
+    #     """
+
+    # @abstractmethod
+    # async def acquire_job(self, worker_id: str, tags: Set[str]) -> Job:
+    #     """
+    #     Claim and return the next matching job from the queue.
+    #
+    #     :return: the acquired job
+    #     """
+    #
+    # @abstractmethod
+    # async def release_job(self, job: Job) -> None:
+    #     """Remove the given job from the queue."""
+
+
+class Executor(EventSource):
     @abstractmethod
-    async def release_due_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
+    async def submit_job(self, job: Job) -> None:
         """
-        Update the given schedules and release the claim on them held by this scheduler.
+        Submit a task to be run in this executor.
 
-        This method should do the following:
+        The executor may alter the ``id`` attribute of the job before returning.
 
-        #. Remove any of the schedules in the store that have no next fire time
-        #. Update the schedules that do have a next fire time
-        #. Release any locks held on the schedules by this scheduler
-
-        :param scheduler_id: identifier of the scheduler
-        :param schedules: schedules previously acquired using :meth:`acquire_due_schedules`
+        :param job: the job object
         """
 
     @abstractmethod
-    async def acquire_job(self, worker_id: str, tags: Set[str]) -> Job:
+    async def get_jobs(self) -> List[Job]:
         """
-        Claim and return the next matching job from the queue.
+        Get jobs currently queued or running in this executor.
 
-        :return: the acquired job
+        :return: list of jobs
         """
-
-    @abstractmethod
-    async def release_job(self, job: Job) -> None:
-        """Remove the given job from the queue."""
 
 
 class EventHub(metaclass=ABCMeta):
@@ -187,70 +245,5 @@ class EventHub(metaclass=ABCMeta):
         """Publish an event."""
 
     @abstractmethod
-    async def subscribe(self) -> AsyncIterable[Event]:
-        """Return an asynchronous iterable yielding newly received events."""
-
-
-class AsyncScheduler(metaclass=ABCMeta):
-    __slots__ = ()
-
-    @abstractmethod
-    def define_task(self, func: Callable, task_id: Optional[str] = None, *,
-                    max_instances: Optional[int],
-                    misfire_grace_time: Union[float, timedelta]) -> str:
-        if not task_id:
-            task_id = f'{func.__module__}.{func.__qualname__}'
-        if isinstance(misfire_grace_time, float):
-            misfire_grace_time = timedelta(misfire_grace_time)
-
-        task = Task(id=task_id, func=func, max_instances=max_instances,
-                    misfire_grace_time=misfire_grace_time)
-
-        return task_id
-
-    @abstractmethod
-    async def add_schedule(self, task: Union[str, Callable], trigger: Trigger, *, args: Iterable,
-                           kwargs: Mapping[str, Any]) -> str:
-        """
-
-
-
-        :param task: callable or ID of a predefined task
-        :param trigger: trigger to define the run times of the schedule
-        :param args: positional arguments to pass to the task callable
-        :param kwargs: keyword arguments to pass to the task callable
-        :return: identifier of the created schedule
-        """
-
-    @abstractmethod
-    async def remove_schedule(self, schedule_id: str) -> None:
-        """Removes the designated schedule."""
-
-    @abstractmethod
-    async def run(self) -> NoReturn:
-        """
-        Runs the scheduler loop.
-
-        This method does not return.
-        """
-
-
-class SyncScheduler(metaclass=ABCMeta):
-    __slots__ = ()
-
-    @abstractmethod
-    def add_schedule(self, task: Callable, trigger: Trigger, *, args: Iterable,
-                     kwargs: Mapping[str, Any]) -> str:
-        pass
-
-    @abstractmethod
-    def remove_schedule(self, schedule_id: str) -> None:
-        pass
-
-    @abstractmethod
-    def run(self) -> NoReturn:
-        pass
-
-    add_schedule.__doc__ = AsyncScheduler.add_schedule.__doc__
-    remove_schedule.__doc__ = AsyncScheduler.remove_schedule.__doc__
-    run.__doc__ = AsyncScheduler.run.__doc__
+    async def subscribe(self, callback: Callable[[Event], Any]) -> None:
+        """Add a callback to be called when a new event is published."""

@@ -1,7 +1,6 @@
-from datetime import datetime, date
+from datetime import date, datetime
 
 import pytest
-
 from apscheduler.triggers.calendarinterval import CalendarIntervalTrigger
 
 

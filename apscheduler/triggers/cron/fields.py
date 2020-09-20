@@ -3,11 +3,11 @@
 import re
 from calendar import monthrange
 from datetime import datetime
-from typing import Sequence, ClassVar, Any, Union, Optional, List
+from typing import Any, ClassVar, List, Optional, Sequence, Union
 
 from .expressions import (
-    AllExpression, RangeExpression, WeekdayPositionExpression, LastDayOfMonthExpression,
-    WeekdayRangeExpression, MonthRangeExpression, WEEKDAYS, get_weekday_index)
+    WEEKDAYS, AllExpression, LastDayOfMonthExpression, MonthRangeExpression, RangeExpression,
+    WeekdayPositionExpression, WeekdayRangeExpression, get_weekday_index)
 
 MIN_VALUES = {'year': 1970, 'month': 1, 'day': 1, 'week': 1, 'day_of_week': 0, 'hour': 0,
               'minute': 0, 'second': 0}

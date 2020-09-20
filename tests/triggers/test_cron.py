@@ -2,7 +2,6 @@ from datetime import datetime
 
 import pytest
 import pytz
-
 from apscheduler.triggers.cron import CronTrigger
 
 
