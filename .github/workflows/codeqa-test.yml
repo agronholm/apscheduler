@@ -2,27 +2,38 @@ name: Python codeqa/test
 
 on:
   push:
-    branches: "*"
+    branches: [master]
   pull_request:
-    branches: "*"
 
 jobs:
-  flake8:
+  lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Check code style with Flake8
-      uses: TrueBrain/actions-flake8@v1.2
+    - name: Set up Python
+      uses: actions/setup-python@v2
       with:
-        path: src tests
+        python-version: 3.x
+    - uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: pip-lint
+    - name: Install dependencies
+      run: pip install flake8 isort mypy
+    - name: Run flake8
+      run: flake8 apscheduler tests
+    - name: Check types with Mypy
+      run: mypy apscheduler
+    - name: Run isort
+      run: isort -c apscheduler tests
 
   test:
-    needs: [flake8]
+    needs: [lint]
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: [3.6, 3.8, pypy3]
+        python-version: [3.6, 3.8]
         exclude:
         - os: macos-latest
           python-version: pypy3
