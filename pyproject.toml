@@ -1,7 +1,31 @@
 [build-system]
 requires = [
-    "setuptools >= 40.0.4",
-    "setuptools_scm >= 2.0.0",
+    "setuptools >= 42",
     "wheel >= 0.29.0",
+    "setuptools_scm[toml] >= 3.4"
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+version_scheme = "post-release"
+local_scheme = "dirty-tag"
+
+[tool.pytest.ini_options]
+addopts = "-rsx --tb=short"
+testpaths = "tests"
+filterwarnings = "always"
+
+[tool.coverage.run]
+source = ["apscheduler"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.isort]
+src_paths = ["src"]
+skip_gitignore = true
+line_length = 99
+multi_line_output = 4
+
+[tool.autopep8]
+max_line_length = 99
