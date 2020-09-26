@@ -41,7 +41,7 @@ setup(
         'setuptools >= 0.7',
         'six >= 1.4.0',
         'pytz',
-        'tzlocal >= 1.2',
+        'tzlocal ~= 2.0',
     ],
     extras_require={
         ':python_version == "2.7"': ['futures', 'funcsigs'],
