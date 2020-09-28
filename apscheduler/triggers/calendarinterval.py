@@ -1,11 +1,10 @@
 from datetime import date, datetime, time, timedelta, tzinfo
 from typing import Optional, Union
 
-from pytz.exceptions import AmbiguousTimeError, NonExistentTimeError
-
 from ..abc import Trigger
-from ..validators import (
-    as_aware_datetime, as_date, as_ordinal_date, as_timestamp, as_timezone, require_state_version)
+from ..marshalling import marshal_date, marshal_timezone, unmarshal_date, unmarshal_timezone
+from ..util import timezone_repr
+from ..validators import as_date, as_timezone, require_state_version
 
 
 class CalendarIntervalTrigger(Trigger):
@@ -59,7 +58,7 @@ class CalendarIntervalTrigger(Trigger):
                  hour: int = 0, minute: int = 0, second: int = 0,
                  start_date: Union[date, str, None] = None,
                  end_date: Union[date, str, None] = None,
-                 timezone: Union[str, tzinfo, None] = None):
+                 timezone: Union[str, tzinfo] = 'local'):
         self.years = years
         self.months = months
         self.weeks = weeks
@@ -67,7 +66,7 @@ class CalendarIntervalTrigger(Trigger):
         self.timezone = as_timezone(timezone)
         self.start_date = as_date(start_date) or datetime.now(self.timezone).date()
         self.end_date = as_date(end_date)
-        self._time = time(hour, minute, second)
+        self._time = time(hour, minute, second, tzinfo=timezone)
         self._last_fire_date: Optional[date] = None
 
         if self.years == self.months == self.weeks == self.days == 0:
@@ -99,36 +98,36 @@ class CalendarIntervalTrigger(Trigger):
             if self.end_date and next_date > self.end_date:
                 return None
 
-            next_time = datetime.combine(next_date, self._time)
-            try:
+            # Combine the date with the designated time and normalize the result
+            timestamp = datetime.combine(next_date, self._time).timestamp()
+            next_time = datetime.fromtimestamp(timestamp, self.timezone)
+
+            # Check if the time is off due to normalization and a forward DST shift
+            if next_time.time() != self._time:
+                previous_date = next_time.date()
+            else:
                 self._last_fire_date = next_date
-                return self.timezone.localize(next_time, is_dst=None)
-            except AmbiguousTimeError:
-                # Return the daylight savings occurrence of the datetime
-                return self.timezone.localize(next_time, is_dst=True)
-            except NonExistentTimeError:
-                # This datetime does not exist (the DST shift jumps over it)
-                previous_date = next_date
+                return next_time
 
     def __getstate__(self):
         return {
             'version': 1,
             'interval': [self.years, self.months, self.weeks, self.days],
             'time': [self._time.hour, self._time.minute, self._time.second],
-            'start_date': as_ordinal_date(self.start_date),
-            'end_date': as_ordinal_date(self.end_date),
-            'timezone': self.timezone.zone,
-            'last_fire_date': as_timestamp(self._last_fire_date)
+            'start_date': marshal_date(self.start_date),
+            'end_date': marshal_date(self.end_date),
+            'timezone': marshal_timezone(self.timezone),
+            'last_fire_date': marshal_date(self._last_fire_date)
         }
 
     def __setstate__(self, state):
         require_state_version(self, state, 1)
         self.years, self.months, self.weeks, self.days = state['interval']
-        self.start_date = as_date(state['start_date'])
-        self.end_date = as_date(state['end_date'])
-        self.timezone = as_timezone(state['timezone'])
-        self._time = time(*state['time'])
-        self._last_fire_date = as_aware_datetime(state['last_fire_date'], self.timezone)
+        self.start_date = unmarshal_date(state['start_date'])
+        self.end_date = unmarshal_date(state['end_date'])
+        self.timezone = unmarshal_timezone(state['timezone'])
+        self._time = time(*state['time'], tzinfo=self.timezone)
+        self._last_fire_date = unmarshal_date(state['last_fire_date'])
 
     def __repr__(self):
         fields = []
@@ -138,9 +137,9 @@ class CalendarIntervalTrigger(Trigger):
                 fields.append(f'{field}={value}')
 
         fields.append(f'time={self._time.isoformat()!r}')
-        fields.append(f'start_date={self.start_date.isoformat()!r}')
+        fields.append(f"start_date='{self.start_date}'")
         if self.end_date:
-            fields.append(f'end_date={self.end_date.isoformat()!r}')
+            fields.append(f"end_date='{self.end_date}'")
 
-        fields.append(f'timezone={self.timezone.tzname(None)!r}')
-        return f'CalendarIntervalTrigger({", ".join(fields)})'
+        fields.append(f'timezone={timezone_repr(self.timezone)!r}')
+        return f'{self.__class__.__name__}({", ".join(fields)})'

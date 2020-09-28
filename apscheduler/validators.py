@@ -1,11 +1,16 @@
+import sys
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any, Dict, Optional, Union
 
-import pytz
 from apscheduler.abc import Trigger
 from apscheduler.exceptions import DeserializationError
 from dateutil.parser import parse
 from tzlocal import get_localzone
+
+if sys.version_info >= (3, 9):
+    from zoneinfo import ZoneInfo
+else:
+    from backports.zoneinfo import ZoneInfo
 
 
 def as_int(value) -> Optional[int]:
@@ -18,26 +23,26 @@ def as_int(value) -> Optional[int]:
 
 def as_timezone(value: Union[str, tzinfo, None]) -> tzinfo:
     """
-    Convert the value into a pytz timezone.
+    Convert the value into a tzinfo object.
+
+    If ``value`` is ``None`` or ``'local'``, use the local timezone.
 
     :param value: the value to be converted
-    :return: a timezone object, or if ``None`` was given, the local timezone
+    :return: a timezone object
 
     """
     if value is None or value == 'local':
         return get_localzone()
     elif isinstance(value, str):
-        return pytz.timezone(value)
+        return ZoneInfo(value)
     elif isinstance(value, tzinfo):
         if value is timezone.utc:
-            return pytz.utc
-        elif not getattr(value, 'zone', None):
-            raise TypeError('Only named pytz timezones are supported')
+            return ZoneInfo('UTC')
         else:
             return value
 
-    raise TypeError(f'Expected pytz timezone or timezone.utc, got {value.__class__.__qualname__}'
-                    f'instead')
+    raise TypeError(f'Expected tzinfo instance or timezone name, got '
+                    f'{value.__class__.__qualname__} instead')
 
 
 def as_date(value: Union[date, str, None]) -> Optional[date]:
@@ -76,7 +81,7 @@ def as_ordinal_date(value: Optional[date]) -> Optional[int]:
     return value.toordinal()
 
 
-def as_aware_datetime(value: Union[datetime, str, float, None], tz: tzinfo) -> Optional[datetime]:
+def as_aware_datetime(value: Union[datetime, str, None], tz: tzinfo) -> Optional[datetime]:
     """
     Convert the value to a timezone aware datetime.
 
@@ -88,22 +93,14 @@ def as_aware_datetime(value: Union[datetime, str, float, None], tz: tzinfo) -> O
     if value is None:
         return None
 
-    if isinstance(value, float):
-        return datetime.fromtimestamp(value, tz)
-
     if isinstance(value, str):
         value = parse(value)
 
     if isinstance(value, datetime):
-        if value.tzinfo:
-            return value.astimezone(tz)
-
-        try:
-            # Works with pytz timezones
-            return tz.localize(value)
-        except AttributeError:
-            # Not a pytz timezone
-            return value.astimezone(tz)
+        if not value.tzinfo:
+            return value.replace(tzinfo=tz)
+        else:
+            return value
 
     raise TypeError(f'Expected string or datetime, got {value.__class__.__qualname__} instead')
 

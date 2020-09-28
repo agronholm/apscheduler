@@ -1,16 +1,21 @@
+import sys
 from datetime import datetime
 from unittest.mock import Mock
 
 import pytest
-import pytz
 from apscheduler.serializers.cbor import CBORSerializer
 from apscheduler.serializers.json import JSONSerializer
 from apscheduler.serializers.pickle import PickleSerializer
 
+if sys.version_info >= (3, 9):
+    from zoneinfo import ZoneInfo
+else:
+    from backports.zoneinfo import ZoneInfo
+
 
 @pytest.fixture(scope='session')
 def timezone():
-    return pytz.timezone('Europe/Berlin')
+    return ZoneInfo('Europe/Berlin')
 
 
 @pytest.fixture

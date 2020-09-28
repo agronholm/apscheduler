@@ -10,8 +10,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 class TestAndTrigger:
     @pytest.mark.parametrize('threshold', [1, 0])
     def test_two_datetriggers(self, timezone, serializer, threshold):
-        date1 = timezone.localize(datetime(2020, 5, 16, 14, 17, 30, 254212))
-        date2 = timezone.localize(datetime(2020, 5, 16, 14, 17, 31, 254212))
+        date1 = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
+        date2 = datetime(2020, 5, 16, 14, 17, 31, 254212, tzinfo=timezone)
         trigger = AndTrigger([DateTrigger(date1), DateTrigger(date2)], threshold=threshold)
         if serializer:
             trigger = serializer.deserialize(serializer.serialize(trigger))
@@ -23,7 +23,7 @@ class TestAndTrigger:
         assert trigger.next() is None
 
     def test_max_iterations(self, timezone, serializer):
-        start_time = timezone.localize(datetime(2020, 5, 16, 14, 17, 30, 254212))
+        start_time = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         trigger = AndTrigger([
             IntervalTrigger(seconds=4, start_time=start_time, timezone=timezone),
             IntervalTrigger(seconds=4, start_time=start_time + timedelta(seconds=2),
@@ -35,7 +35,7 @@ class TestAndTrigger:
         pytest.raises(MaxIterationsReached, trigger.next)
 
     def test_repr(self, timezone, serializer):
-        start_time = timezone.localize(datetime(2020, 5, 16, 14, 17, 30, 254212))
+        start_time = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         trigger = AndTrigger([
             IntervalTrigger(seconds=4, start_time=start_time, timezone=timezone),
             IntervalTrigger(seconds=4, start_time=start_time + timedelta(seconds=2),
@@ -46,15 +46,15 @@ class TestAndTrigger:
 
         assert repr(trigger) == (
             "AndTrigger([IntervalTrigger(seconds=4, "
-            "start_time='2020-05-16T14:17:30.254212+02:00'), IntervalTrigger(seconds=4, "
-            "start_time='2020-05-16T14:17:32.254212+02:00')], threshold=1.0, max_iterations=10000)"
+            "start_time='2020-05-16 14:17:30.254212+02:00'), IntervalTrigger(seconds=4, "
+            "start_time='2020-05-16 14:17:32.254212+02:00')], threshold=1.0, max_iterations=10000)"
         )
 
 
 class TestOrTrigger:
     def test_two_datetriggers(self, timezone, serializer):
-        date1 = timezone.localize(datetime(2020, 5, 16, 14, 17, 30, 254212))
-        date2 = timezone.localize(datetime(2020, 5, 18, 15, 1, 53, 940564))
+        date1 = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
+        date2 = datetime(2020, 5, 18, 15, 1, 53, 940564, tzinfo=timezone)
         trigger = OrTrigger([DateTrigger(date1), DateTrigger(date2)])
         if serializer:
             trigger = serializer.deserialize(serializer.serialize(trigger))
@@ -64,7 +64,7 @@ class TestOrTrigger:
         assert trigger.next() is None
 
     def test_two_interval_triggers(self, timezone, serializer):
-        start_time = timezone.localize(datetime(2020, 5, 16, 14, 17, 30, 254212))
+        start_time = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         end_time1 = start_time + timedelta(seconds=16)
         end_time2 = start_time + timedelta(seconds=18)
         trigger = OrTrigger([
@@ -86,8 +86,8 @@ class TestOrTrigger:
         assert trigger.next() is None
 
     def test_repr(self, timezone):
-        date1 = timezone.localize(datetime(2020, 5, 16, 14, 17, 30, 254212))
-        date2 = timezone.localize(datetime(2020, 5, 18, 15, 1, 53, 940564))
+        date1 = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
+        date2 = datetime(2020, 5, 18, 15, 1, 53, 940564, tzinfo=timezone)
         trigger = OrTrigger([DateTrigger(date1), DateTrigger(date2)])
-        assert repr(trigger) == ("OrTrigger([DateTrigger('2020-05-16T14:17:30.254212+02:00'), "
-                                 "DateTrigger('2020-05-18T15:01:53.940564+02:00')])")
+        assert repr(trigger) == ("OrTrigger([DateTrigger('2020-05-16 14:17:30.254212+02:00'), "
+                                 "DateTrigger('2020-05-18 15:01:53.940564+02:00')])")

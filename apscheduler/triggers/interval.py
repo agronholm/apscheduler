@@ -2,7 +2,8 @@ from datetime import datetime, timedelta, tzinfo
 from typing import Optional, Union
 
 from ..abc import Trigger
-from ..validators import as_aware_datetime, as_timestamp, as_timezone, require_state_version
+from ..marshalling import marshal_date, unmarshal_date
+from ..validators import as_aware_datetime, as_timezone, require_state_version
 
 
 class IntervalTrigger(Trigger):
@@ -22,25 +23,24 @@ class IntervalTrigger(Trigger):
     :param microseconds: number of microseconds to wait
     :param start_time: first trigger date/time
     :param end_time: latest possible date/time to trigger on
-    :param timezone: time zone to use for normalizing calculated datetimes (defaults to the local
-        timezone)
+    :param timezone: time zone to use for converting any naive datetimes to timezone aware
     """
 
     __slots__ = ('weeks', 'days', 'hours', 'minutes', 'seconds', 'microseconds', 'start_time',
-                 'end_time', 'timezone', '_interval', '_last_fire_time')
+                 'end_time', '_interval', '_last_fire_time')
 
     def __init__(self, *, weeks: int = 0, days: int = 0, hours: int = 0, minutes: int = 0,
                  seconds: int = 0, microseconds: int = 0, start_time: Optional[datetime] = None,
-                 end_time: Optional[datetime] = None, timezone: Union[str, tzinfo, None] = None):
+                 end_time: Optional[datetime] = None, timezone: Union[tzinfo, str] = 'local'):
         self.weeks = weeks
         self.days = days
         self.hours = hours
         self.minutes = minutes
         self.seconds = seconds
         self.microseconds = microseconds
-        self.timezone = as_timezone(timezone)
-        self.start_time = as_aware_datetime(start_time or datetime.now(), self.timezone)
-        self.end_time = as_aware_datetime(end_time, self.timezone)
+        timezone = as_timezone(timezone)
+        self.start_time = as_aware_datetime(start_time or datetime.now(), timezone)
+        self.end_time = as_aware_datetime(end_time, timezone)
         self._interval = timedelta(weeks=self.weeks, days=self.days, hours=self.hours,
                                    minutes=self.minutes, seconds=self.seconds,
                                    microseconds=self.microseconds)
@@ -56,7 +56,7 @@ class IntervalTrigger(Trigger):
         if self._last_fire_time is None:
             self._last_fire_time = self.start_time
         else:
-            self._last_fire_time = self.timezone.normalize(self._last_fire_time + self._interval)
+            self._last_fire_time = self._last_fire_time + self._interval
 
         if self.end_time is None or self._last_fire_time <= self.end_time:
             return self._last_fire_time
@@ -68,23 +68,21 @@ class IntervalTrigger(Trigger):
             'version': 1,
             'interval': [self.weeks, self.days, self.hours, self.minutes, self.seconds,
                          self.microseconds],
-            'timezone': self.timezone.zone,
-            'start_time': as_timestamp(self.start_time),
-            'end_time': as_timestamp(self.end_time),
-            'last_fire_time': as_timestamp(self._last_fire_time)
+            'start_time': marshal_date(self.start_time),
+            'end_time': marshal_date(self.end_time),
+            'last_fire_time': marshal_date(self._last_fire_time)
         }
 
     def __setstate__(self, state):
         require_state_version(self, state, 1)
         self.weeks, self.days, self.hours, self.minutes, self.seconds, self.microseconds = \
             state['interval']
-        self.timezone = as_timezone(state['timezone'])
-        self.start_time = as_aware_datetime(state['start_time'], self.timezone)
-        self.end_time = as_aware_datetime(state['end_time'], self.timezone)
+        self.start_time = unmarshal_date(state['start_time'])
+        self.end_time = unmarshal_date(state['end_time'])
+        self._last_fire_time = unmarshal_date(state['last_fire_time'])
         self._interval = timedelta(weeks=self.weeks, days=self.days, hours=self.hours,
                                    minutes=self.minutes, seconds=self.seconds,
                                    microseconds=self.microseconds)
-        self._last_fire_time = as_aware_datetime(state['last_fire_time'], self.timezone)
 
     def __repr__(self):
         fields = []
@@ -93,8 +91,8 @@ class IntervalTrigger(Trigger):
             if value > 0:
                 fields.append(f'{field}={value}')
 
-        fields.append(f'start_time={self.start_time.isoformat()!r}')
+        fields.append(f"start_time='{self.start_time}'")
         if self.end_time:
-            fields.append(f'end_time={self.end_time.isoformat()!r}')
+            fields.append(f"end_time='{self.end_time}'")
 
-        return f'IntervalTrigger({", ".join(fields)})'
+        return f'{self.__class__.__name__}({", ".join(fields)})'

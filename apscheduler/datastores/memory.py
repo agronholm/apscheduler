@@ -1,12 +1,12 @@
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import MAXYEAR, datetime, timezone
-from typing import Any, AsyncContextManager, Callable, Dict, Iterable, List, Mapping, Optional, Set
+from typing import Any, AsyncGenerator, Callable, Dict, Iterable, List, Mapping, Optional, Set
 
 from apscheduler.abc import DataStore, Event, EventHub, Schedule
 from apscheduler.eventhubs.local import LocalEventHub
-from apscheduler.events import SchedulesAdded, SchedulesRemoved, SchedulesUpdated
-from sortedcontainers import SortedSet
+from apscheduler.events import DataStoreEvent, SchedulesAdded, SchedulesRemoved, SchedulesUpdated
+from sortedcontainers import SortedSet  # type: ignore
 
 max_datetime = datetime(MAXYEAR, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
 
@@ -36,6 +36,7 @@ class MemoryScheduleStore(DataStore):
             self._schedules_by_id[schedule.id] = schedule
             self._schedules.add(schedule)
 
+        event: DataStoreEvent
         if added_schedule_ids:
             earliest_fire_time = min(
                 (schedule.next_fire_time for schedule in schedules
@@ -99,7 +100,7 @@ class MemoryScheduleStore(DataStore):
     @asynccontextmanager
     async def acquire_due_schedules(
             self, scheduler_id: str,
-            max_scheduled_time: datetime) -> AsyncContextManager[List[Schedule]]:
+            max_scheduled_time: datetime) -> AsyncGenerator[List[Schedule], None]:
         pending: List[Schedule] = []
         for schedule in self._schedules:
             if not schedule.next_fire_time or schedule.next_fire_time > max_scheduled_time:

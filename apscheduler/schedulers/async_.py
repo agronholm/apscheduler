@@ -1,7 +1,6 @@
 import logging
 import os
 import platform
-import sys
 import threading
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
@@ -13,19 +12,14 @@ from uuid import uuid4
 import tzlocal
 from anyio import create_event, create_task_group, move_on_after
 from anyio.abc import Event
-from pytz.tzinfo import DstTzInfo, StaticTzInfo
 
 from ..abc import DataStore, EventHub, EventSource, Executor, Job, Schedule, Task, Trigger
 from ..datastores.memory import MemoryScheduleStore
 from ..eventhubs.local import LocalEventHub
 from ..events import JobSubmissionFailed, SchedulesAdded, SchedulesUpdated
-from ..util import obj_to_ref
+from ..marshalling import callable_to_ref
+from ..validators import as_timezone
 from ..workers.local import LocalExecutor
-
-if sys.version_info >= (3, 9):
-    import zoneinfo
-else:
-    from backports import zoneinfo
 
 
 @dataclass
@@ -43,16 +37,7 @@ class AsyncScheduler(EventSource):
     _closed: bool = field(init=False, default=False)
 
     def __post_init__(self):
-        if self.timezone.tzname(None) == 'local':
-            raise ValueError(
-                'Unable to determine the name of the local timezone -- you must explicitly '
-                'specify the name of the local timezone. Please refrain from using timezones '
-                'like EST to prevent problems with daylight saving time. Instead, use a '
-                'locale based timezone name (such as Europe/Helsinki).')
-
-        # Convert pytz timezones to zoneinfo timezones
-        if isinstance(self.timezone, (StaticTzInfo, DstTzInfo)):
-            self.timezone = zoneinfo.ZoneInfo(self.timezone.zone)
+        self.timezone = as_timezone(self.timezone)
 
     async def __aenter__(self):
         await self._async_stack.__aenter__()
@@ -65,7 +50,7 @@ class AsyncScheduler(EventSource):
         await self._async_stack.__aexit__(exc_type, exc_val, exc_tb)
 
     def _get_taskdef(self, func_or_id: Union[str, Callable]) -> Task:
-        task_id = func_or_id if isinstance(func_or_id, str) else obj_to_ref(func_or_id)
+        task_id = func_or_id if isinstance(func_or_id, str) else callable_to_ref(func_or_id)
         taskdef = self._tasks.get(task_id)
         if not taskdef:
             if isinstance(func_or_id, str):
@@ -77,7 +62,7 @@ class AsyncScheduler(EventSource):
 
     def define_task(self, func: Callable, task_id: Optional[str] = None, **kwargs):
         if task_id is None:
-            task_id = obj_to_ref(func)
+            task_id = callable_to_ref(func)
 
         task = Task(id=task_id, **kwargs)
         if self._tasks.setdefault(task_id, task) is not task:
@@ -115,12 +100,13 @@ class AsyncScheduler(EventSource):
         if isinstance(event, (SchedulesAdded, SchedulesUpdated)):
             # Wake up the scheduler if any schedule has an earlier next fire time than the one
             # we're currently waiting for
-            if (self._next_fire_time is None
-                    or self._next_fire_time > event.earliest_next_fire_time):
-                self.logger.debug('Job store reported an updated next fire time that requires '
-                                  'the scheduler to wake up: %s',
-                                  event.earliest_next_fire_time)
-                await self.wakeup()
+            if event.earliest_next_fire_time:
+                if (self._next_fire_time is None
+                        or self._next_fire_time > event.earliest_next_fire_time):
+                    self.logger.debug('Job store reported an updated next fire time that requires '
+                                      'the scheduler to wake up: %s',
+                                      event.earliest_next_fire_time)
+                    await self.wakeup()
 
         await self._event_hub.publish(event)
 

@@ -38,7 +38,7 @@ def test_missing_time(timezone, serializer):
     if serializer:
         trigger = serializer.deserialize(serializer.serialize(trigger))
 
-    assert trigger.next() == timezone.localize(datetime(2016, 3, 28, 2, 30))
+    assert trigger.next() == datetime(2016, 3, 28, 2, 30, tzinfo=timezone)
 
 
 def test_repeated_time(timezone, serializer):
@@ -52,7 +52,7 @@ def test_repeated_time(timezone, serializer):
     if serializer:
         trigger = serializer.deserialize(serializer.serialize(trigger))
 
-    assert trigger.next() == timezone.localize(datetime(2016, 10, 30, 2, 30), is_dst=True)
+    assert trigger.next() == datetime(2016, 10, 30, 2, 30, tzinfo=timezone, fold=0)
 
 
 def test_nonexistent_days(timezone, serializer):
@@ -61,8 +61,8 @@ def test_nonexistent_days(timezone, serializer):
     if serializer:
         trigger = serializer.deserialize(serializer.serialize(trigger))
 
-    assert trigger.next() == timezone.localize(datetime(2016, 3, 31))
-    assert trigger.next() == timezone.localize(datetime(2016, 5, 31))
+    assert trigger.next() == datetime(2016, 3, 31, tzinfo=timezone)
+    assert trigger.next() == datetime(2016, 5, 31, tzinfo=timezone)
 
 
 def test_repr(timezone, serializer):

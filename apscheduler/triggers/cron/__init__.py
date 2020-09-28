@@ -2,8 +2,9 @@ from datetime import datetime, timedelta, tzinfo
 from typing import ClassVar, List, Optional, Sequence, Tuple, Union
 
 from ...abc import Trigger
-from ...util import datetime_ceil
-from ...validators import as_aware_datetime, as_timestamp, as_timezone, require_state_version
+from ...marshalling import marshal_date, marshal_timezone, unmarshal_date, unmarshal_timezone
+from ...util import timezone_repr
+from ...validators import as_aware_datetime, as_timezone, require_state_version
 from .fields import (
     DEFAULT_VALUES, BaseField, DayOfMonthField, DayOfWeekField, MonthField, WeekField)
 
@@ -70,7 +71,7 @@ class CronTrigger(Trigger):
             self._fields.append(field)
 
     @classmethod
-    def from_crontab(cls, expr: str, timezone: Union[str, tzinfo, None] = None) -> 'CronTrigger':
+    def from_crontab(cls, expr: str, timezone: Union[str, tzinfo] = 'local') -> 'CronTrigger':
         """
         Create a :class:`~CronTrigger` from a standard crontab expression.
 
@@ -116,6 +117,7 @@ class CronTrigger(Trigger):
                 values[field.name] = field.get_min(dateval)
                 i += 1
             else:
+                print('incrementing', field.name)
                 value = field.get_value(dateval)
                 maxval = field.get_max(dateval)
                 if value == maxval:
@@ -126,7 +128,10 @@ class CronTrigger(Trigger):
                     i += 1
 
         difference = datetime(**values) - dateval.replace(tzinfo=None)
-        return self.timezone.normalize(dateval + difference), fieldnum
+        dateval = datetime.fromtimestamp(dateval.timestamp() + difference.total_seconds(),
+                                         self.timezone)
+        return dateval, fieldnum
+        # return datetime_normalize(dateval + difference), fieldnum
 
     def _set_field_value(self, dateval, fieldnum, new_value):
         values = {}
@@ -139,7 +144,7 @@ class CronTrigger(Trigger):
                 else:
                     values[field.name] = new_value
 
-        return self.timezone.localize(datetime(**values))
+        return datetime(**values, tzinfo=self.timezone)
 
     def next(self) -> Optional[datetime]:
         if self._last_fire_time:
@@ -153,6 +158,7 @@ class CronTrigger(Trigger):
             field = self._fields[fieldnum]
             curr_value = field.get_value(next_time)
             next_value = field.get_next_value(next_time)
+            print(f'{field.name}: current value = {curr_value}, next_value = {next_value}')
 
             if next_value is None:
                 # No valid value was found
@@ -179,19 +185,19 @@ class CronTrigger(Trigger):
     def __getstate__(self):
         return {
             'version': 1,
-            'timezone': self.timezone.zone,
+            'timezone': marshal_timezone(self.timezone),
             'fields': [str(f) for f in self._fields],
-            'start_time': as_timestamp(self.start_time),
-            'end_time': as_timestamp(self.end_time),
-            'last_fire_time': as_timestamp(self._last_fire_time)
+            'start_time': marshal_date(self.start_time),
+            'end_time': marshal_date(self.end_time),
+            'last_fire_time': marshal_date(self._last_fire_time)
         }
 
     def __setstate__(self, state):
         require_state_version(self, state, 1)
-        self.timezone = as_timezone(state['timezone'])
-        self.start_time = as_aware_datetime(state['start_time'], self.timezone)
-        self.end_time = as_aware_datetime(state['end_time'], self.timezone)
-        self._last_fire_time = as_aware_datetime(state['last_fire_time'], self.timezone)
+        self.timezone = unmarshal_timezone(state['timezone'])
+        self.start_time = unmarshal_date(state['start_time'])
+        self.end_time = unmarshal_date(state['end_time'])
+        self._last_fire_time = unmarshal_date(state['last_fire_time'])
         self._set_fields(state['fields'])
 
     def __repr__(self):
@@ -200,5 +206,13 @@ class CronTrigger(Trigger):
         if self.end_time:
             fields.append(f'end_time={self.end_time.isoformat()!r}')
 
-        fields.append(f'timezone={self.timezone.zone!r}')
+        fields.append(f'timezone={timezone_repr(self.timezone)!r}')
         return f'CronTrigger({", ".join(fields)})'
+
+
+def datetime_ceil(dateval: datetime) -> datetime:
+    """Round the given datetime object upwards."""
+    if dateval.microsecond > 0:
+        return dateval + timedelta(seconds=1, microseconds=-dateval.microsecond)
+
+    return dateval

@@ -3,7 +3,7 @@ from json import dumps, loads
 from typing import Any, Dict
 
 from ..abc import Serializer
-from ..util import marshal_object, unmarshal_object
+from ..marshalling import marshal_object, unmarshal_object
 
 
 @dataclass

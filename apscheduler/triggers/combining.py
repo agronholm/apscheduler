@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 
 from ..abc import Trigger
 from ..exceptions import MaxIterationsReached
-from ..util import marshal_object, unmarshal_object
+from ..marshalling import marshal_object, unmarshal_object
 from ..validators import as_list, as_positive_integer, as_timedelta, require_state_version
 
 
