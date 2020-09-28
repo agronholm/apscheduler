@@ -22,8 +22,8 @@ jobs:
       run: pip install flake8 isort mypy
     - name: Run flake8
       run: flake8 apscheduler tests
-    - name: Check types with Mypy
-      run: mypy apscheduler
+#    - name: Check types with Mypy
+#      run: mypy apscheduler
     - name: Run isort
       run: isort -c apscheduler tests
 
