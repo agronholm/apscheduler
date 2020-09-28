@@ -1,6 +1,6 @@
 """This module contains several handy functions primarily meant for internal use."""
 import sys
-from datetime import datetime, timedelta, tzinfo
+from datetime import tzinfo
 
 if sys.version_info >= (3, 9):
     from zoneinfo import ZoneInfo

@@ -261,15 +261,14 @@ def test_week_2(timezone, serializer, weekday):
                              "start_time='2009-01-01T00:00:00+01:00', timezone='Europe/Berlin')")
 
 
-@pytest.mark.parametrize('trigger_args, start_time, start_time_fold, correct_next_date,'
-                         'correct_next_date_fold', [
-                             ({'hour': 8}, datetime(2013, 3, 9, 12), 0, datetime(2013, 3, 10, 8), 0),
-                             ({'hour': 8}, datetime(2013, 11, 2, 12), 0, datetime(2013, 11, 3, 8), 0),
-                             ({'minute': '*/30'}, datetime(2013, 3, 10, 1, 35),
-                              0, datetime(2013, 3, 10, 3), 0),
-                             ({'minute': '*/30'}, datetime(2013, 11, 3, 1, 35),
-                              0, datetime(2013, 11, 3, 1), 1)
-                         ], ids=['absolute_spring', 'absolute_autumn', 'interval_spring', 'interval_autumn'])
+@pytest.mark.parametrize(
+    'trigger_args, start_time, start_time_fold, correct_next_date,' 'correct_next_date_fold',
+    [
+        ({'hour': 8}, datetime(2013, 3, 9, 12), 0, datetime(2013, 3, 10, 8), 0),
+        ({'hour': 8}, datetime(2013, 11, 2, 12), 0, datetime(2013, 11, 3, 8), 0),
+        ({'minute': '*/30'}, datetime(2013, 3, 10, 1, 35), 0, datetime(2013, 3, 10, 3), 0),
+        ({'minute': '*/30'}, datetime(2013, 11, 3, 1, 35), 0, datetime(2013, 11, 3, 1), 1)
+    ], ids=['absolute_spring', 'absolute_autumn', 'interval_spring', 'interval_autumn'])
 def test_dst_change(trigger_args, start_time, start_time_fold, correct_next_date,
                     correct_next_date_fold, serializer):
     """
