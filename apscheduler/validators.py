@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional, Union
 
 from apscheduler.abc import Trigger
 from apscheduler.exceptions import DeserializationError
-from dateutil.parser import parse
 from tzlocal import get_localzone
 
 if sys.version_info >= (3, 9):
@@ -58,7 +57,7 @@ def as_date(value: Union[date, str, None]) -> Optional[date]:
     elif isinstance(value, int):
         return date.fromordinal(value)
     elif isinstance(value, str):
-        return parse(value).date()
+        return date.fromisoformat(value)
     elif isinstance(value, datetime):
         return value.date()
     elif isinstance(value, date):
@@ -94,7 +93,10 @@ def as_aware_datetime(value: Union[datetime, str, None], tz: tzinfo) -> Optional
         return None
 
     if isinstance(value, str):
-        value = parse(value)
+        if value.upper().endswith('Z'):
+            value = value[:-1] + '+00:00'
+
+        value = datetime.fromisoformat(value)
 
     if isinstance(value, datetime):
         if not value.tzinfo:
