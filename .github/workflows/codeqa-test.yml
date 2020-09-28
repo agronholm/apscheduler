@@ -47,6 +47,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install the project and its dependencies
-      run: pip install .[test]
+      run: pip install .[test,cbor]
     - name: Test with pytest
       run: pytest
