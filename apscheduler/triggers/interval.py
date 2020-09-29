@@ -23,15 +23,16 @@ class IntervalTrigger(Trigger):
     :param microseconds: number of microseconds to wait
     :param start_time: first trigger date/time
     :param end_time: latest possible date/time to trigger on
-    :param timezone: time zone to use for converting any naive datetimes to timezone aware
+    :param timezone: time zone used to make any passed naive datetimes timezone aware
     """
 
     __slots__ = ('weeks', 'days', 'hours', 'minutes', 'seconds', 'microseconds', 'start_time',
                  'end_time', '_interval', '_last_fire_time')
 
-    def __init__(self, *, weeks: int = 0, days: int = 0, hours: int = 0, minutes: int = 0,
-                 seconds: int = 0, microseconds: int = 0, start_time: Optional[datetime] = None,
-                 end_time: Optional[datetime] = None, timezone: Union[tzinfo, str] = 'local'):
+    def __init__(self, *, weeks: float = 0, days: float = 0, hours: float = 0, minutes: float = 0,
+                 seconds: float = 0, microseconds: float = 0,
+                 start_time: Optional[datetime] = None, end_time: Optional[datetime] = None,
+                 timezone: Union[tzinfo, str] = 'local'):
         self.weeks = weeks
         self.days = days
         self.hours = hours
