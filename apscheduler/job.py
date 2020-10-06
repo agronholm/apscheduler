@@ -243,7 +243,7 @@ class Job(object):
         # Instance methods cannot survive serialization as-is, so store the "self" argument
         # explicitly
         func = self.func
-        if ismethod(func) and not isclass(func.__self__) and not hasattr(func, '__func__'):
+        if ismethod(func) and not isclass(func.__self__) and obj_to_ref(func) == self.func_ref:
             args = (func.__self__,) + tuple(self.args)
         else:
             args = self.args
