@@ -54,7 +54,7 @@ class MongoDBJobStore(BaseJobStore):
 
     def start(self, scheduler, alias):
         super(MongoDBJobStore, self).start(scheduler, alias)
-        self.collection.ensure_index('next_run_time', sparse=True)
+        self.collection.create_index('next_run_time', sparse=True)
 
     @property
     def connection(self):
@@ -83,7 +83,7 @@ class MongoDBJobStore(BaseJobStore):
 
     def add_job(self, job):
         try:
-            self.collection.insert({
+            self.collection.insert_one({
                 '_id': job.id,
                 'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
                 'job_state': Binary(pickle.dumps(job.__getstate__(), self.pickle_protocol))
@@ -96,13 +96,13 @@ class MongoDBJobStore(BaseJobStore):
             'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
             'job_state': Binary(pickle.dumps(job.__getstate__(), self.pickle_protocol))
         }
-        result = self.collection.update({'_id': job.id}, {'$set': changes})
-        if result and result['n'] == 0:
+        result = self.collection.update_one({'_id': job.id}, {'$set': changes})
+        if result and result.matched_count == 0:
             raise JobLookupError(job.id)
 
     def remove_job(self, job_id):
-        result = self.collection.remove(job_id)
-        if result and result['n'] == 0:
+        result = self.collection.delete_one({'_id': job_id})
+        if result and result.deleted_count == 0:
             raise JobLookupError(job_id)
 
     def remove_all_jobs(self):

@@ -10,6 +10,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Fixed Zookeeper job store using backslashes instead of forward slashes for paths
   on Windows (PR by Laurel-rao)
 * Pinned ``tzlocal`` to a version compatible with pytz
+* Fixed deprecation warnings on the MongoDB job store and increased the minimum PyMongo
+  version to 3.0
 
 
 3.6.3
