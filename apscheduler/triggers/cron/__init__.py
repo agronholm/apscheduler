@@ -117,7 +117,6 @@ class CronTrigger(Trigger):
                 values[field.name] = field.get_min(dateval)
                 i += 1
             else:
-                print('incrementing', field.name)
                 value = field.get_value(dateval)
                 maxval = field.get_max(dateval)
                 if value == maxval:
@@ -158,7 +157,6 @@ class CronTrigger(Trigger):
             field = self._fields[fieldnum]
             curr_value = field.get_value(next_time)
             next_value = field.get_next_value(next_time)
-            print(f'{field.name}: current value = {curr_value}, next_value = {next_value}')
 
             if next_value is None:
                 # No valid value was found
