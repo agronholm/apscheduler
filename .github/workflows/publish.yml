@@ -17,9 +17,9 @@ jobs:
       with:
         python-version: 3.x
     - name: Install dependencies
-      run: pip install pep517
+      run: pip install build
     - name: Create packages
-      run: python -m pep517.build --source --binary --out-dir dist/
+      run: python -m build -s -w .
     - name: Upload packages
       uses: pypa/gh-action-pypi-publish@v1.1.0
       with:
