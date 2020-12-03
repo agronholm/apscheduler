@@ -14,7 +14,7 @@ except (ImportError, RuntimeError):  # pragma: nocover
             try:
                 from PySide.QtCore import QObject, QTimer  # noPySide2
             except ImportError:
-                raise ImportError('QtScheduler requires either PyQt5, PyQt4, PySide2 ' \
+                raise ImportError('QtScheduler requires either PyQt5, PyQt4, PySide2 '
                 'or PySide installed')
 
 
