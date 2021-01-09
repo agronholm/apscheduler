@@ -26,7 +26,7 @@ class CronTrigger(BaseTrigger):
     :param datetime|str end_date: latest possible date/time to trigger on (inclusive)
     :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations (defaults
         to scheduler timezone)
-    :param int|None jitter: advance or delay the job execution by ``jitter`` seconds at most.
+    :param int|None jitter: delay the job execution by ``jitter`` seconds at most
 
     .. note:: The first weekday is always **monday**.
     """

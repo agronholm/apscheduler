@@ -20,7 +20,7 @@ class IntervalTrigger(BaseTrigger):
     :param datetime|str start_date: starting point for the interval calculation
     :param datetime|str end_date: latest possible date/time to trigger on
     :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
-    :param int|None jitter: advance or delay the job execution by ``jitter`` seconds at most.
+    :param int|None jitter: delay the job execution by ``jitter`` seconds at most
     """
 
     __slots__ = 'timezone', 'start_date', 'end_date', 'interval', 'interval_length', 'jitter'

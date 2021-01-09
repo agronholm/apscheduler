@@ -45,7 +45,7 @@ class AndTrigger(BaseCombiningTrigger):
     Trigger alias: ``and``
 
     :param list triggers: triggers to combine
-    :param int|None jitter: advance or delay the job execution by ``jitter`` seconds at most.
+    :param int|None jitter: delay the job execution by ``jitter`` seconds at most
     """
 
     __slots__ = ()
@@ -73,7 +73,7 @@ class OrTrigger(BaseCombiningTrigger):
     Trigger alias: ``or``
 
     :param list triggers: triggers to combine
-    :param int|None jitter: advance or delay the job execution by ``jitter`` seconds at most.
+    :param int|None jitter: delay the job execution by ``jitter`` seconds at most
 
     .. note:: Triggers that depends on the previous fire time, such as the interval trigger, may
         seem to behave strangely since they are always passed the previous fire time produced by
