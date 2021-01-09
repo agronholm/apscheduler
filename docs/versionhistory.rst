@@ -14,6 +14,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   version to 3.0
 * Ensured that jitter is always non-negative to prevent triggers from firing more often than
   intended
+* Added PySide2 support (PR by Abdulla Ibrahim)
 
 
 3.6.3
