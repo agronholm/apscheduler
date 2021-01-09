@@ -14,7 +14,9 @@ class BlockingScheduler(BaseScheduler):
     _event = None
 
     def start(self, *args, **kwargs):
-        self._event = Event()
+        if self._event is None or self._event.is_set():
+            self._event = Event()
+
         super(BlockingScheduler, self).start(*args, **kwargs)
         self._main_loop()
 

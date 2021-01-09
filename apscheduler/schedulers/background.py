@@ -29,7 +29,9 @@ class BackgroundScheduler(BlockingScheduler):
         super(BackgroundScheduler, self)._configure(config)
 
     def start(self, *args, **kwargs):
-        self._event = Event()
+        if self._event is None or self._event.is_set():
+            self._event = Event()
+
         BaseScheduler.start(self, *args, **kwargs)
         self._thread = Thread(target=self._main_loop, name='APScheduler')
         self._thread.daemon = self._daemon

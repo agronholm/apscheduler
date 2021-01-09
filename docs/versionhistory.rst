@@ -15,6 +15,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Ensured that jitter is always non-negative to prevent triggers from firing more often than
   intended
 * Added PySide2 support (PR by Abdulla Ibrahim)
+* Fixed ``BlockingScheduler`` and ``BackgroundScheduler`` shutdown hanging after the user has
+  erroneously tried to start it twice
 
 
 3.6.3
