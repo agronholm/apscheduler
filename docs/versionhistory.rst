@@ -356,7 +356,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Added optional job execution coalescing for situations where several
   executions of the job are due
 
-* Added an option to limit the maximum number of concurrenctly executing
+* Added an option to limit the maximum number of concurrently executing
   instances of the job
 
 * Allowed configuration of misfire grace times on a per-job basis
