@@ -15,7 +15,10 @@ except ImportError:
     try:
         from PyQt4.QtGui import QApplication, QLabel
     except ImportError:
-        from PySide.QtGui import QApplication, QLabel
+        try:
+            from PySide2.QtWidgets import QApplication, QLabel
+        except ImportError:
+            from PySide.QtGui import QApplication, QLabel
 
 
 def tick():

@@ -41,13 +41,13 @@ setup(
         'setuptools >= 0.7',
         'six >= 1.4.0',
         'pytz',
-        'tzlocal >= 1.2',
+        'tzlocal ~= 2.0',
     ],
     extras_require={
         ':python_version == "2.7"': ['futures', 'funcsigs'],
         'asyncio:python_version == "2.7"': ['trollius'],
         'gevent': ['gevent'],
-        'mongodb': ['pymongo >= 2.8'],
+        'mongodb': ['pymongo >= 3.0'],
         'redis': ['redis >= 3.0'],
         'rethinkdb': ['rethinkdb >= 2.4.0'],
         'sqlalchemy': ['sqlalchemy >= 0.8'],
@@ -55,7 +55,7 @@ setup(
         'twisted': ['twisted'],
         'zookeeper': ['kazoo'],
         'testing': [
-            'pytest',
+            'pytest < 6',
             'pytest-cov',
             'pytest-tornado5'
         ],

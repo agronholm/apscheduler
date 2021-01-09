@@ -13,7 +13,7 @@ API
 Introduction
 ------------
 
-QtScheduler lets you integrate APScheduler with your `PySide <https://en.wikipedia.org/wiki/PySide>` or
+QtScheduler lets you integrate APScheduler with your `PySide2 <https://wiki.qt.io/Qt_for_Python>`, `PySide <https://en.wikipedia.org/wiki/PySide>` or
 `PyQt <http://www.riverbankcomputing.co.uk/software/pyqt/intro>`_ application.
 
 .. list-table::
