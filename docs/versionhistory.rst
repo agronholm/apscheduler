@@ -12,6 +12,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Pinned ``tzlocal`` to a version compatible with pytz
 * Fixed deprecation warnings on the MongoDB job store and increased the minimum PyMongo
   version to 3.0
+* Ensured that jitter is always non-negative to prevent triggers from firing more often than
+  intended
 
 
 3.6.3
