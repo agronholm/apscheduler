@@ -21,6 +21,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Fixed memory leak when coroutine jobs raise exceptions (due to reference cycles in tracebacks)
 * Fixed inability to schedule wrapped functions with extra arguments when the wrapped function
   cannot accept them but the wrapper can (original PR by Egor Malykh)
+* Fixed potential ``where`` clause error in the SQLAlchemy job store when a subclass uses more than
+  one search condition
 
 
 3.6.3
