@@ -12,6 +12,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Pinned ``tzlocal`` to a version compatible with pytz
 * Ensured that jitter is always non-negative to prevent triggers from firing more often than
   intended
+* Made it possible to create weak references to ``Job`` instances
 * Fixed Zookeeper job store using backslashes instead of forward slashes for paths
   on Windows (PR by Laurel-rao)
 * Fixed deprecation warnings on the MongoDB job store and increased the minimum PyMongo
@@ -23,6 +24,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   cannot accept them but the wrapper can (original PR by Egor Malykh)
 * Fixed potential ``where`` clause error in the SQLAlchemy job store when a subclass uses more than
   one search condition
+* Fixed a problem where bound methods added as jobs via textual references were called with an
+  unwanted extra ``self`` argument (PR by Pengjie Song)
 
 
 3.6.3
