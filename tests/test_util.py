@@ -1,20 +1,22 @@
 # coding: utf-8
 import platform
+import sys
 from datetime import date, datetime, timedelta, tzinfo
-from functools import partial
+from functools import partial, wraps
 from types import ModuleType
 
 import pytest
 import pytz
 import six
-import sys
 
 from apscheduler.job import Job
-from apscheduler.util import (
-    asint, asbool, astimezone, convert_to_datetime, datetime_to_utc_timestamp,
-    utc_timestamp_to_datetime, timedelta_seconds, datetime_ceil, get_callable_name, obj_to_ref,
-    ref_to_obj, maybe_ref, check_callable_args, datetime_repr, repr_escape)
-from tests.conftest import minpython, maxpython
+from apscheduler.util import (asbool, asint, astimezone, check_callable_args,
+                              convert_to_datetime, datetime_ceil,
+                              datetime_repr, datetime_to_utc_timestamp,
+                              get_callable_name, maybe_ref, obj_to_ref,
+                              ref_to_obj, repr_escape, timedelta_seconds,
+                              utc_timestamp_to_datetime)
+from tests.conftest import maxpython, minpython
 
 try:
     from unittest.mock import Mock
@@ -351,3 +353,17 @@ class TestCheckCallableArgs(object):
         exc = pytest.raises(ValueError, check_callable_args, func, [1], {})
         assert str(exc.value) == ('The following keyword-only arguments have not been supplied in '
                                   'kwargs: y')
+
+    def test_wrapped_func(self):
+        """
+        Test that a wrapped function can be scheduled even if it cannot accept the arguments given
+        in add_job() if the wrapper can.
+        """
+        def func():
+            pass
+
+        @wraps(func)
+        def wrapper(arg):
+            func()
+
+        check_callable_args(wrapper, (1,), {})

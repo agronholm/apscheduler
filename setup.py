@@ -44,7 +44,8 @@ setup(
         'tzlocal ~= 2.0',
     ],
     extras_require={
-        ':python_version == "2.7"': ['futures', 'funcsigs'],
+        ':python_version == "2.7"': ['futures'],
+        ':python_version < "3.5"': ['funcsigs'],
         'asyncio:python_version == "2.7"': ['trollius'],
         'gevent': ['gevent'],
         'mongodb': ['pymongo >= 3.0'],
