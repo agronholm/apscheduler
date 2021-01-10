@@ -1,4 +1,5 @@
 # coding: utf-8
+import gc
 import weakref
 from datetime import datetime, timedelta
 from functools import partial
@@ -69,6 +70,7 @@ def test_weakref(create_job):
     job = create_job(func=dummyfunc)
     ref = weakref.ref(job)
     del job
+    gc.collect()
     assert ref() is None
 
 
