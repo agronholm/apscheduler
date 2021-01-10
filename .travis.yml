@@ -32,10 +32,6 @@ jobs:
       python: "2.7"
 
     - <<: *test
-      env: TOXENV=py34
-      python: "3.4"
-
-    - <<: *test
       env: TOXENV=py35
       python: "3.5"
 
