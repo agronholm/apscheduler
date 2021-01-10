@@ -1,13 +1,18 @@
 """Contains test functions using Python 3.3+ syntax."""
+import gc
 from asyncio import CancelledError
 from datetime import datetime
+from unittest.mock import Mock, patch
 
 import pytest
+from pytz import utc
+
 from apscheduler.executors.asyncio import AsyncIOExecutor
+from apscheduler.executors.base_py3 import run_coroutine_job
 from apscheduler.executors.tornado import TornadoExecutor
+from apscheduler.job import Job
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.tornado import TornadoScheduler
-from pytz import utc
 
 
 @pytest.fixture
@@ -100,3 +105,21 @@ async def test_asyncio_executor_shutdown(asyncio_scheduler, asyncio_executor):
     asyncio_executor.shutdown()
     with pytest.raises(CancelledError):
         await futures.pop()
+
+
+@pytest.mark.asyncio
+async def test_run_job_memory_leak():
+    class FooBar:
+        pass
+
+    async def func():
+        foo = FooBar()  # noqa: F841
+        raise Exception('dummy')
+
+    fake_job = Mock(Job, func=func, args=(), kwargs={}, misfire_grace_time=1)
+    with patch('logging.getLogger'):
+        for _ in range(5):
+            await run_coroutine_job(fake_job, 'foo', [datetime.now(utc)], __name__)
+
+    foos = [x for x in gc.get_objects() if type(x) is FooBar]
+    assert len(foos) == 0

@@ -1,5 +1,6 @@
 import logging
 import sys
+import traceback
 from datetime import datetime, timedelta
 from traceback import format_tb
 
@@ -33,6 +34,7 @@ async def run_coroutine_job(job, jobstore_alias, run_times, logger_name):
             events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
                                             exception=exc, traceback=formatted_tb))
             logger.exception('Job "%s" raised an exception', job)
+            traceback.clear_frames(tb)
         else:
             events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
                                             retval=retval))
