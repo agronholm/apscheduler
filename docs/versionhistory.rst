@@ -8,14 +8,14 @@ APScheduler, see the :doc:`migration section <migration>`.
 --------------
 
 * Dropped support for Python 3.4
-* Fixed Zookeeper job store using backslashes instead of forward slashes for paths
-  on Windows (PR by Laurel-rao)
+* Added PySide2 support (PR by Abdulla Ibrahim)
 * Pinned ``tzlocal`` to a version compatible with pytz
-* Fixed deprecation warnings on the MongoDB job store and increased the minimum PyMongo
-  version to 3.0
 * Ensured that jitter is always non-negative to prevent triggers from firing more often than
   intended
-* Added PySide2 support (PR by Abdulla Ibrahim)
+* Fixed Zookeeper job store using backslashes instead of forward slashes for paths
+  on Windows (PR by Laurel-rao)
+* Fixed deprecation warnings on the MongoDB job store and increased the minimum PyMongo
+  version to 3.0
 * Fixed ``BlockingScheduler`` and ``BackgroundScheduler`` shutdown hanging after the user has
   erroneously tried to start it twice
 * Fixed memory leak when coroutine jobs raise exceptions (due to reference cycles in tracebacks)
