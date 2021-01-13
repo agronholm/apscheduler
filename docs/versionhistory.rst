@@ -12,6 +12,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 * Pinned ``tzlocal`` to a version compatible with pytz
 * Ensured that jitter is always non-negative to prevent triggers from firing more often than
   intended
+* Changed ``AsyncIOScheduler`` to obtain the event loop in ``start()`` instead of ``__init__()``,
+  to prevent situations where the scheduler won't run because it's using a different event loop
+  than then one currently running
 * Made it possible to create weak references to ``Job`` instances
 * Fixed Zookeeper job store using backslashes instead of forward slashes for paths
   on Windows (PR by Laurel-rao)
