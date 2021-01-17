@@ -15,6 +15,7 @@ from apscheduler.executors.pool import ProcessPoolExecutor
 from apscheduler.job import Job
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import BaseScheduler
+from tests.conftest import minpython
 
 try:
     from unittest.mock import Mock, MagicMock, patch
@@ -150,13 +151,13 @@ def test_run_job_memory_leak():
     assert len(foos) == 0
 
 
+@minpython(3, 3)
 def test_broken_pool():
     def listener(evt):
-        nonlocal pid
-        pid = evt.retval
+        pid[0] = evt.retval
         event.set()
 
-    pid = None
+    pid = [None]
     event = Event()
     scheduler = BackgroundScheduler(executors={'default': ProcessPoolExecutor(1)})
     scheduler.add_listener(listener, EVENT_JOB_EXECUTED)
@@ -164,15 +165,15 @@ def test_broken_pool():
     scheduler.start()
 
     event.wait(3)
-    killed_pid = pid
-    os.kill(pid, signal.SIGTERM)
+    killed_pid = pid[0]
+    os.kill(pid[0], signal.SIGTERM)
     try:
-        os.waitpid(pid, 0)
+        os.waitpid(pid[0], 0)
     except OSError:
         pass
 
     event.clear()
     scheduler.add_job(os.getpid, 'date', run_date=datetime.now(UTC))
     event.wait(3)
-    assert pid != killed_pid
+    assert pid[0] != killed_pid
     scheduler.shutdown(True)
