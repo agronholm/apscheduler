@@ -42,7 +42,7 @@ class AsyncIOScheduler(BaseScheduler):
         if not self._eventloop:
             self._eventloop = asyncio.get_event_loop()
 
-        super().start(paused)
+        super(AsyncIOScheduler, self).start(paused)
 
     @run_in_event_loop
     def shutdown(self, wait=True):
