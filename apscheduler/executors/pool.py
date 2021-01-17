@@ -1,8 +1,12 @@
 from abc import abstractmethod
-from concurrent.futures.process import BrokenProcessPool
 import concurrent.futures
 
 from apscheduler.executors.base import BaseExecutor, run_job
+
+try:
+    from concurrent.futures.process import BrokenProcessPool
+except ImportError:
+    BrokenProcessPool = None
 
 
 class BasePoolExecutor(BaseExecutor):
