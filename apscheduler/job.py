@@ -28,7 +28,7 @@ class Job(object):
     :var trigger: the trigger object that controls the schedule of this job
     :var str executor: the name of the executor that will run this job
     :var int misfire_grace_time: the time (in seconds) how much this job's execution is allowed to
-        be late
+        be late (``None`` means "allow the job to run no matter how late it is")
     :var int max_instances: the maximum number of concurrently executing instances allowed for this
         job
     :var datetime.datetime next_run_time: the next scheduled run time of this job
