@@ -29,6 +29,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   one search condition
 * Fixed a problem where bound methods added as jobs via textual references were called with an
   unwanted extra ``self`` argument (PR by Pengjie Song)
+* Fixed ``BrokenPoolError`` in ``ProcessPoolExecutor`` so that it will automatically replace the
+  broken pool with a fresh instance
 
 
 3.6.3

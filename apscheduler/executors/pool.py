@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from concurrent.futures.process import BrokenProcessPool
 import concurrent.futures
 
 from apscheduler.executors.base import BaseExecutor, run_job
@@ -19,7 +20,13 @@ class BasePoolExecutor(BaseExecutor):
             else:
                 self._run_job_success(job.id, f.result())
 
-        f = self._pool.submit(run_job, job, job._jobstore_alias, run_times, self._logger.name)
+        try:
+            f = self._pool.submit(run_job, job, job._jobstore_alias, run_times, self._logger.name)
+        except BrokenProcessPool:
+            self._logger.warning('Process pool is broken; replacing pool with a fresh instance')
+            self._pool = self._pool.__class__(self._pool._max_workers)
+            f = self._pool.submit(run_job, job, job._jobstore_alias, run_times, self._logger.name)
+
         f.add_done_callback(callback)
 
     def shutdown(self, wait=True):

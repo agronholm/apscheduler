@@ -2,14 +2,18 @@ from datetime import datetime
 from threading import Event
 from types import TracebackType
 import gc
+import os
+import signal
 import time
 
 import pytest
 from pytz import UTC
 
-from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED, EVENT_JOB_EXECUTED
+from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, EVENT_JOB_MISSED
 from apscheduler.executors.base import MaxInstancesReachedError, run_job
+from apscheduler.executors.pool import ProcessPoolExecutor
 from apscheduler.job import Job
+from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import BaseScheduler
 
 try:
@@ -144,3 +148,31 @@ def test_run_job_memory_leak():
 
     foos = [x for x in gc.get_objects() if type(x) is FooBar]
     assert len(foos) == 0
+
+
+def test_broken_pool():
+    def listener(evt):
+        nonlocal pid
+        pid = evt.retval
+        event.set()
+
+    pid = None
+    event = Event()
+    scheduler = BackgroundScheduler(executors={'default': ProcessPoolExecutor(1)})
+    scheduler.add_listener(listener, EVENT_JOB_EXECUTED)
+    scheduler.add_job(os.getpid, 'date', run_date=datetime.now(UTC))
+    scheduler.start()
+
+    event.wait(3)
+    killed_pid = pid
+    os.kill(pid, signal.SIGTERM)
+    try:
+        os.waitpid(pid, 0)
+    except OSError:
+        pass
+
+    event.clear()
+    scheduler.add_job(os.getpid, 'date', run_date=datetime.now(UTC))
+    event.wait(3)
+    assert pid != killed_pid
+    scheduler.shutdown(True)
