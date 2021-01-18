@@ -48,6 +48,7 @@ APScheduler also integrates with several common Python frameworks, like:
 There are third party solutions for integrating APScheduler with other frameworks:
 
 * `Django <https://github.com/jarekwg/django-apscheduler>`_
+* `Flask <https://github.com/viniciuschiele/flask-apscheduler>`_
 
 
 .. [#f1] The cutoff period for this is also configurable.
