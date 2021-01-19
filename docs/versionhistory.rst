@@ -4,8 +4,8 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
-**UNRELEASED**
---------------
+3.7.0
+-----
 
 * Dropped support for Python 3.4
 * Added PySide2 support (PR by Abdulla Ibrahim)
