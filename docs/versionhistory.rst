@@ -16,6 +16,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   to prevent situations where the scheduler won't run because it's using a different event loop
   than then one currently running
 * Made it possible to create weak references to ``Job`` instances
+* Made the schedulers explicitly raise a descriptive ``TypeError`` when serialization is attempted
 * Fixed Zookeeper job store using backslashes instead of forward slashes for paths
   on Windows (PR by Laurel-rao)
 * Fixed deprecation warnings on the MongoDB job store and increased the minimum PyMongo

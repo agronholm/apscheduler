@@ -1,4 +1,5 @@
 import logging
+import pickle
 from datetime import datetime, timedelta
 from threading import Thread
 
@@ -771,6 +772,9 @@ Jobstore other:
 
         assert len(scheduler_events) == 1
         assert scheduler_events[0].scheduled_run_times == [freeze_time.get(scheduler.timezone)]
+
+    def test_serialize_scheduler(self, scheduler):
+        pytest.raises(TypeError, pickle.dumps, scheduler).match('Schedulers cannot be serialized')
 
 
 class TestProcessJobs(object):

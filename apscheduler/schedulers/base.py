@@ -86,6 +86,11 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self.state = STATE_STOPPED
         self.configure(gconfig, **options)
 
+    def __getstate__(self):
+        raise TypeError("Schedulers cannot be serialized. Ensure that you are not passing a "
+                        "scheduler instance as an argument to a job, or scheduling an instance "
+                        "method where the instance contains a scheduler as an attribute.")
+
     def configure(self, gconfig={}, prefix='apscheduler.', **options):
         """
         Reconfigures the scheduler with the given options.
