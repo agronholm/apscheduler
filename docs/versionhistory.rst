@@ -7,8 +7,51 @@ APScheduler, see the :doc:`migration section <migration>`.
 UNRELEASED
 ----------
 
-* Dropped support for Python 2.X and 3.4
+* Dropped support for Python 2.X, 3.5 and 3.6
 * Removed the Qt scheduler due to maintenance difficulties
+
+
+3.7.0
+-----
+
+* Dropped support for Python 3.4
+* Added PySide2 support (PR by Abdulla Ibrahim)
+* Pinned ``tzlocal`` to a version compatible with pytz
+* Ensured that jitter is always non-negative to prevent triggers from firing more often than
+  intended
+* Changed ``AsyncIOScheduler`` to obtain the event loop in ``start()`` instead of ``__init__()``,
+  to prevent situations where the scheduler won't run because it's using a different event loop
+  than then one currently running
+* Made it possible to create weak references to ``Job`` instances
+* Made the schedulers explicitly raise a descriptive ``TypeError`` when serialization is attempted
+* Fixed Zookeeper job store using backslashes instead of forward slashes for paths
+  on Windows (PR by Laurel-rao)
+* Fixed deprecation warnings on the MongoDB job store and increased the minimum PyMongo
+  version to 3.0
+* Fixed ``BlockingScheduler`` and ``BackgroundScheduler`` shutdown hanging after the user has
+  erroneously tried to start it twice
+* Fixed memory leak when coroutine jobs raise exceptions (due to reference cycles in tracebacks)
+* Fixed inability to schedule wrapped functions with extra arguments when the wrapped function
+  cannot accept them but the wrapper can (original PR by Egor Malykh)
+* Fixed potential ``where`` clause error in the SQLAlchemy job store when a subclass uses more than
+  one search condition
+* Fixed a problem where bound methods added as jobs via textual references were called with an
+  unwanted extra ``self`` argument (PR by Pengjie Song)
+* Fixed ``BrokenPoolError`` in ``ProcessPoolExecutor`` so that it will automatically replace the
+  broken pool with a fresh instance
+
+
+3.6.3
+-----
+
+* Fixed Python 2.7 accidentally depending on the ``trollius`` package (regression from v3.6.2)
+
+
+3.6.2
+-----
+
+* Fixed handling of :func:`~functools.partial` wrapped coroutine functions in ``AsyncIOExecutor``
+  and ``TornadoExecutor`` (PR by shipmints)
 
 
 3.6.1
