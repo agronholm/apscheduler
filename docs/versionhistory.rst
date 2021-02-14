@@ -7,9 +7,13 @@ APScheduler, see the :doc:`migration section <migration>`.
 UNRELEASED
 ----------
 
+* Added shareable data stores (can be used by multiple schedulers and workers)
+* Added support for running workers independently from schedulers
+* Added full async support via AnyIO_ (data store support varies)
 * Dropped support for Python 2.X, 3.5 and 3.6
 * Removed the Qt scheduler due to maintenance difficulties
 
+.. _AnyIO: https://github.com/agronholm/anyio
 
 3.7.0
 -----

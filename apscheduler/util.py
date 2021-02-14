@@ -1,6 +1,6 @@
 """This module contains several handy functions primarily meant for internal use."""
 import sys
-from datetime import tzinfo
+from datetime import datetime, tzinfo
 
 if sys.version_info >= (3, 9):
     from zoneinfo import ZoneInfo
@@ -24,3 +24,7 @@ def timezone_repr(timezone: tzinfo) -> str:
         return timezone.key
     else:
         return repr(timezone)
+
+
+def absolute_datetime_diff(dateval1: datetime, dateval2: datetime) -> float:
+    return dateval1.timestamp() - dateval2.timestamp()

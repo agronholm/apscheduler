@@ -1,8 +1,15 @@
 import sys
-from datetime import datetime
-from unittest.mock import Mock
+from contextlib import AsyncExitStack, ExitStack
+from functools import partial
 
 import pytest
+from anyio import start_blocking_portal
+from asyncpg import create_pool
+from motor.motor_asyncio import AsyncIOMotorClient
+
+from apscheduler.datastores.memory import MemoryDataStore
+from apscheduler.datastores.mongodb import MongoDBDataStore
+from apscheduler.datastores.postgresql import PostgresqlDataStore
 from apscheduler.serializers.cbor import CBORSerializer
 from apscheduler.serializers.json import JSONSerializer
 from apscheduler.serializers.pickle import PickleSerializer
@@ -12,42 +19,70 @@ if sys.version_info >= (3, 9):
 else:
     from backports.zoneinfo import ZoneInfo
 
+store_params = [
+    pytest.param(MemoryDataStore, id='memory'),
+    pytest.param(PostgresqlDataStore, id='postgresql'),
+    pytest.param(MongoDBDataStore, id='mongodb')
+]
+
 
 @pytest.fixture(scope='session')
 def timezone():
     return ZoneInfo('Europe/Berlin')
 
 
-@pytest.fixture
-def freeze_time(monkeypatch, timezone):
-    class TimeFreezer:
-        def __init__(self, initial):
-            self.current = initial
-            self.increment = None
-
-        def get(self, tzinfo=None):
-            now = self.current.astimezone(tzinfo) if tzinfo else self.current.replace(tzinfo=None)
-            if self.increment:
-                self.current += self.increment
-            return now
-
-        def set(self, new_time):
-            self.current = new_time
-
-        def next(self,):
-            return self.current + self.increment
-
-        def set_increment(self, delta):
-            self.increment = delta
-
-    freezer = TimeFreezer(timezone.localize(datetime(2011, 4, 3, 18, 40)))
-    fake_datetime = Mock(datetime, now=freezer.get)
-    monkeypatch.setattr('apscheduler.triggers.interval.datetime', fake_datetime)
-    monkeypatch.setattr('apscheduler.triggers.date.datetime', fake_datetime)
-    return freezer
-
-
 @pytest.fixture(params=[None, PickleSerializer, CBORSerializer, JSONSerializer],
                 ids=['none', 'pickle', 'cbor', 'json'])
 def serializer(request):
     return request.param() if request.param else None
+
+
+@pytest.fixture
+def anyio_backend():
+    return 'asyncio'
+
+
+@pytest.fixture(params=store_params)
+async def store(request):
+    async with AsyncExitStack() as stack:
+        if request.param is PostgresqlDataStore:
+            pool = await create_pool('postgresql://postgres:secret@localhost/testdb',
+                                     min_size=1, max_size=2)
+            await stack.enter_async_context(pool)
+            store = PostgresqlDataStore(pool, start_from_scratch=True)
+        elif request.param is MongoDBDataStore:
+            client = AsyncIOMotorClient(tz_aware=True)
+            stack.push(lambda *args: client.close())
+            store = MongoDBDataStore(client, start_from_scratch=True)
+        else:
+            store = MemoryDataStore()
+
+        await stack.enter_async_context(store)
+        yield store
+
+
+@pytest.fixture
+def portal():
+    with start_blocking_portal() as portal:
+        yield portal
+
+
+@pytest.fixture(params=store_params)
+def sync_store(request, portal):
+    with ExitStack() as stack:
+        if request.param is PostgresqlDataStore:
+            pool = portal.call(
+                partial(create_pool, 'postgresql://postgres:secret@localhost/testdb',
+                        min_size=1, max_size=2)
+            )
+            stack.enter_context(portal.wrap_async_context_manager(pool))
+            store = PostgresqlDataStore(pool, start_from_scratch=True)
+        elif request.param is MongoDBDataStore:
+            client = portal.call(partial(AsyncIOMotorClient, tz_aware=True))
+            stack.push(lambda *args: portal.call(client.close))
+            store = MongoDBDataStore(client, start_from_scratch=True)
+        else:
+            store = MemoryDataStore()
+
+        stack.enter_context(portal.wrap_async_context_manager(store))
+        yield store

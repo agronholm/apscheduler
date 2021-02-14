@@ -1,5 +1,13 @@
 version: "2"
 services:
+  postgresql:
+    image: postgres
+    ports:
+      - 127.0.0.1:5432:5432
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_PASSWORD: secret
+
   redis:
     image: redis
     ports:
@@ -9,6 +17,8 @@ services:
     image: mongo
     ports:
       - 127.0.0.1:27017:27017
+    environment:
+      MONGO_REPLICA_SET_NAME: foo
 
   rethinkdb:
     image: rethinkdb

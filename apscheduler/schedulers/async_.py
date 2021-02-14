@@ -1,53 +1,73 @@
-import logging
 import os
 import platform
 import threading
 from contextlib import AsyncExitStack
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone, tzinfo
-from traceback import format_exc
-from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Set, Union
+from datetime import datetime, timedelta, timezone
+from logging import Logger, getLogger
+from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Union
 from uuid import uuid4
 
-import tzlocal
-from anyio import create_event, create_task_group, move_on_after
-from anyio.abc import Event
+from anyio import create_event, create_task_group, get_cancelled_exc_class, open_cancel_scope
+from anyio.abc import CancelScope, Event, TaskGroup
 
-from ..abc import DataStore, EventHub, EventSource, Executor, Job, Schedule, Task, Trigger
-from ..datastores.memory import MemoryScheduleStore
-from ..eventhubs.local import LocalEventHub
-from ..events import JobSubmissionFailed, SchedulesAdded, SchedulesUpdated
+from ..abc import DataStore, Job, Schedule, Task, Trigger
+from ..datastores.memory import MemoryDataStore
+from ..events import EventHub
 from ..marshalling import callable_to_ref
-from ..validators import as_timezone
-from ..workers.local import LocalExecutor
+from ..policies import CoalescePolicy, ConflictPolicy
+from ..workers.async_ import AsyncWorker
 
 
-@dataclass
-class AsyncScheduler(EventSource):
-    schedule_store: DataStore = field(default_factory=MemoryScheduleStore)
-    worker: Executor = field(default_factory=LocalExecutor)
-    timezone: tzinfo = field(default_factory=tzlocal.get_localzone)
-    identity: str = f'{platform.node()}-{os.getpid()}-{threading.get_ident()}'
-    logger: logging.Logger = field(default_factory=lambda: logging.getLogger(__name__))
-    _event_hub: EventHub = field(init=False, default_factory=LocalEventHub)
-    _tasks: Dict[str, Task] = field(init=False, default_factory=dict)
-    _async_stack: AsyncExitStack = field(init=False, default_factory=AsyncExitStack)
-    _next_fire_time: Optional[datetime] = field(init=False, default=None)
-    _wakeup_event: Optional[Event] = field(init=False, default=None)
-    _closed: bool = field(init=False, default=False)
+class AsyncScheduler(EventHub):
+    _task_group: Optional[TaskGroup] = None
+    _stop_event: Optional[Event] = None
+    _running: bool = False
+    _worker: Optional[AsyncWorker] = None
+    _acquire_cancel_scope: Optional[CancelScope] = None
 
-    def __post_init__(self):
-        self.timezone = as_timezone(self.timezone)
+    def __init__(self, data_store: Optional[DataStore] = None, *, identity: Optional[str] = None,
+                 logger: Optional[Logger] = None, start_worker: bool = True):
+        super().__init__()
+        self.data_store = data_store or MemoryDataStore()
+        self.identity = identity or f'{platform.node()}-{os.getpid()}-{threading.get_ident()}'
+        self.logger = logger or getLogger(__name__)
+        self.start_worker = start_worker
+        self._tasks: Dict[str, Task] = {}
+        self._exit_stack = AsyncExitStack()
+
+    @property
+    def worker(self) -> Optional[AsyncWorker]:
+        return self._worker
 
     async def __aenter__(self):
-        await self._async_stack.__aenter__()
-        task_group = create_task_group()
-        await self._async_stack.enter_async_context(task_group)
-        await task_group.spawn(self.run)
+        await self._exit_stack.__aenter__()
+
+        # Start the built-in worker, if configured to do so
+        if self.start_worker:
+            # The worker handles initializing the data store
+            self._worker = AsyncWorker(self.data_store)
+            await self._exit_stack.enter_async_context(self._worker)
+        else:
+            # Otherwise, initialize the data store ourselves
+            await self._exit_stack.enter_async_context(self.data_store)
+
+        # Start the actual scheduler
+        self._task_group = create_task_group()
+        await self._exit_stack.enter_async_context(self._task_group)
+        start_event = create_event()
+        await self._task_group.spawn(self.run, start_event)
+        await start_event.wait()
+
+        # await self.start(self._task_group)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self._async_stack.__aexit__(exc_type, exc_val, exc_tb)
+        # Exit gracefully (wait for ongoing tasks to finish) if the context exited without errors
+        await self.stop(force=exc_type is not None)
+        if self._worker:
+            await self._worker.stop(force=exc_type is not None)
+
+        await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
 
     def _get_taskdef(self, func_or_id: Union[str, Callable]) -> Task:
         task_id = func_or_id if isinstance(func_or_id, str) else callable_to_ref(func_or_id)
@@ -71,8 +91,10 @@ class AsyncScheduler(EventSource):
     async def add_schedule(
         self, task: Union[str, Callable], trigger: Trigger, *, id: Optional[str] = None,
         args: Optional[Iterable] = None, kwargs: Optional[Mapping[str, Any]] = None,
-        coalesce: bool = True, misfire_grace_time: Union[float, timedelta, None] = None,
-        tags: Optional[Iterable[str]] = None
+        coalesce: CoalescePolicy = CoalescePolicy.latest,
+        misfire_grace_time: Union[float, timedelta, None] = None,
+        tags: Optional[Iterable[str]] = None,
+        conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing
     ) -> str:
         id = id or str(uuid4())
         args = tuple(args or ())
@@ -85,36 +107,30 @@ class AsyncScheduler(EventSource):
         schedule = Schedule(id=id, task_id=taskdef.id, trigger=trigger, args=args, kwargs=kwargs,
                             coalesce=coalesce, misfire_grace_time=misfire_grace_time, tags=tags,
                             next_fire_time=trigger.next())
-        await self.schedule_store.add_or_replace_schedules([schedule])
-        self.logger.info('Added new schedule for task %s; next run time at %s', taskdef,
-                         schedule.next_fire_time)
+        await self.data_store.add_schedule(schedule, conflict_policy)
+        self.logger.info('Added new schedule (task=%r, trigger=%r); next run time at %s', taskdef,
+                         trigger, schedule.next_fire_time)
         return schedule.id
 
     async def remove_schedule(self, schedule_id: str) -> None:
-        await self.schedule_store.remove_schedules({schedule_id})
+        await self.data_store.remove_schedules({schedule_id})
 
-    async def _handle_worker_event(self, event: Event) -> None:
-        await self._event_hub.publish(event)
+    async def run(self, start_event: Optional[Event] = None) -> None:
+        self._stop_event = create_event()
+        self._running = True
+        if start_event:
+            await start_event.set()
 
-    async def _handle_datastore_event(self, event: Event) -> None:
-        if isinstance(event, (SchedulesAdded, SchedulesUpdated)):
-            # Wake up the scheduler if any schedule has an earlier next fire time than the one
-            # we're currently waiting for
-            if event.earliest_next_fire_time:
-                if (self._next_fire_time is None
-                        or self._next_fire_time > event.earliest_next_fire_time):
-                    self.logger.debug('Job store reported an updated next fire time that requires '
-                                      'the scheduler to wake up: %s',
-                                      event.earliest_next_fire_time)
-                    await self.wakeup()
+        while self._running:
+            async with open_cancel_scope() as self._acquire_cancel_scope:
+                try:
+                    schedules = await self.data_store.acquire_schedules(self.identity, 100)
+                except get_cancelled_exc_class():
+                    break
+                finally:
+                    del self._acquire_cancel_scope
 
-        await self._event_hub.publish(event)
-
-    async def _process_schedules(self):
-        async with self.schedule_store.acquire_due_schedules(
-                self.identity, datetime.now(timezone.utc)) as schedules:
-            schedule_ids_to_remove: Set[str] = set()
-            schedule_updates: Dict[str, Dict[str, Any]] = {}
+            now = datetime.now(timezone.utc)
             for schedule in schedules:
                 # Look up the task definition
                 try:
@@ -122,76 +138,66 @@ class AsyncScheduler(EventSource):
                 except LookupError:
                     self.logger.error('Cannot locate task definition %r for schedule %r – '
                                       'removing schedule', schedule.task_id, schedule.id)
-                    schedule_ids_to_remove.add(schedule.id)
+                    schedule.next_fire_time = None
                     continue
 
                 # Calculate a next fire time for the schedule, if possible
-                try:
-                    next_fire_time = schedule.trigger.next()
-                except Exception:
-                    self.logger.exception('Error computing next fire time for schedule %r of task '
-                                          '%r – removing schedule', schedule.id, taskdef.id)
-                    next_fire_time = None
+                fire_times = [schedule.next_fire_time]
+                calculate_next = schedule.trigger.next
+                while True:
+                    try:
+                        fire_time = calculate_next()
+                    except Exception:
+                        self.logger.exception(
+                            'Error computing next fire time for schedule %r of task %r – '
+                            'removing schedule', schedule.id, taskdef.id)
+                        break
 
-                # Queue a schedule update if a next fire time could be calculated.
-                # Otherwise, queue the schedule for removal.
-                if next_fire_time:
-                    schedule_updates[schedule.id] = {
-                        'next_fire_time': next_fire_time,
-                        'last_fire_time': schedule.next_fire_time,
-                        'trigger': schedule.trigger
-                    }
-                else:
-                    schedule_ids_to_remove.add(schedule.id)
+                    # Stop if the calculated fire time is in the future
+                    if fire_time is None or fire_time > now:
+                        schedule.next_fire_time = fire_time
+                        break
 
-                # Submit a new job to the executor
-                job = Job(taskdef.id, taskdef.func, schedule.args, schedule.kwargs, schedule.id,
-                          schedule.last_fire_time, schedule.next_deadline, schedule.tags)
-                try:
-                    await self.worker.submit_job(job)
-                except Exception as exc:
-                    self.logger.exception('Error submitting job to worker')
-                    event = JobSubmissionFailed(datetime.now(self.timezone), job.id, job.task_id,
-                                                job.schedule_id, job.scheduled_start_time,
-                                                formatted_traceback=format_exc(), exception=exc)
-                    await self._event_hub.publish(event)
+                    # Only keep all the fire times if coalesce policy = "all"
+                    if schedule.coalesce is CoalescePolicy.all:
+                        fire_times.append(fire_time)
+                    elif schedule.coalesce is CoalescePolicy.latest:
+                        fire_times[0] = fire_time
 
-            # Removed finished schedules
-            if schedule_ids_to_remove:
-                await self.schedule_store.remove_schedules(schedule_ids_to_remove)
+                # Add one or more jobs to the job queue
+                for fire_time in fire_times:
+                    schedule.last_fire_time = fire_time
+                    job = Job(taskdef.id, taskdef.func, schedule.args, schedule.kwargs,
+                              schedule.id, fire_time, schedule.next_deadline,
+                              schedule.tags)
+                    print('Added job', job.id, 'for schedule', schedule)
+                    await self.data_store.add_job(job)
 
-            # Update the next fire times
-            if schedule_updates:
-                await self.schedule_store.update_schedules(schedule_updates)
+            self.logger.debug('Releasing %d schedules', len(schedules))
+            await self.data_store.release_schedules(self.identity, schedules)
 
-        return await self.schedule_store.get_next_fire_time()
+        await self._stop_event.set()
+        del self._stop_event
 
-    async def run(self):
-        async with AsyncExitStack() as stack:
-            await stack.enter_async_context(self.schedule_store)
-            await stack.enter_async_context(self.worker)
-            await self.worker.subscribe(self._handle_worker_event)
-            await self.schedule_store.subscribe(self._handle_datastore_event)
-            self._wakeup_event = create_event()
-            while not self._closed:
-                self._next_fire_time = await self._process_schedules()
+    # async def start(self, task_group: TaskGroup, *, reset_datastore: bool = False) -> None:
+    #     start_event = create_event()
+    #     await task_group.spawn(self.run, start_event)
+    #     await start_event.wait()
+    #
+    #     if self.start_worker:
+    #         self._worker = AsyncWorker(self.data_store)
+    #         await self._worker.start(task_group)
 
-                if self._next_fire_time:
-                    wait_time = (self._next_fire_time - datetime.now(timezone.utc)).total_seconds()
-                else:
-                    wait_time = float('inf')
+    async def stop(self, force: bool = False) -> None:
+        self._running = False
+        if self._worker:
+            await self._worker.stop(force)
 
-                self._wakeup_event = create_event()
-                async with move_on_after(wait_time):
-                    await self._wakeup_event.wait()
+        if self._acquire_cancel_scope:
+            await self._acquire_cancel_scope.cancel()
+        if force and self._task_group:
+            await self._task_group.cancel_scope.cancel()
 
-    async def wakeup(self) -> None:
-        await self._wakeup_event.set()
-
-    async def shutdown(self, force: bool = False) -> None:
-        if not self._closed:
-            self._closed = True
-            await self.wakeup()
-
-    async def subscribe(self, callback: Callable[[Event], Any]) -> None:
-        await self._event_hub.subscribe(callback)
+    async def wait_until_stopped(self) -> None:
+        if self._stop_event:
+            await self._stop_event.wait()

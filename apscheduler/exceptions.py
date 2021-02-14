@@ -8,11 +8,14 @@ class JobLookupError(KeyError):
 
 
 class ConflictingIdError(KeyError):
-    """Raised when the uniqueness of job IDs is being violated."""
+    """
+    Raised when trying to add a schedule to a store that already contains a schedule by that ID,
+    and the conflict policy of ``exception`` is used.
+    """
 
-    def __init__(self, job_id):
+    def __init__(self, schedule_id):
         super().__init__(
-            u'Job identifier (%s) conflicts with an existing job' % job_id)
+            f'This data store already contains a schedule with the identifier {schedule_id!r}')
 
 
 class TransientJobError(ValueError):
@@ -40,3 +43,17 @@ class MaxIterationsReached(Exception):
     Raised when a trigger has reached its maximum number of allowed computation iterations when
     trying to calculate the next fire time.
     """
+
+
+class SchedulerAlreadyRunningError(Exception):
+    """Raised when attempting to start or configure the scheduler when it's already running."""
+
+    def __str__(self):
+        return 'Scheduler is already running'
+
+
+class SchedulerNotRunningError(Exception):
+    """Raised when attempting to shutdown the scheduler when it's not running."""
+
+    def __str__(self):
+        return 'Scheduler is not running'

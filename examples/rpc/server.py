@@ -45,12 +45,12 @@ class SchedulerService(rpyc.Service):
 
 if __name__ == '__main__':
     scheduler = BackgroundScheduler()
-    scheduler.start()
+    scheduler.initialize()
     protocol_config = {'allow_public_attrs': True}
     server = ThreadedServer(SchedulerService, port=12345, protocol_config=protocol_config)
     try:
-        server.start()
+        server.initialize()
     except (KeyboardInterrupt, SystemExit):
         pass
     finally:
-        scheduler.shutdown()
+        scheduler.stop()
