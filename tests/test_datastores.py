@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 
 import pytest
 from anyio import move_on_after
-
 from apscheduler.abc import Job, Schedule
 from apscheduler.events import ScheduleAdded, ScheduleRemoved, ScheduleUpdated
 from apscheduler.policies import CoalescePolicy, ConflictPolicy

@@ -7,10 +7,10 @@ from typing import Any, Callable, Iterable, Mapping, Optional, Union
 
 from anyio.abc import BlockingPortal
 
-from .async_ import AsyncScheduler
 from ..abc import DataStore, Trigger
 from ..events import SyncEventSource
 from ..workers.sync import SyncWorker
+from .async_ import AsyncScheduler
 
 
 class SyncScheduler(SyncEventSource):

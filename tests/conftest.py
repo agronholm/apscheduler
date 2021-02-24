@@ -4,15 +4,14 @@ from functools import partial
 
 import pytest
 from anyio import start_blocking_portal
-from asyncpg import create_pool
-from motor.motor_asyncio import AsyncIOMotorClient
-
 from apscheduler.datastores.memory import MemoryDataStore
 from apscheduler.datastores.mongodb import MongoDBDataStore
 from apscheduler.datastores.postgresql import PostgresqlDataStore
 from apscheduler.serializers.cbor import CBORSerializer
 from apscheduler.serializers.json import JSONSerializer
 from apscheduler.serializers.pickle import PickleSerializer
+from asyncpg import create_pool
+from motor.motor_asyncio import AsyncIOMotorClient
 
 if sys.version_info >= (3, 9):
     from zoneinfo import ZoneInfo

@@ -3,7 +3,6 @@ from datetime import datetime
 
 import pytest
 from anyio import create_event, fail_after
-
 from apscheduler.abc import Job
 from apscheduler.events import JobDeadlineMissed, JobFailed, JobSuccessful, JobUpdated
 from apscheduler.workers.async_ import AsyncWorker

@@ -4,9 +4,9 @@ from typing import Optional
 
 from anyio.abc import BlockingPortal
 
-from .async_ import AsyncWorker
 from ..abc import DataStore
 from ..events import SyncEventSource
+from .async_ import AsyncWorker
 
 
 class SyncWorker(SyncEventSource):

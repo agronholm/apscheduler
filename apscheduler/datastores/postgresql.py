@@ -13,8 +13,7 @@ from asyncpg.pool import Pool
 
 from ..abc import DataStore, Job, Schedule, Serializer
 from ..events import (
-    EventHub, JobAdded, ScheduleAdded, ScheduleEvent, ScheduleRemoved,
-    ScheduleUpdated)
+    EventHub, JobAdded, ScheduleAdded, ScheduleEvent, ScheduleRemoved, ScheduleUpdated)
 from ..exceptions import ConflictingIdError, SerializationError
 from ..policies import ConflictPolicy
 from ..serializers.pickle import PickleSerializer

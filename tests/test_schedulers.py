@@ -2,7 +2,6 @@ import logging
 from datetime import datetime, timezone
 
 import pytest
-
 from apscheduler.events import JobSuccessful
 from apscheduler.schedulers.async_ import AsyncScheduler
 from apscheduler.schedulers.sync import SyncScheduler

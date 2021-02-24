@@ -2,8 +2,7 @@ from abc import ABCMeta, abstractmethod
 from base64 import b64decode, b64encode
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import (
-    Any, Callable, Dict, FrozenSet, Iterable, Iterator, List, Optional, Set, Type)
+from typing import Any, Callable, Dict, FrozenSet, Iterable, Iterator, List, Optional, Set, Type
 from uuid import UUID, uuid4
 
 from .policies import CoalescePolicy, ConflictPolicy
