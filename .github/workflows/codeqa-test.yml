@@ -47,6 +47,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install the project and its dependencies
-      run: pip install -e .[test,cbor]
+      run: pip install -e .[test,postgresql,mongodb]
     - name: Test with pytest
       run: pytest
