@@ -45,7 +45,7 @@ jobs:
 #    - name: Start external services
 #      run: docker-compose up -d
     - name: Test with pytest
-      run: pytest tests/test_datastores.py -k "memory"
+      run: pytest tests/test_datastores.py -v -k "memory"
       env:
         PYTHONUNBUFFERED: 1
 
@@ -68,4 +68,4 @@ jobs:
       env:
         PYTHONUNBUFFERED: 1
     - name: Test with pytest
-      run: pytest tests/test_datastores.py -k "memory"
+      run: pytest tests/test_datastores.py -v -k "memory"
