@@ -45,7 +45,7 @@ jobs:
     - name: Start external services
       run: docker-compose up -d
     - name: Test with pytest
-      run: pytest tests/test_datastores.py -k "test_add_schedules and memory"
+      run: pytest tests/test_datastores.py -k "memory"
 
   test-others:
     needs: [lint]
@@ -64,4 +64,4 @@ jobs:
     - name: Install the project and its dependencies
       run: pip install -e .[test,cbor]
     - name: Test with pytest
-      run: pytest tests/test_datastores.py -k "test_add_schedules and memory"
+      run: pytest tests/test_datastores.py -k "memory"
