@@ -42,10 +42,12 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install the project and its dependencies
       run: pip install -e .[test,cbor,postgresql,mongodb]
-    - name: Start external services
-      run: docker-compose up -d
+#    - name: Start external services
+#      run: docker-compose up -d
     - name: Test with pytest
       run: pytest tests/test_datastores.py -k "memory"
+      env:
+        PYTHONUNBUFFERED: 1
 
   test-others:
     needs: [lint]
@@ -63,5 +65,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install the project and its dependencies
       run: pip install -e .[test,cbor]
+      env:
+        PYTHONUNBUFFERED: 1
     - name: Test with pytest
       run: pytest tests/test_datastores.py -k "memory"
