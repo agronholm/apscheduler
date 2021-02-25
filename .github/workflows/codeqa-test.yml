@@ -45,7 +45,7 @@ jobs:
     - name: Start external services
       run: |
         docker-compose up -d
-        sleep 2
+        sleep 1
     - name: Test with pytest
       run: pytest
 
