@@ -43,7 +43,9 @@ jobs:
     - name: Install the project and its dependencies
       run: pip install -e .[test,cbor,postgresql,mongodb]
     - name: Start external services
-      run: docker-compose up -d
+      run: |
+        docker-compose up -d
+        tools/dockerize -wait tcp://localhost:5432 -wait tcp://localhost:27017
     - name: Test with pytest
       run: pytest
 
