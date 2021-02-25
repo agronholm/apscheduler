@@ -27,28 +27,33 @@ jobs:
     - name: Run isort
       run: isort -c apscheduler tests
 
-  test:
+  test-linux:
     needs: [lint]
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: [3.7, 3.9.0]
-    services:
-      postgres:
-        image: postgres
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: secret
-          POSTGRES_DB: testdb
-        ports:
-        - 5432:5432
-        # needed because the postgres container does not provide a healthcheck
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-      mongodb:
-        image: mongo
-        ports:
-        - 27017:27017
+        python-version: [3.7, 3.9]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Start external services
+      run: docker-compose up -d
+    - name: Install the project and its dependencies
+      run: pip install -e .[test,cbor,postgresql,mongodb]
+    - name: Test with pytest
+      run: pytest
+
+  test-others:
+    needs: [lint]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+        python-version: [3.7, 3.9]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
@@ -57,6 +62,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install the project and its dependencies
-      run: pip install -e .[test,cbor,postgresql,mongodb]
+      run: pip install -e .[test,cbor]
     - name: Test with pytest
       run: pytest
