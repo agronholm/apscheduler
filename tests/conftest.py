@@ -8,8 +8,6 @@ from apscheduler.datastores.memory import MemoryDataStore
 from apscheduler.serializers.cbor import CBORSerializer
 from apscheduler.serializers.json import JSONSerializer
 from apscheduler.serializers.pickle import PickleSerializer
-from asyncpg import create_pool
-from motor.motor_asyncio import AsyncIOMotorClient
 
 if sys.version_info >= (3, 9):
     from zoneinfo import ZoneInfo
@@ -18,11 +16,13 @@ else:
 
 try:
     from apscheduler.datastores.mongodb import MongoDBDataStore
+    from motor.motor_asyncio import AsyncIOMotorClient
 except ImportError:
     MongoDBDataStore = None
 
 try:
     from apscheduler.datastores.postgresql import PostgresqlDataStore
+    from asyncpg import create_pool
 except ImportError:
     PostgresqlDataStore = None
 
