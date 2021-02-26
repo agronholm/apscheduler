@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from asyncio import current_task
 from datetime import datetime, timezone
 from typing import Iterable, List, Optional, Set
 from uuid import UUID
@@ -55,7 +54,6 @@ class PostgresqlDataStore(DataStore, EventHub):
 
         self._loans += 1
         if self._loans == 1 and self.notify_channel:
-            print('entering postgresql data store in task', id(current_task()))
             self._task_group = create_task_group()
             await self._task_group.__aenter__()
             await self._task_group.spawn(self._listen_notifications)
@@ -66,7 +64,6 @@ class PostgresqlDataStore(DataStore, EventHub):
         assert self._loans
         self._loans -= 1
         if self._loans == 0 and self.notify_channel:
-            print('exiting postgresql data store in task', id(current_task()))
             await self._task_group.cancel_scope.cancel()
             await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
             del self._schedules_event
@@ -293,7 +290,6 @@ class PostgresqlDataStore(DataStore, EventHub):
 
     async def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> List[Job]:
         while True:
-            print('acquiring jobs')
             jobs: List[Job] = []
             async with self.pool.acquire() as conn, conn.transaction():
                 now = datetime.now(timezone.utc)

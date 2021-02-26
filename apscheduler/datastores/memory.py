@@ -209,25 +209,11 @@ class MemoryDataStore(DataStore, EventHub):
             else:
                 finished_schedule_ids.append(s.id)
 
-        # if updated_ids:
-        #     next_fire_time = min(s.next_fire_time for s in schedules
-        #                          if s.next_fire_time is not None)
-        #     event = ScheduleUpdated(datetime.now(timezone.utc), updated_ids, next_fire_time)
-        #     await self.publish(event)
-        #     old_event, self._schedules_event = self._schedules_event, create_event()
-        #     await old_event.set()
-
         for event in update_events:
             await self.publish(event)
 
         # Remove schedules that didn't get a new next fire time
         await self.remove_schedules(finished_schedule_ids)
-
-    # async def get_next_fire_time(self) -> Optional[datetime]:
-    #     for schedule in self._schedules:
-    #         return schedule.next_fire_time
-    #
-    #     return None
 
     async def add_job(self, job: Job) -> None:
         state = JobState(job)

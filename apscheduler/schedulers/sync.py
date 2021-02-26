@@ -43,20 +43,6 @@ class SyncScheduler(SyncEventSource):
 
         return self
 
-    # def __exit__(self, exc_type, exc_val, exc_tb):
-    #     return self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
-
-    # def __enter__(self) -> SyncScheduler:
-    #     self.start()
-    #     return self
-    #
-    # def __exit__(self, exc_type, exc_val, exc_tb):
-    #     self.stop(force=exc_type is not None)
-
-    # @property
-    # def worker(self) -> AsyncWorker:
-    #     return self._scheduler.worker
-
     @property
     def data_store(self) -> DataStore:
         return self._scheduler.data_store
@@ -79,31 +65,3 @@ class SyncScheduler(SyncEventSource):
 
     def wait_until_stopped(self) -> None:
         self.portal.call(self._scheduler.wait_until_stopped)
-
-    # def start(self):
-    #     if not self._scheduler._running:
-    #         if not self.portal:
-    #             self.portal = start_blocking_portal()
-    #             self._shutdown_portal = True
-    #
-    #         self.portal.call(self._scheduler.data_store.initialize)
-    #         start_event = self.portal.call(create_event)
-    #         self._task = self.portal.spawn_task(self._scheduler.run, start_event)
-    #         self.portal.call(start_event.wait)
-    #         print('start_event wait finished')
-    #
-    #         if self._scheduler.start_worker:
-    #             self._worker = SyncWorker(self.data_store, portal=self.portal)
-    #             self._worker.start()
-    #
-    # def stop(self, force: bool = False) -> None:
-    #     if self._worker:
-    #         self._worker.stop(force)
-    #
-    #     if self._scheduler._running:
-    #         self._scheduler._running = False
-    #         try:
-    #             self.portal.call(partial(self._scheduler.stop, force=force))
-    #         finally:
-    #             if self._shutdown_portal:
-    #                 self.portal.stop_from_external_thread(cancel_remaining=force)

@@ -42,7 +42,6 @@ class AsyncWorker(EventHub):
             raise ValueError('max_concurrent_jobs must be at least 1')
 
     async def __aenter__(self):
-        print('entering worker in task', id(current_task()))
         await self._exit_stack.__aenter__()
 
         # Initialize the data store
@@ -57,7 +56,6 @@ class AsyncWorker(EventHub):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        print('exiting worker in task', id(current_task()))
         await self.stop(force=exc_type is not None)
         await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
 
@@ -138,12 +136,6 @@ class AsyncWorker(EventHub):
             return_value = await return_value
 
         return return_value
-
-    # async def start(self, task_group: TaskGroup) -> None:
-    #     start_event = create_event()
-    #     print('spawning task for AsyncWorker.run() in task', id(current_task()))
-    #     await task_group.spawn(self.run, start_event)
-    #     await start_event.wait()
 
     async def stop(self, force: bool = False) -> None:
         self._running = False

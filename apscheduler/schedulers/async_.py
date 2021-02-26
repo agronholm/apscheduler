@@ -58,7 +58,6 @@ class AsyncScheduler(EventHub):
         await self._task_group.spawn(self.run, start_event)
         await start_event.wait()
 
-        # await self.start(self._task_group)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -170,23 +169,12 @@ class AsyncScheduler(EventHub):
                     job = Job(taskdef.id, taskdef.func, schedule.args, schedule.kwargs,
                               schedule.id, fire_time, schedule.next_deadline,
                               schedule.tags)
-                    print('Added job', job.id, 'for schedule', schedule)
                     await self.data_store.add_job(job)
 
-            self.logger.debug('Releasing %d schedules', len(schedules))
             await self.data_store.release_schedules(self.identity, schedules)
 
         await self._stop_event.set()
         del self._stop_event
-
-    # async def start(self, task_group: TaskGroup, *, reset_datastore: bool = False) -> None:
-    #     start_event = create_event()
-    #     await task_group.spawn(self.run, start_event)
-    #     await start_event.wait()
-    #
-    #     if self.start_worker:
-    #         self._worker = AsyncWorker(self.data_store)
-    #         await self._worker.start(task_group)
 
     async def stop(self, force: bool = False) -> None:
         self._running = False
