@@ -402,11 +402,12 @@ This is useful when you need to prune unwanted jobs before they have a chance to
 Limiting the number of concurrently executing instances of a job
 ----------------------------------------------------------------
 
-By default, only one instance of each job is allowed to be run at the same time.
-This means that if the job is about to be run but the previous run hasn't finished yet, then the
-latest run is considered a misfire. It is possible to set the maximum number of instances for a
-particular job that the scheduler will let run concurrently, by using the ``max_instances`` keyword
-argument when adding the job.
+By default, an unlimited number of concurrent job executions is allowed. You can limit this by 
+setting the ``max_instances`` keyword argument when 
+:meth:`adding a job <~apscheduler.schedulers.base.BaseScheduler.add_job>`. 
+Any job runs exceeding the ``max_instances`` value before previous runs finish will be considered 
+a misfire and the following error will be displayed:
+``Execution of job [JOB] skipped: maximum number of running instances reached ([max_instances])``
 
 
 .. _missed-job-executions:
