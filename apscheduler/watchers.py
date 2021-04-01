@@ -12,11 +12,11 @@ class DelayWatcher:
 
     async def wait(self) -> None:
         async with move_on_after(self.max_wait_time):
-            self._event = create_event()
+            self._event = Event()
             await self._event.wait()
 
     async def notify(self) -> None:
         if self._event:
             event = self._event
             del self._event
-            await event.set()
+            event.set()

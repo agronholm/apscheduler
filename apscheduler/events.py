@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Type
 from uuid import UUID
 from warnings import warn
 
-from anyio import run_sync_in_worker_thread, start_blocking_portal
+from anyio import run_sync_in_worker_thread, start_blocking_portal, to_thread
 from anyio.abc import BlockingPortal
 
 from .abc import Event, EventSource
@@ -146,7 +146,7 @@ class SyncEventSource:
 
     async def _forward_async_event(self, event: Event) -> None:
         for subscriber in self._subscribers.get(type(event), ()):
-            await run_sync_in_worker_thread(subscriber, event)
+            await to_thread.run_sync(subscriber, event)
 
     def subscribe(self, callback: Callable[[Event], Any],
                   event_types: Optional[Iterable[Type[Event]]] = None) -> None:

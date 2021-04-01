@@ -95,8 +95,8 @@ class MemoryDataStore(DataStore, EventHub):
     async def __aenter__(self):
         self._loans += 1
         if self._loans == 1:
-            self._schedules_event = create_event()
-            self._jobs_event = create_event()
+            self._schedules_event = Event()
+            self._jobs_event = Event()
 
         return await super().__aenter__()
 
@@ -146,8 +146,8 @@ class MemoryDataStore(DataStore, EventHub):
 
         await self.publish(event)
 
-        old_event, self._schedules_event = self._schedules_event, create_event()
-        await old_event.set()
+        old_event, self._schedules_event = self._schedules_event, Event()
+        old_event.set()
 
     async def remove_schedules(self, ids: Iterable[str]) -> None:
         events: List[ScheduleRemoved] = []
@@ -221,8 +221,8 @@ class MemoryDataStore(DataStore, EventHub):
         self._jobs_by_id[job.id] = state
         self._jobs_by_task_id[job.task_id].add(state)
 
-        old_event, self._jobs_event = self._jobs_event, create_event()
-        await old_event.set()
+        old_event, self._jobs_event = self._jobs_event, Event()
+        old_event.set()
 
     async def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> List[Job]:
         if ids is not None:

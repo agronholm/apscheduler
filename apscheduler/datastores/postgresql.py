@@ -56,7 +56,7 @@ class PostgresqlDataStore(DataStore, EventHub):
         if self._loans == 1 and self.notify_channel:
             self._task_group = create_task_group()
             await self._task_group.__aenter__()
-            await self._task_group.spawn(self._listen_notifications)
+            self._task_group.start_soon(self._listen_notifications)
 
         return self
 
@@ -64,7 +64,7 @@ class PostgresqlDataStore(DataStore, EventHub):
         assert self._loans
         self._loans -= 1
         if self._loans == 0 and self.notify_channel:
-            await self._task_group.cancel_scope.cancel()
+            self._task_group.cancel_scope.cancel()
             await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
             del self._schedules_event
             del self._jobs_event

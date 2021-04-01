@@ -52,8 +52,8 @@ class MongoDBDataStore(DataStore, EventHub):
         if self._loans == 1 and self._watch_collections:
             self._task_group = create_task_group()
             await self._task_group.__aenter__()
-            await self._task_group.spawn(self._watch_collection, self._schedules)
-            await self._task_group.spawn(self._watch_collection, self._jobs)
+            self._task_group.start_soon(self._watch_collection, self._schedules)
+            self._task_group.start_soon(self._watch_collection, self._jobs)
 
         return self
 
@@ -61,7 +61,7 @@ class MongoDBDataStore(DataStore, EventHub):
         assert self._loans
         self._loans -= 1
         if self._loans == 0 and self._watch_collections:
-            await self._task_group.cancel_scope.cancel()
+            self._task_group.cancel_scope.cancel()
             await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
 
     async def _watch_collection(self, collection: Collection) -> None:

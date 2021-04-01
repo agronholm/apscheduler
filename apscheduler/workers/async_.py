@@ -10,7 +10,7 @@ from logging import Logger, getLogger
 from traceback import format_exc
 from typing import Any, Callable, Dict, Optional, Set
 
-from anyio import create_event, create_task_group, open_cancel_scope, run_sync_in_worker_thread
+from anyio import TASK_STATUS_IGNORED, create_task_group, run_sync_in_worker_thread, to_thread
 from anyio.abc import CancelScope, Event, TaskGroup
 
 from ..abc import DataStore, Job
@@ -50,34 +50,31 @@ class AsyncWorker(EventHub):
         # Start the actual worker
         self._task_group = create_task_group()
         await self._exit_stack.enter_async_context(self._task_group)
-        start_event = create_event()
-        await self._task_group.spawn(self.run, start_event)
-        await start_event.wait()
+        await self._task_group.start(self.run)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.stop(force=exc_type is not None)
         await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
 
-    async def run(self, start_event: Optional[Event] = None) -> None:
-        self._stop_event = create_event()
+    async def run(self, task_status=TASK_STATUS_IGNORED) -> None:
+        self._stop_event = Event()
         self._running = True
-        if start_event:
-            await start_event.set()
+        task_status.started()
 
         while self._running:
             limit = self.max_concurrent_jobs - self._running_jobs
             jobs = []
-            async with open_cancel_scope() as self._acquire_cancel_scope:
+            with CancelScope() as self._acquire_cancel_scope:
                 try:
                     jobs = await self.data_store.acquire_jobs(self.identity, limit)
                 finally:
                     del self._acquire_cancel_scope
 
             for job in jobs:
-                await self._task_group.spawn(self._run_job, job)
+                self._task_group.spawn(self._run_job, job)
 
-        await self._stop_event.set()
+        self._stop_event.set()
         del self._stop_event
         del self._task_group
 
@@ -129,7 +126,7 @@ class AsyncWorker(EventHub):
     async def _call_job_func(self, func: Callable, args: tuple, kwargs: Dict[str, Any]):
         if not self.run_sync_functions_in_event_loop and not iscoroutinefunction(func):
             wrapped = partial(func, *args, **kwargs)
-            return await run_sync_in_worker_thread(wrapped)
+            return await to_thread.run_sync(wrapped)
 
         return_value = func(*args, **kwargs)
         if isinstance(return_value, Coroutine):
@@ -140,10 +137,10 @@ class AsyncWorker(EventHub):
     async def stop(self, force: bool = False) -> None:
         self._running = False
         if self._acquire_cancel_scope:
-            await self._acquire_cancel_scope.cancel()
+            self._acquire_cancel_scope.cancel()
 
         if force and self._task_group:
-            await self._task_group.cancel_scope.cancel()
+            self._task_group.cancel_scope.cancel()
 
     async def wait_until_stopped(self) -> None:
         if self._stop_event:

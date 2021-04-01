@@ -7,8 +7,9 @@ from logging import Logger, getLogger
 from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Union
 from uuid import uuid4
 
-from anyio import create_event, create_task_group, get_cancelled_exc_class, open_cancel_scope
-from anyio.abc import CancelScope, Event, TaskGroup
+from anyio import (
+    TASK_STATUS_IGNORED, CancelScope, Event, create_task_group, get_cancelled_exc_class)
+from anyio.abc import TaskGroup
 
 from ..abc import DataStore, Job, Schedule, Task, Trigger
 from ..datastores.memory import MemoryDataStore
@@ -54,10 +55,7 @@ class AsyncScheduler(EventHub):
         # Start the actual scheduler
         self._task_group = create_task_group()
         await self._exit_stack.enter_async_context(self._task_group)
-        start_event = create_event()
-        await self._task_group.spawn(self.run, start_event)
-        await start_event.wait()
-
+        await self._task_group.start(self.run)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -114,14 +112,13 @@ class AsyncScheduler(EventHub):
     async def remove_schedule(self, schedule_id: str) -> None:
         await self.data_store.remove_schedules({schedule_id})
 
-    async def run(self, start_event: Optional[Event] = None) -> None:
-        self._stop_event = create_event()
+    async def run(self, *, task_status=TASK_STATUS_IGNORED) -> None:
+        self._stop_event = Event()
         self._running = True
-        if start_event:
-            await start_event.set()
+        task_status.started()
 
         while self._running:
-            async with open_cancel_scope() as self._acquire_cancel_scope:
+            with CancelScope() as self._acquire_cancel_scope:
                 try:
                     schedules = await self.data_store.acquire_schedules(self.identity, 100)
                 except get_cancelled_exc_class():
@@ -173,7 +170,7 @@ class AsyncScheduler(EventHub):
 
             await self.data_store.release_schedules(self.identity, schedules)
 
-        await self._stop_event.set()
+        self._stop_event.set()
         del self._stop_event
 
     async def stop(self, force: bool = False) -> None:
@@ -182,9 +179,9 @@ class AsyncScheduler(EventHub):
             await self._worker.stop(force)
 
         if self._acquire_cancel_scope:
-            await self._acquire_cancel_scope.cancel()
+            self._acquire_cancel_scope.cancel()
         if force and self._task_group:
-            await self._task_group.cancel_scope.cancel()
+            self._task_group.cancel_scope.cancel()
 
     async def wait_until_stopped(self) -> None:
         if self._stop_event:

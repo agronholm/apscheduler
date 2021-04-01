@@ -2,7 +2,7 @@ import threading
 from datetime import datetime
 
 import pytest
-from anyio import create_event, fail_after
+from anyio import Event, fail_after
 from apscheduler.abc import Job
 from apscheduler.events import JobDeadlineMissed, JobFailed, JobSuccessful, JobUpdated
 from apscheduler.workers.async_ import AsyncWorker
@@ -37,15 +37,15 @@ class TestAsyncWorker:
         async def listener(worker_event):
             worker_events.append(worker_event)
             if len(worker_events) == 2:
-                await event.set()
+                event.set()
 
         worker_events = []
-        event = create_event()
+        event = Event()
         job = Job('task_id', func=target_func, args=(1, 2), kwargs={'x': 'foo', 'fail': fail})
         async with AsyncWorker(store) as worker:
             worker.subscribe(listener)
             await store.add_job(job)
-            async with fail_after(2):
+            with fail_after(2):
                 await event.wait()
 
         assert len(worker_events) == 2
@@ -70,18 +70,18 @@ class TestAsyncWorker:
     async def test_run_deadline_missed(self, store):
         async def listener(worker_event):
             worker_events.append(worker_event)
-            await event.set()
+            event.set()
 
         scheduled_start_time = datetime(2020, 9, 14)
         worker_events = []
-        event = create_event()
+        event = Event()
         job = Job('task_id', fail_func, args=(), kwargs={}, schedule_id='foo',
                   scheduled_fire_time=scheduled_start_time,
                   start_deadline=datetime(2020, 9, 14, 1))
         async with AsyncWorker(store) as worker:
             worker.subscribe(listener)
             await store.add_job(job)
-            async with fail_after(5):
+            with fail_after(5):
                 await event.wait()
 
         assert len(worker_events) == 1
