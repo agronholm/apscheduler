@@ -13,6 +13,6 @@ if __name__ == '__main__':
     print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
 
     try:
-        scheduler.initialize()
+        scheduler.start()
     except (KeyboardInterrupt, SystemExit):
         pass
