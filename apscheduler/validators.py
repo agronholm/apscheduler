@@ -2,9 +2,10 @@ import sys
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any, Dict, Optional, Union
 
-from apscheduler.abc import Trigger
-from apscheduler.exceptions import DeserializationError
 from tzlocal import get_localzone
+
+from .abc import Trigger
+from .exceptions import DeserializationError
 
 if sys.version_info >= (3, 9):
     from zoneinfo import ZoneInfo
