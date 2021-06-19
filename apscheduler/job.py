@@ -1,3 +1,4 @@
+from datetime import datetime
 from inspect import ismethod, isclass
 from uuid import uuid4
 
@@ -40,12 +41,13 @@ class Job(object):
 
     __slots__ = ('_scheduler', '_jobstore_alias', 'id', 'trigger', 'executor', 'func', 'func_ref',
                  'args', 'kwargs', 'name', 'misfire_grace_time', 'coalesce', 'max_instances',
-                 'next_run_time', '__weakref__')
+                 'next_run_time', 'create_time', '__weakref__')
 
     def __init__(self, scheduler, id=None, **kwargs):
         super(Job, self).__init__()
         self._scheduler = scheduler
         self._jobstore_alias = None
+        self.create_time = datetime.now(self._scheduler.timezone)
         self._modify(id=id or uuid4().hex, **kwargs)
 
     def modify(self, **changes):
@@ -260,7 +262,8 @@ class Job(object):
             'misfire_grace_time': self.misfire_grace_time,
             'coalesce': self.coalesce,
             'max_instances': self.max_instances,
-            'next_run_time': self.next_run_time
+            'next_run_time': self.next_run_time,
+            'create_time': self.create_time
         }
 
     def __setstate__(self, state):
@@ -280,6 +283,7 @@ class Job(object):
         self.coalesce = state['coalesce']
         self.max_instances = state['max_instances']
         self.next_run_time = state['next_run_time']
+        self.create_time = state['create_time']
 
     def __eq__(self, other):
         if isinstance(other, Job):
