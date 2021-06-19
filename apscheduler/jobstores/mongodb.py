@@ -86,7 +86,8 @@ class MongoDBJobStore(BaseJobStore):
             self.collection.insert_one({
                 '_id': job.id,
                 'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
-                'job_state': Binary(pickle.dumps(job.__getstate__(), self.pickle_protocol))
+                'job_state': Binary(pickle.dumps(job.__getstate__(), self.pickle_protocol)),
+                'create_time': job.create_time
             })
         except DuplicateKeyError:
             raise ConflictingIdError(job.id)
