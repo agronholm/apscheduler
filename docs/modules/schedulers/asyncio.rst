@@ -29,4 +29,4 @@ If you have an application that runs on an AsyncIO event loop, you will want to 
        * Python <= 3.2: `trollius <https://pypi.python.org/pypi/trollius/>`_
    * - Example
      - ``examples/schedulers/asyncio_.py``
-       (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/asyncio_.py>`_).
+       (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/async_.py>`_).
