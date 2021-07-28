@@ -24,6 +24,8 @@ after the call returns.
      - :class:`~apscheduler.executors.pool.PoolExecutor`
    * - External dependencies
      - none
+  ..
+    Note: Example files have been deleted. Please consider re-adding
    * - Example
      - ``examples/schedulers/background.py``
        (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/background.py>`_).

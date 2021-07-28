@@ -22,6 +22,8 @@ TornadoScheduler was meant to be used in `Tornado <http://www.tornadoweb.org/en/
      - :class:`~apscheduler.executors.pool.PoolExecutor`
    * - External dependencies
      -  `tornado <https://pypi.python.org/pypi/tornado/>`_
+  ..
+    Note: Example files have been deleted. Please consider re-adding
    * - Example
      - ``examples/schedulers/tornado_.py``
        (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/tornado_.py>`_)

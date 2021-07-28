@@ -25,6 +25,8 @@ BlockingScheduler can be useful if you want to use APScheduler as a standalone s
      - :class:`~apscheduler.executors.pool.PoolExecutor`
    * - External dependencies
      - none
+  ..
+    Note: Example files have been deleted. Please consider re-adding     
    * - Example
      - ``examples/schedulers/blocking.py``
        (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/blocking.py>`_).

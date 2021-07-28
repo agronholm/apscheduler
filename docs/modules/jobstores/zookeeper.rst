@@ -20,6 +20,8 @@ ZooKeeperJobStore stores jobs in an `Apache ZooKeeper <https://zookeeper.apache.
 
    * - External dependencies
      - `kazoo <https://pypi.python.org/pypi/kazoo>`_
+  ..
+    Note: Example files have been deleted. Please consider re-adding
    * - Example
      - ``examples/jobstores/zookeeper.py``
        (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/jobstores/zookeeper.py>`_).

@@ -23,6 +23,8 @@ By default it uses the reactor's thread pool to execute jobs.
      - :class:`~apscheduler.executors.twisted.TwistedExecutor`
    * - External dependencies
      - `twisted <https://pypi.python.org/pypi/Twisted/>`_
+  ..
+    Note: Example files have been deleted. Please consider re-adding
    * - Example
      - ``examples/schedulers/twisted_.py``
        (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/twisted_.py>`_).

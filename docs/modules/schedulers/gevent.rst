@@ -23,6 +23,8 @@ GeventScheduler uses gevent natively, so it doesn't require monkey patching. By 
      - :class:`~apscheduler.executors.gevent.GeventExecutor`
    * - External dependencies
      - `gevent <https://pypi.python.org/pypi/gevent/>`_
+  ..
+    Note: Example files have been deleted. Please consider re-adding
    * - Example
      - ``examples/schedulers/gevent_.py``
        (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/gevent_.py>`_).

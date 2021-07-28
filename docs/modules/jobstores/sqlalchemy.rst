@@ -23,6 +23,8 @@ connection URL.
 
    * - External dependencies
      - `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy/>`_ (+ the backend specific driver package)
+  ..
+    Note: Example files have been deleted. Please consider re-adding
    * - Example
      - ``examples/jobstores/sqlalchemy_.py``
        (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/jobstores/sqlalchemy_.py>`_).
