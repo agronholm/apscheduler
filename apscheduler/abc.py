@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 from abc import ABCMeta, abstractmethod
 from base64 import b64decode, b64encode
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, FrozenSet, Iterable, Iterator, List, Optional, Set, Type
-from uuid import UUID, uuid4
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, List, Optional, Set, Type
+from uuid import UUID
 
-from .policies import CoalescePolicy, ConflictPolicy
+from .policies import ConflictPolicy
+from .structures import Job, Schedule
+
+if TYPE_CHECKING:
+    from . import events
 
 
 class Trigger(Iterator[datetime], metaclass=ABCMeta):
@@ -41,51 +46,6 @@ class Trigger(Iterator[datetime], metaclass=ABCMeta):
             return dateval
 
 
-@dataclass
-class Task:
-    id: str
-    func: Callable = field(compare=False)
-    max_instances: Optional[int] = field(compare=False, default=None)
-    metadata_arg: Optional[str] = field(compare=False, default=None)
-    stateful: bool = field(compare=False, default=False)
-    misfire_grace_time: Optional[timedelta] = field(compare=False, default=None)
-
-
-@dataclass(unsafe_hash=True)
-class Schedule:
-    id: str
-    task_id: str = field(compare=False)
-    trigger: Trigger = field(compare=False)
-    args: tuple = field(compare=False)
-    kwargs: Dict[str, Any] = field(compare=False)
-    coalesce: CoalescePolicy = field(compare=False)
-    misfire_grace_time: Optional[timedelta] = field(compare=False)
-    tags: FrozenSet[str] = field(compare=False)
-    next_fire_time: Optional[datetime] = field(compare=False, default=None)
-    last_fire_time: Optional[datetime] = field(init=False, compare=False, default=None)
-
-    @property
-    def next_deadline(self) -> Optional[datetime]:
-        if self.next_fire_time and self.misfire_grace_time:
-            return self.next_fire_time + self.misfire_grace_time
-
-        return None
-
-
-@dataclass(unsafe_hash=True)
-class Job:
-    id: UUID = field(init=False, default_factory=uuid4)
-    task_id: str = field(compare=False)
-    func: Callable = field(compare=False)
-    args: tuple = field(compare=False)
-    kwargs: Dict[str, Any] = field(compare=False)
-    schedule_id: Optional[str] = field(compare=False, default=None)
-    scheduled_fire_time: Optional[datetime] = field(compare=False, default=None)
-    start_deadline: Optional[datetime] = field(compare=False, default=None)
-    tags: Optional[FrozenSet[str]] = field(compare=False, default_factory=frozenset)
-    started_at: Optional[datetime] = field(init=False, compare=False, default=None)
-
-
 class Serializer(metaclass=ABCMeta):
     __slots__ = ()
 
@@ -104,16 +64,12 @@ class Serializer(metaclass=ABCMeta):
         return self.deserialize(b64decode(serialized))
 
 
-@dataclass(frozen=True)
-class Event:
-    timestamp: datetime
-
-
-@dataclass
 class EventSource(metaclass=ABCMeta):
     @abstractmethod
-    def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[Type[Event]]] = None) -> None:
+    def subscribe(
+        self, callback: Callable[[events.Event], Any],
+        event_types: Optional[Iterable[Type[events.Event]]] = None
+    ) -> events.SubscriptionToken:
         """
         Subscribe to events from this event source.
 
@@ -122,26 +78,111 @@ class EventSource(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def unsubscribe(self, callback: Callable[[Event], Any],
-                    event_types: Optional[Iterable[Type[Event]]] = None) -> None:
+    def unsubscribe(self, token: events.SubscriptionToken) -> None:
         """
-        Cancel an event subscription
+        Cancel an event subscription.
 
-        :param callback:
-        :param event_types: an iterable of concrete Event classes to unsubscribe from
-        :return:
-        """
-
-    @abstractmethod
-    async def publish(self, event: Event) -> None:
-        """
-        Publish an event.
-
-        :param event: the event to publish
+        :param token: a token returned from :meth:`subscribe`
         """
 
 
 class DataStore(EventSource):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    @abstractmethod
+    def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
+        """
+        Get schedules from the data store.
+
+        :param ids: a specific set of schedule IDs to return, or ``None`` to return all schedules
+        :return: the list of matching schedules, in unspecified order
+        """
+
+    @abstractmethod
+    def add_schedule(self, schedule: Schedule, conflict_policy: ConflictPolicy) -> None:
+        """
+        Add or update the given schedule in the data store.
+
+        :param schedule: schedule to be added
+        :param conflict_policy: policy that determines what to do if there is an existing schedule
+            with the same ID
+        """
+
+    @abstractmethod
+    def remove_schedules(self, ids: Iterable[str]) -> None:
+        """
+        Remove schedules from the data store.
+
+        :param ids: a specific set of schedule IDs to remove
+        """
+
+    @abstractmethod
+    def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
+        """
+        Acquire unclaimed due schedules for processing.
+
+        This method claims up to the requested number of schedules for the given scheduler and
+        returns them.
+
+        :param scheduler_id: unique identifier of the scheduler
+        :param limit: maximum number of schedules to claim
+        :return: the list of claimed schedules
+        """
+
+    @abstractmethod
+    def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
+        """
+        Release the claims on the given schedules and update them on the store.
+
+        :param scheduler_id: unique identifier of the scheduler
+        :param schedules: the previously claimed schedules
+        """
+
+    @abstractmethod
+    def add_job(self, job: Job) -> None:
+        """
+        Add a job to be executed by an eligible worker.
+
+        :param job: the job object
+        """
+
+    @abstractmethod
+    def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> List[Job]:
+        """
+        Get the list of pending jobs.
+
+        :param ids: a specific set of job IDs to return, or ``None`` to return all jobs
+        :return: the list of matching pending jobs, in the order they will be given to workers
+        """
+
+    @abstractmethod
+    def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> List[Job]:
+        """
+        Acquire unclaimed jobs for execution.
+
+        This method claims up to the requested number of jobs for the given worker and returns
+        them.
+
+        :param worker_id: unique identifier of the worker
+        :param limit: maximum number of jobs to claim and return
+        :return: the list of claimed jobs
+        """
+
+    @abstractmethod
+    def release_jobs(self, worker_id: str, jobs: List[Job]) -> None:
+        """
+        Releases the claim on the given jobs
+
+        :param worker_id: unique identifier of the worker
+        :param jobs: the previously claimed jobs
+        """
+
+
+class AsyncDataStore(EventSource):
     async def __aenter__(self):
         return self
 

@@ -1,93 +1,72 @@
-import asyncio
+from __future__ import annotations
+
+import json
 import logging
+from contextlib import AsyncExitStack
 from datetime import datetime, timezone
-from typing import Iterable, List, Optional, Set
+from json import JSONDecodeError
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Type
 from uuid import UUID
 
 import sniffio
-from anyio import create_task_group, move_on_after, sleep
+from anyio import create_task_group, sleep
 from anyio.abc import TaskGroup
-from asyncpg import UniqueViolationError
+from asyncpg import Connection, UniqueViolationError
 from asyncpg.pool import Pool
+from attr import asdict
 
-from ..abc import DataStore, Job, Schedule, Serializer
-from ..events import (
-    EventHub, JobAdded, ScheduleAdded, ScheduleEvent, ScheduleRemoved, ScheduleUpdated)
-from ..exceptions import ConflictingIdError, SerializationError
-from ..policies import ConflictPolicy
-from ..serializers.pickle import PickleSerializer
+from ... import events as events_module
+from ...abc import AsyncDataStore, Job, Schedule, Serializer
+from ...events import (
+    AsyncEventHub, DataStoreEvent, Event, JobAdded, ScheduleAdded, ScheduleRemoved,
+    ScheduleUpdated, SubscriptionToken)
+from ...exceptions import ConflictingIdError, SerializationError
+from ...policies import ConflictPolicy
+from ...serializers.pickle import PickleSerializer
+from ...util import reentrant
 
-logger = logging.getLogger(__name__)
+
+def default_json_handler(obj: Any) -> Any:
+    if isinstance(obj, datetime):
+        return obj.timestamp()
 
 
-class PostgresqlDataStore(DataStore, EventHub):
+def json_object_hook(obj: Dict[str, Any]) -> Any:
+    for key, value in obj:
+        if key == 'timestamp':
+            obj[key] = datetime.fromtimestamp(value, timezone.utc)
+
+    return obj
+
+
+@reentrant
+class PostgresqlDataStore(AsyncDataStore):
     _task_group: TaskGroup
-    _schedules_event: Optional[asyncio.Event] = None
-    _jobs_event: Optional[asyncio.Event] = None
 
     def __init__(self, pool: Pool, *, schema: str = 'public',
                  notify_channel: Optional[str] = 'apscheduler',
                  serializer: Optional[Serializer] = None,
-                 lock_expiration_delay: float = 30, max_poll_time: Optional[float] = 1,
-                 max_idle_time: float = 60, start_from_scratch: bool = False):
-        super().__init__()
+                 lock_expiration_delay: float = 30, max_idle_time: float = 60,
+                 start_from_scratch: bool = False):
         self.pool = pool
         self.schema = schema
         self.notify_channel = notify_channel
         self.serializer = serializer or PickleSerializer()
         self.lock_expiration_delay = lock_expiration_delay
-        self.max_poll_time = max_poll_time
         self.max_idle_time = max_idle_time
         self.start_from_scratch = start_from_scratch
         self._logger = logging.getLogger(__name__)
-        self._loans = 0
+        self._exit_stack = AsyncExitStack()
+        self._events = AsyncEventHub()
 
     async def __aenter__(self):
         asynclib = sniffio.current_async_library() or '(unknown)'
         if asynclib != 'asyncio':
             raise RuntimeError(f'This data store requires asyncio; currently running: {asynclib}')
 
-        if self._loans == 0:
-            self._schedules_event = asyncio.Event()
-            self._jobs_event = asyncio.Event()
-            await self._setup()
+        await self._exit_stack.__aenter__()
+        await self._exit_stack.enter_async_context(self._events)
 
-        self._loans += 1
-        if self._loans == 1 and self.notify_channel:
-            self._task_group = create_task_group()
-            await self._task_group.__aenter__()
-            self._task_group.start_soon(self._listen_notifications)
-
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        assert self._loans
-        self._loans -= 1
-        if self._loans == 0 and self.notify_channel:
-            self._task_group.cancel_scope.cancel()
-            await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
-            del self._schedules_event
-            del self._jobs_event
-
-    async def _listen_notifications(self) -> None:
-        def callback(connection, pid, channel: str, payload: str) -> None:
-            self._logger.debug('Received notification on channel %s: %s', channel, payload)
-            if payload == 'schedule':
-                self._schedules_event.set()
-            elif payload == 'job':
-                self._jobs_event.set()
-
-        while True:
-            async with self.pool.acquire() as conn:
-                await conn.add_listener(self.notify_channel, callback)
-                try:
-                    while True:
-                        await sleep(self.max_idle_time)
-                        await conn.execute('SELECT 1')
-                finally:
-                    await conn.remove_listener(self.notify_channel, callback)
-
-    async def _setup(self) -> None:
         async with self.pool.acquire() as conn, conn.transaction():
             if self.start_from_scratch:
                 await conn.execute(f"DROP TABLE IF EXISTS {self.schema}.schedules")
@@ -130,13 +109,71 @@ class PostgresqlDataStore(DataStore, EventHub):
                 raise RuntimeError(f'Unexpected schema version ({version}); '
                                    f'only version 1 is supported by this version of APScheduler')
 
+        if self.notify_channel:
+            self._task_group = create_task_group()
+            await self._task_group.__aenter__()
+            self._task_group.start_soon(self._listen_notifications)
+
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.notify_channel:
+            self._task_group.cancel_scope.cancel()
+            await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
+
+    def subscribe(self, callback: Callable[[Event], Any],
+                  event_types: Optional[Iterable[Type[Event]]] = None) -> SubscriptionToken:
+        return self._events.subscribe(callback, event_types)
+
+    def unsubscribe(self, token: SubscriptionToken) -> None:
+        self._events.unsubscribe(token)
+
+    async def _notify(self, conn: Connection, event: DataStoreEvent) -> None:
+        if self.notify_channel:
+            event_type = event.__class__.__name__
+            event_data = json.dumps(asdict(event), ensure_ascii=False,
+                                    default=default_json_handler)
+            notification = event_type + ' ' + event_data
+            if len(notification) < 8000:
+                await conn.execute(f"NOTIFY {self.notify_channel}, {notification!r}")
+                return
+
+            self._logger.warning(
+                'Could not send %s notification because it is too long (%d >= 8000)',
+                event_type, len(notification))
+
+        self._events.publish(event)
+
+    async def _listen_notifications(self) -> None:
+        def callback(connection, pid, channel: str, payload: str) -> None:
+            self._logger.debug('Received notification on channel %s: %s', channel, payload)
+            event_type, _, json_data = payload.partition(' ')
+            try:
+                event_data = json.loads(json_data)
+            except JSONDecodeError:
+                self._logger.exception('Failed decoding JSON payload of notification: %s', payload)
+                return
+
+            event_class = getattr(events_module, event_type)
+            event = event_class(**event_data)
+            self._events.publish(event)
+
+        while True:
+            async with self.pool.acquire() as conn:
+                await conn.add_listener(self.notify_channel, callback)
+                try:
+                    while True:
+                        await sleep(self.max_idle_time)
+                        await conn.execute('SELECT 1')
+                finally:
+                    await conn.remove_listener(self.notify_channel, callback)
+
     async def clear(self) -> None:
         async with self.pool.acquire() as conn, conn.transaction():
             await conn.execute(f"TRUNCATE TABLE {self.schema}.schedules")
             await conn.execute(f"TRUNCATE TABLE {self.schema}.jobs")
 
     async def add_schedule(self, schedule: Schedule, conflict_policy: ConflictPolicy) -> None:
-        event: Optional[ScheduleEvent] = None
         serialized_data = self.serializer.serialize(schedule)
         query = (f"INSERT INTO {self.schema}.schedules (id, serialized_data, task_id, "
                  f"next_fire_time) VALUES ($1, $2, $3, $4)")
@@ -154,29 +191,26 @@ class PostgresqlDataStore(DataStore, EventHub):
                     async with conn.transaction():
                         await conn.execute(query, schedule.id, serialized_data, schedule.task_id,
                                            schedule.next_fire_time)
-                    event = ScheduleUpdated(datetime.now(timezone.utc), schedule.id,
-                                            schedule.next_fire_time)
+
+                    event = ScheduleUpdated(
+                        schedule_id=schedule.id, next_fire_time=schedule.next_fire_time)
             else:
-                event = ScheduleAdded(datetime.now(timezone.utc), schedule.id,
-                                      schedule.next_fire_time)
+                event = ScheduleAdded(
+                    schedule_id=schedule.id, next_fire_time=schedule.next_fire_time)
 
-        if event:
-            await self.publish(event)
-
-        if self.notify_channel:
-            await self.pool.execute(f"NOTIFY {self.notify_channel}, 'schedule'")
+            await self._notify(conn, event)
 
     async def remove_schedules(self, ids: Iterable[str]) -> None:
         async with self.pool.acquire() as conn, conn.transaction():
-            now = datetime.now(timezone.utc)
             query = (f"DELETE FROM {self.schema}.schedules "
                      f"WHERE id = any($1::text[]) "
                      f"  AND (acquired_until IS NULL OR acquired_until < $2) "
                      f"RETURNING id")
+            now = datetime.now(timezone.utc)
             removed_ids = [row[0] for row in await conn.fetch(query, list(ids), now)]
-
-        for schedule_id in removed_ids:
-            await self.publish(ScheduleRemoved(now, schedule_id))
+            for schedule_id in removed_ids:
+                event = ScheduleRemoved(schedule_id=schedule_id)
+                self._events.publish(event)
 
     async def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
         query = f"SELECT serialized_data FROM {self.schema}.schedules"
@@ -190,42 +224,36 @@ class PostgresqlDataStore(DataStore, EventHub):
         return [self.serializer.deserialize(r[0]) for r in records]
 
     async def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
-        while True:
-            schedules: List[Schedule] = []
-            async with self.pool.acquire() as conn, conn.transaction():
-                acquired_until = datetime.fromtimestamp(
-                    datetime.now(timezone.utc).timestamp() + self.lock_expiration_delay,
-                    timezone.utc)
-                records = await conn.fetch(f"""
-                    WITH schedule_ids AS (
-                        SELECT id FROM {self.schema}.schedules
-                        WHERE next_fire_time IS NOT NULL AND next_fire_time <= $1
-                            AND (acquired_until IS NULL OR $1 > acquired_until)
-                        ORDER BY next_fire_time
-                        FOR NO KEY UPDATE SKIP LOCKED
-                        FETCH FIRST $2 ROWS ONLY
-                    )
-                    UPDATE {self.schema}.schedules SET acquired_by = $3, acquired_until = $4
-                    WHERE id IN (SELECT id FROM schedule_ids)
-                    RETURNING serialized_data
-                    """, datetime.now(timezone.utc), limit, scheduler_id, acquired_until)
+        schedules: List[Schedule] = []
+        async with self.pool.acquire() as conn, conn.transaction():
+            acquired_until = datetime.fromtimestamp(
+                datetime.now(timezone.utc).timestamp() + self.lock_expiration_delay,
+                timezone.utc)
+            records = await conn.fetch(f"""
+                WITH schedule_ids AS (
+                    SELECT id FROM {self.schema}.schedules
+                    WHERE next_fire_time IS NOT NULL AND next_fire_time <= $1
+                        AND (acquired_until IS NULL OR $1 > acquired_until)
+                    ORDER BY next_fire_time
+                    FOR NO KEY UPDATE SKIP LOCKED
+                    FETCH FIRST $2 ROWS ONLY
+                )
+                UPDATE {self.schema}.schedules SET acquired_by = $3, acquired_until = $4
+                WHERE id IN (SELECT id FROM schedule_ids)
+                RETURNING serialized_data
+                """, datetime.now(timezone.utc), limit, scheduler_id, acquired_until)
 
-            for record in records:
-                schedule = self.serializer.deserialize(record['serialized_data'])
-                schedules.append(schedule)
+        for record in records:
+            schedule = self.serializer.deserialize(record['serialized_data'])
+            schedules.append(schedule)
 
-            if schedules:
-                return schedules
-
-            async with move_on_after(self.max_poll_time):
-                await self._schedules_event.wait()
+        return schedules
 
     async def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
-        update_events: List[ScheduleUpdated] = []
+        events: List[DataStoreEvent] = []
         finished_schedule_ids: List[str] = []
         async with self.pool.acquire() as conn, conn.transaction():
             update_args = []
-            now = datetime.now(timezone.utc)
             for schedule in schedules:
                 if schedule.next_fire_time is not None:
                     try:
@@ -237,8 +265,10 @@ class PostgresqlDataStore(DataStore, EventHub):
                         continue
 
                     update_args.append((serialized_data, schedule.next_fire_time, schedule.id))
-                    update_events.append(
-                        ScheduleUpdated(now, schedule.id, schedule.next_fire_time))
+                    events.append(
+                        ScheduleUpdated(schedule_id=schedule.id,
+                                        next_fire_time=schedule.next_fire_time)
+                    )
                 else:
                     finished_schedule_ids.append(schedule.id)
 
@@ -255,27 +285,23 @@ class PostgresqlDataStore(DataStore, EventHub):
                     f"DELETE FROM {self.schema}.schedules "
                     f"WHERE id = any($1::text[]) AND acquired_by = $2",
                     list(finished_schedule_ids), scheduler_id)
+                for schedule_id in finished_schedule_ids:
+                    events.append(ScheduleRemoved(schedule_id=schedule_id))
 
-        for event in update_events:
-            await self.publish(event)
-
-        if update_events and self.notify_channel:
-            await self.pool.execute(f"NOTIFY {self.notify_channel}, 'schedule'")
-
-        for schedule_id in finished_schedule_ids:
-            event = ScheduleRemoved(datetime.now(timezone.utc), schedule_id)
-            await self.publish(event)
+            for event in events:
+                await self._notify(conn, event)
 
     async def add_job(self, job: Job) -> None:
         now = datetime.now(timezone.utc)
         query = (f"INSERT INTO {self.schema}.jobs (id, task_id, created_at, serialized_data, "
                  f"tags) VALUES($1, $2, $3, $4, $5)")
-        await self.pool.execute(query, job.id, job.task_id, now, self.serializer.serialize(job),
-                                job.tags)
-        await self.publish(JobAdded(now, job.id, job.task_id, job.schedule_id))
+        async with self.pool.acquire() as conn:
+            await conn.execute(query, job.id, job.task_id, now, self.serializer.serialize(job),
+                               job.tags)
+            event = JobAdded(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
+                             tags=job.tags)
 
-        if self.notify_channel:
-            await self.pool.execute(f"NOTIFY {self.notify_channel}, 'job'")
+            await self._notify(conn, event)
 
     async def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> List[Job]:
         query = f"SELECT serialized_data FROM {self.schema}.jobs"
@@ -289,35 +315,29 @@ class PostgresqlDataStore(DataStore, EventHub):
         return [self.serializer.deserialize(r[0]) for r in records]
 
     async def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> List[Job]:
-        while True:
-            jobs: List[Job] = []
-            async with self.pool.acquire() as conn, conn.transaction():
-                now = datetime.now(timezone.utc)
-                acquired_until = datetime.fromtimestamp(
-                    now.timestamp() + self.lock_expiration_delay, timezone.utc)
-                records = await conn.fetch(f"""
-                    WITH job_ids AS (
-                        SELECT id FROM {self.schema}.jobs
-                        WHERE acquired_until IS NULL OR acquired_until < $1
-                        ORDER BY created_at
-                        FOR NO KEY UPDATE SKIP LOCKED
-                        FETCH FIRST $2 ROWS ONLY
-                    )
-                    UPDATE {self.schema}.jobs SET acquired_by = $3, acquired_until = $4
-                    WHERE id IN (SELECT id FROM job_ids)
-                    RETURNING serialized_data
-                    """, now, limit, worker_id, acquired_until)
+        jobs: List[Job] = []
+        async with self.pool.acquire() as conn, conn.transaction():
+            now = datetime.now(timezone.utc)
+            acquired_until = datetime.fromtimestamp(
+                now.timestamp() + self.lock_expiration_delay, timezone.utc)
+            records = await conn.fetch(f"""
+                WITH job_ids AS (
+                    SELECT id FROM {self.schema}.jobs
+                    WHERE acquired_until IS NULL OR acquired_until < $1
+                    ORDER BY created_at
+                    FOR NO KEY UPDATE SKIP LOCKED
+                    FETCH FIRST $2 ROWS ONLY
+                )
+                UPDATE {self.schema}.jobs SET acquired_by = $3, acquired_until = $4
+                WHERE id IN (SELECT id FROM job_ids)
+                RETURNING serialized_data
+                """, now, limit, worker_id, acquired_until)
 
-            for record in records:
-                job = self.serializer.deserialize(record['serialized_data'])
-                jobs.append(job)
+        for record in records:
+            job = self.serializer.deserialize(record['serialized_data'])
+            jobs.append(job)
 
-            if jobs:
-                return jobs
-
-            async with move_on_after(self.max_poll_time):
-                await self._jobs_event.wait()
-                self._jobs_event.clear()
+        return jobs
 
     async def release_jobs(self, worker_id: str, jobs: List[Job]) -> None:
         job_ids = {j.id for j in jobs}

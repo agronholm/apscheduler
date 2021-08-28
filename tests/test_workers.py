@@ -1,12 +1,17 @@
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Callable, List
 
+import anyio
 import pytest
-from anyio import Event, fail_after
+from anyio import fail_after
 from apscheduler.abc import Job
-from apscheduler.events import JobDeadlineMissed, JobFailed, JobSuccessful, JobUpdated
+from apscheduler.datastores.sync.memory import MemoryDataStore
+from apscheduler.events import (
+    Event, JobAdded, JobCompleted, JobDeadlineMissed, JobFailed, JobStarted, WorkerStarted,
+    WorkerStopped)
 from apscheduler.workers.async_ import AsyncWorker
-from apscheduler.workers.sync import SyncWorker
+from apscheduler.workers.sync import Worker
 
 pytestmark = pytest.mark.anyio
 
@@ -32,120 +37,199 @@ def fail_func():
 class TestAsyncWorker:
     @pytest.mark.parametrize('target_func', [sync_func, async_func], ids=['sync', 'async'])
     @pytest.mark.parametrize('fail', [False, True], ids=['success', 'fail'])
-    @pytest.mark.parametrize('anyio_backend', ['asyncio'])
-    async def test_run_job_nonscheduled_success(self, target_func, fail, store):
-        async def listener(worker_event):
-            worker_events.append(worker_event)
-            if len(worker_events) == 2:
+    async def test_run_job_nonscheduled_success(self, target_func: Callable, fail: bool) -> None:
+        def listener(received_event: Event):
+            received_events.append(received_event)
+            if len(received_events) == 4:
                 event.set()
 
-        worker_events = []
-        event = Event()
-        job = Job('task_id', func=target_func, args=(1, 2), kwargs={'x': 'foo', 'fail': fail})
-        async with AsyncWorker(store) as worker:
-            worker.subscribe(listener)
-            await store.add_job(job)
-            with fail_after(2):
+        received_events: List[Event] = []
+        event = anyio.Event()
+        data_store = MemoryDataStore()
+        worker = AsyncWorker(data_store)
+        worker.subscribe(listener)
+        async with worker:
+            job = Job('task_id', func=target_func, args=(1, 2), kwargs={'x': 'foo', 'fail': fail})
+            await worker.data_store.add_job(job)
+            with fail_after(3):
                 await event.wait()
 
-        assert len(worker_events) == 2
+        # The worker was first started
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, WorkerStarted)
 
-        assert isinstance(worker_events[0], JobUpdated)
-        assert worker_events[0].job_id == job.id
-        assert worker_events[0].task_id == 'task_id'
-        assert worker_events[0].schedule_id is None
+        # Then a job was added
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, JobAdded)
+        assert received_event.job_id == job.id
+        assert received_event.task_id == 'task_id'
+        assert received_event.schedule_id is None
 
-        assert worker_events[1].job_id == job.id
-        assert worker_events[1].task_id == 'task_id'
-        assert worker_events[1].schedule_id is None
+        # Then the job was started
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, JobStarted)
+        assert received_event.job_id == job.id
+        assert received_event.task_id == 'task_id'
+        assert received_event.schedule_id is None
+
+        received_event = received_events.pop(0)
         if fail:
-            assert isinstance(worker_events[1], JobFailed)
-            assert type(worker_events[1].exception) is Exception
-            assert isinstance(worker_events[1].traceback, str)
+            # Then the job failed
+            assert isinstance(received_event, JobFailed)
+            assert isinstance(received_event.exception, str)
+            assert isinstance(received_event.traceback, str)
         else:
-            assert isinstance(worker_events[1], JobSuccessful)
-            assert worker_events[1].return_value == ((1, 2), {'x': 'foo'})
+            # Then the job finished successfully
+            assert isinstance(received_event, JobCompleted)
+            assert received_event.return_value == ((1, 2), {'x': 'foo'})
 
-    @pytest.mark.parametrize('anyio_backend', ['asyncio'])
-    async def test_run_deadline_missed(self, store):
-        async def listener(worker_event):
-            worker_events.append(worker_event)
-            event.set()
+        # Finally, the worker was stopped
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, WorkerStopped)
 
-        scheduled_start_time = datetime(2020, 9, 14)
-        worker_events = []
-        event = Event()
-        job = Job('task_id', fail_func, args=(), kwargs={}, schedule_id='foo',
-                  scheduled_fire_time=scheduled_start_time,
-                  start_deadline=datetime(2020, 9, 14, 1))
-        async with AsyncWorker(store) as worker:
-            worker.subscribe(listener)
-            await store.add_job(job)
-            with fail_after(5):
+        # There should be no more events on the list
+        assert not received_events
+
+    async def test_run_deadline_missed(self) -> None:
+        def listener(received_event: Event):
+            received_events.append(received_event)
+            if len(received_events) == 3:
+                event.set()
+
+        scheduled_start_time = datetime(2020, 9, 14, tzinfo=timezone.utc)
+        received_events: List[Event] = []
+        event = anyio.Event()
+        data_store = MemoryDataStore()
+        worker = AsyncWorker(data_store)
+        worker.subscribe(listener)
+        async with worker:
+            job = Job('task_id', fail_func, args=(), kwargs={}, schedule_id='foo',
+                      scheduled_fire_time=scheduled_start_time,
+                      start_deadline=datetime(2020, 9, 14, 1, tzinfo=timezone.utc))
+            await worker.data_store.add_job(job)
+            with fail_after(3):
                 await event.wait()
 
-        assert len(worker_events) == 1
-        assert isinstance(worker_events[0], JobDeadlineMissed)
-        assert worker_events[0].job_id == job.id
-        assert worker_events[0].task_id == 'task_id'
-        assert worker_events[0].schedule_id == 'foo'
-        assert worker_events[0].scheduled_fire_time == scheduled_start_time
+        # The worker was first started
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, WorkerStarted)
+
+        # Then a job was added
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, JobAdded)
+        assert received_event.job_id == job.id
+        assert received_event.task_id == 'task_id'
+        assert received_event.schedule_id == 'foo'
+
+        # Then the deadline was missed
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, JobDeadlineMissed)
+        assert received_event.job_id == job.id
+        assert received_event.task_id == 'task_id'
+        assert received_event.schedule_id == 'foo'
+
+        # Finally, the worker was stopped
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, WorkerStopped)
+
+        # There should be no more events on the list
+        assert not received_events
 
 
 class TestSyncWorker:
-    @pytest.mark.parametrize('target_func', [sync_func, async_func], ids=['sync', 'async'])
     @pytest.mark.parametrize('fail', [False, True], ids=['success', 'fail'])
-    def test_run_job_nonscheduled(self, anyio_backend, target_func, fail, sync_store, portal):
-        def listener(worker_event):
-            print('received event:', worker_event)
-            worker_events.append(worker_event)
-            if len(worker_events) == 2:
+    def test_run_job_nonscheduled(self, fail: bool) -> None:
+        def listener(received_event: Event):
+            received_events.append(received_event)
+            if len(received_events) == 4:
                 event.set()
 
-        worker_events = []
+        received_events: List[Event] = []
         event = threading.Event()
-        job = Job('task_id', func=target_func, args=(1, 2), kwargs={'x': 'foo', 'fail': fail})
-        with SyncWorker(sync_store, portal=portal) as worker:
-            worker.subscribe(listener)
-            portal.call(sync_store.add_job, job)
-            event.wait(2)
-
-        assert len(worker_events) == 2
-
-        assert isinstance(worker_events[0], JobUpdated)
-        assert worker_events[0].job_id == job.id
-        assert worker_events[0].task_id == 'task_id'
-        assert worker_events[0].schedule_id is None
-
-        assert worker_events[1].job_id == job.id
-        assert worker_events[1].task_id == 'task_id'
-        assert worker_events[1].schedule_id is None
-        if fail:
-            assert isinstance(worker_events[1], JobFailed)
-            assert type(worker_events[1].exception) is Exception
-            assert isinstance(worker_events[1].traceback, str)
-        else:
-            assert isinstance(worker_events[1], JobSuccessful)
-            assert worker_events[1].return_value == ((1, 2), {'x': 'foo'})
-
-    def test_run_deadline_missed(self, anyio_backend, sync_store, portal):
-        def listener(worker_event):
-            worker_events.append(worker_event)
-            event.set()
-
-        scheduled_start_time = datetime(2020, 9, 14)
-        worker_events = []
-        event = threading.Event()
-        job = Job('task_id', fail_func, args=(), kwargs={}, schedule_id='foo',
-                  scheduled_fire_time=scheduled_start_time,
-                  start_deadline=datetime(2020, 9, 14, 1))
-        with SyncWorker(sync_store, portal=portal) as worker:
-            worker.subscribe(listener)
-            portal.call(sync_store.add_job, job)
+        data_store = MemoryDataStore()
+        worker = Worker(data_store)
+        worker.subscribe(listener)
+        with worker:
+            job = Job('task_id', func=sync_func, args=(1, 2), kwargs={'x': 'foo', 'fail': fail})
+            worker.data_store.add_job(job)
             event.wait(5)
 
-        assert len(worker_events) == 1
-        assert isinstance(worker_events[0], JobDeadlineMissed)
-        assert worker_events[0].job_id == job.id
-        assert worker_events[0].task_id == 'task_id'
-        assert worker_events[0].schedule_id == 'foo'
+        # The worker was first started
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, WorkerStarted)
+
+        # Then a job was added
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, JobAdded)
+        assert received_event.job_id == job.id
+        assert received_event.task_id == 'task_id'
+        assert received_event.schedule_id is None
+
+        # Then the job was started
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, JobStarted)
+        assert received_event.job_id == job.id
+        assert received_event.task_id == 'task_id'
+        assert received_event.schedule_id is None
+
+        received_event = received_events.pop(0)
+        if fail:
+            # Then the job failed
+            assert isinstance(received_event, JobFailed)
+            assert isinstance(received_event.exception, str)
+            assert isinstance(received_event.traceback, str)
+        else:
+            # Then the job finished successfully
+            assert isinstance(received_event, JobCompleted)
+            assert received_event.return_value == ((1, 2), {'x': 'foo'})
+
+        # Finally, the worker was stopped
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, WorkerStopped)
+
+        # There should be no more events on the list
+        assert not received_events
+
+    def test_run_deadline_missed(self) -> None:
+        def listener(worker_event: Event):
+            received_events.append(worker_event)
+            if len(received_events) == 3:
+                event.set()
+
+        scheduled_start_time = datetime(2020, 9, 14, tzinfo=timezone.utc)
+        received_events: List[Event] = []
+        event = threading.Event()
+        data_store = MemoryDataStore()
+        worker = Worker(data_store)
+        worker.subscribe(listener)
+        with worker:
+            job = Job('task_id', fail_func, args=(), kwargs={}, schedule_id='foo',
+                      scheduled_fire_time=scheduled_start_time,
+                      start_deadline=datetime(2020, 9, 14, 1, tzinfo=timezone.utc))
+            worker.data_store.add_job(job)
+            event.wait(5)
+
+        # The worker was first started
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, WorkerStarted)
+
+        # Then a job was added
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, JobAdded)
+        assert received_event.job_id == job.id
+        assert received_event.task_id == 'task_id'
+        assert received_event.schedule_id == 'foo'
+
+        # Then the deadline was missed
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, JobDeadlineMissed)
+        assert received_event.job_id == job.id
+        assert received_event.task_id == 'task_id'
+        assert received_event.schedule_id == 'foo'
+
+        # Finally, the worker was stopped
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, WorkerStopped)
+
+        # There should be no more events on the list
+        assert not received_events
