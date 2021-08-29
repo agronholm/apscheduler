@@ -1,22 +1,29 @@
 from __future__ import annotations
 
+import json
 import logging
+from contextlib import AsyncExitStack, closing
 from datetime import datetime, timedelta, timezone
+from json import JSONDecodeError
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 from uuid import UUID
 
 import sniffio
+from anyio import TASK_STATUS_IGNORED, create_task_group, sleep
+from attr import asdict
 from sqlalchemy import (
-    Column, DateTime, Integer, LargeBinary, MetaData, Table, Unicode, and_, bindparam, or_, select)
+    Column, DateTime, Integer, LargeBinary, MetaData, Table, Unicode, and_, bindparam, func, or_,
+    select)
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import CompileError, IntegrityError
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 from sqlalchemy.ext.asyncio.engine import AsyncConnectable
 from sqlalchemy.sql.ddl import DropTable
 
+from ... import events as events_module
 from ...abc import AsyncDataStore, Job, Schedule, Serializer
 from ...events import (
-    AsyncEventHub, Event, JobAdded, JobDeserializationFailed, ScheduleAdded,
+    AsyncEventHub, DataStoreEvent, Event, JobAdded, JobDeserializationFailed, ScheduleAdded,
     ScheduleDeserializationFailed, ScheduleRemoved, ScheduleUpdated, SubscriptionToken)
 from ...exceptions import ConflictingIdError, SerializationError
 from ...policies import ConflictPolicy
@@ -24,6 +31,29 @@ from ...serializers.pickle import PickleSerializer
 from ...util import reentrant
 
 logger = logging.getLogger(__name__)
+
+
+def default_json_handler(obj: Any) -> Any:
+    if isinstance(obj, datetime):
+        return obj.timestamp()
+    elif isinstance(obj, UUID):
+        return obj.hex
+    elif isinstance(obj, frozenset):
+        return list(obj)
+
+    raise TypeError(f'Cannot JSON encode type {type(obj)}')
+
+
+def json_object_hook(obj: Dict[str, Any]) -> Any:
+    for key, value in obj.items():
+        if key == 'timestamp':
+            obj[key] = datetime.fromtimestamp(value, timezone.utc)
+        elif key == 'job_id':
+            obj[key] = UUID(value)
+        elif key == 'tags':
+            obj[key] = frozenset(value)
+
+    return obj
 
 
 @reentrant
@@ -59,7 +89,8 @@ class SQLAlchemyDataStore(AsyncDataStore):
     def __init__(self, bind: AsyncConnectable, *, schema: Optional[str] = None,
                  serializer: Optional[Serializer] = None,
                  lock_expiration_delay: float = 30, max_poll_time: Optional[float] = 1,
-                 max_idle_time: float = 60, start_from_scratch: bool = False):
+                 max_idle_time: float = 60, start_from_scratch: bool = False,
+                 notify_channel: Optional[str] = 'apscheduler'):
         self.bind = bind
         self.schema = schema
         self.serializer = serializer or PickleSerializer()
@@ -68,6 +99,7 @@ class SQLAlchemyDataStore(AsyncDataStore):
         self.max_idle_time = max_idle_time
         self.start_from_scratch = start_from_scratch
         self._logger = logging.getLogger(__name__)
+        self._exit_stack = AsyncExitStack()
         self._events = AsyncEventHub()
 
         # Find out if the dialect supports RETURNING
@@ -79,6 +111,11 @@ class SQLAlchemyDataStore(AsyncDataStore):
         else:
             self._supports_update_returning = True
 
+        self.notify_channel = notify_channel
+        if notify_channel:
+            if self.bind.dialect.name != 'postgresql' or self.bind.dialect.driver != 'asyncpg':
+                self.notify_channel = None
+
     @classmethod
     def from_url(cls, url: Union[str, URL], **options) -> 'SQLAlchemyDataStore':
         engine = create_async_engine(url, future=True)
@@ -89,6 +126,7 @@ class SQLAlchemyDataStore(AsyncDataStore):
         if asynclib != 'asyncio':
             raise RuntimeError(f'This data store requires asyncio; currently running: {asynclib}')
 
+        # Verify that the schema is in place
         async with self.bind.begin() as conn:
             if self.start_from_scratch:
                 for table in self._metadata.sorted_tables:
@@ -104,11 +142,64 @@ class SQLAlchemyDataStore(AsyncDataStore):
                 raise RuntimeError(f'Unexpected schema version ({version}); '
                                    f'only version 1 is supported by this version of APScheduler')
 
-        await self._events.__aenter__()
+        await self._exit_stack.enter_async_context(self._events)
+
+        if self.notify_channel:
+            task_group = create_task_group()
+            await self._exit_stack.enter_async_context(task_group)
+            await task_group.start(self._listen_notifications)
+            self._exit_stack.callback(task_group.cancel_scope.cancel)
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self._events.__aexit__(exc_type, exc_val, exc_tb)
+        await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
+
+    async def _publish(self, conn: AsyncConnection, event: DataStoreEvent) -> None:
+        if self.notify_channel:
+            event_type = event.__class__.__name__
+            event_data = json.dumps(asdict(event), ensure_ascii=False,
+                                    default=default_json_handler)
+            notification = event_type + ' ' + event_data
+            if len(notification) < 8000:
+                await conn.execute(func.pg_notify(self.notify_channel, notification))
+                return
+
+            self._logger.warning(
+                'Could not send %s notification because it is too long (%d >= 8000)',
+                event_type, len(notification))
+
+        self._events.publish(event)
+
+    async def _listen_notifications(self, *, task_status=TASK_STATUS_IGNORED) -> None:
+        def callback(connection, pid, channel: str, payload: str) -> None:
+            self._logger.debug('Received notification on channel %s: %s', channel, payload)
+            event_type, _, json_data = payload.partition(' ')
+            try:
+                event_data = json.loads(json_data, object_hook=json_object_hook)
+            except JSONDecodeError:
+                self._logger.exception('Failed decoding JSON payload of notification: %s', payload)
+                return
+
+            event_class = getattr(events_module, event_type)
+            event = event_class(**event_data)
+            self._events.publish(event)
+
+        task_started_sent = False
+        while True:
+            with closing(await self.bind.raw_connection()) as conn:
+                asyncpg_conn = conn.connection._connection
+                await asyncpg_conn.add_listener(self.notify_channel, callback)
+                if not task_started_sent:
+                    task_status.started()
+                    task_started_sent = True
+
+                try:
+                    while True:
+                        await sleep(self.max_idle_time)
+                        await asyncpg_conn.execute('SELECT 1')
+                finally:
+                    await asyncpg_conn.remove_listener(self.notify_channel, callback)
 
     def _deserialize_jobs(self, serialized_jobs: Iterable[Tuple[UUID, bytes]]) -> List[Job]:
         jobs: List[Job] = []
@@ -152,6 +243,9 @@ class SQLAlchemyDataStore(AsyncDataStore):
         try:
             async with self.bind.begin() as conn:
                 await conn.execute(statement)
+                event = ScheduleAdded(schedule_id=schedule.id,
+                                      next_fire_time=schedule.next_fire_time)
+                await self._publish(conn, event)
         except IntegrityError:
             if conflict_policy is ConflictPolicy.exception:
                 raise ConflictingIdError(schedule.id) from None
@@ -163,13 +257,9 @@ class SQLAlchemyDataStore(AsyncDataStore):
                 async with self.bind.begin() as conn:
                     await conn.execute(statement)
 
-                event = ScheduleUpdated(schedule_id=schedule.id,
-                                        next_fire_time=schedule.next_fire_time)
-                self._events.publish(event)
-        else:
-            event = ScheduleAdded(schedule_id=schedule.id,
-                                  next_fire_time=schedule.next_fire_time)
-            self._events.publish(event)
+                    event = ScheduleUpdated(schedule_id=schedule.id,
+                                            next_fire_time=schedule.next_fire_time)
+                    await self._publish(conn, event)
 
     async def remove_schedules(self, ids: Iterable[str]) -> None:
         async with self.bind.begin() as conn:
@@ -184,8 +274,8 @@ class SQLAlchemyDataStore(AsyncDataStore):
             else:
                 await conn.execute(statement)
 
-        for schedule_id in removed_ids:
-            self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
+            for schedule_id in removed_ids:
+                await self._publish(conn, ScheduleRemoved(schedule_id=schedule_id))
 
     async def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
         query = select([self.t_schedules.c.id, self.t_schedules.c.serialized_data]).\
@@ -272,11 +362,11 @@ class SQLAlchemyDataStore(AsyncDataStore):
                                self.t_schedules.c.acquired_by == scheduler_id))
                 await conn.execute(statement)
 
-        for event in update_events:
-            self._events.publish(event)
+            for event in update_events:
+                await self._publish(conn, event)
 
-        for schedule_id in finished_schedule_ids:
-            self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
+            for schedule_id in finished_schedule_ids:
+                await self._publish(conn, ScheduleRemoved(schedule_id=schedule_id))
 
     async def add_job(self, job: Job) -> None:
         now = datetime.now(timezone.utc)
@@ -286,9 +376,9 @@ class SQLAlchemyDataStore(AsyncDataStore):
         async with self.bind.begin() as conn:
             await conn.execute(statement)
 
-        event = JobAdded(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
-                         tags=job.tags)
-        self._events.publish(event)
+            event = JobAdded(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
+                             tags=job.tags)
+            await self._publish(conn, event)
 
     async def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> List[Job]:
         query = select([self.t_jobs.c.id, self.t_jobs.c.serialized_data]).\

@@ -7,7 +7,7 @@ from typing import AsyncContextManager, AsyncGenerator, List, Optional, Set, Typ
 import anyio
 import pytest
 from apscheduler.abc import AsyncDataStore, Job, Schedule
-from apscheduler.events import Event, ScheduleAdded, ScheduleRemoved, ScheduleUpdated
+from apscheduler.events import Event, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated
 from apscheduler.policies import CoalescePolicy, ConflictPolicy
 from apscheduler.triggers.date import DateTrigger
 from freezegun.api import FrozenDateTimeFactory
@@ -195,37 +195,36 @@ class TestAsyncStores:
 
     async def test_acquire_release_jobs(self, datastore_cm: AsyncContextManager[AsyncDataStore],
                                         jobs: List[Job]) -> None:
-        async with datastore_cm as store:
+        async with datastore_cm as store, capture_events(store, 0) as events:
             for job in jobs:
                 await store.add_job(job)
 
-            async with capture_events(store, 0) as events:
-                # The first worker gets the first job in the queue
-                jobs1 = await store.acquire_jobs('dummy-id1', 1)
-                assert len(jobs1) == 1
-                assert jobs1[0].id == jobs[0].id
+            # The first worker gets the first job in the queue
+            jobs1 = await store.acquire_jobs('dummy-id1', 1)
+            assert len(jobs1) == 1
+            assert jobs1[0].id == jobs[0].id
 
-                # The second worker gets the second job
-                jobs2 = await store.acquire_jobs('dummy-id2', 1)
-                assert len(jobs2) == 1
-                assert jobs2[0].id == jobs[1].id
+            # The second worker gets the second job
+            jobs2 = await store.acquire_jobs('dummy-id2', 1)
+            assert len(jobs2) == 1
+            assert jobs2[0].id == jobs[1].id
 
-                # The third worker gets nothing
-                assert not await store.acquire_jobs('dummy-id3', 1)
+            # The third worker gets nothing
+            assert not await store.acquire_jobs('dummy-id3', 1)
 
-                # All the jobs should still be returned
-                visible_jobs = await store.get_jobs()
-                assert len(visible_jobs) == 2
+            # All the jobs should still be returned
+            visible_jobs = await store.get_jobs()
+            assert len(visible_jobs) == 2
 
-                await store.release_jobs('dummy-id1', jobs1)
-                await store.release_jobs('dummy-id2', jobs2)
+            await store.release_jobs('dummy-id1', jobs1)
+            await store.release_jobs('dummy-id2', jobs2)
 
-                # All the jobs should be gone
-                visible_jobs = await store.get_jobs()
-                assert len(visible_jobs) == 0
+            # All the jobs should be gone
+            visible_jobs = await store.get_jobs()
+            assert len(visible_jobs) == 0
 
         # Check for the appropriate events
-        assert not events
+        assert all(isinstance(event, JobAdded) for event in events)
 
     async def test_acquire_jobs_lock_timeout(
             self, datastore_cm: AsyncContextManager[AsyncDataStore], jobs: List[Job],

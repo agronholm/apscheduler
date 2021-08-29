@@ -50,17 +50,6 @@ def setup_mongodb_store() -> Generator[DataStore, None, None]:
         yield MongoDBDataStore(client, start_from_scratch=True)
 
 
-@asynccontextmanager
-async def setup_postgresql_store() -> AsyncGenerator[AsyncDataStore, None]:
-    from apscheduler.datastores.async_.postgresql import PostgresqlDataStore
-    from asyncpg import create_pool
-
-    pool = await create_pool('postgresql://postgres:secret@localhost/testdb',
-                             min_size=1, max_size=2)
-    async with pool:
-        yield PostgresqlDataStore(pool, start_from_scratch=True)
-
-
 @contextmanager
 def setup_sqlalchemy_store() -> Generator[DataStore, None, None]:
     from apscheduler.datastores.sync.sqlalchemy import SQLAlchemyDataStore
@@ -96,7 +85,6 @@ def setup_sync_store(request) -> ContextManager[DataStore]:
 
 
 @pytest.fixture(params=[
-    pytest.param(setup_postgresql_store, id='postgresql', marks=[pytest.mark.externaldb]),
     pytest.param(setup_async_sqlalchemy_store, id='async_sqlalchemy',
                  marks=[pytest.mark.externaldb])
 ])
@@ -108,7 +96,6 @@ def setup_async_store(request) -> AsyncContextManager[AsyncDataStore]:
     pytest.param(setup_memory_store, id='memory'),
     pytest.param(setup_mongodb_store, id='mongodb', marks=[pytest.mark.externaldb]),
     pytest.param(setup_sqlalchemy_store, id='sqlalchemy', marks=[pytest.mark.externaldb]),
-    pytest.param(setup_postgresql_store, id='postgresql', marks=[pytest.mark.externaldb]),
     pytest.param(setup_async_sqlalchemy_store, id='async_sqlalchemy',
                  marks=[pytest.mark.externaldb])
 ])
