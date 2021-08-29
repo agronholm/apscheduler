@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import AsyncContextManager, List
+from typing import AsyncContextManager, AsyncGenerator, List, Optional, Set, Type
 
+import anyio
 import pytest
 from apscheduler.abc import AsyncDataStore, Job, Schedule
-from apscheduler.events import ScheduleAdded, ScheduleRemoved, ScheduleUpdated
+from apscheduler.events import Event, ScheduleAdded, ScheduleRemoved, ScheduleUpdated
 from apscheduler.policies import CoalescePolicy, ConflictPolicy
 from apscheduler.triggers.date import DateTrigger
 from freezegun.api import FrozenDateTimeFactory
@@ -39,13 +41,32 @@ def jobs() -> List[Job]:
     return [job1, job2]
 
 
+@asynccontextmanager
+async def capture_events(
+    store: AsyncDataStore, limit: int,
+    event_types: Optional[Set[Type[Event]]] = None
+) -> AsyncGenerator[List[Event], None, None]:
+    def listener(event: Event) -> None:
+        print('received', event)
+        events.append(event)
+        if len(events) == limit:
+            limit_event.set()
+            store.unsubscribe(token)
+
+    events: List[Event] = []
+    limit_event = anyio.Event()
+    token = store.subscribe(listener, event_types)
+    yield events
+    if limit:
+        with anyio.fail_after(3):
+            await limit_event.wait()
+
+
 @pytest.mark.anyio
 class TestAsyncStores:
     async def test_add_schedules(self, datastore_cm: AsyncContextManager[AsyncDataStore],
                                  schedules: List[Schedule]) -> None:
-        events = []
-        async with datastore_cm as store:
-            store.subscribe(events.append, [ScheduleAdded])
+        async with datastore_cm as store, capture_events(store, 3, {ScheduleAdded}) as events:
             for schedule in schedules:
                 await store.add_schedule(schedule, ConflictPolicy.exception)
 
@@ -55,20 +76,16 @@ class TestAsyncStores:
             assert await store.get_schedules({'s2'}) == [schedules[1]]
             assert await store.get_schedules({'s3'}) == [schedules[2]]
 
-        assert len(events) == 3
-        add_events = [event for event in events if isinstance(event, ScheduleAdded)]
-        for event, schedule in zip(add_events, schedules):
+        for event, schedule in zip(events, schedules):
             assert event.schedule_id == schedule.id
             assert event.next_fire_time == schedule.next_fire_time
 
     async def test_replace_schedules(self, datastore_cm: AsyncContextManager[AsyncDataStore],
                                      schedules: List[Schedule]) -> None:
-        async with datastore_cm as store:
+        async with datastore_cm as store, capture_events(store, 1, {ScheduleUpdated}) as events:
             for schedule in schedules:
                 await store.add_schedule(schedule, ConflictPolicy.exception)
 
-            events = []
-            store.subscribe(events.append)
             next_fire_time = schedules[2].trigger.next()
             schedule = Schedule(id='s3', task_id='foo', trigger=schedules[2].trigger, args=(),
                                 kwargs={}, coalesce=CoalescePolicy.earliest,
@@ -85,38 +102,37 @@ class TestAsyncStores:
             assert schedules[0].misfire_grace_time is None
             assert schedules[0].tags == frozenset()
 
-        assert len(events) == 1
-        assert isinstance(events[0], ScheduleUpdated)
-        assert events[0].schedule_id == 's3'
-        assert events[0].next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
+        received_event = events.pop(0)
+        assert received_event.schedule_id == 's3'
+        assert received_event.next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
+        assert not events
 
     async def test_remove_schedules(self, datastore_cm: AsyncContextManager[AsyncDataStore],
                                     schedules: List[Schedule]) -> None:
-        events = []
-        async with datastore_cm as store:
+        async with datastore_cm as store, capture_events(store, 2, {ScheduleRemoved}) as events:
             for schedule in schedules:
                 await store.add_schedule(schedule, ConflictPolicy.exception)
 
-            store.subscribe(events.append)
             await store.remove_schedules(['s1', 's2'])
             assert await store.get_schedules() == [schedules[2]]
 
-        assert len(events) == 2
-        assert isinstance(events[0], ScheduleRemoved)
-        assert events[0].schedule_id == 's1'
-        assert isinstance(events[1], ScheduleRemoved)
-        assert events[1].schedule_id == 's2'
+        received_event = events.pop(0)
+        assert received_event.schedule_id == 's1'
+
+        received_event = events.pop(0)
+        assert received_event.schedule_id == 's2'
+
+        assert not events
 
     @pytest.mark.freeze_time(datetime(2020, 9, 14, tzinfo=timezone.utc))
     async def test_acquire_release_schedules(
             self, datastore_cm, schedules: List[Schedule]) -> None:
-        events = []
-        async with datastore_cm as store:
+        event_types = {ScheduleRemoved, ScheduleUpdated}
+        async with datastore_cm as store, capture_events(store, 2, event_types) as events:
             for schedule in schedules:
                 await store.add_schedule(schedule, ConflictPolicy.exception)
 
             # The first scheduler gets the first due schedule
-            store.subscribe(events.append)
             schedules1 = await store.acquire_schedules('dummy-id1', 1)
             assert len(schedules1) == 1
             assert schedules1[0].id == 's1'
@@ -142,12 +158,16 @@ class TestAsyncStores:
             assert schedules[1].id == 's3'
 
         # Check for the appropriate update and delete events
-        assert len(events) == 2
-        assert isinstance(events[0], ScheduleRemoved)
-        assert isinstance(events[1], ScheduleUpdated)
-        assert events[0].schedule_id == 's1'
-        assert events[1].schedule_id == 's2'
-        assert events[1].next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
+        received_event = events.pop(0)
+        assert isinstance(received_event, ScheduleRemoved)
+        assert received_event.schedule_id == 's1'
+
+        received_event = events.pop(0)
+        assert isinstance(received_event, ScheduleUpdated)
+        assert received_event.schedule_id == 's2'
+        assert received_event.next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
+
+        assert not events
 
     async def test_acquire_schedules_lock_timeout(
             self, datastore_cm, schedules: List[Schedule], freezer) -> None:
@@ -176,35 +196,34 @@ class TestAsyncStores:
 
     async def test_acquire_release_jobs(self, datastore_cm: AsyncContextManager[AsyncDataStore],
                                         jobs: List[Job]) -> None:
-        events = []
         async with datastore_cm as store:
             for job in jobs:
                 await store.add_job(job)
 
-            # The first worker gets the first job in the queue
-            store.subscribe(events.append)
-            jobs1 = await store.acquire_jobs('dummy-id1', 1)
-            assert len(jobs1) == 1
-            assert jobs1[0].id == jobs[0].id
+            async with capture_events(store, 0) as events:
+                # The first worker gets the first job in the queue
+                jobs1 = await store.acquire_jobs('dummy-id1', 1)
+                assert len(jobs1) == 1
+                assert jobs1[0].id == jobs[0].id
 
-            # The second worker gets the second job
-            jobs2 = await store.acquire_jobs('dummy-id2', 1)
-            assert len(jobs2) == 1
-            assert jobs2[0].id == jobs[1].id
+                # The second worker gets the second job
+                jobs2 = await store.acquire_jobs('dummy-id2', 1)
+                assert len(jobs2) == 1
+                assert jobs2[0].id == jobs[1].id
 
-            # The third worker gets nothing
-            assert not await store.acquire_jobs('dummy-id3', 1)
+                # The third worker gets nothing
+                assert not await store.acquire_jobs('dummy-id3', 1)
 
-            # All the jobs should still be returned
-            visible_jobs = await store.get_jobs()
-            assert len(visible_jobs) == 2
+                # All the jobs should still be returned
+                visible_jobs = await store.get_jobs()
+                assert len(visible_jobs) == 2
 
-            await store.release_jobs('dummy-id1', jobs1)
-            await store.release_jobs('dummy-id2', jobs2)
+                await store.release_jobs('dummy-id1', jobs1)
+                await store.release_jobs('dummy-id2', jobs2)
 
-            # All the jobs should be gone
-            visible_jobs = await store.get_jobs()
-            assert len(visible_jobs) == 0
+                # All the jobs should be gone
+                visible_jobs = await store.get_jobs()
+                assert len(visible_jobs) == 0
 
         # Check for the appropriate events
         assert not events
