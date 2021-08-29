@@ -60,12 +60,8 @@ def setup_mongodb_store() -> Generator[DataStore, None, None]:
 
 @asynccontextmanager
 async def setup_postgresql_store() -> AsyncGenerator[AsyncDataStore, None]:
-    try:
-        from apscheduler.datastores.async_.postgresql import PostgresqlDataStore
-        from asyncpg import create_pool
-    except ModuleNotFoundError:
-        pytest.skip('asyncpg not installed')
-        raise
+    from apscheduler.datastores.async_.postgresql import PostgresqlDataStore
+    from asyncpg import create_pool
 
     pool = await create_pool('postgresql://postgres:secret@localhost/testdb',
                              min_size=1, max_size=2)
@@ -75,12 +71,8 @@ async def setup_postgresql_store() -> AsyncGenerator[AsyncDataStore, None]:
 
 @contextmanager
 def setup_sqlalchemy_store() -> Generator[DataStore, None, None]:
-    try:
-        from apscheduler.datastores.sync.sqlalchemy import SQLAlchemyDataStore
-        from sqlalchemy import create_engine
-    except ModuleNotFoundError:
-        pytest.skip('sqlalchemy not installed')
-        raise
+    from apscheduler.datastores.sync.sqlalchemy import SQLAlchemyDataStore
+    from sqlalchemy import create_engine
 
     engine = create_engine('postgresql+psycopg2://postgres:secret@localhost/testdb', future=True)
     try:
@@ -91,12 +83,8 @@ def setup_sqlalchemy_store() -> Generator[DataStore, None, None]:
 
 @asynccontextmanager
 async def setup_async_sqlalchemy_store() -> AsyncGenerator[AsyncDataStore, None]:
-    try:
-        from apscheduler.datastores.async_.sqlalchemy import SQLAlchemyDataStore
-        from sqlalchemy.ext.asyncio import create_async_engine
-    except ModuleNotFoundError:
-        pytest.skip('sqlalchemy not installed')
-        raise
+    from apscheduler.datastores.async_.sqlalchemy import SQLAlchemyDataStore
+    from sqlalchemy.ext.asyncio import create_async_engine
 
     engine = create_async_engine('postgresql+asyncpg://postgres:secret@localhost/testdb',
                                  future=True)
