@@ -37,6 +37,11 @@ def anyio_backend() -> 'str':
 
 
 @contextmanager
+def setup_memory_store() -> Generator[DataStore, None, None]:
+    yield MemoryDataStore()
+
+
+@contextmanager
 def setup_mongodb_store() -> Generator[DataStore, None, None]:
     from apscheduler.datastores.sync.mongodb import MongoDBDataStore
     from pymongo import MongoClient
@@ -49,15 +54,8 @@ def setup_mongodb_store() -> Generator[DataStore, None, None]:
         pytest.skip('MongoDB server not available')
         raise
 
-    store = MongoDBDataStore(client, start_from_scratch=True)
-    with client, store:
-        yield store
-
-
-@contextmanager
-def setup_memory_store() -> Generator[DataStore, None, None]:
-    with MemoryDataStore() as store:
-        yield store
+    with client:
+        yield MongoDBDataStore(client, start_from_scratch=True)
 
 
 @asynccontextmanager
@@ -71,9 +69,8 @@ async def setup_postgresql_store() -> AsyncGenerator[AsyncDataStore, None]:
 
     pool = await create_pool('postgresql://postgres:secret@localhost/testdb',
                              min_size=1, max_size=2)
-    store = PostgresqlDataStore(pool, start_from_scratch=True)
-    async with pool, store:
-        yield store
+    async with pool:
+        yield PostgresqlDataStore(pool, start_from_scratch=True)
 
 
 @contextmanager
@@ -86,10 +83,8 @@ def setup_sqlalchemy_store() -> Generator[DataStore, None, None]:
         raise
 
     engine = create_engine('postgresql+psycopg2://postgres:secret@localhost/testdb', future=True)
-    store = SQLAlchemyDataStore(engine, start_from_scratch=True)
     try:
-        with store:
-            yield store
+        yield SQLAlchemyDataStore(engine, start_from_scratch=True)
     finally:
         engine.dispose()
 
@@ -105,10 +100,8 @@ async def setup_async_sqlalchemy_store() -> AsyncGenerator[AsyncDataStore, None]
 
     engine = create_async_engine('postgresql+asyncpg://postgres:secret@localhost/testdb',
                                  future=True)
-    store = SQLAlchemyDataStore(engine, start_from_scratch=True)
     try:
-        async with store:
-            yield store
+        yield SQLAlchemyDataStore(engine, start_from_scratch=True)
     finally:
         await engine.dispose()
 
@@ -135,15 +128,11 @@ def setup_async_store(request) -> AsyncContextManager[AsyncDataStore]:
     pytest.param(setup_postgresql_store, id='postgresql'),
     pytest.param(setup_async_sqlalchemy_store, id='async_sqlalchemy')
 ])
-def datastore_cm(request):
+async def datastore_cm(request):
     cm = request.param()
-    if isinstance(cm, AsyncContextManager):
-        return cm
-
-    @asynccontextmanager
-    async def wrapper():
+    if isinstance(cm, ContextManager):
         with cm as store:
-            async with AsyncDataStoreAdapter(store) as adapter:
-                yield adapter
-
-    return wrapper()
+            yield AsyncDataStoreAdapter(store)
+    else:
+        async with cm as store:
+            yield store

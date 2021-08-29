@@ -291,7 +291,6 @@ class SQLAlchemyDataStore(AsyncDataStore):
                                                 created_at=now, serialized_data=serialized_data)
         async with self.bind.begin() as conn:
             await conn.execute(statement)
-            await conn.commit()
 
         event = JobAdded(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
                          tags=job.tags)

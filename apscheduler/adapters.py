@@ -13,8 +13,10 @@ from .abc import AsyncDataStore, DataStore
 from .events import Event, SubscriptionToken
 from .policies import ConflictPolicy
 from .structures import Job, Schedule
+from .util import reentrant
 
 
+@reentrant
 @dataclass
 class AsyncDataStoreAdapter(AsyncDataStore):
     original: DataStore
@@ -23,11 +25,11 @@ class AsyncDataStoreAdapter(AsyncDataStore):
     async def __aenter__(self) -> AsyncDataStoreAdapter:
         self._portal = BlockingPortal()
         await self._portal.__aenter__()
-        self.original.__enter__()
+        await to_thread.run_sync(self.original.__enter__)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        self.original.__exit__(exc_type, exc_val, exc_tb)
+        await to_thread.run_sync(self.original.__exit__, exc_type, exc_val, exc_tb)
         await self._portal.__aexit__(exc_type, exc_val, exc_tb)
 
     async def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
