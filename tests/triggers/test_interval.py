@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 import pytest
+
 from apscheduler.triggers.interval import IntervalTrigger
 
 

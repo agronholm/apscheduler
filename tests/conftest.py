@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager, contextmanager
 from typing import AsyncContextManager, AsyncGenerator, ContextManager, Generator, Optional
 
 import pytest
+
 from apscheduler.abc import AsyncDataStore, DataStore, Serializer
 from apscheduler.adapters import AsyncDataStoreAdapter
 from apscheduler.datastores.sync.memory import MemoryDataStore
@@ -43,8 +44,9 @@ def setup_memory_store() -> Generator[DataStore, None, None]:
 
 @contextmanager
 def setup_mongodb_store() -> Generator[DataStore, None, None]:
-    from apscheduler.datastores.sync.mongodb import MongoDBDataStore
     from pymongo import MongoClient
+
+    from apscheduler.datastores.sync.mongodb import MongoDBDataStore
 
     with MongoClient(tz_aware=True, serverSelectionTimeoutMS=1000) as client:
         yield MongoDBDataStore(client, start_from_scratch=True)
@@ -52,8 +54,9 @@ def setup_mongodb_store() -> Generator[DataStore, None, None]:
 
 @contextmanager
 def setup_sqlalchemy_store() -> Generator[DataStore, None, None]:
-    from apscheduler.datastores.sync.sqlalchemy import SQLAlchemyDataStore
     from sqlalchemy.future import create_engine
+
+    from apscheduler.datastores.sync.sqlalchemy import SQLAlchemyDataStore
 
     engine = create_engine('postgresql+psycopg2://postgres:secret@localhost/testdb')
     try:
@@ -64,8 +67,9 @@ def setup_sqlalchemy_store() -> Generator[DataStore, None, None]:
 
 @asynccontextmanager
 async def setup_async_sqlalchemy_store() -> AsyncGenerator[AsyncDataStore, None]:
-    from apscheduler.datastores.async_.sqlalchemy import SQLAlchemyDataStore
     from sqlalchemy.ext.asyncio import create_async_engine
+
+    from apscheduler.datastores.async_.sqlalchemy import SQLAlchemyDataStore
 
     engine = create_async_engine('postgresql+asyncpg://postgres:secret@localhost/testdb',
                                  future=True)

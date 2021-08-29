@@ -21,11 +21,11 @@ jobs:
     - name: Install dependencies
       run: pip install pyproject-flake8 isort mypy
     - name: Run flake8
-      run: pflake8 apscheduler tests
+      run: pflake8 src tests
 #    - name: Check types with Mypy
-#      run: mypy apscheduler
+#      run: mypy src tests
     - name: Run isort
-      run: isort -c apscheduler tests
+      run: isort -c src tests
 
   test-linux:
     needs: [lint]

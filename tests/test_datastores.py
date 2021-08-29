@@ -6,11 +6,12 @@ from typing import AsyncContextManager, AsyncGenerator, List, Optional, Set, Typ
 
 import anyio
 import pytest
+from freezegun.api import FrozenDateTimeFactory
+
 from apscheduler.abc import AsyncDataStore, Job, Schedule
 from apscheduler.events import Event, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated
 from apscheduler.policies import CoalescePolicy, ConflictPolicy
 from apscheduler.triggers.date import DateTrigger
-from freezegun.api import FrozenDateTimeFactory
 
 
 @pytest.fixture

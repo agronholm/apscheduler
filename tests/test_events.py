@@ -5,6 +5,7 @@ from typing import List, Optional
 
 import pytest
 from _pytest.logging import LogCaptureFixture
+
 from apscheduler.events import AsyncEventHub, Event, EventHub
 
 

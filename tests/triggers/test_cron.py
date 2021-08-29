@@ -2,6 +2,7 @@ import sys
 from datetime import datetime
 
 import pytest
+
 from apscheduler.triggers.cron import CronTrigger
 
 if sys.version_info >= (3, 9):
