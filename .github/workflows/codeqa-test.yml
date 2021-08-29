@@ -19,9 +19,9 @@ jobs:
         path: ~/.cache/pip
         key: pip-lint
     - name: Install dependencies
-      run: pip install flake8 isort mypy
+      run: pip install pyproject-flake8 isort mypy
     - name: Run flake8
-      run: flake8 apscheduler tests
+      run: pflake8 apscheduler tests
 #    - name: Check types with Mypy
 #      run: mypy apscheduler
     - name: Run isort
