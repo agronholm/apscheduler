@@ -1,17 +1,10 @@
 version: 2
 formats: [htmlzip, pdf]
 python:
-   version: 3.6
+   version: "3.7"
    install:
       - method: pip
         path: .
         extra_requirements:
-          - gevent
-          - mongodb
-          - redis
-          - rethinkdb
-          - sqlalchemy
-          - tornado
-          - twisted
-          - zookeeper
+          - test
           - doc
