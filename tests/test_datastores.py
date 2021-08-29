@@ -47,7 +47,6 @@ async def capture_events(
     event_types: Optional[Set[Type[Event]]] = None
 ) -> AsyncGenerator[List[Event], None, None]:
     def listener(event: Event) -> None:
-        print('received', event)
         events.append(event)
         if len(events) == limit:
             limit_event.set()
