@@ -26,4 +26,4 @@ after the call returns.
      - none
    * - Example
      - ``examples/schedulers/background.py``
-       (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/background.py>`_).
+       (`view online <https://github.com/agronholm/apscheduler/tree/3.x/examples/schedulers/background.py>`_).

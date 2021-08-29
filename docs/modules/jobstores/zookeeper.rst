@@ -22,4 +22,4 @@ ZooKeeperJobStore stores jobs in an `Apache ZooKeeper <https://zookeeper.apache.
      - `kazoo <https://pypi.python.org/pypi/kazoo>`_
    * - Example
      - ``examples/jobstores/zookeeper.py``
-       (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/jobstores/zookeeper.py>`_).
+       (`view online <https://github.com/agronholm/apscheduler/tree/3.x/examples/jobstores/zookeeper.py>`_).

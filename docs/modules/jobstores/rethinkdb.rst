@@ -22,4 +22,4 @@ RethinkDBJobStore stores jobs in a `RethinkDB <https://www.rethinkdb.com/>`_ dat
      - `rethinkdb <https://pypi.python.org/pypi/rethinkdb>`_
    * - Example
      - ``examples/jobstores/rethinkdb_.py``
-       (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/jobstores/rethinkdb_.py>`_).
+       (`view online <https://github.com/agronholm/apscheduler/tree/3.x/examples/jobstores/rethinkdb_.py>`_).

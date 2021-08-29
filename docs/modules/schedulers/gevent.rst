@@ -25,4 +25,4 @@ GeventScheduler uses gevent natively, so it doesn't require monkey patching. By 
      - `gevent <https://pypi.python.org/pypi/gevent/>`_
    * - Example
      - ``examples/schedulers/gevent_.py``
-       (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/gevent_.py>`_).
+       (`view online <https://github.com/agronholm/apscheduler/tree/3.x/examples/schedulers/gevent_.py>`_).

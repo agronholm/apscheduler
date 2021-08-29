@@ -88,7 +88,7 @@ a RPyC based service that is accessed by a client.
 
 .. _RPyC: https://rpyc.readthedocs.io/en/latest/
 .. _gRPC: https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&cad=rja&uact=8&ved=2ahUKEwj-wMe-1eLcAhXSbZoKHdzGDZsQFjAAegQICRAB&url=https%3A%2F%2Fgrpc.io%2F&usg=AOvVaw0Jt5Y0OKbHd8MdFt9Kc2FO
-.. _example: https://github.com/agronholm/apscheduler/tree/master/examples/rpc
+.. _example: https://github.com/agronholm/apscheduler/tree/3.x/examples/rpc
 
 How do I use APScheduler in a web application?
 ==============================================

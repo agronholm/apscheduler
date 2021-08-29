@@ -24,4 +24,4 @@ TornadoScheduler was meant to be used in `Tornado <http://www.tornadoweb.org/en/
      -  `tornado <https://pypi.python.org/pypi/tornado/>`_
    * - Example
      - ``examples/schedulers/tornado_.py``
-       (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/tornado_.py>`_)
+       (`view online <https://github.com/agronholm/apscheduler/tree/3.x/examples/schedulers/tornado_.py>`_)

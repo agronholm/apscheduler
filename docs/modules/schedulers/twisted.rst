@@ -25,4 +25,4 @@ By default it uses the reactor's thread pool to execute jobs.
      - `twisted <https://pypi.python.org/pypi/Twisted/>`_
    * - Example
      - ``examples/schedulers/twisted_.py``
-       (`view online <https://github.com/agronholm/apscheduler/tree/master/examples/schedulers/twisted_.py>`_).
+       (`view online <https://github.com/agronholm/apscheduler/tree/3.x/examples/schedulers/twisted_.py>`_).
