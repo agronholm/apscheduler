@@ -146,51 +146,49 @@ class Scheduler(EventSource):
 
         try:
             while self._state is RunState.started:
-                schedules = self.data_store.acquire_schedules(self.identity, 100)
-                now = datetime.now(timezone.utc)
-                for schedule in schedules:
-                    # Look up the task definition
-                    try:
-                        taskdef = self._get_taskdef(schedule.task_id)
-                    except LookupError:
-                        self.logger.error('Cannot locate task definition %r for schedule %r – '
-                                          'putting schedule on hold', schedule.task_id,
-                                          schedule.id)
-                        schedule.next_fire_time = None
-                        continue
-
-                    # Calculate a next fire time for the schedule, if possible
-                    fire_times = [schedule.next_fire_time]
-                    calculate_next = schedule.trigger.next
-                    while True:
+                with self.data_store.acquire_schedules(self.identity, 100) as schedules:
+                    now = datetime.now(timezone.utc)
+                    for schedule in schedules:
+                        # Look up the task definition
                         try:
-                            fire_time = calculate_next()
-                        except Exception:
-                            self.logger.exception(
-                                'Error computing next fire time for schedule %r of task %r – '
-                                'removing schedule', schedule.id, taskdef.id)
-                            break
+                            taskdef = self._get_taskdef(schedule.task_id)
+                        except LookupError:
+                            self.logger.error('Cannot locate task definition %r for schedule %r – '
+                                              'putting schedule on hold', schedule.task_id,
+                                              schedule.id)
+                            schedule.next_fire_time = None
+                            continue
 
-                        # Stop if the calculated fire time is in the future
-                        if fire_time is None or fire_time > now:
-                            schedule.next_fire_time = fire_time
-                            break
+                        # Calculate a next fire time for the schedule, if possible
+                        fire_times = [schedule.next_fire_time]
+                        calculate_next = schedule.trigger.next
+                        while True:
+                            try:
+                                fire_time = calculate_next()
+                            except Exception:
+                                self.logger.exception(
+                                    'Error computing next fire time for schedule %r of task %r – '
+                                    'removing schedule', schedule.id, taskdef.id)
+                                break
 
-                        # Only keep all the fire times if coalesce policy = "all"
-                        if schedule.coalesce is CoalescePolicy.all:
-                            fire_times.append(fire_time)
-                        elif schedule.coalesce is CoalescePolicy.latest:
-                            fire_times[0] = fire_time
+                            # Stop if the calculated fire time is in the future
+                            if fire_time is None or fire_time > now:
+                                schedule.next_fire_time = fire_time
+                                break
 
-                    # Add one or more jobs to the job queue
-                    for fire_time in fire_times:
-                        schedule.last_fire_time = fire_time
-                        job = Job(taskdef.id, taskdef.func, schedule.args, schedule.kwargs,
-                                  schedule.id, fire_time, schedule.next_deadline,
-                                  schedule.tags)
-                        self.data_store.add_job(job)
+                            # Only keep all the fire times if coalesce policy = "all"
+                            if schedule.coalesce is CoalescePolicy.all:
+                                fire_times.append(fire_time)
+                            elif schedule.coalesce is CoalescePolicy.latest:
+                                fire_times[0] = fire_time
 
-                self.data_store.release_schedules(self.identity, schedules)
+                        # Add one or more jobs to the job queue
+                        for fire_time in fire_times:
+                            schedule.last_fire_time = fire_time
+                            job = Job(taskdef.id, taskdef.func, schedule.args, schedule.kwargs,
+                                      schedule.id, fire_time, schedule.next_deadline,
+                                      schedule.tags)
+                            self.data_store.add_job(job)
 
                 self._wakeup_event.wait()
                 self._wakeup_event = threading.Event()

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import logging
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
-from typing import Any, Callable, Iterable, List, Optional, Set, Tuple, Type
+from typing import Any, Callable, Generator, Iterable, List, Optional, Set, Tuple, Type
 from uuid import UUID
 
 from pymongo import ASCENDING, DeleteOne, MongoClient, UpdateOne
@@ -127,7 +127,9 @@ class MongoDBDataStore(DataStore):
         for schedule_id in ids:
             self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
-    def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
+    @contextmanager
+    def acquire_schedules(self, scheduler_id: str,
+                          limit: int) -> Generator[List[Schedule], None, None]:
         schedules: List[Schedule] = []
         with self.client.start_session() as s, s.start_transaction():
             cursor = self._schedules.find(
@@ -150,9 +152,8 @@ class MongoDBDataStore(DataStore):
                                    'acquired_until': acquired_until}}
                 self._schedules.update_many(filters, update)
 
-        return schedules
+        yield schedules
 
-    def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
         updated_schedules: List[Tuple[str, datetime]] = []
         finished_schedule_ids: List[str] = []
         with self.client.start_session() as s, s.start_transaction():

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
-from contextlib import AsyncExitStack, closing
+from contextlib import AsyncExitStack, asynccontextmanager, closing
 from datetime import datetime, timedelta, timezone
 from json import JSONDecodeError
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
+from typing import (
+    Any, AsyncGenerator, Callable, Dict, Iterable, List, Optional, Set, Tuple, Type, Union)
 from uuid import UUID
 
 import sniffio
@@ -71,9 +72,7 @@ class SQLAlchemyDataStore(AsyncDataStore):
         Column('id', Unicode, primary_key=True),
         Column('task_id', Unicode, nullable=False),
         Column('serialized_data', LargeBinary, nullable=False),
-        Column('next_fire_time', DateTime(timezone=True), index=True),
-        Column('acquired_by', Unicode),
-        Column('acquired_until', DateTime(timezone=True))
+        Column('next_fire_time', DateTime(timezone=True), index=True)
     )
     t_jobs = Table(
         'jobs',
@@ -263,11 +262,7 @@ class SQLAlchemyDataStore(AsyncDataStore):
 
     async def remove_schedules(self, ids: Iterable[str]) -> None:
         async with self.bind.begin() as conn:
-            now = datetime.now(timezone.utc)
-            conditions = and_(self.t_schedules.c.id.in_(ids),
-                              or_(self.t_schedules.c.acquired_until.is_(None),
-                                  self.t_schedules.c.acquired_until < now))
-            statement = self.t_schedules.delete(conditions)
+            statement = self.t_schedules.delete().where(self.t_schedules.c.id.in_(ids))
             if self._supports_update_returning:
                 statement = statement.returning(self.t_schedules.c.id)
                 removed_ids = [row[0] for row in await conn.execute(statement)]
@@ -288,36 +283,22 @@ class SQLAlchemyDataStore(AsyncDataStore):
 
         return self._deserialize_schedules(result)
 
-    async def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
+    @asynccontextmanager
+    async def acquire_schedules(self, scheduler_id: str,
+                                limit: int) -> AsyncGenerator[List[Schedule], None]:
         async with self.bind.begin() as conn:
             now = datetime.now(timezone.utc)
-            acquired_until = datetime.fromtimestamp(
-                now.timestamp() + self.lock_expiration_delay, timezone.utc)
-            schedules_cte = select(self.t_schedules.c.id).\
+            statement = select([self.t_schedules.c.id, self.t_schedules.c.serialized_data]).\
                 where(and_(self.t_schedules.c.next_fire_time.isnot(None),
-                           self.t_schedules.c.next_fire_time <= now,
-                           or_(self.t_schedules.c.acquired_until.is_(None),
-                               self.t_schedules.c.acquired_until < now))).\
-                limit(limit).cte()
-            subselect = select([schedules_cte.c.id])
-            statement = self.t_schedules.update().where(self.t_schedules.c.id.in_(subselect)).\
-                values(acquired_by=scheduler_id, acquired_until=acquired_until)
-            if self._supports_update_returning:
-                statement = statement.returning(self.t_schedules.c.id,
-                                                self.t_schedules.c.serialized_data)
-                result = await conn.execute(statement)
-            else:
-                await conn.execute(statement)
-                statement = select([self.t_schedules.c.id, self.t_schedules.c.serialized_data]).\
-                    where(and_(self.t_schedules.c.acquired_by == scheduler_id))
-                result = await conn.execute(statement)
+                           self.t_schedules.c.next_fire_time <= now)).\
+                with_for_update(skip_locked=True).limit(limit)
+            result = await conn.execute(statement)
+            schedules = self._deserialize_schedules(result)
 
-        return self._deserialize_schedules(result)
+            yield schedules
 
-    async def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
-        update_events: List[ScheduleUpdated] = []
-        finished_schedule_ids: List[str] = []
-        async with self.bind.begin() as conn:
+            update_events: List[ScheduleUpdated] = []
+            finished_schedule_ids: List[str] = []
             update_args: List[Dict[str, Any]] = []
             for schedule in schedules:
                 if schedule.next_fire_time is not None:
@@ -343,8 +324,7 @@ class SQLAlchemyDataStore(AsyncDataStore):
                 p_serialized = bindparam('p_serialized_data')
                 p_next_fire_time = bindparam('p_next_fire_time')
                 statement = self.t_schedules.update().\
-                    where(and_(self.t_schedules.c.id == p_id,
-                               self.t_schedules.c.acquired_by == scheduler_id)).\
+                    where(self.t_schedules.c.id == p_id).\
                     values(serialized_data=p_serialized, next_fire_time=p_next_fire_time)
                 next_fire_times = {arg['p_id']: arg['p_next_fire_time'] for arg in update_args}
                 if self._supports_update_returning:
@@ -358,8 +338,7 @@ class SQLAlchemyDataStore(AsyncDataStore):
             # Remove schedules that have no next fire time or failed to serialize
             if finished_schedule_ids:
                 statement = self.t_schedules.delete().\
-                    where(and_(self.t_schedules.c.id.in_(finished_schedule_ids),
-                               self.t_schedules.c.acquired_by == scheduler_id))
+                    where(self.t_schedules.c.id.in_(finished_schedule_ids))
                 await conn.execute(statement)
 
             for event in update_events:

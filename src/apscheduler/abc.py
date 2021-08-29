@@ -3,7 +3,9 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from base64 import b64decode, b64encode
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, List, Optional, Set, Type
+from typing import (
+    TYPE_CHECKING, Any, AsyncContextManager, Callable, ContextManager, Iterable, Iterator, List,
+    Optional, Set, Type)
 from uuid import UUID
 
 from .policies import ConflictPolicy
@@ -121,7 +123,7 @@ class DataStore(EventSource):
         """
 
     @abstractmethod
-    def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
+    def acquire_schedules(self, scheduler_id: str, limit: int) -> ContextManager[List[Schedule]]:
         """
         Acquire unclaimed due schedules for processing.
 
@@ -131,15 +133,6 @@ class DataStore(EventSource):
         :param scheduler_id: unique identifier of the scheduler
         :param limit: maximum number of schedules to claim
         :return: the list of claimed schedules
-        """
-
-    @abstractmethod
-    def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
-        """
-        Release the claims on the given schedules and update them on the store.
-
-        :param scheduler_id: unique identifier of the scheduler
-        :param schedules: the previously claimed schedules
         """
 
     @abstractmethod
@@ -217,7 +210,8 @@ class AsyncDataStore(EventSource):
         """
 
     @abstractmethod
-    async def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
+    async def acquire_schedules(self, scheduler_id: str,
+                                limit: int) -> AsyncContextManager[List[Schedule]]:
         """
         Acquire unclaimed due schedules for processing.
 
@@ -227,15 +221,6 @@ class AsyncDataStore(EventSource):
         :param scheduler_id: unique identifier of the scheduler
         :param limit: maximum number of schedules to claim
         :return: the list of claimed schedules
-        """
-
-    @abstractmethod
-    async def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
-        """
-        Release the claims on the given schedules and update them on the store.
-
-        :param scheduler_id: unique identifier of the scheduler
-        :param schedules: the previously claimed schedules
         """
 
     @abstractmethod
