@@ -43,7 +43,7 @@ jobs:
     - name: Start external services
       run: docker-compose up -d
     - name: Install the project and its dependencies
-      run: pip install -e .[test,cbor,postgresql,mongodb,sqlalchemy]
+      run: pip install -e .[test]
     - name: Test with pytest
       run: pytest
 
@@ -62,6 +62,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install the project and its dependencies
-      run: pip install -e .[test,cbor]
+      run: pip install -e .[test]
     - name: Test with pytest
       run: pytest
