@@ -108,7 +108,8 @@ async def setup_async_sqlalchemy_store() -> AsyncGenerator[AsyncDataStore, None]
 
 @pytest.fixture(params=[
     pytest.param(setup_memory_store, id='memory'),
-    pytest.param(setup_mongodb_store, id='mongodb')
+    pytest.param(setup_mongodb_store, id='mongodb'),
+    pytest.param(setup_sqlalchemy_store, id='sqlalchemy')
 ])
 def setup_sync_store(request) -> ContextManager[DataStore]:
     return request.param
@@ -125,6 +126,7 @@ def setup_async_store(request) -> AsyncContextManager[AsyncDataStore]:
 @pytest.fixture(params=[
     pytest.param(setup_memory_store, id='memory'),
     pytest.param(setup_mongodb_store, id='mongodb'),
+    pytest.param(setup_sqlalchemy_store, id='sqlalchemy'),
     pytest.param(setup_postgresql_store, id='postgresql'),
     pytest.param(setup_async_sqlalchemy_store, id='async_sqlalchemy')
 ])
