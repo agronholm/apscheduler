@@ -64,4 +64,4 @@ jobs:
     - name: Install the project and its dependencies
       run: pip install -e .[test]
     - name: Test with pytest
-      run: pytest
+      run: pytest -m "not externaldb"

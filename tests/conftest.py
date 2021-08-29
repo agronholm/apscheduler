@@ -45,16 +45,8 @@ def setup_memory_store() -> Generator[DataStore, None, None]:
 def setup_mongodb_store() -> Generator[DataStore, None, None]:
     from apscheduler.datastores.sync.mongodb import MongoDBDataStore
     from pymongo import MongoClient
-    from pymongo.errors import ConnectionFailure
 
-    client = MongoClient(tz_aware=True, serverSelectionTimeoutMS=1000)
-    try:
-        client.admin.command('ismaster')
-    except ConnectionFailure:
-        pytest.skip('MongoDB server not available')
-        raise
-
-    with client:
+    with MongoClient(tz_aware=True, serverSelectionTimeoutMS=1000) as client:
         yield MongoDBDataStore(client, start_from_scratch=True)
 
 
@@ -96,16 +88,17 @@ async def setup_async_sqlalchemy_store() -> AsyncGenerator[AsyncDataStore, None]
 
 @pytest.fixture(params=[
     pytest.param(setup_memory_store, id='memory'),
-    pytest.param(setup_mongodb_store, id='mongodb'),
-    pytest.param(setup_sqlalchemy_store, id='sqlalchemy')
+    pytest.param(setup_mongodb_store, id='mongodb', marks=[pytest.mark.externaldb]),
+    pytest.param(setup_sqlalchemy_store, id='sqlalchemy', marks=[pytest.mark.externaldb])
 ])
 def setup_sync_store(request) -> ContextManager[DataStore]:
     return request.param
 
 
 @pytest.fixture(params=[
-    pytest.param(setup_postgresql_store, id='postgresql'),
-    pytest.param(setup_async_sqlalchemy_store, id='async_sqlalchemy')
+    pytest.param(setup_postgresql_store, id='postgresql', marks=[pytest.mark.externaldb]),
+    pytest.param(setup_async_sqlalchemy_store, id='async_sqlalchemy',
+                 marks=[pytest.mark.externaldb])
 ])
 def setup_async_store(request) -> AsyncContextManager[AsyncDataStore]:
     return request.param
@@ -113,10 +106,11 @@ def setup_async_store(request) -> AsyncContextManager[AsyncDataStore]:
 
 @pytest.fixture(params=[
     pytest.param(setup_memory_store, id='memory'),
-    pytest.param(setup_mongodb_store, id='mongodb'),
-    pytest.param(setup_sqlalchemy_store, id='sqlalchemy'),
-    pytest.param(setup_postgresql_store, id='postgresql'),
-    pytest.param(setup_async_sqlalchemy_store, id='async_sqlalchemy')
+    pytest.param(setup_mongodb_store, id='mongodb', marks=[pytest.mark.externaldb]),
+    pytest.param(setup_sqlalchemy_store, id='sqlalchemy', marks=[pytest.mark.externaldb]),
+    pytest.param(setup_postgresql_store, id='postgresql', marks=[pytest.mark.externaldb]),
+    pytest.param(setup_async_sqlalchemy_store, id='async_sqlalchemy',
+                 marks=[pytest.mark.externaldb])
 ])
 async def datastore_cm(request):
     cm = request.param()
