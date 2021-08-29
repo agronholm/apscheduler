@@ -72,9 +72,9 @@ async def setup_postgresql_store() -> AsyncGenerator[AsyncDataStore, None]:
 @contextmanager
 def setup_sqlalchemy_store() -> Generator[DataStore, None, None]:
     from apscheduler.datastores.sync.sqlalchemy import SQLAlchemyDataStore
-    from sqlalchemy import create_engine
+    from sqlalchemy.future import create_engine
 
-    engine = create_engine('postgresql+psycopg2://postgres:secret@localhost/testdb', future=True)
+    engine = create_engine('postgresql+psycopg2://postgres:secret@localhost/testdb')
     try:
         yield SQLAlchemyDataStore(engine, start_from_scratch=True)
     finally:
