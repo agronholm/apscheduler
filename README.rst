@@ -5,7 +5,7 @@
   :target: https://coveralls.io/github/agronholm/apscheduler?branch=master
   :alt: Code Coverage
 .. image:: https://readthedocs.org/projects/apscheduler/badge/?version=latest
-  :target: https://apscheduler.readthedocs.io/en/latest/?badge=latest
+  :target: https://apscheduler.readthedocs.io/en/master/?badge=latest
   :alt: Documentation
 
 Advanced Python Scheduler (APScheduler) is a Python library that lets you schedule your Python code
