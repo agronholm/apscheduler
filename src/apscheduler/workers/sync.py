@@ -7,17 +7,16 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import ExitStack
 from datetime import datetime, timezone
 from logging import Logger, getLogger
-from traceback import format_tb
 from typing import Any, Callable, Iterable, Optional, Set, Type
 from uuid import UUID
 
 from .. import events
 from ..abc import DataStore, EventSource
-from ..enums import RunState
+from ..enums import JobOutcome, RunState
 from ..events import (
     EventHub, JobAdded, JobCompleted, JobDeadlineMissed, JobFailed, JobStarted, SubscriptionToken,
     WorkerStarted, WorkerStopped)
-from ..structures import Job
+from ..structures import Job, JobResult
 
 
 class Worker(EventSource):
@@ -123,39 +122,21 @@ class Worker(EventSource):
             # Check if the job started before the deadline
             start_time = datetime.now(timezone.utc)
             if job.start_deadline is not None and start_time > job.start_deadline:
-                event = JobDeadlineMissed(
-                    timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
-                    schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-                    start_time=start_time, start_deadline=job.start_deadline)
-                self._events.publish(event)
+                self._events.publish(JobDeadlineMissed.from_job(job, start_time))
                 return
 
-            event = JobStarted(
-                timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
-                schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-                start_time=start_time, start_deadline=job.start_deadline)
-            self._events.publish(event)
+            self._events.publish(JobStarted.from_job(job, start_time))
             try:
                 retval = job.func(*job.args, **job.kwargs)
             except BaseException as exc:
-                if exc.__class__.__module__ == 'builtins':
-                    exc_name = exc.__class__.__qualname__
-                else:
-                    exc_name = f'{exc.__class__.__module__}.{exc.__class__.__qualname__}'
-
-                formatted_traceback = '\n'.join(format_tb(exc.__traceback__))
-                event = JobFailed(
-                    timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
-                    schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-                    start_time=start_time, start_deadline=job.start_deadline, exception=exc_name,
-                    traceback=formatted_traceback)
-                self._events.publish(event)
+                result = JobResult(outcome=JobOutcome.failure, exception=exc)
+                self.data_store.release_job(self.identity, job.id, result)
+                self._events.publish(JobFailed.from_exception(job, start_time, exc))
+                if not isinstance(exc, Exception):
+                    raise
             else:
-                event = JobCompleted(
-                    timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
-                    schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-                    start_time=start_time, start_deadline=job.start_deadline, return_value=retval)
-                self._events.publish(event)
+                result = JobResult(outcome=JobOutcome.success, return_value=retval)
+                self.data_store.release_job(self.identity, job.id, result)
+                self._events.publish(JobCompleted.from_retval(job, start_time, retval))
         finally:
             self._running_jobs.remove(job.id)
-            self.data_store.release_jobs(self.identity, [job])

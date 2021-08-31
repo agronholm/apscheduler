@@ -14,7 +14,7 @@ from . import events
 from .abc import AsyncDataStore, DataStore
 from .events import Event, SubscriptionToken
 from .policies import ConflictPolicy
-from .structures import Job, Schedule
+from .structures import Job, JobResult, Schedule
 from .util import reentrant
 
 
@@ -65,8 +65,11 @@ class AsyncDataStoreAdapter(AsyncDataStore):
     async def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> List[Job]:
         return await to_thread.run_sync(self.original.acquire_jobs, worker_id, limit)
 
-    async def release_jobs(self, worker_id: str, jobs: List[Job]) -> None:
-        return await to_thread.run_sync(self.original.release_jobs, worker_id, jobs)
+    async def release_job(self, worker_id: str, job_id: UUID, result: Optional[JobResult]) -> None:
+        await to_thread.run_sync(self.original.release_job, worker_id, job_id, result)
+
+    async def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
+        return await to_thread.run_sync(self.original.get_job_result, job_id)
 
     def subscribe(self, callback: Callable[[Event], Any],
                   event_types: Optional[Iterable[Type[Event]]] = None) -> SubscriptionToken:

@@ -6,7 +6,6 @@ from contextlib import AsyncExitStack
 from datetime import datetime, timezone
 from inspect import isawaitable
 from logging import Logger, getLogger
-from traceback import format_tb
 from typing import Any, Callable, Iterable, Optional, Set, Type, Union
 from uuid import UUID
 
@@ -16,10 +15,11 @@ from anyio.abc import CancelScope, TaskGroup
 
 from ..abc import AsyncDataStore, DataStore, EventSource, Job
 from ..adapters import AsyncDataStoreAdapter
-from ..enums import RunState
+from ..enums import JobOutcome, RunState
 from ..events import (
-    AsyncEventHub, Event, JobAdded, JobCompleted, JobDeadlineMissed, JobFailed, JobStarted,
-    SubscriptionToken, WorkerStarted, WorkerStopped)
+    AsyncEventHub, Event, JobAdded, JobCancelled, JobCompleted, JobDeadlineMissed, JobFailed,
+    JobStarted, SubscriptionToken, WorkerStarted, WorkerStopped)
+from ..structures import JobResult
 
 
 class AsyncWorker(EventSource):
@@ -104,12 +104,7 @@ class AsyncWorker(EventSource):
         try:
             while self._state is RunState.started:
                 limit = self.max_concurrent_jobs - len(self._running_jobs)
-                with CancelScope() as self._acquire_cancel_scope:
-                    try:
-                        jobs = await self.data_store.acquire_jobs(self.identity, limit)
-                    finally:
-                        del self._acquire_cancel_scope
-
+                jobs = await self.data_store.acquire_jobs(self.identity, limit)
                 for job in jobs:
                     self._running_jobs.add(job.id)
                     self._task_group.start_soon(self._run_job, job)
@@ -126,115 +121,37 @@ class AsyncWorker(EventSource):
         self._state = RunState.stopped
         self._events.publish(WorkerStopped())
 
-    # async def _run_job(self, job: Job) -> None:
-    #     # Check if the job started before the deadline
-    #     start_time = datetime.now(timezone.utc)
-    #     if job.start_deadline is not None and start_time > job.start_deadline:
-    #         event = JobDeadlineMissed(
-    #             timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
-    #             schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-    #             start_time=start_time, start_deadline=job.start_deadline)
-    #         self._events.publish(event)
-    #         return
-    #
-    #     now = datetime.now(timezone.utc)
-    #     if job.start_deadline is not None:
-    #         if now.timestamp() > job.start_deadline.timestamp():
-    #             self.logger.info('Missed the deadline of job %r', job.id)
-    #             event = JobDeadlineMissed(
-    #                 now, job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
-    #                 scheduled_fire_time=job.scheduled_fire_time, start_time=now,
-    #                 start_deadline=job.start_deadline
-    #             )
-    #             await self.publish(event)
-    #             return
-    #
-    #     # Set the job as running and publish a job update event
-    #     self.logger.info('Started job %r', job.id)
-    #     job.started_at = now
-    #     event = JobUpdated(
-    #         timestamp=now, job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id
-    #     )
-    #     await self.publish(event)
-    #
-    #     self._num_running_jobs += 1
-    #     try:
-    #         return_value = await self._call_job_func(job.func, job.args, job.kwargs)
-    #     except BaseException as exc:
-    #         self.logger.exception('Job %r raised an exception', job.id)
-    #         event = JobFailed(
-    #             timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
-    #             schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-    #             start_time=now, start_deadline=job.start_deadline,
-    #             traceback=format_exc(), exception=exc
-    #         )
-    #     else:
-    #         self.logger.info('Job %r completed successfully', job.id)
-    #         event = JobSuccessful(
-    #             timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
-    #             schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-    #             start_time=now, start_deadline=job.start_deadline, return_value=return_value
-    #         )
-    #
-    #     self._num_running_jobs -= 1
-    #     await self.data_store.release_jobs(self.identity, [job])
-    #     await self.publish(event)
-    #
-    # async def _call_job_func(self, func: Callable, args: tuple, kwargs: Dict[str, Any]):
-    #     if not self.run_sync_functions_in_event_loop and not iscoroutinefunction(func):
-    #         wrapped = partial(func, *args, **kwargs)
-    #         return await to_thread.run_sync(wrapped)
-    #
-    #     return_value = func(*args, **kwargs)
-    #     if isinstance(return_value, Coroutine):
-    #         return_value = await return_value
-    #
-    #     return return_value
-
     async def _run_job(self, job: Job) -> None:
-        event: Event
         try:
             # Check if the job started before the deadline
             start_time = datetime.now(timezone.utc)
             if job.start_deadline is not None and start_time > job.start_deadline:
-                event = JobDeadlineMissed(
-                    timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
-                    schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-                    start_time=start_time, start_deadline=job.start_deadline)
-                self._events.publish(event)
+                self._events.publish(JobDeadlineMissed.from_job(job, start_time))
                 return
 
-            event = JobStarted(
-                timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
-                schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-                start_time=start_time, start_deadline=job.start_deadline)
-            self._events.publish(event)
+            self._events.publish(JobStarted.from_job(job, start_time))
             try:
                 retval = job.func(*job.args, **job.kwargs)
                 if isawaitable(retval):
                     retval = await retval
-            except BaseException as exc:
-                if exc.__class__.__module__ == 'builtins':
-                    exc_name = exc.__class__.__qualname__
-                else:
-                    exc_name = f'{exc.__class__.__module__}.{exc.__class__.__qualname__}'
+            except get_cancelled_exc_class():
+                with CancelScope(shield=True):
+                    result = JobResult(outcome=JobOutcome.cancelled)
+                    await self.data_store.release_job(self.identity, job.id, result)
 
-                formatted_traceback = '\n'.join(format_tb(exc.__traceback__))
-                event = JobFailed(
-                    timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
-                    schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-                    start_time=start_time, start_deadline=job.start_deadline, exception=exc_name,
-                    traceback=formatted_traceback)
-                self._events.publish(event)
+                self._events.publish(JobCancelled.from_job(job, start_time))
+            except BaseException as exc:
+                result = JobResult(outcome=JobOutcome.failure, exception=exc)
+                await self.data_store.release_job(self.identity, job.id, result)
+                self._events.publish(JobFailed.from_exception(job, start_time, exc))
+                if not isinstance(exc, Exception):
+                    raise
             else:
-                event = JobCompleted(
-                    timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
-                    schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-                    start_time=start_time, start_deadline=job.start_deadline, return_value=retval)
-                self._events.publish(event)
+                result = JobResult(outcome=JobOutcome.success, return_value=retval)
+                await self.data_store.release_job(self.identity, job.id, result)
+                self._events.publish(JobCompleted.from_retval(job, start_time, retval))
         finally:
             self._running_jobs.remove(job.id)
-            await self.data_store.release_jobs(self.identity, [job])
 
     # async def stop(self, force: bool = False) -> None:
     #     self._running = False

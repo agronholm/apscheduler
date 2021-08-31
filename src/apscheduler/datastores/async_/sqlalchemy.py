@@ -29,6 +29,7 @@ from ...events import (
 from ...exceptions import ConflictingIdError, SerializationError
 from ...policies import ConflictPolicy
 from ...serializers.pickle import PickleSerializer
+from ...structures import JobResult
 from ...util import reentrant
 
 logger = logging.getLogger(__name__)
@@ -66,11 +67,17 @@ class SQLAlchemyDataStore(AsyncDataStore):
         _metadata,
         Column('schema_version', Integer, nullable=False)
     )
+    t_tasks = Table(
+        'tasks',
+        _metadata,
+        Column('id', Unicode(500), primary_key=True),
+        Column('serialized_data', LargeBinary, nullable=False)
+    )
     t_schedules = Table(
         'schedules',
         _metadata,
         Column('id', Unicode, primary_key=True),
-        Column('task_id', Unicode, nullable=False),
+        Column('task_id', Unicode(500), nullable=False, index=True),
         Column('serialized_data', LargeBinary, nullable=False),
         Column('next_fire_time', DateTime(timezone=True), index=True)
     )
@@ -78,11 +85,18 @@ class SQLAlchemyDataStore(AsyncDataStore):
         'jobs',
         _metadata,
         Column('id', Unicode(32), primary_key=True),
-        Column('task_id', Unicode, nullable=False, index=True),
+        Column('task_id', Unicode(500), nullable=False, index=True),
         Column('serialized_data', LargeBinary, nullable=False),
-        Column('created_at', DateTime(timezone=True), nullable=False),
+        Column('created_at', DateTime(timezone=True), nullable=False, index=True),
         Column('acquired_by', Unicode),
-        Column('acquired_until', DateTime(timezone=True))
+        Column('acquired_until', DateTime(timezone=True)),
+    )
+    t_job_results = Table(
+        'job_results',
+        _metadata,
+        Column('job_id', Unicode(32), primary_key=True),
+        Column('finished_at', DateTime(timezone=True), index=True),
+        Column('serialized_data', LargeBinary, nullable=False)
     )
 
     def __init__(self, bind: AsyncConnectable, *, schema: Optional[str] = None,
@@ -233,6 +247,7 @@ class SQLAlchemyDataStore(AsyncDataStore):
         async with self.bind.begin() as conn:
             await conn.execute(self.t_schedules.delete())
             await conn.execute(self.t_jobs.delete())
+            await conn.execute(self.t_job_results.delete())
 
     async def add_schedule(self, schedule: Schedule, conflict_policy: ConflictPolicy) -> None:
         serialized_data = self.serializer.serialize(schedule)
@@ -389,12 +404,28 @@ class SQLAlchemyDataStore(AsyncDataStore):
                     where(self.t_jobs.c.id.in_(serialized_jobs))
                 await conn.execute(query)
 
-        return self._deserialize_jobs(serialized_jobs.items())
+            return self._deserialize_jobs(serialized_jobs.items())
 
-    async def release_jobs(self, worker_id: str, jobs: List[Job]) -> None:
-        job_ids = [job.id.hex for job in jobs]
-        statement = self.t_jobs.delete().\
-            where(and_(self.t_jobs.c.acquired_by == worker_id, self.t_jobs.c.id.in_(job_ids)))
-
+    async def release_job(self, worker_id: str, job_id: UUID, result: Optional[JobResult]) -> None:
         async with self.bind.begin() as conn:
+            now = datetime.now(timezone.utc)
+            serialized_data = self.serializer.serialize(result)
+            statement = self.t_job_results.insert().\
+                values(job_id=job_id.hex, finished_at=now, serialized_data=serialized_data)
             await conn.execute(statement)
+
+            statement = self.t_jobs.delete().where(self.t_jobs.c.id == job_id.hex)
+            await conn.execute(statement)
+
+    async def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
+        async with self.bind.begin() as conn:
+            statement = select(self.t_job_results.c.serialized_data).\
+                where(self.t_job_results.c.job_id == job_id.hex)
+            result = await conn.execute(statement)
+
+            statement = self.t_job_results.delete().\
+                where(self.t_job_results.c.job_id == job_id.hex)
+            await conn.execute(statement)
+
+            serialized_data = result.scalar()
+            return self.serializer.deserialize(serialized_data) if serialized_data else None

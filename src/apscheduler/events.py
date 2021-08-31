@@ -7,8 +7,9 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import partial
-from inspect import isawaitable, isclass
+from inspect import isawaitable
 from logging import Logger
+from traceback import format_tb
 from typing import Any, Callable, Dict, FrozenSet, Iterable, NewType, Optional, Set, Type, Union
 from uuid import UUID
 
@@ -17,6 +18,7 @@ from anyio import create_task_group
 from anyio.abc import TaskGroup
 
 from . import abc
+from .structures import Job
 
 SubscriptionToken = NewType('SubscriptionToken', object)
 
@@ -130,33 +132,77 @@ class JobExecutionEvent(WorkerEvent):
     schedule_id: Optional[str]
     scheduled_fire_time: Optional[datetime]
     start_deadline: Optional[datetime]
-    start_time: datetime
 
 
 @attr.define(kw_only=True, frozen=True)
 class JobStarted(JobExecutionEvent):
     """Signals that a worker has started running a job."""
 
+    @classmethod
+    def from_job(cls, job: Job, start_time: datetime) -> JobStarted:
+        return JobStarted(
+            timestamp=start_time, job_id=job.id, task_id=job.task_id,
+            schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
+            start_deadline=job.start_deadline)
+
 
 @attr.define(kw_only=True, frozen=True)
 class JobDeadlineMissed(JobExecutionEvent):
     """Signals that a worker has skipped a job because its deadline was missed."""
 
+    @classmethod
+    def from_job(cls, job: Job, start_time: datetime) -> JobDeadlineMissed:
+        return JobDeadlineMissed(
+            timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
+            schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
+            start_deadline=job.start_deadline)
+
 
 @attr.define(kw_only=True, frozen=True)
 class JobCompleted(JobExecutionEvent):
     """Signals that a worker has successfully run a job."""
-    return_value: Any
+    start_time: datetime
+    return_value: str
+
+    @classmethod
+    def from_retval(cls, job: Job, start_time: datetime, return_value: Any) -> JobCompleted:
+        return JobCompleted(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
+                            scheduled_fire_time=job.scheduled_fire_time, start_time=start_time,
+                            start_deadline=job.start_deadline, return_value=repr(return_value))
+
+
+@attr.define(kw_only=True, frozen=True)
+class JobCancelled(JobExecutionEvent):
+    """Signals that a job was cancelled."""
+    start_time: datetime
+
+    @classmethod
+    def from_job(cls, job: Job, start_time: datetime) -> JobCancelled:
+        return JobCancelled(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
+                            scheduled_fire_time=job.scheduled_fire_time, start_time=start_time,
+                            start_deadline=job.start_deadline)
 
 
 @attr.define(kw_only=True, frozen=True)
 class JobFailed(JobExecutionEvent):
     """Signals that a worker encountered an exception while running a job."""
-    exception: str
-    traceback: str
+    start_time: datetime
+    exc_type: str
+    exc_val: str
+    exc_tb: str
 
+    @classmethod
+    def from_exception(cls, job: Job, start_time: datetime, exception: BaseException) -> JobFailed:
+        if exception.__class__.__module__ == 'builtins':
+            exc_type = exception.__class__.__qualname__
+        else:
+            exc_type = f'{exception.__class__.__module__}.{exception.__class__.__qualname__}'
 
-_all_event_types = [x for x in locals().values() if isclass(x) and issubclass(x, Event)]
+        return JobFailed(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
+                         scheduled_fire_time=job.scheduled_fire_time, start_time=start_time,
+                         start_deadline=job.start_deadline, exc_type=exc_type,
+                         exc_val=str(exception),
+                         exc_tb='\n'.join(format_tb(exception.__traceback__)))
 
 
 #

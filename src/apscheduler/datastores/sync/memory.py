@@ -13,6 +13,7 @@ from ...events import (
     EventHub, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, SubscriptionToken)
 from ...exceptions import ConflictingIdError
 from ...policies import ConflictPolicy
+from ...structures import JobResult
 from ...util import reentrant
 
 max_datetime = datetime(MAXYEAR, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
@@ -81,6 +82,7 @@ class MemoryDataStore(DataStore):
         self._jobs: List[JobState] = []
         self._jobs_by_id: Dict[UUID, JobState] = {}
         self._jobs_by_task_id: Dict[str, Set[JobState]] = defaultdict(set)
+        self._job_results: Dict[UUID, JobResult] = {}
 
     def _find_schedule_index(self, state: ScheduleState) -> Optional[int]:
         left_index = bisect_left(self._schedules, state)
@@ -222,10 +224,15 @@ class MemoryDataStore(DataStore):
 
         return jobs
 
-    def release_jobs(self, worker_id: str, jobs: List[Job]) -> None:
-        assert self._jobs
-        indexes = sorted((self._find_job_index(self._jobs_by_id[j.id]) for j in jobs),
-                         reverse=True)
-        for i in indexes:
-            state = self._jobs.pop(i)
-            self._jobs_by_task_id[state.job.task_id].remove(state)
+    def release_job(self, worker_id: str, job_id: UUID, result: Optional[JobResult]) -> None:
+        # Delete the job
+        state = self._jobs_by_id.pop(job_id)
+        self._jobs_by_task_id[state.job.task_id].remove(state)
+        index = self._find_job_index(state)
+        del self._jobs[index]
+
+        # Record the result
+        self._job_results[job_id] = result
+
+    def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
+        return self._job_results.pop(job_id, None)

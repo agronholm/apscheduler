@@ -77,12 +77,13 @@ class TestAsyncWorker:
         if fail:
             # Then the job failed
             assert isinstance(received_event, JobFailed)
-            assert isinstance(received_event.exception, str)
-            assert isinstance(received_event.traceback, str)
+            assert isinstance(received_event.exc_type, str)
+            assert isinstance(received_event.exc_val, str)
+            assert isinstance(received_event.exc_tb, str)
         else:
             # Then the job finished successfully
             assert isinstance(received_event, JobCompleted)
-            assert received_event.return_value == ((1, 2), {'x': 'foo'})
+            assert received_event.return_value == "((1, 2), {'x': 'foo'})"
 
         # Finally, the worker was stopped
         received_event = received_events.pop(0)
@@ -177,12 +178,13 @@ class TestSyncWorker:
         if fail:
             # Then the job failed
             assert isinstance(received_event, JobFailed)
-            assert isinstance(received_event.exception, str)
-            assert isinstance(received_event.traceback, str)
+            assert isinstance(received_event.exc_type, str)
+            assert isinstance(received_event.exc_val, str)
+            assert isinstance(received_event.exc_tb, str)
         else:
             # Then the job finished successfully
             assert isinstance(received_event, JobCompleted)
-            assert received_event.return_value == ((1, 2), {'x': 'foo'})
+            assert received_event.return_value == "((1, 2), {'x': 'foo'})"
 
         # Finally, the worker was stopped
         received_event = received_events.pop(0)

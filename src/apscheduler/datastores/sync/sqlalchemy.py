@@ -21,6 +21,7 @@ from ...events import (
 from ...exceptions import ConflictingIdError, SerializationError
 from ...policies import ConflictPolicy
 from ...serializers.pickle import PickleSerializer
+from ...structures import JobResult
 from ...util import reentrant
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,13 @@ class SQLAlchemyDataStore(AsyncDataStore):
         Column('created_at', DateTime(timezone=True), nullable=False),
         Column('acquired_by', Unicode),
         Column('acquired_until', DateTime(timezone=True))
+    )
+    t_job_results = Table(
+        'job_results',
+        _metadata,
+        Column('job_id', Unicode(32), primary_key=True),
+        Column('finished_at', DateTime(timezone=True), index=True),
+        Column('result', LargeBinary, nullable=False)
     )
 
     def __init__(self, bind: Connectable, *, schema: Optional[str] = None,
@@ -296,10 +304,26 @@ class SQLAlchemyDataStore(AsyncDataStore):
 
         return self._deserialize_jobs(serialized_jobs.items())
 
-    def release_jobs(self, worker_id: str, jobs: List[Job]) -> None:
-        job_ids = [job.id.hex for job in jobs]
-        statement = self.t_jobs.delete().\
-            where(and_(self.t_jobs.c.acquired_by == worker_id, self.t_jobs.c.id.in_(job_ids)))
-
+    def release_job(self, worker_id: str, job_id: UUID, result: Optional[JobResult]) -> None:
         with self.bind.begin() as conn:
+            now = datetime.now(timezone.utc)
+            serialized_result = self.serializer.serialize(result)
+            statement = self.t_job_results.insert().\
+                values(job_id=job_id.hex, finished_at=now, result=serialized_result)
             conn.execute(statement)
+
+            statement = self.t_jobs.delete().where(self.t_jobs.c.id == job_id.hex)
+            conn.execute(statement)
+
+    def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
+        with self.bind.begin() as conn:
+            statement = select(self.t_job_results.c.result).\
+                where(self.t_job_results.c.job_id == job_id.hex)
+            result = conn.execute(statement)
+
+            statement = self.t_job_results.delete().\
+                where(self.t_job_results.c.job_id == job_id.hex)
+            conn.execute(statement)
+
+            serialized_result = result.scalar()
+            return self.serializer.deserialize(serialized_result) if serialized_result else None

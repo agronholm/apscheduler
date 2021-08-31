@@ -18,6 +18,7 @@ from ...events import (
 from ...exceptions import ConflictingIdError, DeserializationError, SerializationError
 from ...policies import ConflictPolicy
 from ...serializers.pickle import PickleSerializer
+from ...structures import JobResult
 from ...util import reentrant
 
 
@@ -25,8 +26,8 @@ from ...util import reentrant
 class MongoDBDataStore(DataStore):
     def __init__(self, client: MongoClient, *, serializer: Optional[Serializer] = None,
                  database: str = 'apscheduler', schedules_collection: str = 'schedules',
-                 jobs_collection: str = 'jobs', lock_expiration_delay: float = 30,
-                 start_from_scratch: bool = False):
+                 jobs_collection: str = 'jobs', job_results_collection: str = 'job_results',
+                 lock_expiration_delay: float = 30, start_from_scratch: bool = False):
         super().__init__()
         if not client.delegate.codec_options.tz_aware:
             raise ValueError('MongoDB client must have tz_aware set to True')
@@ -38,6 +39,7 @@ class MongoDBDataStore(DataStore):
         self._database = client[database]
         self._schedules: Collection = self._database[schedules_collection]
         self._jobs: Collection = self._database[jobs_collection]
+        self._jobs_results: Collection = self._database[job_results_collection]
         self._logger = logging.getLogger(__name__)
         self._exit_stack = ExitStack()
         self._events = EventHub()
@@ -59,11 +61,13 @@ class MongoDBDataStore(DataStore):
         if self.start_from_scratch:
             self._schedules.delete_many({})
             self._jobs.delete_many({})
+            self._jobs_results.delete_many({})
 
         self._schedules.create_index('next_fire_time')
         self._jobs.create_index('task_id')
         self._jobs.create_index('created_at')
         self._jobs.create_index('tags')
+        self._jobs_results.create_index('finished_at')
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -250,6 +254,21 @@ class MongoDBDataStore(DataStore):
                 self._jobs.update_many(filters, update)
                 return jobs
 
-    def release_jobs(self, worker_id: str, jobs: List[Job]) -> None:
-        filters = {'_id': {'$in': [job.id for job in jobs]}, 'acquired_by': worker_id}
-        self._jobs.delete_many(filters)
+    def release_job(self, worker_id: str, job_id: UUID, result: Optional[JobResult]) -> None:
+        with self.client.start_session() as session:
+            now = datetime.now(timezone.utc)
+            serialized_result = self.serializer.serialize(result)
+            document = {
+                '_id': job_id,
+                'finished_at': now,
+                'serialized_data': serialized_result
+            }
+            self._jobs_results.insert_one(document, session=session)
+
+            filters = {'_id': job_id, 'acquired_by': worker_id}
+            self._jobs.delete_one(filters, session=session)
+
+    def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
+        document = self._jobs_results.find_one_and_delete(
+            filter={'_id': job_id}, projection=['serialized_data'])
+        return self.serializer.deserialize(document['serialized_data']) if document else None

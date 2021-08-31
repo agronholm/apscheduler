@@ -5,7 +5,10 @@ from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, FrozenSet, Optional
 from uuid import UUID, uuid4
 
+import attr
+
 from . import abc
+from .enums import JobOutcome
 from .policies import CoalescePolicy
 
 
@@ -79,3 +82,10 @@ class Job:
 
     def __hash__(self) -> int:
         return hash(self.id)
+
+
+@attr.define(frozen=True)
+class JobResult:
+    outcome: JobOutcome
+    exception: Optional[BaseException] = None
+    return_value: Any = None

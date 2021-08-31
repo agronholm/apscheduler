@@ -9,7 +9,7 @@ from typing import (
 from uuid import UUID
 
 from .policies import ConflictPolicy
-from .structures import Job, Schedule
+from .structures import Job, JobResult, Schedule
 
 if TYPE_CHECKING:
     from . import events
@@ -166,12 +166,24 @@ class DataStore(EventSource):
         """
 
     @abstractmethod
-    def release_jobs(self, worker_id: str, jobs: List[Job]) -> None:
+    def release_job(self, worker_id: str, job_id: UUID, result: Optional[JobResult]) -> None:
         """
-        Releases the claim on the given jobs
+        Release the claim on the given job and record the result.
 
         :param worker_id: unique identifier of the worker
-        :param jobs: the previously claimed jobs
+        :param job_id: identifier of the job
+        :param result: the result of the job (or ``None`` to discard the job)
+        """
+
+    @abstractmethod
+    def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
+        """
+        Retrieve the result of a job.
+
+        The result is removed from the store after retrieval.
+
+        :param job_id: the identifier of the job
+        :return: the result, or ``None`` if the result was not found
         """
 
 
@@ -254,10 +266,22 @@ class AsyncDataStore(EventSource):
         """
 
     @abstractmethod
-    async def release_jobs(self, worker_id: str, jobs: List[Job]) -> None:
+    async def release_job(self, worker_id: str, job_id: UUID, result: Optional[JobResult]) -> None:
         """
-        Releases the claim on the given jobs
+        Release the claim on the given job and record the result.
 
         :param worker_id: unique identifier of the worker
-        :param jobs: the previously claimed jobs
+        :param job_id: identifier of the job
+        :param result: the result of the job (or ``None`` to discard the job)
+        """
+
+    @abstractmethod
+    async def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
+        """
+        Retrieve the result of a job.
+
+        The result is removed from the store after retrieval.
+
+        :param job_id: the identifier of the job
+        :return: the result, or ``None`` if the result was not found
         """
