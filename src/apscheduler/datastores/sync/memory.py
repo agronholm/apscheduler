@@ -3,8 +3,11 @@ from __future__ import annotations
 from bisect import bisect_left, insort_right
 from collections import defaultdict
 from datetime import MAXYEAR, datetime, timedelta, timezone
+from functools import partial
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Type
 from uuid import UUID
+
+import attr
 
 from ... import events
 from ...abc import DataStore, Job, Schedule
@@ -18,14 +21,18 @@ from ...util import reentrant
 max_datetime = datetime(MAXYEAR, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
 
 
+@attr.define
 class ScheduleState:
-    __slots__ = 'schedule', 'next_fire_time', 'acquired_by', 'acquired_until'
+    schedule: Schedule
+    next_fire_time: Optional[datetime] = attr.field(init=False, eq=False)
+    acquired_by: Optional[str] = attr.field(init=False, eq=False, default=None)
+    acquired_until: Optional[datetime] = attr.field(init=False, eq=False, default=None)
 
-    def __init__(self, schedule: Schedule):
-        self.schedule = schedule
+    def __attrs_post_init__(self):
         self.next_fire_time = self.schedule.next_fire_time
-        self.acquired_by: Optional[str] = None
-        self.acquired_until: Optional[datetime] = None
+
+    def __eq__(self, other):
+        return self.schedule.id == other.schedule.id
 
     def __lt__(self, other):
         if self.next_fire_time is None:
@@ -35,31 +42,16 @@ class ScheduleState:
         else:
             return self.next_fire_time < other.next_fire_time
 
-    def __eq__(self, other):
-        if isinstance(other, ScheduleState):
-            return self.schedule == other.schedule
-
-        return NotImplemented
-
     def __hash__(self):
         return hash(self.schedule.id)
 
-    def __repr__(self):
-        return (f'<{self.__class__.__name__} id={self.schedule.id!r} '
-                f'task_id={self.schedule.task_id!r} next_fire_time={self.next_fire_time}>')
 
-
+@attr.define(order=True)
 class JobState:
-    __slots__ = 'job', 'created_at', 'acquired_by', 'acquired_until'
-
-    def __init__(self, job: Job):
-        self.job = job
-        self.created_at = datetime.now(timezone.utc)
-        self.acquired_by: Optional[str] = None
-        self.acquired_until: Optional[datetime] = None
-
-    def __lt__(self, other):
-        return self.created_at < other.created_at
+    job: Job = attr.field(order=False)
+    created_at: datetime = attr.field(init=False, factory=partial(datetime.now, timezone.utc))
+    acquired_by: Optional[str] = attr.field(eq=False, order=False, default=None)
+    acquired_until: Optional[datetime] = attr.field(eq=False, order=False, default=None)
 
     def __eq__(self, other):
         return self.job.id == other.job.id
@@ -67,22 +59,19 @@ class JobState:
     def __hash__(self):
         return hash(self.job.id)
 
-    def __repr__(self):
-        return f'<{self.__class__.__name__} id={self.job.id!r} task_id={self.job.task_id!r}>'
-
 
 @reentrant
+@attr.define(eq=False)
 class MemoryDataStore(DataStore):
-    def __init__(self, lock_expiration_delay: float = 30):
-        self.lock_expiration_delay = lock_expiration_delay
-        self._events = EventHub()
-        self._schedules: List[ScheduleState] = []
-        self._schedules_by_id: Dict[str, ScheduleState] = {}
-        self._schedules_by_task_id: Dict[str, Set[ScheduleState]] = defaultdict(set)
-        self._jobs: List[JobState] = []
-        self._jobs_by_id: Dict[UUID, JobState] = {}
-        self._jobs_by_task_id: Dict[str, Set[JobState]] = defaultdict(set)
-        self._job_results: Dict[UUID, JobResult] = {}
+    lock_expiration_delay: float = 30
+    _events: EventHub = attr.Factory(EventHub)
+    _schedules: List[ScheduleState] = attr.Factory(list)
+    _schedules_by_id: Dict[str, ScheduleState] = attr.Factory(dict)
+    _schedules_by_task_id: Dict[str, Set[ScheduleState]] = attr.Factory(partial(defaultdict, set))
+    _jobs: List[JobState] = attr.Factory(list)
+    _jobs_by_id: Dict[UUID, JobState] = attr.Factory(dict)
+    _jobs_by_task_id: Dict[str, Set[JobState]] = attr.Factory(partial(defaultdict, set))
+    _job_results: Dict[UUID, JobResult] = attr.Factory(dict)
 
     def _find_schedule_index(self, state: ScheduleState) -> Optional[int]:
         left_index = bisect_left(self._schedules, state)
