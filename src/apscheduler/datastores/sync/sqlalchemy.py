@@ -7,10 +7,11 @@ from uuid import UUID
 
 from sqlalchemy import (
     Column, Integer, LargeBinary, MetaData, Table, Unicode, and_, bindparam, or_, select)
-from sqlalchemy.engine import URL, Connectable
+from sqlalchemy.engine import URL
 from sqlalchemy.exc import CompileError, IntegrityError
-from sqlalchemy.future import create_engine
+from sqlalchemy.future import Engine, create_engine
 from sqlalchemy.sql.ddl import DropTable
+from sqlalchemy.sql.elements import BindParameter
 
 from ...abc import DataStore, Job, Schedule, Serializer
 from ...events import (
@@ -27,11 +28,11 @@ logger = logging.getLogger(__name__)
 
 @reentrant
 class SQLAlchemyDataStore(DataStore):
-    def __init__(self, bind: Connectable, *, schema: Optional[str] = None,
+    def __init__(self, engine: Engine, *, schema: Optional[str] = None,
                  serializer: Optional[Serializer] = None,
                  lock_expiration_delay: float = 30, max_poll_time: Optional[float] = 1,
                  max_idle_time: float = 60, start_from_scratch: bool = False):
-        self.bind = bind
+        self.engine = engine
         self.schema = schema
         self.serializer = serializer or PickleSerializer()
         self.lock_expiration_delay = lock_expiration_delay
@@ -49,9 +50,9 @@ class SQLAlchemyDataStore(DataStore):
         self.t_job_results = self._metadata.tables['job_results']
 
         # Find out if the dialect supports RETURNING
-        statement = self.t_jobs.update().returning(self.t_schedules.c.id)
+        update = self.t_jobs.update().returning(self.t_schedules.c.id)
         try:
-            statement.compile(bind=self.bind)
+            update.compile(bind=self.engine)
         except CompileError:
             self._supports_update_returning = False
         else:
@@ -63,7 +64,7 @@ class SQLAlchemyDataStore(DataStore):
         return cls(engine, **options)
 
     def __enter__(self):
-        with self.bind.begin() as conn:
+        with self.engine.begin() as conn:
             if self.start_from_scratch:
                 for table in self._metadata.sorted_tables:
                     conn.execute(DropTable(table, if_exists=True))
@@ -85,7 +86,7 @@ class SQLAlchemyDataStore(DataStore):
         self._events.__exit__(exc_type, exc_val, exc_tb)
 
     def get_table_definitions(self) -> MetaData:
-        if self.bind.dialect.name in ('mysql', 'mariadb'):
+        if self.engine.dialect.name in ('mysql', 'mariadb'):
             from sqlalchemy.dialects.mysql import TIMESTAMP
             timestamp_type = TIMESTAMP(fsp=6)
         else:
@@ -163,13 +164,14 @@ class SQLAlchemyDataStore(DataStore):
         self._events.unsubscribe(token)
 
     def add_schedule(self, schedule: Schedule, conflict_policy: ConflictPolicy) -> None:
+        event: Event
         serialized_data = self.serializer.serialize(schedule)
-        statement = self.t_schedules.insert().\
+        insert = self.t_schedules.insert().\
             values(id=schedule.id, task_id=schedule.task_id, serialized_data=serialized_data,
                    next_fire_time=schedule.next_fire_time)
         try:
-            with self.bind.begin() as conn:
-                conn.execute(statement)
+            with self.engine.begin() as conn:
+                conn.execute(insert)
                 event = ScheduleAdded(schedule_id=schedule.id,
                                       next_fire_time=schedule.next_fire_time)
                 self._events.publish(event)
@@ -177,26 +179,26 @@ class SQLAlchemyDataStore(DataStore):
             if conflict_policy is ConflictPolicy.exception:
                 raise ConflictingIdError(schedule.id) from None
             elif conflict_policy is ConflictPolicy.replace:
-                statement = self.t_schedules.update().\
+                update = self.t_schedules.update().\
                     where(self.t_schedules.c.id == schedule.id).\
                     values(serialized_data=serialized_data,
                            next_fire_time=schedule.next_fire_time)
-                with self.bind.begin() as conn:
-                    conn.execute(statement)
+                with self.engine.begin() as conn:
+                    conn.execute(update)
 
                 event = ScheduleUpdated(schedule_id=schedule.id,
                                         next_fire_time=schedule.next_fire_time)
                 self._events.publish(event)
 
     def remove_schedules(self, ids: Iterable[str]) -> None:
-        with self.bind.begin() as conn:
-            statement = self.t_schedules.delete().where(self.t_schedules.c.id.in_(ids))
+        with self.engine.begin() as conn:
+            delete = self.t_schedules.delete().where(self.t_schedules.c.id.in_(ids))
             if self._supports_update_returning:
-                statement = statement.returning(self.t_schedules.c.id)
-                removed_ids = [row[0] for row in conn.execute(statement)]
+                delete = delete.returning(self.t_schedules.c.id)
+                removed_ids: Iterable[str] = [row[0] for row in conn.execute(delete)]
             else:
                 # TODO: actually check which rows were deleted?
-                conn.execute(statement)
+                conn.execute(delete)
                 removed_ids = ids
 
         for schedule_id in removed_ids:
@@ -208,12 +210,12 @@ class SQLAlchemyDataStore(DataStore):
         if ids:
             query = query.where(self.t_schedules.c.id.in_(ids))
 
-        with self.bind.begin() as conn:
+        with self.engine.begin() as conn:
             result = conn.execute(query)
             return self._deserialize_schedules(result)
 
     def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
-        with self.bind.begin() as conn:
+        with self.engine.begin() as conn:
             now = datetime.now(timezone.utc)
             acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
             schedules_cte = select(self.t_schedules.c.id).\
@@ -224,24 +226,25 @@ class SQLAlchemyDataStore(DataStore):
                 order_by(self.t_schedules.c.next_fire_time).\
                 limit(limit).cte()
             subselect = select([schedules_cte.c.id])
-            statement = self.t_schedules.update().\
+            update = self.t_schedules.update().\
                 where(self.t_schedules.c.id.in_(subselect)).\
                 values(acquired_by=scheduler_id, acquired_until=acquired_until)
             if self._supports_update_returning:
-                statement = statement.returning(self.t_schedules.c.id,
-                                                self.t_schedules.c.serialized_data)
+                update = update.returning(self.t_schedules.c.id,
+                                          self.t_schedules.c.serialized_data)
+                result = conn.execute(update)
             else:
-                conn.execute(statement)
-                statement = select([self.t_schedules.c.id, self.t_schedules.c.serialized_data]).\
+                conn.execute(update)
+                query = select([self.t_schedules.c.id, self.t_schedules.c.serialized_data]).\
                     where(and_(self.t_schedules.c.acquired_by == scheduler_id))
+                result = conn.execute(query)
 
-            result = conn.execute(statement)
             schedules = self._deserialize_schedules(result)
 
         return schedules
 
     def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
-        with self.bind.begin() as conn:
+        with self.engine.begin() as conn:
             update_events: List[ScheduleUpdated] = []
             finished_schedule_ids: List[str] = []
             update_args: List[Dict[str, Any]] = []
@@ -265,21 +268,21 @@ class SQLAlchemyDataStore(DataStore):
 
             # Update schedules that have a next fire time
             if update_args:
-                p_id = bindparam('p_id')
-                p_serialized = bindparam('p_serialized_data')
-                p_next_fire_time = bindparam('p_next_fire_time')
-                statement = self.t_schedules.update().\
+                p_id: BindParameter = bindparam('p_id')
+                p_serialized: BindParameter = bindparam('p_serialized_data')
+                p_next_fire_time: BindParameter = bindparam('p_next_fire_time')
+                update = self.t_schedules.update().\
                     where(and_(self.t_schedules.c.id == p_id,
                                self.t_schedules.c.acquired_by == scheduler_id)).\
                     values(serialized_data=p_serialized, next_fire_time=p_next_fire_time,
                            acquired_by=None, acquired_until=None)
                 next_fire_times = {arg['p_id']: arg['p_next_fire_time'] for arg in update_args}
                 if self._supports_update_returning:
-                    statement = statement.returning(self.t_schedules.c.id)
-                    updated_ids = [row[0] for row in conn.execute(statement, update_args)]
+                    update = update.returning(self.t_schedules.c.id)
+                    updated_ids = [row[0] for row in conn.execute(update, update_args)]
                 else:
                     # TODO: actually check which rows were updated?
-                    conn.execute(statement, update_args)
+                    conn.execute(update, update_args)
                     updated_ids = list(next_fire_times)
 
                 for schedule_id in updated_ids:
@@ -289,9 +292,9 @@ class SQLAlchemyDataStore(DataStore):
 
             # Remove schedules that have no next fire time or failed to serialize
             if finished_schedule_ids:
-                statement = self.t_schedules.delete().\
+                delete = self.t_schedules.delete().\
                     where(self.t_schedules.c.id.in_(finished_schedule_ids))
-                conn.execute(statement)
+                conn.execute(delete)
 
         for event in update_events:
             self._events.publish(event)
@@ -300,21 +303,21 @@ class SQLAlchemyDataStore(DataStore):
             self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
     def get_next_schedule_run_time(self) -> Optional[datetime]:
-        statenent = select(self.t_schedules.c.id).\
+        query = select(self.t_schedules.c.id).\
             where(self.t_schedules.c.next_fire_time.isnot(None)).\
             order_by(self.t_schedules.c.next_fire_time).\
             limit(1)
-        with self.bind.begin() as conn:
-            result = conn.execute(statenent)
+        with self.engine.begin() as conn:
+            result = conn.execute(query)
             return result.scalar()
 
     def add_job(self, job: Job) -> None:
         now = datetime.now(timezone.utc)
         serialized_data = self.serializer.serialize(job)
-        statement = self.t_jobs.insert().values(id=job.id.hex, task_id=job.task_id,
-                                                created_at=now, serialized_data=serialized_data)
-        with self.bind.begin() as conn:
-            conn.execute(statement)
+        insert = self.t_jobs.insert().values(id=job.id.hex, task_id=job.task_id,
+                                             created_at=now, serialized_data=serialized_data)
+        with self.engine.begin() as conn:
+            conn.execute(insert)
 
         event = JobAdded(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
                          tags=job.tags)
@@ -327,12 +330,12 @@ class SQLAlchemyDataStore(DataStore):
             job_ids = [job_id.hex for job_id in ids]
             query = query.where(self.t_jobs.c.id.in_(job_ids))
 
-        with self.bind.begin() as conn:
+        with self.engine.begin() as conn:
             result = conn.execute(query)
             return self._deserialize_jobs(result)
 
     def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> List[Job]:
-        with self.bind.begin() as conn:
+        with self.engine.begin() as conn:
             now = datetime.now(timezone.utc)
             acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
             query = select([self.t_jobs.c.id, self.t_jobs.c.serialized_data]).\
@@ -344,33 +347,33 @@ class SQLAlchemyDataStore(DataStore):
             serialized_jobs: Dict[str, bytes] = {row[0]: row[1]
                                                  for row in conn.execute(query)}
             if serialized_jobs:
-                query = self.t_jobs.update().\
+                update = self.t_jobs.update().\
                     values(acquired_by=worker_id, acquired_until=acquired_until).\
                     where(self.t_jobs.c.id.in_(serialized_jobs))
-                conn.execute(query)
+                conn.execute(update)
 
             return self._deserialize_jobs(serialized_jobs.items())
 
     def release_job(self, worker_id: str, job_id: UUID, result: Optional[JobResult]) -> None:
-        with self.bind.begin() as conn:
+        with self.engine.begin() as conn:
             now = datetime.now(timezone.utc)
             serialized_result = self.serializer.serialize(result)
-            statement = self.t_job_results.insert().\
+            insert = self.t_job_results.insert().\
                 values(job_id=job_id.hex, finished_at=now, serialized_data=serialized_result)
-            conn.execute(statement)
+            conn.execute(insert)
 
-            statement = self.t_jobs.delete().where(self.t_jobs.c.id == job_id.hex)
-            conn.execute(statement)
+            delete = self.t_jobs.delete().where(self.t_jobs.c.id == job_id.hex)
+            conn.execute(delete)
 
     def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
-        with self.bind.begin() as conn:
-            statement = select(self.t_job_results.c.serialized_data).\
+        with self.engine.begin() as conn:
+            query = select(self.t_job_results.c.serialized_data).\
                 where(self.t_job_results.c.job_id == job_id.hex)
-            result = conn.execute(statement)
+            result = conn.execute(query)
 
-            statement = self.t_job_results.delete().\
+            delete = self.t_job_results.delete().\
                 where(self.t_job_results.c.job_id == job_id.hex)
-            conn.execute(statement)
+            conn.execute(delete)
 
             serialized_result = result.scalar()
             return self.serializer.deserialize(serialized_result) if serialized_result else None

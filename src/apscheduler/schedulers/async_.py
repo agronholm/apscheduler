@@ -29,6 +29,7 @@ from ..workers.async_ import AsyncWorker
 class AsyncScheduler(EventSource):
     """An asynchronous (AnyIO based) scheduler implementation."""
 
+    data_store: AsyncDataStore
     _state: RunState = RunState.stopped
     _wakeup_event: anyio.Event
     _worker: Optional[AsyncWorker] = None

@@ -70,7 +70,7 @@ class Scheduler(EventSource):
             self._exit_stack.enter_context(self._worker)
 
         # Start the worker and return when it has signalled readiness or raised an exception
-        start_future: Future[None] = Future()
+        start_future: Future[Event] = Future()
         token = self._events.subscribe(start_future.set_result)
         run_future = self._executor.submit(self.run)
         try:
