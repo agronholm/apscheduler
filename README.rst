@@ -50,7 +50,7 @@ APScheduler also integrates with several common Python frameworks, like:
 Documentation
 -------------
 
-Documentation can be found `here <http://readthedocs.org/docs/apscheduler/en/latest/>`_.
+Documentation can be found `here <https://apscheduler.readthedocs.io/en/master/?badge=latest>`_.
 
 
 Source
