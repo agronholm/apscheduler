@@ -50,7 +50,8 @@ class TestAsyncWorker:
         worker = AsyncWorker(data_store)
         worker.subscribe(listener)
         async with worker:
-            job = Job('task_id', func=target_func, args=(1, 2), kwargs={'x': 'foo', 'fail': fail})
+            job = Job(task_id='task_id', func=target_func, args=(1, 2),
+                      kwargs={'x': 'foo', 'fail': fail})
             await worker.data_store.add_job(job)
             with fail_after(3):
                 await event.wait()
@@ -105,7 +106,7 @@ class TestAsyncWorker:
         worker = AsyncWorker(data_store)
         worker.subscribe(listener)
         async with worker:
-            job = Job('task_id', fail_func, args=(), kwargs={}, schedule_id='foo',
+            job = Job(task_id='task_id', func=fail_func, schedule_id='foo',
                       scheduled_fire_time=scheduled_start_time,
                       start_deadline=datetime(2020, 9, 14, 1, tzinfo=timezone.utc))
             await worker.data_store.add_job(job)
@@ -152,7 +153,8 @@ class TestSyncWorker:
         worker = Worker(data_store)
         worker.subscribe(listener)
         with worker:
-            job = Job('task_id', func=sync_func, args=(1, 2), kwargs={'x': 'foo', 'fail': fail})
+            job = Job(task_id='task_id', func=sync_func, args=(1, 2),
+                      kwargs={'x': 'foo', 'fail': fail})
             worker.data_store.add_job(job)
             event.wait(5)
 
@@ -206,7 +208,7 @@ class TestSyncWorker:
         worker = Worker(data_store)
         worker.subscribe(listener)
         with worker:
-            job = Job('task_id', fail_func, args=(), kwargs={}, schedule_id='foo',
+            job = Job(task_id='task_id', func=fail_func, schedule_id='foo',
                       scheduled_fire_time=scheduled_start_time,
                       start_deadline=datetime(2020, 9, 14, 1, tzinfo=timezone.utc))
             worker.data_store.add_job(job)

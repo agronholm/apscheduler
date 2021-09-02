@@ -1,5 +1,6 @@
 import sys
 from contextlib import asynccontextmanager, contextmanager
+from tempfile import TemporaryDirectory
 from typing import AsyncContextManager, AsyncGenerator, ContextManager, Generator, Optional
 
 import pytest
@@ -53,7 +54,21 @@ def setup_mongodb_store() -> Generator[DataStore, None, None]:
 
 
 @contextmanager
-def setup_sqlalchemy_store() -> Generator[DataStore, None, None]:
+def setup_sqlite_store() -> Generator[DataStore, None, None]:
+    from sqlalchemy.future import create_engine
+
+    from apscheduler.datastores.sync.sqlalchemy import SQLAlchemyDataStore
+
+    with TemporaryDirectory('sqlite_') as tempdir:
+        engine = create_engine(f'sqlite:///{tempdir}/test.db')
+        try:
+            yield SQLAlchemyDataStore(engine)
+        finally:
+            engine.dispose()
+
+
+@contextmanager
+def setup_psycopg2_store() -> Generator[DataStore, None, None]:
     from sqlalchemy.future import create_engine
 
     from apscheduler.datastores.sync.sqlalchemy import SQLAlchemyDataStore
@@ -65,8 +80,21 @@ def setup_sqlalchemy_store() -> Generator[DataStore, None, None]:
         engine.dispose()
 
 
+@contextmanager
+def setup_mysql_store() -> Generator[DataStore, None, None]:
+    from sqlalchemy.future import create_engine
+
+    from apscheduler.datastores.sync.sqlalchemy import SQLAlchemyDataStore
+
+    engine = create_engine('mysql+pymysql://root:secret@localhost/testdb')
+    try:
+        yield SQLAlchemyDataStore(engine, start_from_scratch=True)
+    finally:
+        engine.dispose()
+
+
 @asynccontextmanager
-async def setup_async_sqlalchemy_store() -> AsyncGenerator[AsyncDataStore, None]:
+async def setup_asyncpg_store() -> AsyncGenerator[AsyncDataStore, None]:
     from sqlalchemy.ext.asyncio import create_async_engine
 
     from apscheduler.datastores.async_.sqlalchemy import SQLAlchemyDataStore
@@ -81,16 +109,17 @@ async def setup_async_sqlalchemy_store() -> AsyncGenerator[AsyncDataStore, None]
 
 @pytest.fixture(params=[
     pytest.param(setup_memory_store, id='memory'),
+    pytest.param(setup_sqlite_store, id='sqlite'),
     pytest.param(setup_mongodb_store, id='mongodb', marks=[pytest.mark.externaldb]),
-    pytest.param(setup_sqlalchemy_store, id='sqlalchemy', marks=[pytest.mark.externaldb])
+    pytest.param(setup_psycopg2_store, id='psycopg2', marks=[pytest.mark.externaldb]),
+    pytest.param(setup_mysql_store, id='mysql', marks=[pytest.mark.externaldb])
 ])
 def setup_sync_store(request) -> ContextManager[DataStore]:
     return request.param
 
 
 @pytest.fixture(params=[
-    pytest.param(setup_async_sqlalchemy_store, id='async_sqlalchemy',
-                 marks=[pytest.mark.externaldb])
+    pytest.param(setup_asyncpg_store, id='asyncpg', marks=[pytest.mark.externaldb])
 ])
 def setup_async_store(request) -> AsyncContextManager[AsyncDataStore]:
     return request.param
@@ -98,10 +127,11 @@ def setup_async_store(request) -> AsyncContextManager[AsyncDataStore]:
 
 @pytest.fixture(params=[
     pytest.param(setup_memory_store, id='memory'),
+    pytest.param(setup_sqlite_store, id='sqlite'),
     pytest.param(setup_mongodb_store, id='mongodb', marks=[pytest.mark.externaldb]),
-    pytest.param(setup_sqlalchemy_store, id='sqlalchemy', marks=[pytest.mark.externaldb]),
-    pytest.param(setup_async_sqlalchemy_store, id='async_sqlalchemy',
-                 marks=[pytest.mark.externaldb])
+    pytest.param(setup_psycopg2_store, id='psycopg2', marks=[pytest.mark.externaldb]),
+    pytest.param(setup_mysql_store, id='mysql', marks=[pytest.mark.externaldb]),
+    pytest.param(setup_asyncpg_store, id='asyncpg', marks=[pytest.mark.externaldb])
 ])
 async def datastore_cm(request):
     cm = request.param()

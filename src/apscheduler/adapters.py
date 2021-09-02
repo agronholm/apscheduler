@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import sys
-from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from datetime import datetime
 from functools import partial
-from typing import Any, AsyncContextManager, Callable, Iterable, List, Optional, Set, Type
+from typing import Any, Callable, Iterable, List, Optional, Set, Type
 from uuid import UUID
 
+import attr
 from anyio import to_thread
 from anyio.from_thread import BlockingPortal
 
@@ -19,10 +18,10 @@ from .util import reentrant
 
 
 @reentrant
-@dataclass
+@attr.define
 class AsyncDataStoreAdapter(AsyncDataStore):
     original: DataStore
-    _portal: BlockingPortal = field(init=False)
+    _portal: BlockingPortal = attr.field(init=False, eq=False)
 
     async def __aenter__(self) -> AsyncDataStoreAdapter:
         self._portal = BlockingPortal()
@@ -43,18 +42,14 @@ class AsyncDataStoreAdapter(AsyncDataStore):
     async def remove_schedules(self, ids: Iterable[str]) -> None:
         await to_thread.run_sync(self.original.remove_schedules, ids)
 
-    @asynccontextmanager
-    async def acquire_schedules(self, scheduler_id: str,
-                                limit: int) -> AsyncContextManager[List[Schedule], None]:
-        cm = self.original.acquire_schedules(scheduler_id, limit)
-        schedules = await to_thread.run_sync(cm.__enter__)
-        try:
-            yield schedules
-        except BaseException:
-            if not await to_thread.run_sync(cm.__exit__, *sys.exc_info()):
-                raise
-        else:
-            await to_thread.run_sync(cm.__exit__, None, None, None)
+    async def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
+        return await to_thread.run_sync(self.original.acquire_schedules, scheduler_id, limit)
+
+    async def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
+        await to_thread.run_sync(self.original.release_schedules, scheduler_id, schedules)
+
+    async def get_next_schedule_run_time(self) -> Optional[datetime]:
+        return await to_thread.run_sync(self.original.get_next_schedule_run_time)
 
     async def add_job(self, job: Job) -> None:
         await to_thread.run_sync(self.original.add_job, job)

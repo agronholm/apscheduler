@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import logging
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack
 from datetime import datetime, timezone
-from typing import Any, Callable, Generator, Iterable, List, Optional, Set, Tuple, Type
+from typing import Any, Callable, Iterable, List, Optional, Set, Tuple, Type
 from uuid import UUID
 
 from pymongo import ASCENDING, DeleteOne, MongoClient, UpdateOne
@@ -131,9 +131,7 @@ class MongoDBDataStore(DataStore):
         for schedule_id in ids:
             self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
-    @contextmanager
-    def acquire_schedules(self, scheduler_id: str,
-                          limit: int) -> Generator[List[Schedule], None, None]:
+    def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
         schedules: List[Schedule] = []
         with self.client.start_session() as s, s.start_transaction():
             cursor = self._schedules.find(
@@ -156,8 +154,9 @@ class MongoDBDataStore(DataStore):
                                    'acquired_until': acquired_until}}
                 self._schedules.update_many(filters, update)
 
-        yield schedules
+        return schedules
 
+    def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
         updated_schedules: List[Tuple[str, datetime]] = []
         finished_schedule_ids: List[str] = []
         with self.client.start_session() as s, s.start_transaction():
@@ -200,6 +199,15 @@ class MongoDBDataStore(DataStore):
         for schedule_id in finished_schedule_ids:
             self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
+    def get_next_schedule_run_time(self) -> Optional[datetime]:
+        document = self._schedules.find_one({'next_run_time': {'$ne': None}},
+                                            projection=['next_run_time'],
+                                            sort=[('next_run_time', ASCENDING)])
+        if document:
+            return document['next_run_time']
+        else:
+            return None
+
     def add_job(self, job: Job) -> None:
         serialized_data = self.serializer.serialize(job)
         document = {
@@ -231,14 +239,15 @@ class MongoDBDataStore(DataStore):
 
     def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> List[Job]:
         jobs: List[Job] = []
-        with self.client.start_session() as s, s.start_transaction():
+        with self.client.start_session() as session:
             cursor = self._jobs.find(
                 {'$or': [{'acquired_until': {'$exists': False}},
                          {'acquired_until': {'$lt': datetime.now(timezone.utc)}}]
                  },
                 projection=['serialized_data'],
                 sort=[('created_at', ASCENDING)],
-                limit=limit
+                limit=limit,
+                session=session
             )
             for document in cursor:
                 job = self.serializer.deserialize(document['serialized_data'])
@@ -251,8 +260,9 @@ class MongoDBDataStore(DataStore):
                 filters = {'_id': {'$in': [job.id for job in jobs]}}
                 update = {'$set': {'acquired_by': worker_id,
                                    'acquired_until': acquired_until}}
-                self._jobs.update_many(filters, update)
-                return jobs
+                self._jobs.update_many(filters, update, session=session)
+
+        return jobs
 
     def release_job(self, worker_id: str, job_id: UUID, result: Optional[JobResult]) -> None:
         with self.client.start_session() as session:

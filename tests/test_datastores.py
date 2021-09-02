@@ -19,28 +19,25 @@ from apscheduler.triggers.date import DateTrigger
 @pytest.fixture
 def schedules() -> List[Schedule]:
     trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
-    schedule1 = Schedule(id='s1', task_id='bogus', trigger=trigger, args=(), kwargs={},
-                         coalesce=CoalescePolicy.latest, misfire_grace_time=None, tags=frozenset())
+    schedule1 = Schedule(id='s1', task_id='bogus', trigger=trigger)
     schedule1.next_fire_time = trigger.next()
 
     trigger = DateTrigger(datetime(2020, 9, 14, tzinfo=timezone.utc))
-    schedule2 = Schedule(id='s2', task_id='bogus', trigger=trigger, args=(), kwargs={},
-                         coalesce=CoalescePolicy.latest, misfire_grace_time=None, tags=frozenset())
+    schedule2 = Schedule(id='s2', task_id='bogus', trigger=trigger)
     schedule2.next_fire_time = trigger.next()
 
     trigger = DateTrigger(datetime(2020, 9, 15, tzinfo=timezone.utc))
-    schedule3 = Schedule(id='s3', task_id='bogus', trigger=trigger, args=(), kwargs={},
-                         coalesce=CoalescePolicy.latest, misfire_grace_time=None, tags=frozenset())
+    schedule3 = Schedule(id='s3', task_id='bogus', trigger=trigger)
     return [schedule1, schedule2, schedule3]
 
 
 @pytest.fixture
 def jobs() -> List[Job]:
-    job1 = Job('task1', print, ('hello',), {'arg2': 'world'}, 'schedule1',
-               datetime(2020, 10, 10, tzinfo=timezone.utc),
-               datetime(2020, 10, 10, 1, tzinfo=timezone.utc), frozenset())
-    job2 = Job('task2', print, ('hello',), {'arg2': 'world'}, None,
-               None, None, frozenset())
+    job1 = Job(task_id='task1', func=print, args=('hello',), kwargs={'arg2': 'world'},
+               schedule_id='schedule1',
+               scheduled_fire_time=datetime(2020, 10, 10, tzinfo=timezone.utc),
+               start_deadline=datetime(2020, 10, 10, 1, tzinfo=timezone.utc))
+    job2 = Job(task_id='task2', func=print, args=('hello',), kwargs={'arg2': 'world'})
     return [job1, job2]
 
 
@@ -135,23 +132,27 @@ class TestAsyncStores:
                 await store.add_schedule(schedule, ConflictPolicy.exception)
 
             # The first scheduler gets the first due schedule
-            async with store.acquire_schedules('dummy-id1', 1) as schedules1:
-                assert len(schedules1) == 1
-                assert schedules1[0].id == 's1'
+            schedules1 = await store.acquire_schedules('dummy-id1', 1)
+            assert len(schedules1) == 1
+            assert schedules1[0].id == 's1'
 
-                # The second scheduler gets the second due schedule
-                async with store.acquire_schedules('dummy-id2', 1) as schedules2:
-                    assert len(schedules2) == 1
-                    assert schedules2[0].id == 's2'
+            # The second scheduler gets the second due schedule
+            schedules2 = await store.acquire_schedules('dummy-id2', 1)
+            assert len(schedules2) == 1
+            assert schedules2[0].id == 's2'
 
-                    # The third scheduler gets nothing
-                    async with store.acquire_schedules('dummy-id3', 1) as schedules3:
-                        assert not schedules3
+            # The third scheduler gets nothing
+            schedules3 = await store.acquire_schedules('dummy-id3', 1)
+            assert not schedules3
 
-                    # The schedules here have run their course, and releasing them should delete
-                    # them
-                    schedules1[0].next_fire_time = None
-                    schedules2[0].next_fire_time = datetime(2020, 9, 15, tzinfo=timezone.utc)
+            # Update the schedules and check that the job store actually deletes the first
+            # one and updates the second one
+            schedules1[0].next_fire_time = None
+            schedules2[0].next_fire_time = datetime(2020, 9, 15, tzinfo=timezone.utc)
+
+            # Release all the schedules
+            await store.release_schedules('dummy-id1', schedules1)
+            await store.release_schedules('dummy-id2', schedules2)
 
             # Check that the first schedule is gone
             schedules = await store.get_schedules()
@@ -161,44 +162,44 @@ class TestAsyncStores:
 
         # Check for the appropriate update and delete events
         received_event = events.pop(0)
+        assert isinstance(received_event, ScheduleRemoved)
+        assert received_event.schedule_id == 's1'
+
+        received_event = events.pop(0)
         assert isinstance(received_event, ScheduleUpdated)
         assert received_event.schedule_id == 's2'
         assert received_event.next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
 
-        received_event = events.pop(0)
-        assert isinstance(received_event, ScheduleRemoved)
-        assert received_event.schedule_id == 's1'
-
         assert not events
 
-    # async def test_acquire_schedules_lock_timeout(
-    #         self, datastore_cm, schedules: List[Schedule], freezer) -> None:
-    #     """
-    #     Test that a scheduler can acquire schedules that were acquired by another scheduler but
-    #     not released within the lock timeout period.
-    #
-    #     """
-    #     async with datastore_cm as store:
-    #         await store.add_schedule(schedules[0], ConflictPolicy.exception)
-    #
-    #         # First, one scheduler acquires the first available schedule
-    #         async with store.acquire_schedules('dummy-id1', 1) as acquired1:
-    #             assert len(acquired1) == 1
-    #             assert acquired1[0].id == 's1'
-    #
-    #             # Try to acquire the schedule just at the threshold (now == acquired_until).
-    #             # This should not yield any schedules.
-    #             freezer.tick(30)
-    #             async with store.acquire_schedules('dummy-id2', 1) as acquired2:
-    #                 assert not acquired2
-    #
-    #             # Right after that, the schedule should be available
-    #             freezer.tick(1)
-    #             async with store.acquire_schedules('dummy-id2', 1) as acquired3:
-    #                 assert len(acquired3) == 1
-    #                 assert acquired3[0].id == 's1'
+    async def test_acquire_schedules_lock_timeout(
+            self, datastore_cm, schedules: List[Schedule], freezer) -> None:
+        """
+        Test that a scheduler can acquire schedules that were acquired by another scheduler but
+        not released within the lock timeout period.
 
-    async def test_acquire_release_multiple_workers(
+        """
+        async with datastore_cm as store:
+            await store.add_schedule(schedules[0], ConflictPolicy.exception)
+
+            # First, one scheduler acquires the first available schedule
+            acquired1 = await store.acquire_schedules('dummy-id1', 1)
+            assert len(acquired1) == 1
+            assert acquired1[0].id == 's1'
+
+            # Try to acquire the schedule just at the threshold (now == acquired_until).
+            # This should not yield any schedules.
+            freezer.tick(30)
+            acquired2 = await store.acquire_schedules('dummy-id2', 1)
+            assert not acquired2
+
+            # Right after that, the schedule should be available
+            freezer.tick(1)
+            acquired3 = await store.acquire_schedules('dummy-id2', 1)
+            assert len(acquired3) == 1
+            assert acquired3[0].id == 's1'
+
+    async def test_acquire_multiple_workers(
             self, datastore_cm: AsyncContextManager[AsyncDataStore], jobs: List[Job]) -> None:
         async with datastore_cm as store:
             for job in jobs:

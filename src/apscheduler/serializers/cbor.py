@@ -1,19 +1,19 @@
-from dataclasses import dataclass, field
 from typing import Any, Dict
 
+import attr
 from cbor2 import CBOREncodeTypeError, CBORTag, dumps, loads
 
 from ..abc import Serializer
 from ..marshalling import marshal_object, unmarshal_object
 
 
-@dataclass
+@attr.define(kw_only=True, eq=False)
 class CBORSerializer(Serializer):
     type_tag: int = 4664
-    dump_options: Dict[str, Any] = field(default_factory=dict)
-    load_options: Dict[str, Any] = field(default_factory=dict)
+    dump_options: Dict[str, Any] = attr.field(factory=dict)
+    load_options: Dict[str, Any] = attr.field(factory=dict)
 
-    def __post_init__(self):
+    def __attrs_post_init__(self):
         self.dump_options.setdefault('default', self._default_hook)
         self.load_options.setdefault('tag_hook', self._tag_hook)
 

@@ -1,33 +1,32 @@
-from dataclasses import dataclass, field
 from json import dumps, loads
 from typing import Any, Dict
+
+import attr
 
 from ..abc import Serializer
 from ..marshalling import marshal_object, unmarshal_object
 
 
-@dataclass
+@attr.define(kw_only=True, eq=False)
 class JSONSerializer(Serializer):
     magic_key: str = '_apscheduler_json'
-    dump_options: Dict[str, Any] = field(default_factory=dict)
-    load_options: Dict[str, Any] = field(default_factory=dict)
+    dump_options: Dict[str, Any] = attr.field(factory=dict)
+    load_options: Dict[str, Any] = attr.field(factory=dict)
 
-    def __post_init__(self):
+    def __attrs_post_init__(self):
         self.dump_options['default'] = self._default_hook
         self.load_options['object_hook'] = self._object_hook
 
-    @classmethod
-    def _default_hook(cls, obj):
+    def _default_hook(self, obj):
         if hasattr(obj, '__getstate__'):
             cls_ref, state = marshal_object(obj)
-            return {cls.magic_key: [cls_ref, state]}
+            return {self.magic_key: [cls_ref, state]}
 
         raise TypeError(f'Object of type {obj.__class__.__name__!r} is not JSON serializable')
 
-    @classmethod
-    def _object_hook(cls, obj_state: Dict[str, Any]):
-        if cls.magic_key in obj_state:
-            ref, *rest = obj_state[cls.magic_key]
+    def _object_hook(self, obj_state: Dict[str, Any]):
+        if self.magic_key in obj_state:
+            ref, *rest = obj_state[self.magic_key]
             return unmarshal_object(ref, *rest)
 
         return obj_state

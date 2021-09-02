@@ -1,10 +1,11 @@
-from dataclasses import dataclass
 from pickle import dumps, loads
+
+import attr
 
 from ..abc import Serializer
 
 
-@dataclass(frozen=True)
+@attr.define(kw_only=True, eq=False)
 class PickleSerializer(Serializer):
     protocol: int = 4
 

@@ -2,19 +2,17 @@ from __future__ import annotations
 
 import json
 import logging
-from contextlib import AsyncExitStack, asynccontextmanager, closing
+from contextlib import AsyncExitStack, closing
 from datetime import datetime, timedelta, timezone
 from json import JSONDecodeError
-from typing import (
-    Any, AsyncGenerator, Callable, Dict, Iterable, List, Optional, Set, Tuple, Type, Union)
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 from uuid import UUID
 
 import sniffio
 from anyio import TASK_STATUS_IGNORED, create_task_group, sleep
 from attr import asdict
 from sqlalchemy import (
-    Column, DateTime, Integer, LargeBinary, MetaData, Table, Unicode, and_, bindparam, func, or_,
-    select)
+    Column, Integer, LargeBinary, MetaData, Table, Unicode, and_, bindparam, func, or_, select)
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import CompileError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
@@ -60,45 +58,6 @@ def json_object_hook(obj: Dict[str, Any]) -> Any:
 
 @reentrant
 class SQLAlchemyDataStore(AsyncDataStore):
-    _metadata = MetaData()
-
-    t_metadata = Table(
-        'metadata',
-        _metadata,
-        Column('schema_version', Integer, nullable=False)
-    )
-    t_tasks = Table(
-        'tasks',
-        _metadata,
-        Column('id', Unicode(500), primary_key=True),
-        Column('serialized_data', LargeBinary, nullable=False)
-    )
-    t_schedules = Table(
-        'schedules',
-        _metadata,
-        Column('id', Unicode, primary_key=True),
-        Column('task_id', Unicode(500), nullable=False, index=True),
-        Column('serialized_data', LargeBinary, nullable=False),
-        Column('next_fire_time', DateTime(timezone=True), index=True)
-    )
-    t_jobs = Table(
-        'jobs',
-        _metadata,
-        Column('id', Unicode(32), primary_key=True),
-        Column('task_id', Unicode(500), nullable=False, index=True),
-        Column('serialized_data', LargeBinary, nullable=False),
-        Column('created_at', DateTime(timezone=True), nullable=False, index=True),
-        Column('acquired_by', Unicode),
-        Column('acquired_until', DateTime(timezone=True)),
-    )
-    t_job_results = Table(
-        'job_results',
-        _metadata,
-        Column('job_id', Unicode(32), primary_key=True),
-        Column('finished_at', DateTime(timezone=True), index=True),
-        Column('serialized_data', LargeBinary, nullable=False)
-    )
-
     def __init__(self, bind: AsyncConnectable, *, schema: Optional[str] = None,
                  serializer: Optional[Serializer] = None,
                  lock_expiration_delay: float = 30, max_poll_time: Optional[float] = 1,
@@ -115,8 +74,15 @@ class SQLAlchemyDataStore(AsyncDataStore):
         self._exit_stack = AsyncExitStack()
         self._events = AsyncEventHub()
 
+        # Generate the table definitions
+        self._metadata = self.get_table_definitions()
+        self.t_metadata = self._metadata.tables['metadata']
+        self.t_schedules = self._metadata.tables['schedules']
+        self.t_jobs = self._metadata.tables['jobs']
+        self.t_job_results = self._metadata.tables['job_results']
+
         # Find out if the dialect supports RETURNING
-        statement = self.t_jobs.update().returning(self.t_schedules.c.id)
+        statement = self.t_jobs.update().returning(self.t_jobs.c.id)
         try:
             statement.compile(bind=self.bind)
         except CompileError:
@@ -167,6 +133,55 @@ class SQLAlchemyDataStore(AsyncDataStore):
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
+
+    def get_table_definitions(self) -> MetaData:
+        if self.bind.dialect.name in ('mysql', 'mariadb'):
+            from sqlalchemy.dialects.mysql import TIMESTAMP
+            timestamp_type = TIMESTAMP(fsp=6)
+        else:
+            from sqlalchemy.types import TIMESTAMP
+            timestamp_type = TIMESTAMP(timezone=True)
+
+        metadata = MetaData()
+        Table(
+            'metadata',
+            metadata,
+            Column('schema_version', Integer, nullable=False)
+        )
+        Table(
+            'tasks',
+            metadata,
+            Column('id', Unicode(500), primary_key=True),
+            Column('serialized_data', LargeBinary, nullable=False)
+        )
+        Table(
+            'schedules',
+            metadata,
+            Column('id', Unicode(500), primary_key=True),
+            Column('task_id', Unicode(500), nullable=False, index=True),
+            Column('serialized_data', LargeBinary, nullable=False),
+            Column('next_fire_time', timestamp_type, index=True),
+            Column('acquired_by', Unicode(500)),
+            Column('acquired_until', timestamp_type)
+        )
+        Table(
+            'jobs',
+            metadata,
+            Column('id', Unicode(32), primary_key=True),
+            Column('task_id', Unicode(500), nullable=False, index=True),
+            Column('serialized_data', LargeBinary, nullable=False),
+            Column('created_at', timestamp_type, nullable=False),
+            Column('acquired_by', Unicode(500)),
+            Column('acquired_until', timestamp_type)
+        )
+        Table(
+            'job_results',
+            metadata,
+            Column('job_id', Unicode(32), primary_key=True),
+            Column('finished_at', timestamp_type, index=True),
+            Column('serialized_data', LargeBinary, nullable=False)
+        )
+        return metadata
 
     async def _publish(self, conn: AsyncConnection, event: DataStoreEvent) -> None:
         if self.notify_channel:
@@ -243,12 +258,6 @@ class SQLAlchemyDataStore(AsyncDataStore):
     def unsubscribe(self, token: SubscriptionToken) -> None:
         self._events.unsubscribe(token)
 
-    async def clear(self) -> None:
-        async with self.bind.begin() as conn:
-            await conn.execute(self.t_schedules.delete())
-            await conn.execute(self.t_jobs.delete())
-            await conn.execute(self.t_job_results.delete())
-
     async def add_schedule(self, schedule: Schedule, conflict_policy: ConflictPolicy) -> None:
         serialized_data = self.serializer.serialize(schedule)
         statement = self.t_schedules.insert().\
@@ -282,7 +291,9 @@ class SQLAlchemyDataStore(AsyncDataStore):
                 statement = statement.returning(self.t_schedules.c.id)
                 removed_ids = [row[0] for row in await conn.execute(statement)]
             else:
+                # TODO: actually check which rows were deleted?
                 await conn.execute(statement)
+                removed_ids = ids
 
             for schedule_id in removed_ids:
                 await self._publish(conn, ScheduleRemoved(schedule_id=schedule_id))
@@ -295,23 +306,38 @@ class SQLAlchemyDataStore(AsyncDataStore):
 
         async with self.bind.begin() as conn:
             result = await conn.execute(query)
+            return self._deserialize_schedules(result)
 
-        return self._deserialize_schedules(result)
-
-    @asynccontextmanager
-    async def acquire_schedules(self, scheduler_id: str,
-                                limit: int) -> AsyncGenerator[List[Schedule], None]:
+    async def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
         async with self.bind.begin() as conn:
             now = datetime.now(timezone.utc)
-            statement = select([self.t_schedules.c.id, self.t_schedules.c.serialized_data]).\
+            acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
+            schedules_cte = select(self.t_schedules.c.id).\
                 where(and_(self.t_schedules.c.next_fire_time.isnot(None),
-                           self.t_schedules.c.next_fire_time <= now)).\
-                with_for_update(skip_locked=True).limit(limit)
+                           self.t_schedules.c.next_fire_time <= now,
+                           or_(self.t_schedules.c.acquired_until.is_(None),
+                               self.t_schedules.c.acquired_until < now))).\
+                order_by(self.t_schedules.c.next_fire_time).\
+                limit(limit).cte()
+            subselect = select([schedules_cte.c.id])
+            statement = self.t_schedules.update().\
+                where(self.t_schedules.c.id.in_(subselect)).\
+                values(acquired_by=scheduler_id, acquired_until=acquired_until)
+            if self._supports_update_returning:
+                statement = statement.returning(self.t_schedules.c.id,
+                                                self.t_schedules.c.serialized_data)
+            else:
+                await conn.execute(statement)
+                statement = select([self.t_schedules.c.id, self.t_schedules.c.serialized_data]).\
+                    where(and_(self.t_schedules.c.acquired_by == scheduler_id))
+
             result = await conn.execute(statement)
             schedules = self._deserialize_schedules(result)
 
-            yield schedules
+        return schedules
 
+    async def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
+        async with self.bind.begin() as conn:
             update_events: List[ScheduleUpdated] = []
             finished_schedule_ids: List[str] = []
             update_args: List[Dict[str, Any]] = []
@@ -339,16 +365,23 @@ class SQLAlchemyDataStore(AsyncDataStore):
                 p_serialized = bindparam('p_serialized_data')
                 p_next_fire_time = bindparam('p_next_fire_time')
                 statement = self.t_schedules.update().\
-                    where(self.t_schedules.c.id == p_id).\
-                    values(serialized_data=p_serialized, next_fire_time=p_next_fire_time)
+                    where(and_(self.t_schedules.c.id == p_id,
+                               self.t_schedules.c.acquired_by == scheduler_id)).\
+                    values(serialized_data=p_serialized, next_fire_time=p_next_fire_time,
+                           acquired_by=None, acquired_until=None)
                 next_fire_times = {arg['p_id']: arg['p_next_fire_time'] for arg in update_args}
                 if self._supports_update_returning:
                     statement = statement.returning(self.t_schedules.c.id)
                     updated_ids = [row[0] for row in await conn.execute(statement, update_args)]
-                    for schedule_id in updated_ids:
-                        event = ScheduleUpdated(schedule_id=schedule_id,
-                                                next_fire_time=next_fire_times[schedule_id])
-                        update_events.append(event)
+                else:
+                    # TODO: actually check which rows were updated?
+                    await conn.execute(statement, update_args)
+                    updated_ids = list(next_fire_times)
+
+                for schedule_id in updated_ids:
+                    event = ScheduleUpdated(schedule_id=schedule_id,
+                                            next_fire_time=next_fire_times[schedule_id])
+                    update_events.append(event)
 
             # Remove schedules that have no next fire time or failed to serialize
             if finished_schedule_ids:
@@ -361,6 +394,15 @@ class SQLAlchemyDataStore(AsyncDataStore):
 
             for schedule_id in finished_schedule_ids:
                 await self._publish(conn, ScheduleRemoved(schedule_id=schedule_id))
+
+    async def get_next_schedule_run_time(self) -> Optional[datetime]:
+        statenent = select(self.t_schedules.c.id).\
+            where(self.t_schedules.c.next_fire_time.isnot(None)).\
+            order_by(self.t_schedules.c.next_fire_time).\
+            limit(1)
+        async with self.bind.begin() as conn:
+            result = await conn.execute(statenent)
+            return result.scalar()
 
     async def add_job(self, job: Job) -> None:
         now = datetime.now(timezone.utc)

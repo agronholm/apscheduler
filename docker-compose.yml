@@ -8,6 +8,14 @@ services:
       POSTGRES_DB: testdb
       POSTGRES_PASSWORD: secret
 
+  mysql:
+    image: mysql
+    ports:
+      - 127.0.0.1:3306:3306
+    environment:
+      MYSQL_DATABASE: testdb
+      MYSQL_ROOT_PASSWORD: secret
+
   mongodb:
     image: mongo
     ports:

@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from bisect import bisect_left, insort_right
 from collections import defaultdict
-from contextlib import contextmanager
 from datetime import MAXYEAR, datetime, timedelta, timezone
-from typing import Any, AsyncGenerator, Callable, Dict, Iterable, List, Optional, Set, Type
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Type
 from uuid import UUID
 
 from ... import events
@@ -20,12 +19,13 @@ max_datetime = datetime(MAXYEAR, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc
 
 
 class ScheduleState:
-    __slots__ = 'schedule', 'next_fire_time', 'acquired_by'
+    __slots__ = 'schedule', 'next_fire_time', 'acquired_by', 'acquired_until'
 
     def __init__(self, schedule: Schedule):
         self.schedule = schedule
         self.next_fire_time = self.schedule.next_fire_time
         self.acquired_by: Optional[str] = None
+        self.acquired_until: Optional[datetime] = None
 
     def __lt__(self, other):
         if self.next_fire_time is None:
@@ -108,14 +108,6 @@ class MemoryDataStore(DataStore):
     def unsubscribe(self, token: events.SubscriptionToken) -> None:
         self._events.unsubscribe(token)
 
-    def clear(self) -> None:
-        self._schedules.clear()
-        self._schedules_by_id.clear()
-        self._schedules_by_task_id.clear()
-        self._jobs.clear()
-        self._jobs_by_id.clear()
-        self._jobs_by_task_id.clear()
-
     def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
         return [state.schedule for state in self._schedules
                 if ids is None or state.schedule.id in ids]
@@ -154,24 +146,28 @@ class MemoryDataStore(DataStore):
                 event = ScheduleRemoved(schedule_id=state.schedule.id)
                 self._events.publish(event)
 
-    @contextmanager
-    def acquire_schedules(self, scheduler_id: str,
-                          limit: int) -> AsyncGenerator[List[Schedule], None]:
+    def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
         now = datetime.now(timezone.utc)
         schedules: List[Schedule] = []
         for state in self._schedules:
             if state.next_fire_time is None or state.next_fire_time > now:
+                # The schedule is either paused or not yet due
                 break
-            elif state.acquired_by:
-                continue
+            elif state.acquired_by is not None:
+                if state.acquired_by != scheduler_id and now <= state.acquired_until:
+                    # The schedule has been acquired by another scheduler and the timeout has not
+                    # expired yet
+                    continue
 
-            state.acquired_by = scheduler_id
             schedules.append(state.schedule)
+            state.acquired_by = scheduler_id
+            state.acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
             if len(schedules) == limit:
                 break
 
-        yield schedules
+        return schedules
 
+    def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
         # Send update events for schedules that have a next time
         finished_schedule_ids: List[str] = []
         for s in schedules:
@@ -182,8 +178,9 @@ class MemoryDataStore(DataStore):
                 del self._schedules[index]
 
                 # Readd the schedule to its new position
-                schedule_state.acquired_by = None
                 schedule_state.next_fire_time = s.next_fire_time
+                schedule_state.acquired_by = None
+                schedule_state.acquired_until = None
                 insort_right(self._schedules, schedule_state)
                 event = ScheduleUpdated(schedule_id=s.id, next_fire_time=s.next_fire_time)
                 self._events.publish(event)
@@ -192,6 +189,9 @@ class MemoryDataStore(DataStore):
 
         # Remove schedules that didn't get a new next fire time
         self.remove_schedules(finished_schedule_ids)
+
+    def get_next_schedule_run_time(self) -> Optional[datetime]:
+        return self._schedules[0].next_fire_time if self._schedules else None
 
     def add_job(self, job: Job) -> None:
         state = JobState(job)

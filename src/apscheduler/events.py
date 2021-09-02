@@ -4,7 +4,6 @@ import logging
 from abc import abstractmethod
 from asyncio import iscoroutinefunction
 from concurrent.futures.thread import ThreadPoolExecutor
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import partial
 from inspect import isawaitable
@@ -209,16 +208,16 @@ class JobFailed(JobExecutionEvent):
 # Event delivery
 #
 
-@dataclass(eq=False, frozen=True)
+@attr.define(eq=False, frozen=True)
 class Subscription:
     callback: Callable[[Event], Any]
     event_types: Optional[Set[Type[Event]]]
 
 
-@dataclass
+@attr.define
 class _BaseEventHub(abc.EventSource):
-    _logger: Logger = field(init=False, default_factory=lambda: logging.getLogger(__name__))
-    _subscriptions: Dict[SubscriptionToken, Subscription] = field(init=False, default_factory=dict)
+    _logger: Logger = attr.field(init=False, factory=lambda: logging.getLogger(__name__))
+    _subscriptions: Dict[SubscriptionToken, Subscription] = attr.field(init=False, factory=dict)
 
     def subscribe(self, callback: Callable[[Event], Any],
                   event_types: Optional[Iterable[Type[Event]]] = None) -> SubscriptionToken:
