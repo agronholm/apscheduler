@@ -14,7 +14,7 @@ from anyio import (
 from anyio.abc import TaskGroup
 
 from ..abc import AsyncDataStore, DataStore, EventSource, Job, Schedule, Trigger
-from ..adapters import AsyncDataStoreAdapter
+from ..datastores.async_.sync_adapter import AsyncDataStoreAdapter
 from ..datastores.sync.memory import MemoryDataStore
 from ..enums import RunState
 from ..events import (

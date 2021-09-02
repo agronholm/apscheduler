@@ -6,7 +6,7 @@ from typing import AsyncContextManager, AsyncGenerator, ContextManager, Generato
 import pytest
 
 from apscheduler.abc import AsyncDataStore, DataStore, Serializer
-from apscheduler.adapters import AsyncDataStoreAdapter
+from apscheduler.datastores.async_.sync_adapter import AsyncDataStoreAdapter
 from apscheduler.datastores.sync.memory import MemoryDataStore
 from apscheduler.serializers.cbor import CBORSerializer
 from apscheduler.serializers.json import JSONSerializer

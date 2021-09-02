@@ -14,7 +14,7 @@ from anyio import TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_clas
 from anyio.abc import CancelScope, TaskGroup
 
 from ..abc import AsyncDataStore, DataStore, EventSource, Job
-from ..adapters import AsyncDataStoreAdapter
+from ..datastores.async_.sync_adapter import AsyncDataStoreAdapter
 from ..enums import JobOutcome, RunState
 from ..events import (
     AsyncEventHub, Event, JobAdded, JobCancelled, JobCompleted, JobDeadlineMissed, JobFailed,
