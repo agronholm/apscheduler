@@ -12,12 +12,11 @@ from uuid import uuid4
 
 from ..abc import DataStore, EventSource, Trigger
 from ..datastores.sync.memory import MemoryDataStore
-from ..enums import RunState
+from ..enums import CoalescePolicy, ConflictPolicy, RunState
 from ..events import (
     Event, EventHub, ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated,
     SubscriptionToken)
 from ..marshalling import callable_to_ref
-from ..policies import CoalescePolicy, ConflictPolicy
 from ..structures import Job, Schedule, Task
 from ..workers.sync import Worker
 

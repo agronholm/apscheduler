@@ -11,11 +11,11 @@ import attr
 
 from ... import events
 from ...abc import DataStore, Job, Schedule
+from ...enums import ConflictPolicy
 from ...events import (
     EventHub, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, SubscriptionToken,
     TaskAdded, TaskRemoved)
 from ...exceptions import ConflictingIdError, TaskLookupError
-from ...policies import ConflictPolicy
 from ...structures import JobResult, Task
 from ...util import reentrant
 

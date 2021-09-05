@@ -9,9 +9,8 @@ import pytest
 from freezegun.api import FrozenDateTimeFactory
 
 from apscheduler.abc import AsyncDataStore, Job, Schedule
-from apscheduler.enums import JobOutcome
+from apscheduler.enums import CoalescePolicy, ConflictPolicy, JobOutcome
 from apscheduler.events import Event, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, TaskAdded
-from apscheduler.policies import CoalescePolicy, ConflictPolicy
 from apscheduler.structures import JobResult, Task
 from apscheduler.triggers.date import DateTrigger
 

@@ -11,8 +11,8 @@ from anyio.from_thread import BlockingPortal
 
 from ... import events
 from ...abc import AsyncDataStore, DataStore
+from ...enums import ConflictPolicy
 from ...events import Event, SubscriptionToken
-from ...policies import ConflictPolicy
 from ...structures import Job, JobResult, Schedule, Task
 from ...util import reentrant
 

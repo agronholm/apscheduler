@@ -16,12 +16,11 @@ from anyio.abc import TaskGroup
 from ..abc import AsyncDataStore, DataStore, EventSource, Job, Schedule, Trigger
 from ..datastores.async_.sync_adapter import AsyncDataStoreAdapter
 from ..datastores.sync.memory import MemoryDataStore
-from ..enums import RunState
+from ..enums import CoalescePolicy, ConflictPolicy, RunState
 from ..events import (
     AsyncEventHub, ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated,
     SubscriptionToken)
 from ..marshalling import callable_to_ref
-from ..policies import CoalescePolicy, ConflictPolicy
 from ..structures import Task
 from ..workers.async_ import AsyncWorker
 

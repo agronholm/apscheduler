@@ -23,13 +23,13 @@ from sqlalchemy.sql.elements import BindParameter, literal
 
 from ... import events as events_module
 from ...abc import AsyncDataStore, Job, Schedule, Serializer
+from ...enums import ConflictPolicy
 from ...events import (
     AsyncEventHub, DataStoreEvent, Event, JobAdded, JobDeserializationFailed, ScheduleAdded,
     ScheduleDeserializationFailed, ScheduleRemoved, ScheduleUpdated, SubscriptionToken, TaskAdded,
     TaskRemoved)
 from ...exceptions import ConflictingIdError, SerializationError, TaskLookupError
 from ...marshalling import callable_to_ref
-from ...policies import ConflictPolicy
 from ...serializers.pickle import PickleSerializer
 from ...structures import JobResult, Task
 from ...util import reentrant

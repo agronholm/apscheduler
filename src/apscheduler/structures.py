@@ -7,9 +7,8 @@ from uuid import UUID, uuid4
 import attr
 
 from . import abc
-from .enums import JobOutcome
+from .enums import CoalescePolicy, JobOutcome
 from .marshalling import callable_from_ref, callable_to_ref
-from .policies import CoalescePolicy
 
 
 @attr.define(kw_only=True)

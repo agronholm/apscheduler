@@ -15,12 +15,12 @@ from pymongo.errors import DuplicateKeyError
 
 from ... import events
 from ...abc import DataStore, Job, Schedule, Serializer
+from ...enums import ConflictPolicy
 from ...events import (
     DataStoreEvent, EventHub, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated,
     SubscriptionToken, TaskAdded, TaskRemoved)
 from ...exceptions import (
     ConflictingIdError, DeserializationError, SerializationError, TaskLookupError)
-from ...policies import ConflictPolicy
 from ...serializers.pickle import PickleSerializer
 from ...structures import JobResult, Task
 from ...util import reentrant
