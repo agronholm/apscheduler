@@ -13,3 +13,4 @@ class JobOutcome(Enum):
     failure = auto()
     missed_start_deadline = auto()
     cancelled = auto()
+    expired = auto()

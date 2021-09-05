@@ -22,6 +22,7 @@ from ..structures import Job, JobResult
 class Worker(EventSource):
     """Runs jobs locally in a thread pool."""
 
+    _executor: ThreadPoolExecutor
     _state: RunState = RunState.stopped
     _wakeup_event: threading.Event
 
@@ -32,7 +33,6 @@ class Worker(EventSource):
         self.logger = logger or getLogger(__name__)
         self._acquired_jobs: Set[Job] = set()
         self._exit_stack = ExitStack()
-        self._executor = ThreadPoolExecutor(max_workers=max_concurrent_jobs + 1)
         self._events = EventHub()
         self._running_jobs: Set[UUID] = set()
 
@@ -64,6 +64,7 @@ class Worker(EventSource):
         # Start the worker and return when it has signalled readiness or raised an exception
         start_future: Future[None] = Future()
         token = self._events.subscribe(start_future.set_result)
+        self._executor = ThreadPoolExecutor(1)
         run_future = self._executor.submit(self.run)
         try:
             wait([start_future, run_future], return_when=FIRST_COMPLETED)
@@ -98,26 +99,30 @@ class Worker(EventSource):
         self._state = RunState.started
         self._events.publish(WorkerStarted())
 
+        executor = ThreadPoolExecutor(max_workers=self.max_concurrent_jobs)
         try:
             while self._state is RunState.started:
                 available_slots = self.max_concurrent_jobs - len(self._running_jobs)
                 if available_slots:
                     jobs = self.data_store.acquire_jobs(self.identity, available_slots)
                     for job in jobs:
+                        task = self.data_store.get_task(job.task_id)
                         self._running_jobs.add(job.id)
-                        self._executor.submit(self._run_job, job)
+                        executor.submit(self._run_job, job, task.func)
 
                 self._wakeup_event.wait()
                 self._wakeup_event = threading.Event()
         except BaseException as exc:
+            executor.shutdown(wait=False)
             self._state = RunState.stopped
             self._events.publish(WorkerStopped(exception=exc))
             raise
 
+        executor.shutdown()
         self._state = RunState.stopped
         self._events.publish(WorkerStopped())
 
-    def _run_job(self, job: Job) -> None:
+    def _run_job(self, job: Job, func: Callable) -> None:
         try:
             # Check if the job started before the deadline
             start_time = datetime.now(timezone.utc)
@@ -127,16 +132,16 @@ class Worker(EventSource):
 
             self._events.publish(JobStarted.from_job(job, start_time))
             try:
-                retval = job.func(*job.args, **job.kwargs)
+                retval = func(*job.args, **job.kwargs)
             except BaseException as exc:
                 result = JobResult(outcome=JobOutcome.failure, exception=exc)
-                self.data_store.release_job(self.identity, job.id, result)
+                self.data_store.release_job(self.identity, job, result)
                 self._events.publish(JobFailed.from_exception(job, start_time, exc))
                 if not isinstance(exc, Exception):
                     raise
             else:
                 result = JobResult(outcome=JobOutcome.success, return_value=retval)
-                self.data_store.release_job(self.identity, job.id, result)
+                self.data_store.release_job(self.identity, job, result)
                 self._events.publish(JobCompleted.from_retval(job, start_time, retval))
         finally:
             self._running_jobs.remove(job.id)

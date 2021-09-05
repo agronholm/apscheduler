@@ -9,8 +9,9 @@ from anyio import fail_after
 from apscheduler.abc import Job
 from apscheduler.datastores.sync.memory import MemoryDataStore
 from apscheduler.events import (
-    Event, JobAdded, JobCompleted, JobDeadlineMissed, JobFailed, JobStarted, WorkerStarted,
-    WorkerStopped)
+    Event, JobAdded, JobCompleted, JobDeadlineMissed, JobFailed, JobStarted, TaskAdded,
+    WorkerStarted, WorkerStopped)
+from apscheduler.structures import Task
 from apscheduler.workers.async_ import AsyncWorker
 from apscheduler.workers.sync import Worker
 
@@ -41,7 +42,7 @@ class TestAsyncWorker:
     async def test_run_job_nonscheduled_success(self, target_func: Callable, fail: bool) -> None:
         def listener(received_event: Event):
             received_events.append(received_event)
-            if len(received_events) == 4:
+            if len(received_events) == 5:
                 event.set()
 
         received_events: List[Event] = []
@@ -50,8 +51,8 @@ class TestAsyncWorker:
         worker = AsyncWorker(data_store)
         worker.subscribe(listener)
         async with worker:
-            job = Job(task_id='task_id', func=target_func, args=(1, 2),
-                      kwargs={'x': 'foo', 'fail': fail})
+            await worker.data_store.add_task(Task(id='task_id', func=target_func))
+            job = Job(task_id='task_id', args=(1, 2), kwargs={'x': 'foo', 'fail': fail})
             await worker.data_store.add_job(job)
             with fail_after(3):
                 await event.wait()
@@ -59,6 +60,11 @@ class TestAsyncWorker:
         # The worker was first started
         received_event = received_events.pop(0)
         assert isinstance(received_event, WorkerStarted)
+
+        # Then the task was added
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, TaskAdded)
+        assert received_event.task_id == 'task_id'
 
         # Then a job was added
         received_event = received_events.pop(0)
@@ -96,7 +102,7 @@ class TestAsyncWorker:
     async def test_run_deadline_missed(self) -> None:
         def listener(received_event: Event):
             received_events.append(received_event)
-            if len(received_events) == 3:
+            if len(received_events) == 4:
                 event.set()
 
         scheduled_start_time = datetime(2020, 9, 14, tzinfo=timezone.utc)
@@ -106,7 +112,8 @@ class TestAsyncWorker:
         worker = AsyncWorker(data_store)
         worker.subscribe(listener)
         async with worker:
-            job = Job(task_id='task_id', func=fail_func, schedule_id='foo',
+            await worker.data_store.add_task(Task(id='task_id', func=fail_func))
+            job = Job(task_id='task_id', schedule_id='foo',
                       scheduled_fire_time=scheduled_start_time,
                       start_deadline=datetime(2020, 9, 14, 1, tzinfo=timezone.utc))
             await worker.data_store.add_job(job)
@@ -116,6 +123,11 @@ class TestAsyncWorker:
         # The worker was first started
         received_event = received_events.pop(0)
         assert isinstance(received_event, WorkerStarted)
+
+        # Then the task was added
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, TaskAdded)
+        assert received_event.task_id == 'task_id'
 
         # Then a job was added
         received_event = received_events.pop(0)
@@ -144,7 +156,7 @@ class TestSyncWorker:
     def test_run_job_nonscheduled(self, fail: bool) -> None:
         def listener(received_event: Event):
             received_events.append(received_event)
-            if len(received_events) == 4:
+            if len(received_events) == 5:
                 event.set()
 
         received_events: List[Event] = []
@@ -153,14 +165,19 @@ class TestSyncWorker:
         worker = Worker(data_store)
         worker.subscribe(listener)
         with worker:
-            job = Job(task_id='task_id', func=sync_func, args=(1, 2),
-                      kwargs={'x': 'foo', 'fail': fail})
+            worker.data_store.add_task(Task(id='task_id', func=sync_func))
+            job = Job(task_id='task_id', args=(1, 2), kwargs={'x': 'foo', 'fail': fail})
             worker.data_store.add_job(job)
             event.wait(5)
 
         # The worker was first started
         received_event = received_events.pop(0)
         assert isinstance(received_event, WorkerStarted)
+
+        # Then the task was added
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, TaskAdded)
+        assert received_event.task_id == 'task_id'
 
         # Then a job was added
         received_event = received_events.pop(0)
@@ -198,7 +215,7 @@ class TestSyncWorker:
     def test_run_deadline_missed(self) -> None:
         def listener(worker_event: Event):
             received_events.append(worker_event)
-            if len(received_events) == 3:
+            if len(received_events) == 4:
                 event.set()
 
         scheduled_start_time = datetime(2020, 9, 14, tzinfo=timezone.utc)
@@ -208,7 +225,8 @@ class TestSyncWorker:
         worker = Worker(data_store)
         worker.subscribe(listener)
         with worker:
-            job = Job(task_id='task_id', func=fail_func, schedule_id='foo',
+            worker.data_store.add_task(Task(id='task_id', func=fail_func))
+            job = Job(task_id='task_id', schedule_id='foo',
                       scheduled_fire_time=scheduled_start_time,
                       start_deadline=datetime(2020, 9, 14, 1, tzinfo=timezone.utc))
             worker.data_store.add_job(job)
@@ -217,6 +235,11 @@ class TestSyncWorker:
         # The worker was first started
         received_event = received_events.pop(0)
         assert isinstance(received_event, WorkerStarted)
+
+        # Then the task was added
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, TaskAdded)
+        assert received_event.task_id == 'task_id'
 
         # Then a job was added
         received_event = received_events.pop(0)

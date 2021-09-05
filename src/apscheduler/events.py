@@ -45,6 +45,16 @@ class DataStoreEvent(Event):
 
 
 @attr.define(kw_only=True, frozen=True)
+class TaskAdded(DataStoreEvent):
+    task_id: str
+
+
+@attr.define(kw_only=True, frozen=True)
+class TaskRemoved(DataStoreEvent):
+    task_id: str
+
+
+@attr.define(kw_only=True, frozen=True)
 class ScheduleAdded(DataStoreEvent):
     schedule_id: str
     next_fire_time: Optional[datetime] = attr.field(converter=timestamp_to_datetime)

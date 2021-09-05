@@ -5,7 +5,7 @@ import platform
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Type, Union
+from typing import Any, Callable, Iterable, Mapping, Optional, Type, Union
 from uuid import uuid4
 
 import anyio
@@ -41,7 +41,6 @@ class AsyncScheduler(EventSource):
         self.identity = identity or f'{platform.node()}-{os.getpid()}-{id(self)}'
         self.logger = logger or getLogger(__name__)
         self.start_worker = start_worker
-        self._tasks: Dict[str, Task] = {}
         self._exit_stack = AsyncExitStack()
         self._events = AsyncEventHub()
 
@@ -96,27 +95,27 @@ class AsyncScheduler(EventSource):
     def unsubscribe(self, token: SubscriptionToken) -> None:
         self._events.unsubscribe(token)
 
-    def _get_taskdef(self, func_or_id: Union[str, Callable]) -> Task:
-        task_id = func_or_id if isinstance(func_or_id, str) else callable_to_ref(func_or_id)
-        taskdef = self._tasks.get(task_id)
-        if not taskdef:
-            if isinstance(func_or_id, str):
-                raise LookupError('no task found with ID {!r}'.format(func_or_id))
-            else:
-                taskdef = self._tasks[task_id] = Task(id=task_id, func=func_or_id)
-
-        return taskdef
-
-    def define_task(self, func: Callable, task_id: Optional[str] = None, **kwargs):
-        if task_id is None:
-            task_id = callable_to_ref(func)
-
-        task = Task(id=task_id, **kwargs)
-        if self._tasks.setdefault(task_id, task) is not task:
-            pass
+    # def _get_taskdef(self, func_or_id: Union[str, Callable]) -> Task:
+    #     task_id = func_or_id if isinstance(func_or_id, str) else callable_to_ref(func_or_id)
+    #     taskdef = self._tasks.get(task_id)
+    #     if not taskdef:
+    #         if isinstance(func_or_id, str):
+    #             raise LookupError('no task found with ID {!r}'.format(func_or_id))
+    #         else:
+    #             taskdef = self._tasks[task_id] = Task(id=task_id, func=func_or_id)
+    #
+    #     return taskdef
+    #
+    # def define_task(self, func: Callable, task_id: Optional[str] = None, **kwargs):
+    #     if task_id is None:
+    #         task_id = callable_to_ref(func)
+    #
+    #     task = Task(id=task_id, **kwargs)
+    #     if self._tasks.setdefault(task_id, task) is not task:
+    #         pass
 
     async def add_schedule(
-        self, task: Union[str, Callable], trigger: Trigger, *, id: Optional[str] = None,
+        self, func_or_task_id: Union[str, Callable], trigger: Trigger, *, id: Optional[str] = None,
         args: Optional[Iterable] = None, kwargs: Optional[Mapping[str, Any]] = None,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
         misfire_grace_time: Union[float, timedelta, None] = None,
@@ -130,12 +129,17 @@ class AsyncScheduler(EventSource):
         if isinstance(misfire_grace_time, (int, float)):
             misfire_grace_time = timedelta(seconds=misfire_grace_time)
 
-        taskdef = self._get_taskdef(task)
-        schedule = Schedule(id=id, task_id=taskdef.id, trigger=trigger, args=args, kwargs=kwargs,
+        if callable(func_or_task_id):
+            task = Task(id=callable_to_ref(func_or_task_id), func=func_or_task_id)
+            await self.data_store.add_task(task)
+        else:
+            task = await self.data_store.get_task(func_or_task_id)
+
+        schedule = Schedule(id=id, task_id=task.id, trigger=trigger, args=args, kwargs=kwargs,
                             coalesce=coalesce, misfire_grace_time=misfire_grace_time, tags=tags)
         schedule.next_fire_time = trigger.next()
         await self.data_store.add_schedule(schedule, conflict_policy)
-        self.logger.info('Added new schedule (task=%r, trigger=%r); next run time at %s', taskdef,
+        self.logger.info('Added new schedule (task=%r, trigger=%r); next run time at %s', task,
                          trigger, schedule.next_fire_time)
         return schedule.id
 
@@ -157,15 +161,6 @@ class AsyncScheduler(EventSource):
                 schedules = await self.data_store.acquire_schedules(self.identity, 100)
                 now = datetime.now(timezone.utc)
                 for schedule in schedules:
-                    # Look up the task definition
-                    try:
-                        taskdef = self._get_taskdef(schedule.task_id)
-                    except LookupError:
-                        self.logger.error('Cannot locate task definition %r for schedule %r – '
-                                          'removing schedule', schedule.task_id, schedule.id)
-                        schedule.next_fire_time = None
-                        continue
-
                     # Calculate a next fire time for the schedule, if possible
                     fire_times = [schedule.next_fire_time]
                     calculate_next = schedule.trigger.next
@@ -175,7 +170,7 @@ class AsyncScheduler(EventSource):
                         except Exception:
                             self.logger.exception(
                                 'Error computing next fire time for schedule %r of task %r – '
-                                'removing schedule', schedule.id, taskdef.id)
+                                'removing schedule', schedule.id, schedule.task_id)
                             break
 
                         # Stop if the calculated fire time is in the future
@@ -192,7 +187,7 @@ class AsyncScheduler(EventSource):
                     # Add one or more jobs to the job queue
                     for fire_time in fire_times:
                         schedule.last_fire_time = fire_time
-                        job = Job(task_id=taskdef.id, func=taskdef.func, args=schedule.args,
+                        job = Job(task_id=schedule.task_id, args=schedule.args,
                                   kwargs=schedule.kwargs, schedule_id=schedule.id,
                                   scheduled_fire_time=fire_time,
                                   start_deadline=schedule.next_deadline, tags=schedule.tags)

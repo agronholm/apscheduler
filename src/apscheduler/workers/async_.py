@@ -11,7 +11,7 @@ from uuid import UUID
 
 import anyio
 from anyio import TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class
-from anyio.abc import CancelScope, TaskGroup
+from anyio.abc import CancelScope
 
 from ..abc import AsyncDataStore, DataStore, EventSource, Job
 from ..datastores.async_.sync_adapter import AsyncDataStoreAdapter
@@ -25,7 +25,6 @@ from ..structures import JobResult
 class AsyncWorker(EventSource):
     """Runs jobs locally in a task group."""
 
-    _task_group: Optional[TaskGroup] = None
     _stop_event: Optional[anyio.Event] = None
     _state: RunState = RunState.stopped
     _acquire_cancel_scope: Optional[CancelScope] = None
@@ -72,16 +71,15 @@ class AsyncWorker(EventSource):
         self._exit_stack.callback(self.data_store.unsubscribe, wakeup_token)
 
         # Start the actual worker
-        self._task_group = create_task_group()
-        await self._exit_stack.enter_async_context(self._task_group)
-        await self._task_group.start(self.run)
+        task_group = create_task_group()
+        await self._exit_stack.enter_async_context(task_group)
+        await task_group.start(self.run)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         self._state = RunState.stopping
         self._wakeup_event.set()
         await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
-        del self._task_group
         del self._wakeup_event
 
     def subscribe(self, callback: Callable[[Event], Any],
@@ -102,15 +100,17 @@ class AsyncWorker(EventSource):
         self._events.publish(WorkerStarted())
 
         try:
-            while self._state is RunState.started:
-                limit = self.max_concurrent_jobs - len(self._running_jobs)
-                jobs = await self.data_store.acquire_jobs(self.identity, limit)
-                for job in jobs:
-                    self._running_jobs.add(job.id)
-                    self._task_group.start_soon(self._run_job, job)
+            async with create_task_group() as tg:
+                while self._state is RunState.started:
+                    limit = self.max_concurrent_jobs - len(self._running_jobs)
+                    jobs = await self.data_store.acquire_jobs(self.identity, limit)
+                    for job in jobs:
+                        task = await self.data_store.get_task(job.task_id)
+                        self._running_jobs.add(job.id)
+                        tg.start_soon(self._run_job, job, task.func)
 
-                await self._wakeup_event.wait()
-                self._wakeup_event = anyio.Event()
+                    await self._wakeup_event.wait()
+                    self._wakeup_event = anyio.Event()
         except get_cancelled_exc_class():
             pass
         except BaseException as exc:
@@ -121,7 +121,7 @@ class AsyncWorker(EventSource):
         self._state = RunState.stopped
         self._events.publish(WorkerStopped())
 
-    async def _run_job(self, job: Job) -> None:
+    async def _run_job(self, job: Job, func: Callable) -> None:
         try:
             # Check if the job started before the deadline
             start_time = datetime.now(timezone.utc)
@@ -131,24 +131,24 @@ class AsyncWorker(EventSource):
 
             self._events.publish(JobStarted.from_job(job, start_time))
             try:
-                retval = job.func(*job.args, **job.kwargs)
+                retval = func(*job.args, **job.kwargs)
                 if isawaitable(retval):
                     retval = await retval
             except get_cancelled_exc_class():
                 with CancelScope(shield=True):
                     result = JobResult(outcome=JobOutcome.cancelled)
-                    await self.data_store.release_job(self.identity, job.id, result)
+                    await self.data_store.release_job(self.identity, job, result)
 
                 self._events.publish(JobCancelled.from_job(job, start_time))
             except BaseException as exc:
                 result = JobResult(outcome=JobOutcome.failure, exception=exc)
-                await self.data_store.release_job(self.identity, job.id, result)
+                await self.data_store.release_job(self.identity, job, result)
                 self._events.publish(JobFailed.from_exception(job, start_time, exc))
                 if not isinstance(exc, Exception):
                     raise
             else:
                 result = JobResult(outcome=JobOutcome.success, return_value=retval)
-                await self.data_store.release_job(self.identity, job.id, result)
+                await self.data_store.release_job(self.identity, job, result)
                 self._events.publish(JobCompleted.from_retval(job, start_time, retval))
         finally:
             self._running_jobs.remove(job.id)

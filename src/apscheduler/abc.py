@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, List, Optio
 from uuid import UUID
 
 from .policies import ConflictPolicy
-from .structures import Job, JobResult, Schedule
+from .structures import Job, JobResult, Schedule, Task
 
 if TYPE_CHECKING:
     from . import events
@@ -92,6 +92,44 @@ class DataStore(EventSource):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
+
+    @abstractmethod
+    def add_task(self, task: Task) -> None:
+        """
+        Add the given task to the store.
+
+        If a task with the same ID already exists, it replaces the old one but does NOT affect
+        task accounting (# of running jobs).
+
+        :param task: the task to be added
+        """
+
+    @abstractmethod
+    def remove_task(self, task_id: str) -> None:
+        """
+        Remove the task with the given ID.
+
+        :param task_id: ID of the task to be removed
+        :raises TaskLookupError: if no matching task was found
+        """
+
+    @abstractmethod
+    def get_task(self, task_id: str) -> Task:
+        """
+        Get an existing task definition.
+
+        :param task_id: ID of the task to be returned
+        :return: the matching task
+        :raises TaskLookupError: if no matching task was found
+        """
+
+    @abstractmethod
+    def get_tasks(self) -> List[Task]:
+        """
+        Get all the tasks in this store.
+
+        :return: a list of tasks, sorted by ID
+        """
 
     @abstractmethod
     def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
@@ -180,12 +218,12 @@ class DataStore(EventSource):
         """
 
     @abstractmethod
-    def release_job(self, worker_id: str, job_id: UUID, result: Optional[JobResult]) -> None:
+    def release_job(self, worker_id: str, job: Job, result: Optional[JobResult]) -> None:
         """
         Release the claim on the given job and record the result.
 
         :param worker_id: unique identifier of the worker
-        :param job_id: identifier of the job
+        :param job: the job to be released
         :param result: the result of the job (or ``None`` to discard the job)
         """
 
@@ -207,6 +245,44 @@ class AsyncDataStore(EventSource):
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         pass
+
+    @abstractmethod
+    async def add_task(self, task: Task) -> None:
+        """
+        Add the given task to the store.
+
+        If a task with the same ID already exists, it replaces the old one but does NOT affect
+        task accounting (# of running jobs).
+
+        :param task: the task to be added
+        """
+
+    @abstractmethod
+    async def remove_task(self, task_id: str) -> None:
+        """
+        Remove the task with the given ID.
+
+        :param task_id: ID of the task to be removed
+        :raises TaskLookupError: if no matching task was found
+        """
+
+    @abstractmethod
+    async def get_task(self, task_id: str) -> Task:
+        """
+        Get an existing task definition.
+
+        :param task_id: ID of the task to be returned
+        :return: the matching task
+        :raises TaskLookupError: if no matching task was found
+        """
+
+    @abstractmethod
+    async def get_tasks(self) -> List[Task]:
+        """
+        Get all the tasks in this store.
+
+        :return: a list of tasks, sorted by ID
+        """
 
     @abstractmethod
     async def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
@@ -295,12 +371,12 @@ class AsyncDataStore(EventSource):
         """
 
     @abstractmethod
-    async def release_job(self, worker_id: str, job_id: UUID, result: Optional[JobResult]) -> None:
+    async def release_job(self, worker_id: str, job: Job, result: Optional[JobResult]) -> None:
         """
         Release the claim on the given job and record the result.
 
         :param worker_id: unique identifier of the worker
-        :param job_id: identifier of the job
+        :param job: the job to be released
         :param result: the result of the job (or ``None`` to discard the job)
         """
 

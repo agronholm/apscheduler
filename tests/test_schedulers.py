@@ -7,7 +7,7 @@ import pytest
 from anyio import fail_after
 
 from apscheduler.events import (
-    Event, JobAdded, ScheduleAdded, ScheduleRemoved, SchedulerStarted, SchedulerStopped)
+    Event, JobAdded, ScheduleAdded, ScheduleRemoved, SchedulerStarted, SchedulerStopped, TaskAdded)
 from apscheduler.schedulers.async_ import AsyncScheduler
 from apscheduler.schedulers.sync import Scheduler
 from apscheduler.triggers.date import DateTrigger
@@ -27,7 +27,7 @@ class TestAsyncScheduler:
     async def test_schedule_job(self) -> None:
         def listener(received_event: Event) -> None:
             received_events.append(received_event)
-            if len(received_events) == 4:
+            if len(received_events) == 5:
                 event.set()
 
         received_events: List[Event] = []
@@ -43,6 +43,11 @@ class TestAsyncScheduler:
         # The scheduler was first started
         received_event = received_events.pop(0)
         assert isinstance(received_event, SchedulerStarted)
+
+        # Then the task was added
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, TaskAdded)
+        assert received_event.task_id == 'test_schedulers:dummy_async_job'
 
         # Then a schedule was added
         received_event = received_events.pop(0)
@@ -73,7 +78,7 @@ class TestSyncScheduler:
     def test_schedule_job(self):
         def listener(received_event: Event) -> None:
             received_events.append(received_event)
-            if len(received_events) == 4:
+            if len(received_events) == 5:
                 event.set()
 
         received_events: List[Event] = []
@@ -88,6 +93,11 @@ class TestSyncScheduler:
         # The scheduler was first started
         received_event = received_events.pop(0)
         assert isinstance(received_event, SchedulerStarted)
+
+        # Then the task was added
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, TaskAdded)
+        assert received_event.task_id == 'test_schedulers:dummy_sync_job'
 
         # Then a schedule was added
         received_event = received_events.pop(0)

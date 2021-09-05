@@ -13,7 +13,7 @@ from ... import events
 from ...abc import AsyncDataStore, DataStore
 from ...events import Event, SubscriptionToken
 from ...policies import ConflictPolicy
-from ...structures import Job, JobResult, Schedule
+from ...structures import Job, JobResult, Schedule, Task
 from ...util import reentrant
 
 
@@ -32,6 +32,18 @@ class AsyncDataStoreAdapter(AsyncDataStore):
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await to_thread.run_sync(self.original.__exit__, exc_type, exc_val, exc_tb)
         await self._portal.__aexit__(exc_type, exc_val, exc_tb)
+
+    async def add_task(self, task: Task) -> None:
+        await to_thread.run_sync(self.original.add_task, task)
+
+    async def remove_task(self, task_id: str) -> None:
+        await to_thread.run_sync(self.original.remove_task, task_id)
+
+    async def get_task(self, task_id: str) -> Task:
+        return await to_thread.run_sync(self.original.get_task, task_id)
+
+    async def get_tasks(self) -> List[Task]:
+        return await to_thread.run_sync(self.original.get_tasks)
 
     async def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
         return await to_thread.run_sync(self.original.get_schedules, ids)
@@ -60,8 +72,8 @@ class AsyncDataStoreAdapter(AsyncDataStore):
     async def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> List[Job]:
         return await to_thread.run_sync(self.original.acquire_jobs, worker_id, limit)
 
-    async def release_job(self, worker_id: str, job_id: UUID, result: Optional[JobResult]) -> None:
-        await to_thread.run_sync(self.original.release_job, worker_id, job_id, result)
+    async def release_job(self, worker_id: str, job: Job, result: Optional[JobResult]) -> None:
+        await to_thread.run_sync(self.original.release_job, worker_id, job, result)
 
     async def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
         return await to_thread.run_sync(self.original.get_job_result, job_id)

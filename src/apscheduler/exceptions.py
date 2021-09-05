@@ -1,3 +1,8 @@
+class TaskLookupError(LookupError):
+    """Raised by a data store when it cannot find the requested task."""
+
+    def __init__(self, task_id: str):
+        super().__init__(f'No task by the id of {task_id!r} was found')
 
 
 class JobLookupError(KeyError):
