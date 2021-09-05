@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from logging import Logger, getLogger
 from typing import Any, Callable, Iterable, Optional, Tuple, Type
 from uuid import UUID
 
+import attr
 from sqlalchemy import (
     Column, Integer, LargeBinary, MetaData, Table, Unicode, and_, bindparam, or_, select)
 from sqlalchemy.engine import URL
@@ -26,25 +27,23 @@ from ...serializers.pickle import PickleSerializer
 from ...structures import JobResult, Task
 from ...util import reentrant
 
-logger = logging.getLogger(__name__)
-
 
 @reentrant
+@attr.define(eq=False)
 class SQLAlchemyDataStore(DataStore):
-    def __init__(self, engine: Engine, *, schema: Optional[str] = None,
-                 serializer: Optional[Serializer] = None,
-                 lock_expiration_delay: float = 30, max_poll_time: Optional[float] = 1,
-                 max_idle_time: float = 60, start_from_scratch: bool = False):
-        self.engine = engine
-        self.schema = schema
-        self.serializer = serializer or PickleSerializer()
-        self.lock_expiration_delay = lock_expiration_delay
-        self.max_poll_time = max_poll_time
-        self.max_idle_time = max_idle_time
-        self.start_from_scratch = start_from_scratch
-        self._logger = logging.getLogger(__name__)
-        self._events = EventHub()
+    engine: Engine
+    schema: Optional[str] = attr.field(default=None, kw_only=True)
+    serializer: Serializer = attr.field(factory=PickleSerializer, kw_only=True)
+    lock_expiration_delay: float = attr.field(default=30, kw_only=True)
+    max_poll_time: Optional[float] = attr.field(default=1, kw_only=True)
+    max_idle_time: float = attr.field(default=60, kw_only=True)
+    notify_channel: Optional[str] = attr.field(default='apscheduler', kw_only=True)
+    start_from_scratch: bool = attr.field(default=False, kw_only=True)
 
+    _logger: Logger = attr.field(init=False, factory=lambda: getLogger(__name__))
+    _events: EventHub = attr.field(init=False, factory=EventHub)
+
+    def __attrs_post_init__(self) -> None:
         # Generate the table definitions
         self._metadata = self.get_table_definitions()
         self.t_metadata = self._metadata.tables['metadata']
@@ -54,18 +53,9 @@ class SQLAlchemyDataStore(DataStore):
         self.t_job_results = self._metadata.tables['job_results']
 
         # Find out if the dialect supports RETURNING
-        update = self.t_jobs.update().returning(self.t_schedules.c.id)
+        update = self.t_jobs.update().returning(self.t_jobs.c.id)
         try:
             update.compile(bind=self.engine)
-        except CompileError:
-            self._supports_update_returning = False
-        else:
-            self._supports_update_returning = True
-
-        # Find out if the dialect supports INSERT...ON DUPLICATE KEY UPDATE
-        insert = self.t_jobs.update().returning(self.t_schedules.c.id)
-        try:
-            insert.compile(bind=self.engine)
         except CompileError:
             self._supports_update_returning = False
         else:

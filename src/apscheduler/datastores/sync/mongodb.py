@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import logging
 from collections import defaultdict
 from contextlib import ExitStack
 from datetime import datetime, timezone
+from logging import Logger, getLogger
 from typing import Any, Callable, ClassVar, Iterable, Optional, Tuple, Type
 from uuid import UUID
 
 import attr
 import pymongo
+from attr.validators import instance_of
 from pymongo import ASCENDING, DeleteOne, MongoClient, UpdateOne
 from pymongo.collection import Collection
 from pymongo.errors import DuplicateKeyError
@@ -27,33 +28,34 @@ from ...util import reentrant
 
 
 @reentrant
+@attr.define(eq=False)
 class MongoDBDataStore(DataStore):
+    client: MongoClient = attr.field(validator=instance_of(MongoClient))
+    serializer: Serializer = attr.field(factory=PickleSerializer, kw_only=True)
+    database: str = attr.field(default='apscheduler', kw_only=True)
+    lock_expiration_delay: float = attr.field(default=30, kw_only=True)
+    start_from_scratch: bool = attr.field(default=False, kw_only=True)
+
     _task_attrs: ClassVar[list[str]] = [field.name for field in attr.fields(Task)]
     _schedule_attrs: ClassVar[list[str]] = [field.name for field in attr.fields(Schedule)]
     _job_attrs: ClassVar[list[str]] = [field.name for field in attr.fields(Job)]
 
-    def __init__(self, client: MongoClient, *, serializer: Optional[Serializer] = None,
-                 database: str = 'apscheduler', tasks_collection: str = 'tasks',
-                 schedules_collection: str = 'schedules', jobs_collection: str = 'jobs',
-                 job_results_collection: str = 'job_results',
-                 lock_expiration_delay: float = 30, start_from_scratch: bool = False):
-        super().__init__()
-        if not client.delegate.codec_options.tz_aware:
+    _logger: Logger = attr.field(init=False, factory=lambda: getLogger(__name__))
+    _exit_stack: ExitStack = attr.field(init=False, factory=ExitStack)
+    _events: EventHub = attr.field(init=False, factory=EventHub)
+    _local_tasks: dict[str, Task] = attr.field(init=False, factory=dict)
+
+    @client.validator
+    def validate_client(self, attribute: attr.Attribute, value: MongoClient) -> None:
+        if not value.delegate.codec_options.tz_aware:
             raise ValueError('MongoDB client must have tz_aware set to True')
 
-        self.client = client
-        self.serializer = serializer or PickleSerializer()
-        self.lock_expiration_delay = lock_expiration_delay
-        self.start_from_scratch = start_from_scratch
-        self._local_tasks: dict[str, Task] = {}
-        self._database = client[database]
-        self._tasks: Collection = self._database[tasks_collection]
-        self._schedules: Collection = self._database[schedules_collection]
-        self._jobs: Collection = self._database[jobs_collection]
-        self._jobs_results: Collection = self._database[job_results_collection]
-        self._logger = logging.getLogger(__name__)
-        self._exit_stack = ExitStack()
-        self._events = EventHub()
+    def __attrs_post_init__(self) -> None:
+        database = self.client[self.database]
+        self._tasks: Collection = database['tasks']
+        self._schedules: Collection = database['schedules']
+        self._jobs: Collection = database['jobs']
+        self._jobs_results: Collection = database['job_results']
 
     @classmethod
     def from_url(cls, uri: str, **options) -> 'MongoDBDataStore':

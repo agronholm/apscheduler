@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import json
-import logging
 from collections import defaultdict
 from contextlib import AsyncExitStack, closing
 from datetime import datetime, timedelta, timezone
 from json import JSONDecodeError
+from logging import Logger, getLogger
 from typing import Any, Callable, Iterable, Optional, Tuple, Type
 from uuid import UUID
 
+import attr
 import sniffio
 from anyio import TASK_STATUS_IGNORED, create_task_group, sleep
 from attr import asdict
@@ -33,8 +34,6 @@ from ...marshalling import callable_to_ref
 from ...serializers.pickle import PickleSerializer
 from ...structures import JobResult, Task
 from ...util import reentrant
-
-logger = logging.getLogger(__name__)
 
 
 def default_json_handler(obj: Any) -> Any:
@@ -61,23 +60,22 @@ def json_object_hook(obj: dict[str, Any]) -> Any:
 
 
 @reentrant
+@attr.define(eq=False)
 class SQLAlchemyDataStore(AsyncDataStore):
-    def __init__(self, engine: AsyncEngine, *, schema: Optional[str] = None,
-                 serializer: Optional[Serializer] = None,
-                 lock_expiration_delay: float = 30, max_poll_time: Optional[float] = 1,
-                 max_idle_time: float = 60, start_from_scratch: bool = False,
-                 notify_channel: Optional[str] = 'apscheduler'):
-        self.engine = engine
-        self.schema = schema
-        self.serializer = serializer or PickleSerializer()
-        self.lock_expiration_delay = lock_expiration_delay
-        self.max_poll_time = max_poll_time
-        self.max_idle_time = max_idle_time
-        self.start_from_scratch = start_from_scratch
-        self._logger = logging.getLogger(__name__)
-        self._exit_stack = AsyncExitStack()
-        self._events = AsyncEventHub()
+    engine: AsyncEngine
+    schema: Optional[str] = attr.field(default=None, kw_only=True)
+    serializer: Serializer = attr.field(factory=PickleSerializer, kw_only=True)
+    lock_expiration_delay: float = attr.field(default=30, kw_only=True)
+    max_poll_time: Optional[float] = attr.field(default=1, kw_only=True)
+    max_idle_time: float = attr.field(default=60, kw_only=True)
+    notify_channel: Optional[str] = attr.field(default='apscheduler', kw_only=True)
+    start_from_scratch: bool = attr.field(default=False, kw_only=True)
 
+    _logger: Logger = attr.field(init=False, factory=lambda: getLogger(__name__))
+    _exit_stack: AsyncExitStack = attr.field(init=False, factory=AsyncExitStack)
+    _events: AsyncEventHub = attr.field(init=False, factory=AsyncEventHub)
+
+    def __attrs_post_init__(self) -> None:
         # Generate the table definitions
         self._metadata = self.get_table_definitions()
         self.t_metadata = self._metadata.tables['metadata']
@@ -95,8 +93,7 @@ class SQLAlchemyDataStore(AsyncDataStore):
         else:
             self._supports_update_returning = True
 
-        self.notify_channel = notify_channel
-        if notify_channel:
+        if self.notify_channel:
             if self.engine.dialect.name != 'postgresql' or self.engine.dialect.driver != 'asyncpg':
                 self.notify_channel = None
 
