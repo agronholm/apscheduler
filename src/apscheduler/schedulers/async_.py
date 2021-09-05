@@ -93,25 +93,6 @@ class AsyncScheduler(EventSource):
     def unsubscribe(self, token: SubscriptionToken) -> None:
         self._events.unsubscribe(token)
 
-    # def _get_taskdef(self, func_or_id: str | Callable) -> Task:
-    #     task_id = func_or_id if isinstance(func_or_id, str) else callable_to_ref(func_or_id)
-    #     taskdef = self._tasks.get(task_id)
-    #     if not taskdef:
-    #         if isinstance(func_or_id, str):
-    #             raise LookupError('no task found with ID {!r}'.format(func_or_id))
-    #         else:
-    #             taskdef = self._tasks[task_id] = Task(id=task_id, func=func_or_id)
-    #
-    #     return taskdef
-    #
-    # def define_task(self, func: Callable, task_id: Optional[str] = None, **kwargs):
-    #     if task_id is None:
-    #         task_id = callable_to_ref(func)
-    #
-    #     task = Task(id=task_id, **kwargs)
-    #     if self._tasks.setdefault(task_id, task) is not task:
-    #         pass
-
     async def add_schedule(
         self, func_or_task_id: str | Callable, trigger: Trigger, *, id: Optional[str] = None,
         args: Optional[Iterable] = None, kwargs: Optional[Mapping[str, Any]] = None,
