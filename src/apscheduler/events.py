@@ -50,6 +50,11 @@ class TaskAdded(DataStoreEvent):
 
 
 @attr.define(kw_only=True, frozen=True)
+class TaskUpdated(DataStoreEvent):
+    task_id: str
+
+
+@attr.define(kw_only=True, frozen=True)
 class TaskRemoved(DataStoreEvent):
     task_id: str
 

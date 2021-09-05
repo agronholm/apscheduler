@@ -14,7 +14,7 @@ from ...abc import DataStore, Job, Schedule
 from ...enums import ConflictPolicy
 from ...events import (
     EventHub, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, SubscriptionToken,
-    TaskAdded, TaskRemoved)
+    TaskAdded, TaskRemoved, TaskUpdated)
 from ...exceptions import ConflictingIdError, TaskLookupError
 from ...structures import JobResult, Task
 from ...util import reentrant
@@ -114,8 +114,12 @@ class MemoryDataStore(DataStore):
                 if ids is None or state.schedule.id in ids]
 
     def add_task(self, task: Task) -> None:
+        task_exists = task.id in self._tasks
         self._tasks[task.id] = TaskState(task)
-        self._events.publish(TaskAdded(task_id=task.id))
+        if task_exists:
+            self._events.publish(TaskUpdated(task_id=task.id))
+        else:
+            self._events.publish(TaskAdded(task_id=task.id))
 
     def remove_task(self, task_id: str) -> None:
         try:

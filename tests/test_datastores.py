@@ -10,7 +10,8 @@ from freezegun.api import FrozenDateTimeFactory
 
 from apscheduler.abc import AsyncDataStore, Job, Schedule
 from apscheduler.enums import CoalescePolicy, ConflictPolicy, JobOutcome
-from apscheduler.events import Event, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, TaskAdded
+from apscheduler.events import (
+    Event, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, TaskAdded, TaskUpdated)
 from apscheduler.structures import JobResult, Task
 from apscheduler.triggers.date import DateTrigger
 
@@ -56,7 +57,8 @@ class TestAsyncStores:
             self, datastore_cm: AsyncContextManager[AsyncDataStore]) -> None:
         import math
 
-        async with datastore_cm as store, capture_events(store, 3, {TaskAdded}) as events:
+        event_types = {TaskAdded, TaskUpdated}
+        async with datastore_cm as store, capture_events(store, 3, event_types) as events:
             await store.add_task(Task(id='test_task', func=print))
             await store.add_task(Task(id='test_task2', func=math.ceil))
             await store.add_task(Task(id='test_task', func=repr))
@@ -69,12 +71,15 @@ class TestAsyncStores:
             assert tasks[1].func is math.ceil
 
         received_event = events.pop(0)
+        assert isinstance(received_event, TaskAdded)
         assert received_event.task_id == 'test_task'
 
         received_event = events.pop(0)
+        assert isinstance(received_event, TaskAdded)
         assert received_event.task_id == 'test_task2'
 
         received_event = events.pop(0)
+        assert isinstance(received_event, TaskUpdated)
         assert received_event.task_id == 'test_task'
 
         assert not events

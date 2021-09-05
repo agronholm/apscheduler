@@ -27,7 +27,7 @@ from ...enums import ConflictPolicy
 from ...events import (
     AsyncEventHub, DataStoreEvent, Event, JobAdded, JobDeserializationFailed, ScheduleAdded,
     ScheduleDeserializationFailed, ScheduleRemoved, ScheduleUpdated, SubscriptionToken, TaskAdded,
-    TaskRemoved)
+    TaskRemoved, TaskUpdated)
 from ...exceptions import ConflictingIdError, SerializationError, TaskLookupError
 from ...marshalling import callable_to_ref
 from ...serializers.pickle import PickleSerializer
@@ -282,8 +282,9 @@ class SQLAlchemyDataStore(AsyncDataStore):
                 where(self.t_tasks.c.id == task.id)
             async with self.engine.begin() as conn:
                 await conn.execute(update)
-
-        self._events.publish(TaskAdded(task_id=task.id))
+                self._events.publish(TaskUpdated(task_id=task.id))
+        else:
+            self._events.publish(TaskAdded(task_id=task.id))
 
     async def remove_task(self, task_id: str) -> None:
         delete = self.t_tasks.delete().where(self.t_tasks.c.id == task_id)

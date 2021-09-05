@@ -18,7 +18,7 @@ from ...abc import DataStore, Job, Schedule, Serializer
 from ...enums import ConflictPolicy
 from ...events import (
     DataStoreEvent, EventHub, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated,
-    SubscriptionToken, TaskAdded, TaskRemoved)
+    SubscriptionToken, TaskAdded, TaskRemoved, TaskUpdated)
 from ...exceptions import (
     ConflictingIdError, DeserializationError, SerializationError, TaskLookupError)
 from ...serializers.pickle import PickleSerializer
@@ -93,14 +93,17 @@ class MongoDBDataStore(DataStore):
         self._events.unsubscribe(token)
 
     def add_task(self, task: Task) -> None:
-        self._tasks.find_one_and_update(
+        previous = self._tasks.find_one_and_update(
             {'_id': task.id},
             {'$set': task.marshal(self.serializer),
              '$setOnInsert': {'running_jobs': 0}},
             upsert=True
         )
         self._local_tasks[task.id] = task
-        self._events.publish(TaskAdded(task_id=task.id))
+        if previous:
+            self._events.publish(TaskUpdated(task_id=task.id))
+        else:
+            self._events.publish(TaskAdded(task_id=task.id))
 
     def remove_task(self, task_id: str) -> None:
         if not self._tasks.find_one_and_delete({'_id': task_id}):
