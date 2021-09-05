@@ -18,7 +18,7 @@ from ...util import reentrant
 
 
 @reentrant
-@attr.define
+@attr.define(eq=False)
 class AsyncDataStoreAdapter(AsyncDataStore):
     original: DataStore
     _portal: BlockingPortal = attr.field(init=False, eq=False)

@@ -9,8 +9,7 @@ from typing import Any, Callable, Iterable, Mapping, Optional, Type
 from uuid import uuid4
 
 import anyio
-from anyio import (
-    TASK_STATUS_IGNORED, Event, create_task_group, get_cancelled_exc_class, move_on_after)
+from anyio import TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class, move_on_after
 from anyio.abc import TaskGroup
 
 from ..abc import AsyncDataStore, DataStore, EventSource, Job, Schedule, Trigger
@@ -18,7 +17,7 @@ from ..datastores.async_.sync_adapter import AsyncDataStoreAdapter
 from ..datastores.sync.memory import MemoryDataStore
 from ..enums import CoalescePolicy, ConflictPolicy, RunState
 from ..events import (
-    AsyncEventHub, ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated,
+    AsyncEventHub, Event, ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated,
     SubscriptionToken)
 from ..marshalling import callable_to_ref
 from ..structures import Task

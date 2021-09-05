@@ -1,5 +1,8 @@
 """This module contains several handy functions primarily meant for internal use."""
+from __future__ import annotations
+
 import sys
+from collections import defaultdict
 from datetime import datetime, tzinfo
 from typing import Callable, TypeVar
 
@@ -40,34 +43,35 @@ def reentrant(cls: T_Type) -> T_Type:
     the ``__enter__()`` method on the first entry and ``__exit__()`` on the last exit.
 
     """
-    cls._loans = 0
 
     def __enter__(self):
-        self._loans += 1
-        if self._loans == 1:
+        loans[self] += 1
+        if loans[self] == 1:
             previous_enter(self)
 
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        assert self._loans
-        self._loans -= 1
-        if self._loans == 0:
+        assert loans[self]
+        loans[self] -= 1
+        if loans[self] == 0:
             return previous_exit(self, exc_type, exc_val, exc_tb)
 
     async def __aenter__(self):
-        self._loans += 1
-        if self._loans == 1:
+        loans[self] += 1
+        if loans[self] == 1:
             await previous_aenter(self)
 
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        assert self._loans
-        self._loans -= 1
-        if self._loans == 0:
+        assert loans[self]
+        loans[self] -= 1
+        if loans[self] == 0:
+            del loans[self]
             return await previous_aexit(self, exc_type, exc_val, exc_tb)
 
+    loans: dict[T_Type, int] = defaultdict(lambda: 0)
     previous_enter: Callable = getattr(cls, '__enter__', None)
     previous_exit: Callable = getattr(cls, '__exit__', None)
     previous_aenter: Callable = getattr(cls, '__aenter__', None)

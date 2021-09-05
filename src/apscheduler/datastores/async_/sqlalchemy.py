@@ -514,7 +514,7 @@ class SQLAlchemyDataStore(AsyncDataStore):
                 where(self.t_tasks.c.max_running_jobs.isnot(None),
                       self.t_tasks.c.id.in_(task_ids))
             result = await conn.execute(query)
-            job_slots_left = dict(result.fetchall())
+            job_slots_left: dict[str, int] = dict(result.fetchall())
 
             # Filter out jobs that don't have free slots
             acquired_jobs: list[Job] = []
@@ -539,8 +539,8 @@ class SQLAlchemyDataStore(AsyncDataStore):
                 await conn.execute(update)
 
                 # Increment the running job counters on each task
-                p_id = bindparam('p_id')
-                p_increment = bindparam('p_increment')
+                p_id: BindParameter = bindparam('p_id')
+                p_increment: BindParameter = bindparam('p_increment')
                 params = [{'p_id': task_id, 'p_increment': increment}
                           for task_id, increment in increments.items()]
                 update = self.t_tasks.update().\

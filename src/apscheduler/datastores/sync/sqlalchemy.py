@@ -451,8 +451,8 @@ class SQLAlchemyDataStore(DataStore):
                 conn.execute(update)
 
                 # Increment the running job counters on each task
-                p_id = bindparam('p_id')
-                p_increment = bindparam('p_increment')
+                p_id: BindParameter = bindparam('p_id')
+                p_increment: BindParameter = bindparam('p_increment')
                 params = [{'p_id': task_id, 'p_increment': increment}
                           for task_id, increment in increments.items()]
                 update = self.t_tasks.update().\
