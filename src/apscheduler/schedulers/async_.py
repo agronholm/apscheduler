@@ -5,7 +5,7 @@ import platform
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Mapping, Optional, Type, Union
+from typing import Any, Callable, Iterable, Mapping, Optional, Type
 from uuid import uuid4
 
 import anyio
@@ -34,7 +34,7 @@ class AsyncScheduler(EventSource):
     _worker: Optional[AsyncWorker] = None
     _task_group: Optional[TaskGroup] = None
 
-    def __init__(self, data_store: Union[DataStore, AsyncDataStore] = None, *,
+    def __init__(self, data_store: DataStore | AsyncDataStore | None = None, *,
                  identity: Optional[str] = None, logger: Optional[Logger] = None,
                  start_worker: bool = True):
         self.identity = identity or f'{platform.node()}-{os.getpid()}-{id(self)}'
@@ -94,7 +94,7 @@ class AsyncScheduler(EventSource):
     def unsubscribe(self, token: SubscriptionToken) -> None:
         self._events.unsubscribe(token)
 
-    # def _get_taskdef(self, func_or_id: Union[str, Callable]) -> Task:
+    # def _get_taskdef(self, func_or_id: str | Callable) -> Task:
     #     task_id = func_or_id if isinstance(func_or_id, str) else callable_to_ref(func_or_id)
     #     taskdef = self._tasks.get(task_id)
     #     if not taskdef:
@@ -114,11 +114,10 @@ class AsyncScheduler(EventSource):
     #         pass
 
     async def add_schedule(
-        self, func_or_task_id: Union[str, Callable], trigger: Trigger, *, id: Optional[str] = None,
+        self, func_or_task_id: str | Callable, trigger: Trigger, *, id: Optional[str] = None,
         args: Optional[Iterable] = None, kwargs: Optional[Mapping[str, Any]] = None,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
-        misfire_grace_time: Union[float, timedelta, None] = None,
-        tags: Optional[Iterable[str]] = None,
+        misfire_grace_time: float | timedelta | None = None, tags: Optional[Iterable[str]] = None,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing
     ) -> str:
         id = id or str(uuid4())

@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from abc import abstractmethod
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Optional, Sequence
 
 from ..abc import Trigger
 from ..exceptions import MaxIterationsReached
@@ -13,9 +15,9 @@ class BaseCombiningTrigger(Trigger):
 
     def __init__(self, triggers: Sequence[Trigger]):
         self.triggers = as_list(triggers, Trigger, 'triggers')
-        self._next_fire_times: List[Optional[datetime]] = []
+        self._next_fire_times: list[Optional[datetime]] = []
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         return {
             'version': 1,
             'triggers': [marshal_object(trigger) for trigger in self.triggers],
@@ -23,7 +25,7 @@ class BaseCombiningTrigger(Trigger):
         }
 
     @abstractmethod
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         self.triggers = [unmarshal_object(*trigger_state) for trigger_state in state['triggers']]
         self._next_fire_times = state['next_fire_times']
 
@@ -49,7 +51,7 @@ class AndTrigger(BaseCombiningTrigger):
 
     __slots__ = 'threshold', 'max_iterations'
 
-    def __init__(self, triggers: Sequence[Trigger], *, threshold: Union[float, timedelta] = 1,
+    def __init__(self, triggers: Sequence[Trigger], *, threshold: float | timedelta = 1,
                  max_iterations: Optional[int] = 10000):
         super().__init__(triggers)
         self.threshold = as_timedelta(threshold, 'threshold')
@@ -87,13 +89,13 @@ class AndTrigger(BaseCombiningTrigger):
         else:
             raise MaxIterationsReached
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         state = super().__getstate__()
         state['threshold'] = self.threshold.total_seconds()
         state['max_iterations'] = self.max_iterations
         return state
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
         super().__setstate__(state)
         self.threshold = timedelta(seconds=state['threshold'])
@@ -133,7 +135,7 @@ class OrTrigger(BaseCombiningTrigger):
 
         return earliest_time
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
         super().__setstate__(state)
 

@@ -1,9 +1,10 @@
 """Fields represent CronTrigger options which map to :class:`~datetime.datetime` fields."""
+from __future__ import annotations
 
 import re
 from calendar import monthrange
 from datetime import datetime
-from typing import Any, ClassVar, List, Optional, Sequence, Union
+from typing import Any, ClassVar, List, Optional, Sequence
 
 from .expressions import (
     WEEKDAYS, AllExpression, LastDayOfMonthExpression, MonthRangeExpression, RangeExpression,
@@ -29,7 +30,7 @@ class BaseField:
         if extra_compilers:
             cls.compilers += extra_compilers
 
-    def __init__(self, name: str, exprs: Union[int, str]):
+    def __init__(self, name: str, exprs: int | str):
         self.name = name
         self.expressions: List = []
         for expr in SEPARATOR.split(str(exprs).strip()):

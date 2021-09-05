@@ -7,7 +7,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Mapping, Optional, Type, Union
+from typing import Any, Callable, Iterable, Mapping, Optional, Type
 from uuid import uuid4
 
 from ..abc import DataStore, EventSource, Trigger
@@ -96,10 +96,10 @@ class Scheduler(EventSource):
         self._events.unsubscribe(token)
 
     def add_schedule(
-        self, func_or_task_id: Union[str, Callable], trigger: Trigger, *, id: Optional[str] = None,
+        self, func_or_task_id: str | Callable, trigger: Trigger, *, id: Optional[str] = None,
         args: Optional[Iterable] = None, kwargs: Optional[Mapping[str, Any]] = None,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
-        misfire_grace_time: Union[float, timedelta, None] = None,
+        misfire_grace_time: float | timedelta | None = None,
         tags: Optional[Iterable[str]] = None,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing
     ) -> str:

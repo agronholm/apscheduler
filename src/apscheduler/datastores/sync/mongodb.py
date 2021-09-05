@@ -4,7 +4,7 @@ import logging
 from collections import defaultdict
 from contextlib import ExitStack
 from datetime import datetime, timezone
-from typing import Any, Callable, ClassVar, Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import Any, Callable, ClassVar, Iterable, Optional, Tuple, Type
 from uuid import UUID
 
 import attr
@@ -28,9 +28,9 @@ from ...util import reentrant
 
 @reentrant
 class MongoDBDataStore(DataStore):
-    _task_attrs: ClassVar[List[str]] = [field.name for field in attr.fields(Task)]
-    _schedule_attrs: ClassVar[List[str]] = [field.name for field in attr.fields(Schedule)]
-    _job_attrs: ClassVar[List[str]] = [field.name for field in attr.fields(Job)]
+    _task_attrs: ClassVar[list[str]] = [field.name for field in attr.fields(Task)]
+    _schedule_attrs: ClassVar[list[str]] = [field.name for field in attr.fields(Schedule)]
+    _job_attrs: ClassVar[list[str]] = [field.name for field in attr.fields(Job)]
 
     def __init__(self, client: MongoClient, *, serializer: Optional[Serializer] = None,
                  database: str = 'apscheduler', tasks_collection: str = 'tasks',
@@ -45,7 +45,7 @@ class MongoDBDataStore(DataStore):
         self.serializer = serializer or PickleSerializer()
         self.lock_expiration_delay = lock_expiration_delay
         self.start_from_scratch = start_from_scratch
-        self._local_tasks: Dict[str, Task] = {}
+        self._local_tasks: dict[str, Task] = {}
         self._database = client[database]
         self._tasks: Collection = self._database[tasks_collection]
         self._schedules: Collection = self._database[schedules_collection]
@@ -121,8 +121,8 @@ class MongoDBDataStore(DataStore):
             task = self._local_tasks[task_id] = Task.unmarshal(self.serializer, document)
             return task
 
-    def get_tasks(self) -> List[Task]:
-        tasks: List[Task] = []
+    def get_tasks(self) -> list[Task]:
+        tasks: list[Task] = []
         for document in self._tasks.find(projection=self._task_attrs,
                                          sort=[('_id', pymongo.ASCENDING)]):
             document['id'] = document.pop('_id')
@@ -130,8 +130,8 @@ class MongoDBDataStore(DataStore):
 
         return tasks
 
-    def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
-        schedules: List[Schedule] = []
+    def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
+        schedules: list[Schedule] = []
         filters = {'_id': {'$in': list(ids)}} if ids is not None else {}
         cursor = self._schedules.find(filters, projection=['_id', 'serialized_data']).sort('_id')
         for document in cursor:
@@ -181,8 +181,8 @@ class MongoDBDataStore(DataStore):
         for schedule_id in ids:
             self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
-    def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
-        schedules: List[Schedule] = []
+    def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
+        schedules: list[Schedule] = []
         with self.client.start_session() as s, s.start_transaction():
             cursor = self._schedules.find(
                 {'next_fire_time': {'$ne': None},
@@ -206,9 +206,9 @@ class MongoDBDataStore(DataStore):
 
         return schedules
 
-    def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
-        updated_schedules: List[Tuple[str, datetime]] = []
-        finished_schedule_ids: List[str] = []
+    def release_schedules(self, scheduler_id: str, schedules: list[Schedule]) -> None:
+        updated_schedules: list[Tuple[str, datetime]] = []
+        finished_schedule_ids: list[str] = []
         with self.client.start_session() as s, s.start_transaction():
             # Update schedules that have a next fire time
             requests = []
@@ -272,8 +272,8 @@ class MongoDBDataStore(DataStore):
                          tags=job.tags)
         self._events.publish(event)
 
-    def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> List[Job]:
-        jobs: List[Job] = []
+    def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> list[Job]:
+        jobs: list[Job] = []
         filters = {'_id': {'$in': list(ids)}} if ids is not None else {}
         cursor = self._jobs.find(filters, projection=['_id', 'serialized_data']).sort('_id')
         for document in cursor:
@@ -287,7 +287,7 @@ class MongoDBDataStore(DataStore):
 
         return jobs
 
-    def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> List[Job]:
+    def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> list[Job]:
         with self.client.start_session() as session:
             cursor = self._jobs.find(
                 {'$or': [{'acquired_until': {'$exists': False}},
@@ -301,7 +301,7 @@ class MongoDBDataStore(DataStore):
             documents = list(cursor)
 
             # Retrieve the limits
-            task_ids: Set[str] = {document['task_id'] for document in documents}
+            task_ids: set[str] = {document['task_id'] for document in documents}
             task_limits = self._tasks.find(
                 {'_id': {'$in': list(task_ids)}, 'max_running_jobs': {'$ne': None}},
                 projection=['max_running_jobs', 'running_jobs'],
@@ -311,8 +311,8 @@ class MongoDBDataStore(DataStore):
                               for doc in task_limits}
 
             # Filter out jobs that don't have free slots
-            acquired_jobs: List[Job] = []
-            increments: Dict[str, int] = defaultdict(lambda: 0)
+            acquired_jobs: list[Job] = []
+            increments: dict[str, int] = defaultdict(lambda: 0)
             for document in documents:
                 job = self.serializer.deserialize(document['serialized_data'])
 

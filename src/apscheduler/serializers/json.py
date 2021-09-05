@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from json import dumps, loads
-from typing import Any, Dict
+from typing import Any
 
 import attr
 
@@ -10,8 +12,8 @@ from ..marshalling import marshal_object, unmarshal_object
 @attr.define(kw_only=True, eq=False)
 class JSONSerializer(Serializer):
     magic_key: str = '_apscheduler_json'
-    dump_options: Dict[str, Any] = attr.field(factory=dict)
-    load_options: Dict[str, Any] = attr.field(factory=dict)
+    dump_options: dict[str, Any] = attr.field(factory=dict)
+    load_options: dict[str, Any] = attr.field(factory=dict)
 
     def __attrs_post_init__(self):
         self.dump_options['default'] = self._default_hook
@@ -24,7 +26,7 @@ class JSONSerializer(Serializer):
 
         raise TypeError(f'Object of type {obj.__class__.__name__!r} is not JSON serializable')
 
-    def _object_hook(self, obj_state: Dict[str, Any]):
+    def _object_hook(self, obj_state: dict[str, Any]):
         if self.magic_key in obj_state:
             ref, *rest = obj_state[self.magic_key]
             return unmarshal_object(ref, *rest)

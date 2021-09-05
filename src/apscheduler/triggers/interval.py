@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta, tzinfo
-from typing import Optional, Union
+from typing import Optional
 
 from ..abc import Trigger
 from ..marshalling import marshal_date, unmarshal_date
@@ -32,7 +34,7 @@ class IntervalTrigger(Trigger):
     def __init__(self, *, weeks: float = 0, days: float = 0, hours: float = 0, minutes: float = 0,
                  seconds: float = 0, microseconds: float = 0,
                  start_time: Optional[datetime] = None, end_time: Optional[datetime] = None,
-                 timezone: Union[tzinfo, str] = 'local'):
+                 timezone: tzinfo | str = 'local'):
         self.weeks = weeks
         self.days = days
         self.hours = hours

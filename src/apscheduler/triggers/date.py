@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from datetime import datetime, tzinfo
-from typing import Optional, Union
+from typing import Optional
 
 from ..abc import Trigger
 from ..marshalling import marshal_date, unmarshal_date
@@ -17,7 +19,7 @@ class DateTrigger(Trigger):
 
     __slots__ = 'run_time', '_completed'
 
-    def __init__(self, run_time: datetime, timezone: Union[tzinfo, str] = 'local'):
+    def __init__(self, run_time: datetime, timezone: tzinfo | str = 'local'):
         timezone = as_timezone(timezone)
         self.run_time = as_aware_datetime(run_time, timezone)
         self._completed = False

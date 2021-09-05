@@ -7,7 +7,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import ExitStack
 from datetime import datetime, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Optional, Set, Type
+from typing import Any, Callable, Iterable, Optional, Type
 from uuid import UUID
 
 from .. import events
@@ -31,10 +31,10 @@ class Worker(EventSource):
         self.max_concurrent_jobs = max_concurrent_jobs
         self.identity = identity or f'{platform.node()}-{os.getpid()}-{id(self)}'
         self.logger = logger or getLogger(__name__)
-        self._acquired_jobs: Set[Job] = set()
+        self._acquired_jobs: set[Job] = set()
         self._exit_stack = ExitStack()
         self._events = EventHub()
-        self._running_jobs: Set[UUID] = set()
+        self._running_jobs: set[UUID] = set()
 
         if self.max_concurrent_jobs < 1:
             raise ValueError('max_concurrent_jobs must be at least 1')

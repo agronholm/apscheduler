@@ -4,7 +4,7 @@ from bisect import bisect_left, insort_right
 from collections import defaultdict
 from datetime import MAXYEAR, datetime, timedelta, timezone
 from functools import partial
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Type
+from typing import Any, Callable, Iterable, Optional, Type
 from uuid import UUID
 
 import attr
@@ -76,14 +76,14 @@ class JobState:
 class MemoryDataStore(DataStore):
     lock_expiration_delay: float = 30
     _events: EventHub = attr.Factory(EventHub)
-    _tasks: Dict[str, TaskState] = attr.Factory(dict)
-    _schedules: List[ScheduleState] = attr.Factory(list)
-    _schedules_by_id: Dict[str, ScheduleState] = attr.Factory(dict)
-    _schedules_by_task_id: Dict[str, Set[ScheduleState]] = attr.Factory(partial(defaultdict, set))
-    _jobs: List[JobState] = attr.Factory(list)
-    _jobs_by_id: Dict[UUID, JobState] = attr.Factory(dict)
-    _jobs_by_task_id: Dict[str, Set[JobState]] = attr.Factory(partial(defaultdict, set))
-    _job_results: Dict[UUID, JobResult] = attr.Factory(dict)
+    _tasks: dict[str, TaskState] = attr.Factory(dict)
+    _schedules: list[ScheduleState] = attr.Factory(list)
+    _schedules_by_id: dict[str, ScheduleState] = attr.Factory(dict)
+    _schedules_by_task_id: dict[str, set[ScheduleState]] = attr.Factory(partial(defaultdict, set))
+    _jobs: list[JobState] = attr.Factory(list)
+    _jobs_by_id: dict[UUID, JobState] = attr.Factory(dict)
+    _jobs_by_task_id: dict[str, set[JobState]] = attr.Factory(partial(defaultdict, set))
+    _job_results: dict[UUID, JobResult] = attr.Factory(dict)
 
     def _find_schedule_index(self, state: ScheduleState) -> Optional[int]:
         left_index = bisect_left(self._schedules, state)
@@ -109,7 +109,7 @@ class MemoryDataStore(DataStore):
     def unsubscribe(self, token: events.SubscriptionToken) -> None:
         self._events.unsubscribe(token)
 
-    def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
+    def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
         return [state.schedule for state in self._schedules
                 if ids is None or state.schedule.id in ids]
 
@@ -131,7 +131,7 @@ class MemoryDataStore(DataStore):
         except KeyError:
             raise TaskLookupError(task_id) from None
 
-    def get_tasks(self) -> List[Task]:
+    def get_tasks(self) -> list[Task]:
         return sorted((state.task for state in self._tasks.values()), key=lambda task: task.id)
 
     def add_schedule(self, schedule: Schedule, conflict_policy: ConflictPolicy) -> None:
@@ -168,9 +168,9 @@ class MemoryDataStore(DataStore):
                 event = ScheduleRemoved(schedule_id=state.schedule.id)
                 self._events.publish(event)
 
-    def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
+    def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
         now = datetime.now(timezone.utc)
-        schedules: List[Schedule] = []
+        schedules: list[Schedule] = []
         for state in self._schedules:
             if state.next_fire_time is None or state.next_fire_time > now:
                 # The schedule is either paused or not yet due
@@ -189,9 +189,9 @@ class MemoryDataStore(DataStore):
 
         return schedules
 
-    def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
+    def release_schedules(self, scheduler_id: str, schedules: list[Schedule]) -> None:
         # Send update events for schedules that have a next time
-        finished_schedule_ids: List[str] = []
+        finished_schedule_ids: list[str] = []
         for s in schedules:
             if s.next_fire_time is not None:
                 # Remove the schedule
@@ -225,15 +225,15 @@ class MemoryDataStore(DataStore):
                          tags=job.tags)
         self._events.publish(event)
 
-    def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> List[Job]:
+    def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> list[Job]:
         if ids is not None:
             ids = frozenset(ids)
 
         return [state.job for state in self._jobs if ids is None or state.job.id in ids]
 
-    def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> List[Job]:
+    def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> list[Job]:
         now = datetime.now(timezone.utc)
-        jobs: List[Job] = []
+        jobs: list[Job] = []
         for index, job_state in enumerate(self._jobs):
             task_state = self._tasks[job_state.job.task_id]
 

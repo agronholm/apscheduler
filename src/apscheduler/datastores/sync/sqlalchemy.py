@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Callable, Iterable, Optional, Tuple, Type
 from uuid import UUID
 
 from sqlalchemy import (
@@ -72,7 +72,7 @@ class SQLAlchemyDataStore(DataStore):
             self._supports_update_returning = True
 
     @classmethod
-    def from_url(cls, url: Union[str, URL], **options) -> 'SQLAlchemyDataStore':
+    def from_url(cls, url: str | URL, **options) -> 'SQLAlchemyDataStore':
         engine = create_engine(url)
         return cls(engine, **options)
 
@@ -151,8 +151,8 @@ class SQLAlchemyDataStore(DataStore):
         )
         return metadata
 
-    def _deserialize_jobs(self, serialized_jobs: Iterable[Tuple[UUID, bytes]]) -> List[Job]:
-        jobs: List[Job] = []
+    def _deserialize_jobs(self, serialized_jobs: Iterable[Tuple[UUID, bytes]]) -> list[Job]:
+        jobs: list[Job] = []
         for job_id, serialized_data in serialized_jobs:
             try:
                 jobs.append(self.serializer.deserialize(serialized_data))
@@ -162,8 +162,8 @@ class SQLAlchemyDataStore(DataStore):
         return jobs
 
     def _deserialize_schedules(
-            self, serialized_schedules: Iterable[Tuple[str, bytes]]) -> List[Schedule]:
-        jobs: List[Schedule] = []
+            self, serialized_schedules: Iterable[Tuple[str, bytes]]) -> list[Schedule]:
+        jobs: list[Schedule] = []
         for schedule_id, serialized_data in serialized_schedules:
             try:
                 jobs.append(self.serializer.deserialize(serialized_data))
@@ -220,7 +220,7 @@ class SQLAlchemyDataStore(DataStore):
         else:
             raise TaskLookupError
 
-    def get_tasks(self) -> List[Task]:
+    def get_tasks(self) -> list[Task]:
         query = select([self.t_tasks.c.id, self.t_tasks.c.func, self.t_tasks.c.max_running_jobs,
                         self.t_tasks.c.state, self.t_tasks.c.misfire_grace_time]).\
             order_by(self.t_tasks.c.id)
@@ -270,7 +270,7 @@ class SQLAlchemyDataStore(DataStore):
         for schedule_id in removed_ids:
             self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
-    def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
+    def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
         query = select([self.t_schedules.c.id, self.t_schedules.c.serialized_data]).\
             order_by(self.t_schedules.c.id)
         if ids:
@@ -280,7 +280,7 @@ class SQLAlchemyDataStore(DataStore):
             result = conn.execute(query)
             return self._deserialize_schedules(result)
 
-    def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
+    def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
         with self.engine.begin() as conn:
             now = datetime.now(timezone.utc)
             acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
@@ -309,11 +309,11 @@ class SQLAlchemyDataStore(DataStore):
 
         return schedules
 
-    def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
+    def release_schedules(self, scheduler_id: str, schedules: list[Schedule]) -> None:
         with self.engine.begin() as conn:
-            update_events: List[ScheduleUpdated] = []
-            finished_schedule_ids: List[str] = []
-            update_args: List[Dict[str, Any]] = []
+            update_events: list[ScheduleUpdated] = []
+            finished_schedule_ids: list[str] = []
+            update_args: list[dict[str, Any]] = []
             for schedule in schedules:
                 if schedule.next_fire_time is not None:
                     try:
@@ -389,7 +389,7 @@ class SQLAlchemyDataStore(DataStore):
                          tags=job.tags)
         self._events.publish(event)
 
-    def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> List[Job]:
+    def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> list[Job]:
         query = select([self.t_jobs.c.id, self.t_jobs.c.serialized_data]).\
             order_by(self.t_jobs.c.id)
         if ids:
@@ -400,7 +400,7 @@ class SQLAlchemyDataStore(DataStore):
             result = conn.execute(query)
             return self._deserialize_jobs(result)
 
-    def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> List[Job]:
+    def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> list[Job]:
         with self.engine.begin() as conn:
             now = datetime.now(timezone.utc)
             acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
@@ -417,7 +417,7 @@ class SQLAlchemyDataStore(DataStore):
 
             # Mark the jobs as acquired by this worker
             jobs = self._deserialize_jobs(result)
-            task_ids: Set[str] = {job.task_id for job in jobs}
+            task_ids: set[str] = {job.task_id for job in jobs}
 
             # Retrieve the limits
             query = select([self.t_tasks.c.id,
@@ -428,8 +428,8 @@ class SQLAlchemyDataStore(DataStore):
             job_slots_left = dict(result.fetchall())
 
             # Filter out jobs that don't have free slots
-            acquired_jobs: List[Job] = []
-            increments: Dict[str, int] = defaultdict(lambda: 0)
+            acquired_jobs: list[Job] = []
+            increments: dict[str, int] = defaultdict(lambda: 0)
             for job in jobs:
                 # Don't acquire the job if there are no free slots left
                 slots_left = job_slots_left.get(job.task_id)

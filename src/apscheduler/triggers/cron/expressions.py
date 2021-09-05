@@ -1,9 +1,10 @@
 """This module contains the expressions applicable for CronTrigger's fields."""
+from __future__ import annotations
 
 import re
 from calendar import monthrange
 from datetime import datetime
-from typing import Optional, Union
+from typing import Optional
 
 from ...validators import as_int
 
@@ -23,7 +24,7 @@ class AllExpression:
 
     value_re = re.compile(r'\*(?:/(?P<step>\d+))?$')
 
-    def __init__(self, step: Union[str, int, None] = None):
+    def __init__(self, step: str | int | None = None):
         self.step = as_int(step)
         if self.step == 0:
             raise ValueError('Step must be higher than 0')
@@ -57,8 +58,8 @@ class RangeExpression(AllExpression):
 
     value_re = re.compile(r'(?P<first>\d+)(?:-(?P<last>\d+))?(?:/(?P<step>\d+))?$')
 
-    def __init__(self, first: Union[str, int], last: Union[str, int, None] = None,
-                 step: Union[str, int, None] = None):
+    def __init__(self, first: str | int, last: str | int | None = None,
+                 step: str | int | None = None):
         super().__init__(step)
         self.first = as_int(first)
         self.last = as_int(last)

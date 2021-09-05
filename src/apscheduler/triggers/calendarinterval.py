@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from datetime import date, datetime, time, timedelta, tzinfo
-from typing import Optional, Union
+from typing import Optional
 
 from ..abc import Trigger
 from ..marshalling import marshal_date, marshal_timezone, unmarshal_date, unmarshal_timezone
@@ -56,9 +58,9 @@ class CalendarIntervalTrigger(Trigger):
 
     def __init__(self, *, years: int = 0, months: int = 0, weeks: int = 0, days: int = 0,
                  hour: int = 0, minute: int = 0, second: int = 0,
-                 start_date: Union[date, str, None] = None,
-                 end_date: Union[date, str, None] = None,
-                 timezone: Union[str, tzinfo] = 'local'):
+                 start_date: date | str | None = None,
+                 end_date: date | str | None = None,
+                 timezone: str | tzinfo = 'local'):
         self.years = years
         self.months = months
         self.weeks = weeks

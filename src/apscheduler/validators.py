@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import sys
 from datetime import date, datetime, timedelta, timezone, tzinfo
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional
 
 from tzlocal import get_localzone
 
@@ -21,7 +23,7 @@ def as_int(value) -> Optional[int]:
     return int(value)
 
 
-def as_timezone(value: Union[str, tzinfo, None]) -> tzinfo:
+def as_timezone(value: str | tzinfo | None) -> tzinfo:
     """
     Convert the value into a tzinfo object.
 
@@ -45,7 +47,7 @@ def as_timezone(value: Union[str, tzinfo, None]) -> tzinfo:
                     f'{value.__class__.__qualname__} instead')
 
 
-def as_date(value: Union[date, str, None]) -> Optional[date]:
+def as_date(value: date | str | None) -> Optional[date]:
     """
     Convert the value to a date.
 
@@ -81,7 +83,7 @@ def as_ordinal_date(value: Optional[date]) -> Optional[int]:
     return value.toordinal()
 
 
-def as_aware_datetime(value: Union[datetime, str, None], tz: tzinfo) -> Optional[datetime]:
+def as_aware_datetime(value: datetime | str | None, tz: tzinfo) -> Optional[datetime]:
     """
     Convert the value to a timezone aware datetime.
 
@@ -152,7 +154,7 @@ def as_list(value, element_type: type, name: str) -> list:
     return value
 
 
-def require_state_version(trigger: Trigger, state: Dict[str, Any], max_version: int) -> None:
+def require_state_version(trigger: Trigger, state: dict[str, Any], max_version: int) -> None:
     try:
         if state['version'] > max_version:
             raise DeserializationError(

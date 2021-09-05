@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from base64 import b64decode, b64encode
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, List, Optional, Set, Type
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, Optional, Type
 from uuid import UUID
 
 from .enums import ConflictPolicy
@@ -124,7 +124,7 @@ class DataStore(EventSource):
         """
 
     @abstractmethod
-    def get_tasks(self) -> List[Task]:
+    def get_tasks(self) -> list[Task]:
         """
         Get all the tasks in this store.
 
@@ -132,7 +132,7 @@ class DataStore(EventSource):
         """
 
     @abstractmethod
-    def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
+    def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
         """
         Get schedules from the data store.
 
@@ -159,7 +159,7 @@ class DataStore(EventSource):
         """
 
     @abstractmethod
-    def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
+    def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
         """
         Acquire unclaimed due schedules for processing.
 
@@ -172,7 +172,7 @@ class DataStore(EventSource):
         """
 
     @abstractmethod
-    def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
+    def release_schedules(self, scheduler_id: str, schedules: list[Schedule]) -> None:
         """
         Release the claims on the given schedules and update them on the store.
 
@@ -196,7 +196,7 @@ class DataStore(EventSource):
         """
 
     @abstractmethod
-    def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> List[Job]:
+    def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> list[Job]:
         """
         Get the list of pending jobs.
 
@@ -205,7 +205,7 @@ class DataStore(EventSource):
         """
 
     @abstractmethod
-    def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> List[Job]:
+    def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> list[Job]:
         """
         Acquire unclaimed jobs for execution.
 
@@ -277,7 +277,7 @@ class AsyncDataStore(EventSource):
         """
 
     @abstractmethod
-    async def get_tasks(self) -> List[Task]:
+    async def get_tasks(self) -> list[Task]:
         """
         Get all the tasks in this store.
 
@@ -285,7 +285,7 @@ class AsyncDataStore(EventSource):
         """
 
     @abstractmethod
-    async def get_schedules(self, ids: Optional[Set[str]] = None) -> List[Schedule]:
+    async def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
         """
         Get schedules from the data store.
 
@@ -312,7 +312,7 @@ class AsyncDataStore(EventSource):
         """
 
     @abstractmethod
-    async def acquire_schedules(self, scheduler_id: str, limit: int) -> List[Schedule]:
+    async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
         """
         Acquire unclaimed due schedules for processing.
 
@@ -325,7 +325,7 @@ class AsyncDataStore(EventSource):
         """
 
     @abstractmethod
-    async def release_schedules(self, scheduler_id: str, schedules: List[Schedule]) -> None:
+    async def release_schedules(self, scheduler_id: str, schedules: list[Schedule]) -> None:
         """
         Release the claims on the given schedules and update them on the store.
 
@@ -349,7 +349,7 @@ class AsyncDataStore(EventSource):
         """
 
     @abstractmethod
-    async def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> List[Job]:
+    async def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> list[Job]:
         """
         Get the list of pending jobs.
 
@@ -358,7 +358,7 @@ class AsyncDataStore(EventSource):
         """
 
     @abstractmethod
-    async def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> List[Job]:
+    async def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> list[Job]:
         """
         Acquire unclaimed jobs for execution.
 

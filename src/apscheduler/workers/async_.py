@@ -6,7 +6,7 @@ from contextlib import AsyncExitStack
 from datetime import datetime, timezone
 from inspect import isawaitable
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Optional, Set, Type, Union
+from typing import Any, Callable, Iterable, Optional, Type
 from uuid import UUID
 
 import anyio
@@ -31,16 +31,16 @@ class AsyncWorker(EventSource):
     _datastore_subscription: SubscriptionToken
     _wakeup_event: anyio.Event
 
-    def __init__(self, data_store: Union[DataStore, AsyncDataStore], *,
+    def __init__(self, data_store: DataStore | AsyncDataStore, *,
                  max_concurrent_jobs: int = 100, identity: Optional[str] = None,
                  logger: Optional[Logger] = None):
         self.max_concurrent_jobs = max_concurrent_jobs
         self.identity = identity or f'{platform.node()}-{os.getpid()}-{id(self)}'
         self.logger = logger or getLogger(__name__)
-        self._acquired_jobs: Set[Job] = set()
+        self._acquired_jobs: set[Job] = set()
         self._exit_stack = AsyncExitStack()
         self._events = AsyncEventHub()
-        self._running_jobs: Set[UUID] = set()
+        self._running_jobs: set[UUID] = set()
 
         if self.max_concurrent_jobs < 1:
             raise ValueError('max_concurrent_jobs must be at least 1')

@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta, tzinfo
-from typing import ClassVar, List, Optional, Sequence, Tuple, Union
+from typing import ClassVar, List, Optional, Sequence, Tuple
 
 from ...abc import Trigger
 from ...marshalling import marshal_date, marshal_timezone, unmarshal_date, unmarshal_timezone
@@ -43,13 +45,13 @@ class CronTrigger(Trigger):
         ('second', BaseField)
     ]
 
-    def __init__(self, *, year: Union[int, str, None] = None, month: Union[int, str, None] = None,
-                 day: Union[int, str, None] = None, week: Union[int, str, None] = None,
-                 day_of_week: Union[int, str, None] = None, hour: Union[int, str, None] = None,
-                 minute: Union[int, str, None] = None, second: Union[int, str, None] = None,
-                 start_time: Union[datetime, str, None] = None,
-                 end_time: Union[datetime, str, None] = None,
-                 timezone: Union[str, tzinfo, None] = None):
+    def __init__(self, *, year: int | str | None = None, month: int | str | None = None,
+                 day: int | str | None = None, week: int | str | None = None,
+                 day_of_week: int | str | None = None, hour: int | str | None = None,
+                 minute: int | str | None = None, second: int | str | None = None,
+                 start_time: datetime | str | None = None,
+                 end_time: datetime | str | None = None,
+                 timezone: str | tzinfo | None = None):
         self.timezone = as_timezone(timezone)
         self.start_time = (as_aware_datetime(start_time, self.timezone)
                            or datetime.now(self.timezone))
@@ -57,7 +59,7 @@ class CronTrigger(Trigger):
         self._set_fields([year, month, day, week, day_of_week, hour, minute, second])
         self._last_fire_time: Optional[datetime] = None
 
-    def _set_fields(self, values: Sequence[Union[int, str, None]]) -> None:
+    def _set_fields(self, values: Sequence[int | str | None]) -> None:
         self._fields = []
         assigned_values = {field_name: value
                            for (field_name, _), value in zip(self.FIELDS_MAP, values)
@@ -71,7 +73,7 @@ class CronTrigger(Trigger):
             self._fields.append(field)
 
     @classmethod
-    def from_crontab(cls, expr: str, timezone: Union[str, tzinfo] = 'local') -> 'CronTrigger':
+    def from_crontab(cls, expr: str, timezone: str | tzinfo = 'local') -> 'CronTrigger':
         """
         Create a :class:`~CronTrigger` from a standard crontab expression.
 

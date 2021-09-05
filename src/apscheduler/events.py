@@ -9,7 +9,7 @@ from functools import partial
 from inspect import isawaitable
 from logging import Logger
 from traceback import format_tb
-from typing import Any, Callable, Dict, FrozenSet, Iterable, NewType, Optional, Set, Type, Union
+from typing import Any, Callable, Iterable, NewType, Optional, Type
 from uuid import UUID
 
 import attr
@@ -22,7 +22,7 @@ from .structures import Job
 SubscriptionToken = NewType('SubscriptionToken', object)
 
 
-def timestamp_to_datetime(value: Union[datetime, float, None]) -> Optional[datetime]:
+def timestamp_to_datetime(value: datetime | float | None) -> Optional[datetime]:
     if isinstance(value, float):
         return datetime.fromtimestamp(value, timezone.utc)
 
@@ -76,7 +76,7 @@ class JobAdded(DataStoreEvent):
     job_id: UUID
     task_id: str
     schedule_id: Optional[str]
-    tags: FrozenSet[str]
+    tags: frozenset[str]
 
 
 @attr.define(kw_only=True, frozen=True)
@@ -221,13 +221,13 @@ class JobFailed(JobExecutionEvent):
 @attr.define(eq=False, frozen=True)
 class Subscription:
     callback: Callable[[Event], Any]
-    event_types: Optional[Set[Type[Event]]]
+    event_types: Optional[set[Type[Event]]]
 
 
 @attr.define
 class _BaseEventHub(abc.EventSource):
     _logger: Logger = attr.field(init=False, factory=lambda: logging.getLogger(__name__))
-    _subscriptions: Dict[SubscriptionToken, Subscription] = attr.field(init=False, factory=dict)
+    _subscriptions: dict[SubscriptionToken, Subscription] = attr.field(init=False, factory=dict)
 
     def subscribe(self, callback: Callable[[Event], Any],
                   event_types: Optional[Iterable[Type[Event]]] = None) -> SubscriptionToken:
