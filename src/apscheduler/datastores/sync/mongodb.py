@@ -138,10 +138,11 @@ class MongoDBDataStore(DataStore):
     def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
         schedules: list[Schedule] = []
         filters = {'_id': {'$in': list(ids)}} if ids is not None else {}
-        cursor = self._schedules.find(filters, projection=['_id', 'serialized_data']).sort('_id')
+        cursor = self._schedules.find(filters).sort('_id')
         for document in cursor:
+            document['id'] = document.pop('_id')
             try:
-                schedule = self.serializer.deserialize(document['serialized_data'])
+                schedule = Schedule.unmarshal(self.serializer, document)
             except DeserializationError:
                 self._logger.warning('Failed to deserialize schedule %r', document['_id'])
                 continue
@@ -152,15 +153,11 @@ class MongoDBDataStore(DataStore):
 
     def add_schedule(self, schedule: Schedule, conflict_policy: ConflictPolicy) -> None:
         event: DataStoreEvent
-        serialized_data = self.serializer.serialize(schedule)
-        document = {
-            '_id': schedule.id,
-            'task_id': schedule.task_id,
-            'serialized_data': serialized_data,
-            'next_fire_time': schedule.next_fire_time
-        }
+        document = schedule.marshal(self.serializer)
+        document['_id'] = document.pop('id')
         try:
             self._schedules.insert_one(document)
+            print(document)
         except DuplicateKeyError:
             if conflict_policy is ConflictPolicy.exception:
                 raise ConflictingIdError(schedule.id) from None
@@ -193,11 +190,11 @@ class MongoDBDataStore(DataStore):
                 {'next_fire_time': {'$ne': None},
                  '$or': [{'acquired_until': {'$exists': False}},
                          {'acquired_until': {'$lt': datetime.now(timezone.utc)}}]
-                 },
-                projection=['serialized_data']
+                 }
             ).sort('next_fire_time').limit(limit)
             for document in cursor:
-                schedule = self.serializer.deserialize(document['serialized_data'])
+                document['id'] = document.pop('_id')
+                schedule = Schedule.unmarshal(self.serializer, document)
                 schedules.append(schedule)
 
             if schedules:
@@ -221,7 +218,7 @@ class MongoDBDataStore(DataStore):
                 filters = {'_id': schedule.id, 'acquired_by': scheduler_id}
                 if schedule.next_fire_time is not None:
                     try:
-                        serialized_data = self.serializer.serialize(schedule)
+                        serialized_trigger = self.serializer.serialize(schedule.trigger)
                     except SerializationError:
                         self._logger.exception('Error serializing schedule %r – '
                                                'removing from data store', schedule.id)
@@ -235,8 +232,8 @@ class MongoDBDataStore(DataStore):
                             'acquired_until': True,
                         },
                         '$set': {
-                            'next_fire_time': schedule.next_fire_time,
-                            'serialized_data': serialized_data
+                            'trigger': serialized_trigger,
+                            'next_fire_time': schedule.next_fire_time
                         }
                     }
                     requests.append(UpdateOne(filters, update))
@@ -264,14 +261,8 @@ class MongoDBDataStore(DataStore):
             return None
 
     def add_job(self, job: Job) -> None:
-        serialized_data = self.serializer.serialize(job)
-        document = {
-            '_id': job.id,
-            'serialized_data': serialized_data,
-            'task_id': job.task_id,
-            'created_at': datetime.now(timezone.utc),
-            'tags': list(job.tags)
-        }
+        document = job.marshal(self.serializer)
+        document['_id'] = document.pop('id')
         self._jobs.insert_one(document)
         event = JobAdded(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
                          tags=job.tags)
@@ -280,12 +271,13 @@ class MongoDBDataStore(DataStore):
     def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> list[Job]:
         jobs: list[Job] = []
         filters = {'_id': {'$in': list(ids)}} if ids is not None else {}
-        cursor = self._jobs.find(filters, projection=['_id', 'serialized_data']).sort('_id')
+        cursor = self._jobs.find(filters).sort('_id')
         for document in cursor:
+            document['id'] = document.pop('_id')
             try:
-                job = self.serializer.deserialize(document['serialized_data'])
+                job = Job.unmarshal(self.serializer, document)
             except DeserializationError:
-                self._logger.warning('Failed to deserialize job %r', document['_id'])
+                self._logger.warning('Failed to deserialize job %r', document['id'])
                 continue
 
             jobs.append(job)
@@ -298,7 +290,6 @@ class MongoDBDataStore(DataStore):
                 {'$or': [{'acquired_until': {'$exists': False}},
                          {'acquired_until': {'$lt': datetime.now(timezone.utc)}}]
                  },
-                projection=['task_id', 'serialized_data'],
                 sort=[('created_at', ASCENDING)],
                 limit=limit,
                 session=session
@@ -319,7 +310,8 @@ class MongoDBDataStore(DataStore):
             acquired_jobs: list[Job] = []
             increments: dict[str, int] = defaultdict(lambda: 0)
             for document in documents:
-                job = self.serializer.deserialize(document['serialized_data'])
+                document['id'] = document.pop('_id')
+                job = Job.unmarshal(self.serializer, document)
 
                 # Don't acquire the job if there are no free slots left
                 slots_left = job_slots_left.get(job.task_id)
@@ -350,27 +342,27 @@ class MongoDBDataStore(DataStore):
 
             return acquired_jobs
 
-    def release_job(self, worker_id: str, job: Job, result: Optional[JobResult]) -> None:
+    def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
         with self.client.start_session() as session:
             # Insert the job result
-            now = datetime.now(timezone.utc)
-            document = {
-                '_id': job.id,
-                'finished_at': now,
-                'serialized_data': self.serializer.serialize(result)
-            }
+            document = result.marshal(self.serializer)
+            document['_id'] = document.pop('job_id')
             self._jobs_results.insert_one(document, session=session)
 
             # Decrement the running jobs counter
             self._tasks.find_one_and_update(
-                {'_id': job.task_id},
-                {'$inc': {'running_jobs': -1}}
+                {'_id': task_id},
+                {'$inc': {'running_jobs': -1}},
+                session=session
             )
 
             # Delete the job
-            self._jobs.delete_one({'_id': job.id}, session=session)
+            self._jobs.delete_one({'_id': result.job_id}, session=session)
 
     def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
-        document = self._jobs_results.find_one_and_delete(
-            filter={'_id': job_id}, projection=['serialized_data'])
-        return self.serializer.deserialize(document['serialized_data']) if document else None
+        document = self._jobs_results.find_one_and_delete({'_id': job_id})
+        if document:
+            document['job_id'] = document.pop('_id')
+            return JobResult.unmarshal(self.serializer, document)
+        else:
+            return None

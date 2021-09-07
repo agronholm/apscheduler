@@ -267,20 +267,20 @@ class MemoryDataStore(DataStore):
 
         return jobs
 
-    def release_job(self, worker_id: str, job: Job, result: Optional[JobResult]) -> None:
+    def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
         # Delete the job
-        job_state = self._jobs_by_id.pop(job.id)
-        self._jobs_by_task_id[job.task_id].remove(job_state)
+        job_state = self._jobs_by_id.pop(result.job_id)
+        self._jobs_by_task_id[task_id].remove(job_state)
         index = self._find_job_index(job_state)
         del self._jobs[index]
 
         # Decrement the number of running jobs for this task
-        task_state = self._tasks.get(job.task_id)
+        task_state = self._tasks.get(task_id)
         if task_state is not None:
             task_state.running_jobs -= 1
 
         # Record the result
-        self._job_results[job.id] = result
+        self._job_results[result.job_id] = result
 
     def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
         return self._job_results.pop(job_id, None)

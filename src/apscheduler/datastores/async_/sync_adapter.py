@@ -72,8 +72,8 @@ class AsyncDataStoreAdapter(AsyncDataStore):
     async def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> list[Job]:
         return await to_thread.run_sync(self.original.acquire_jobs, worker_id, limit)
 
-    async def release_job(self, worker_id: str, job: Job, result: Optional[JobResult]) -> None:
-        await to_thread.run_sync(self.original.release_job, worker_id, job, result)
+    async def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
+        await to_thread.run_sync(self.original.release_job, worker_id, task_id, result)
 
     async def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
         return await to_thread.run_sync(self.original.get_job_result, job_id)

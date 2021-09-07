@@ -136,19 +136,19 @@ class AsyncWorker(EventSource):
                     retval = await retval
             except get_cancelled_exc_class():
                 with CancelScope(shield=True):
-                    result = JobResult(outcome=JobOutcome.cancelled)
-                    await self.data_store.release_job(self.identity, job, result)
+                    result = JobResult(job_id=job.id, outcome=JobOutcome.cancelled)
+                    await self.data_store.release_job(self.identity, job.task_id, result)
 
                 self._events.publish(JobCancelled.from_job(job, start_time))
             except BaseException as exc:
-                result = JobResult(outcome=JobOutcome.failure, exception=exc)
-                await self.data_store.release_job(self.identity, job, result)
+                result = JobResult(job_id=job.id, outcome=JobOutcome.failure, exception=exc)
+                await self.data_store.release_job(self.identity, job.task_id, result)
                 self._events.publish(JobFailed.from_exception(job, start_time, exc))
                 if not isinstance(exc, Exception):
                     raise
             else:
-                result = JobResult(outcome=JobOutcome.success, return_value=retval)
-                await self.data_store.release_job(self.identity, job, result)
+                result = JobResult(job_id=job.id, outcome=JobOutcome.success, return_value=retval)
+                await self.data_store.release_job(self.identity, job.task_id, result)
                 self._events.publish(JobCompleted.from_retval(job, start_time, retval))
         finally:
             self._running_jobs.remove(job.id)

@@ -35,7 +35,7 @@ def schedules() -> List[Schedule]:
 async def capture_events(
     store: AsyncDataStore, limit: int,
     event_types: Optional[Set[Type[Event]]] = None
-) -> AsyncGenerator[List[Event], None, None]:
+) -> AsyncGenerator[List[Event], None]:
     def listener(event: Event) -> None:
         events.append(event)
         if len(events) == limit:
@@ -253,8 +253,9 @@ class TestAsyncStores:
             assert len(acquired) == 1
             assert acquired[0].id == job.id
 
-            await store.release_job('worker_id', acquired[0],
-                                    JobResult(JobOutcome.success, return_value='foo'))
+            await store.release_job(
+                'worker_id', acquired[0].task_id,
+                JobResult(job_id=acquired[0].id, outcome=JobOutcome.success, return_value='foo'))
             result = await store.get_job_result(acquired[0].id)
             assert result.outcome is JobOutcome.success
             assert result.exception is None
@@ -275,8 +276,10 @@ class TestAsyncStores:
             assert len(acquired) == 1
             assert acquired[0].id == job.id
 
-            await store.release_job('worker_id', acquired[0],
-                                    JobResult(JobOutcome.failure, exception=ValueError('foo')))
+            await store.release_job(
+                'worker_id', acquired[0].task_id,
+                JobResult(job_id=acquired[0].id, outcome=JobOutcome.failure,
+                          exception=ValueError('foo')))
             result = await store.get_job_result(acquired[0].id)
             assert result.outcome is JobOutcome.failure
             assert isinstance(result.exception, ValueError)
@@ -298,8 +301,9 @@ class TestAsyncStores:
             assert len(acquired) == 1
             assert acquired[0].id == job.id
 
-            await store.release_job('worker_id', acquired[0],
-                                    JobResult(JobOutcome.missed_start_deadline))
+            await store.release_job(
+                'worker_id', acquired[0].task_id,
+                JobResult(job_id=acquired[0].id, outcome=JobOutcome.missed_start_deadline))
             result = await store.get_job_result(acquired[0].id)
             assert result.outcome is JobOutcome.missed_start_deadline
             assert result.exception is None
@@ -320,7 +324,8 @@ class TestAsyncStores:
             assert len(acquired) == 1
             assert acquired[0].id == job.id
 
-            await store.release_job('worker1', acquired[0], JobResult(JobOutcome.cancelled))
+            await store.release_job('worker1', acquired[0].task_id,
+                                    JobResult(job_id=acquired[0].id, outcome=JobOutcome.cancelled))
             result = await store.get_job_result(acquired[0].id)
             assert result.outcome is JobOutcome.cancelled
             assert result.exception is None
@@ -372,7 +377,9 @@ class TestAsyncStores:
             assert [job.id for job in acquired_jobs] == [job.id for job in jobs[:2]]
 
             # Release one job, and the worker should be able to acquire the third job
-            await store.release_job('worker1', acquired_jobs[0],
-                                    JobResult(outcome=JobOutcome.success, return_value=None))
+            await store.release_job(
+                'worker1', acquired_jobs[0].task_id,
+                JobResult(job_id=acquired_jobs[0].id, outcome=JobOutcome.success,
+                          return_value=None))
             acquired_jobs = await store.acquire_jobs('worker1', 3)
             assert [job.id for job in acquired_jobs] == [jobs[2].id]

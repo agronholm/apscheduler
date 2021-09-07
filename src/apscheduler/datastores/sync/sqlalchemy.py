@@ -3,21 +3,21 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Optional, Tuple, Type
+from typing import Any, Callable, Iterable, Optional, Type
 from uuid import UUID
 
 import attr
 from sqlalchemy import (
-    TIMESTAMP, Column, Integer, LargeBinary, MetaData, Table, TypeDecorator, Unicode, and_,
-    bindparam, or_, select)
-from sqlalchemy.engine import URL, Dialect
+    JSON, TIMESTAMP, Column, Enum, Integer, LargeBinary, MetaData, Table, TypeDecorator, Unicode,
+    and_, bindparam, or_, select)
+from sqlalchemy.engine import URL, Dialect, Result
 from sqlalchemy.exc import CompileError, IntegrityError
 from sqlalchemy.future import Engine, create_engine
 from sqlalchemy.sql.ddl import DropTable
 from sqlalchemy.sql.elements import BindParameter, literal
 
 from ...abc import DataStore, Job, Schedule, Serializer
-from ...enums import ConflictPolicy
+from ...enums import CoalescePolicy, ConflictPolicy, JobOutcome
 from ...events import (
     Event, EventHub, JobAdded, JobDeserializationFailed, ScheduleAdded,
     ScheduleDeserializationFailed, ScheduleRemoved, ScheduleUpdated, SubscriptionToken, TaskAdded,
@@ -34,10 +34,21 @@ class EmulatedUUID(TypeDecorator):
     cache_ok = True
 
     def process_bind_param(self, value, dialect: Dialect) -> Any:
-        return value.hex
+        return value.hex if value is not None else None
 
     def process_result_value(self, value: Any, dialect: Dialect):
         return UUID(value) if value else None
+
+
+class EmulatedTimestampTZ(TypeDecorator):
+    impl = Unicode(32)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect: Dialect) -> Any:
+        return value.isoformat() if value is not None else None
+
+    def process_result_value(self, value: Any, dialect: Dialect):
+        return datetime.fromisoformat(value) if value is not None else None
 
 
 @reentrant
@@ -64,7 +75,7 @@ class SQLAlchemyDataStore(DataStore):
         self.t_jobs = self._metadata.tables['jobs']
         self.t_job_results = self._metadata.tables['job_results']
 
-        # Find out if the dialect supports RETURNING
+        # Find out if the dialect supports UPDATE...RETURNING
         update = self.t_jobs.update().returning(self.t_jobs.c.id)
         try:
             update.compile(bind=self.engine)
@@ -101,17 +112,13 @@ class SQLAlchemyDataStore(DataStore):
         self._events.__exit__(exc_type, exc_val, exc_tb)
 
     def get_table_definitions(self) -> MetaData:
-        if self.engine.dialect.name in ('mysql', 'mariadb'):
-            from sqlalchemy.dialects import mysql
-            timestamp_type = mysql.TIMESTAMP(fsp=6)
-        else:
-            timestamp_type = TIMESTAMP(timezone=True)
-
         if self.engine.dialect.name == 'postgresql':
             from sqlalchemy.dialects import postgresql
 
+            timestamp_type = TIMESTAMP(timezone=True)
             job_id_type = postgresql.UUID(as_uuid=True)
         else:
+            timestamp_type = EmulatedTimestampTZ
             job_id_type = EmulatedUUID
 
         metadata = MetaData()
@@ -135,8 +142,15 @@ class SQLAlchemyDataStore(DataStore):
             metadata,
             Column('id', Unicode(500), primary_key=True),
             Column('task_id', Unicode(500), nullable=False, index=True),
-            Column('serialized_data', LargeBinary, nullable=False),
+            Column('trigger', LargeBinary),
+            Column('args', LargeBinary),
+            Column('kwargs', LargeBinary),
+            Column('coalesce', Enum(CoalescePolicy), nullable=False),
+            Column('misfire_grace_time', Unicode(16)),
+            # Column('max_jitter', Unicode(16)),
+            Column('tags', JSON, nullable=False),
             Column('next_fire_time', timestamp_type, index=True),
+            Column('last_fire_time', timestamp_type),
             Column('acquired_by', Unicode(500)),
             Column('acquired_until', timestamp_type)
         )
@@ -145,8 +159,14 @@ class SQLAlchemyDataStore(DataStore):
             metadata,
             Column('id', job_id_type, primary_key=True),
             Column('task_id', Unicode(500), nullable=False, index=True),
-            Column('serialized_data', LargeBinary, nullable=False),
+            Column('args', LargeBinary, nullable=False),
+            Column('kwargs', LargeBinary, nullable=False),
+            Column('schedule_id', Unicode(500)),
+            Column('scheduled_fire_time', timestamp_type),
+            Column('start_deadline', timestamp_type),
+            Column('tags', JSON, nullable=False),
             Column('created_at', timestamp_type, nullable=False),
+            Column('started_at', timestamp_type),
             Column('acquired_by', Unicode(500)),
             Column('acquired_until', timestamp_type)
         )
@@ -154,30 +174,32 @@ class SQLAlchemyDataStore(DataStore):
             'job_results',
             metadata,
             Column('job_id', job_id_type, primary_key=True),
+            Column('outcome', Enum(JobOutcome), nullable=False),
             Column('finished_at', timestamp_type, index=True),
-            Column('serialized_data', LargeBinary, nullable=False)
+            Column('exception', LargeBinary),
+            Column('return_value', LargeBinary)
         )
         return metadata
 
-    def _deserialize_jobs(self, serialized_jobs: Iterable[Tuple[UUID, bytes]]) -> list[Job]:
-        jobs: list[Job] = []
-        for job_id, serialized_data in serialized_jobs:
+    def _deserialize_schedules(self, result: Result) -> list[Schedule]:
+        schedules: list[Schedule] = []
+        for row in result:
             try:
-                jobs.append(self.serializer.deserialize(serialized_data))
-            except SerializationError as exc:
-                self._events.publish(JobDeserializationFailed(job_id=job_id, exception=exc))
-
-        return jobs
-
-    def _deserialize_schedules(
-            self, serialized_schedules: Iterable[Tuple[str, bytes]]) -> list[Schedule]:
-        jobs: list[Schedule] = []
-        for schedule_id, serialized_data in serialized_schedules:
-            try:
-                jobs.append(self.serializer.deserialize(serialized_data))
+                schedules.append(Schedule.unmarshal(self.serializer, row._asdict()))
             except SerializationError as exc:
                 self._events.publish(
-                    ScheduleDeserializationFailed(schedule_id=schedule_id, exception=exc))
+                    ScheduleDeserializationFailed(schedule_id=row['id'], exception=exc))
+
+        return schedules
+
+    def _deserialize_jobs(self, result: Result) -> list[Job]:
+        jobs: list[Job] = []
+        for row in result:
+            try:
+                jobs.append(Job.unmarshal(self.serializer, row._asdict()))
+            except SerializationError as exc:
+                self._events.publish(
+                    JobDeserializationFailed(job_id=row['id'], exception=exc))
 
         return jobs
 
@@ -240,10 +262,8 @@ class SQLAlchemyDataStore(DataStore):
 
     def add_schedule(self, schedule: Schedule, conflict_policy: ConflictPolicy) -> None:
         event: Event
-        serialized_data = self.serializer.serialize(schedule)
-        insert = self.t_schedules.insert().\
-            values(id=schedule.id, task_id=schedule.task_id, serialized_data=serialized_data,
-                   next_fire_time=schedule.next_fire_time)
+        values = schedule.marshal(self.serializer)
+        insert = self.t_schedules.insert().values(**values)
         try:
             with self.engine.begin() as conn:
                 conn.execute(insert)
@@ -254,10 +274,10 @@ class SQLAlchemyDataStore(DataStore):
             if conflict_policy is ConflictPolicy.exception:
                 raise ConflictingIdError(schedule.id) from None
             elif conflict_policy is ConflictPolicy.replace:
+                del values['id']
                 update = self.t_schedules.update().\
                     where(self.t_schedules.c.id == schedule.id).\
-                    values(serialized_data=serialized_data,
-                           next_fire_time=schedule.next_fire_time)
+                    values(**values)
                 with self.engine.begin() as conn:
                     conn.execute(update)
 
@@ -280,8 +300,7 @@ class SQLAlchemyDataStore(DataStore):
             self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
     def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
-        query = select([self.t_schedules.c.id, self.t_schedules.c.serialized_data]).\
-            order_by(self.t_schedules.c.id)
+        query = self.t_schedules.select().order_by(self.t_schedules.c.id)
         if ids:
             query = query.where(self.t_schedules.c.id.in_(ids))
 
@@ -305,12 +324,11 @@ class SQLAlchemyDataStore(DataStore):
                 where(self.t_schedules.c.id.in_(subselect)).\
                 values(acquired_by=scheduler_id, acquired_until=acquired_until)
             if self._supports_update_returning:
-                update = update.returning(self.t_schedules.c.id,
-                                          self.t_schedules.c.serialized_data)
+                update = update.returning(*self.t_schedules.columns)
                 result = conn.execute(update)
             else:
                 conn.execute(update)
-                query = select([self.t_schedules.c.id, self.t_schedules.c.serialized_data]).\
+                query = self.t_schedules.select().\
                     where(and_(self.t_schedules.c.acquired_by == scheduler_id))
                 result = conn.execute(query)
 
@@ -326,16 +344,16 @@ class SQLAlchemyDataStore(DataStore):
             for schedule in schedules:
                 if schedule.next_fire_time is not None:
                     try:
-                        serialized_data = self.serializer.serialize(schedule)
+                        serialized_trigger = self.serializer.serialize(schedule.trigger)
                     except SerializationError:
-                        self._logger.exception('Error serializing schedule %r – '
+                        self._logger.exception('Error serializing trigger for schedule %r – '
                                                'removing from data store', schedule.id)
                         finished_schedule_ids.append(schedule.id)
                         continue
 
                     update_args.append({
                         'p_id': schedule.id,
-                        'p_serialized_data': serialized_data,
+                        'p_trigger': serialized_trigger,
                         'p_next_fire_time': schedule.next_fire_time
                     })
                 else:
@@ -344,12 +362,12 @@ class SQLAlchemyDataStore(DataStore):
             # Update schedules that have a next fire time
             if update_args:
                 p_id: BindParameter = bindparam('p_id')
-                p_serialized: BindParameter = bindparam('p_serialized_data')
+                p_trigger: BindParameter = bindparam('p_trigger')
                 p_next_fire_time: BindParameter = bindparam('p_next_fire_time')
                 update = self.t_schedules.update().\
                     where(and_(self.t_schedules.c.id == p_id,
                                self.t_schedules.c.acquired_by == scheduler_id)).\
-                    values(serialized_data=p_serialized, next_fire_time=p_next_fire_time,
+                    values(trigger=p_trigger, next_fire_time=p_next_fire_time,
                            acquired_by=None, acquired_until=None)
                 next_fire_times = {arg['p_id']: arg['p_next_fire_time'] for arg in update_args}
                 if self._supports_update_returning:
@@ -387,10 +405,8 @@ class SQLAlchemyDataStore(DataStore):
             return result.scalar()
 
     def add_job(self, job: Job) -> None:
-        now = datetime.now(timezone.utc)
-        serialized_data = self.serializer.serialize(job)
-        insert = self.t_jobs.insert().values(id=job.id, task_id=job.task_id,
-                                             created_at=now, serialized_data=serialized_data)
+        marshalled = job.marshal(self.serializer)
+        insert = self.t_jobs.insert().values(**marshalled)
         with self.engine.begin() as conn:
             conn.execute(insert)
 
@@ -399,8 +415,7 @@ class SQLAlchemyDataStore(DataStore):
         self._events.publish(event)
 
     def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> list[Job]:
-        query = select([self.t_jobs.c.id, self.t_jobs.c.serialized_data]).\
-            order_by(self.t_jobs.c.id)
+        query = self.t_jobs.select().order_by(self.t_jobs.c.id)
         if ids:
             job_ids = [job_id for job_id in ids]
             query = query.where(self.t_jobs.c.id.in_(job_ids))
@@ -413,7 +428,7 @@ class SQLAlchemyDataStore(DataStore):
         with self.engine.begin() as conn:
             now = datetime.now(timezone.utc)
             acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
-            query = select([self.t_jobs.c.id, self.t_jobs.c.serialized_data]).\
+            query = self.t_jobs.select().\
                 join(self.t_tasks, self.t_tasks.c.id == self.t_jobs.c.task_id).\
                 where(or_(self.t_jobs.c.acquired_until.is_(None),
                           self.t_jobs.c.acquired_until < now)).\
@@ -470,36 +485,33 @@ class SQLAlchemyDataStore(DataStore):
 
             return acquired_jobs
 
-    def release_job(self, worker_id: str, job: Job, result: Optional[JobResult]) -> None:
+    def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
         with self.engine.begin() as conn:
             # Insert the job result
-            now = datetime.now(timezone.utc)
-            serialized_result = self.serializer.serialize(result)
-            insert = self.t_job_results.insert().\
-                values(job_id=job.id, finished_at=now, serialized_data=serialized_result)
+            marshalled = result.marshal(self.serializer)
+            insert = self.t_job_results.insert().values(**marshalled)
             conn.execute(insert)
 
             # Decrement the running jobs counter
             update = self.t_tasks.update().\
                 values(running_jobs=self.t_tasks.c.running_jobs - 1).\
-                where(self.t_tasks.c.id == job.task_id)
+                where(self.t_tasks.c.id == task_id)
             conn.execute(update)
 
             # Delete the job
-            delete = self.t_jobs.delete().where(self.t_jobs.c.id == job.id)
+            delete = self.t_jobs.delete().where(self.t_jobs.c.id == result.job_id)
             conn.execute(delete)
 
     def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
         with self.engine.begin() as conn:
             # Retrieve the result
-            query = select(self.t_job_results.c.serialized_data).\
+            query = self.t_job_results.select().\
                 where(self.t_job_results.c.job_id == job_id)
-            result = conn.execute(query)
+            row = conn.execute(query).fetchone()
 
             # Delete the result
             delete = self.t_job_results.delete().\
                 where(self.t_job_results.c.job_id == job_id)
             conn.execute(delete)
 
-            serialized_result = result.scalar()
-            return self.serializer.deserialize(serialized_result) if serialized_result else None
+            return JobResult.unmarshal(self.serializer, row._asdict()) if row else None

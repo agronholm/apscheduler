@@ -218,13 +218,13 @@ class DataStore(EventSource):
         """
 
     @abstractmethod
-    def release_job(self, worker_id: str, job: Job, result: Optional[JobResult]) -> None:
+    def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
         """
         Release the claim on the given job and record the result.
 
         :param worker_id: unique identifier of the worker
-        :param job: the job to be released
-        :param result: the result of the job (or ``None`` to discard the job)
+        :param task_id: the job's task ID
+        :param result: the result of the job
         """
 
     @abstractmethod
@@ -371,13 +371,13 @@ class AsyncDataStore(EventSource):
         """
 
     @abstractmethod
-    async def release_job(self, worker_id: str, job: Job, result: Optional[JobResult]) -> None:
+    async def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
         """
         Release the claim on the given job and record the result.
 
         :param worker_id: unique identifier of the worker
-        :param job: the job to be released
-        :param result: the result of the job (or ``None`` to discard the job)
+        :param task_id: the job's task ID
+        :param result: the result of the job
         """
 
     @abstractmethod
