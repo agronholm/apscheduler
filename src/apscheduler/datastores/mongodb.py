@@ -14,17 +14,17 @@ from pymongo import ASCENDING, DeleteOne, MongoClient, UpdateOne
 from pymongo.collection import Collection
 from pymongo.errors import DuplicateKeyError
 
-from ... import events
-from ...abc import DataStore, Job, Schedule, Serializer
-from ...enums import ConflictPolicy
-from ...events import (
+from .. import events
+from ..abc import DataStore, Job, Schedule, Serializer
+from ..enums import ConflictPolicy
+from ..events import (
     DataStoreEvent, EventHub, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated,
     SubscriptionToken, TaskAdded, TaskRemoved, TaskUpdated)
-from ...exceptions import (
+from ..exceptions import (
     ConflictingIdError, DeserializationError, SerializationError, TaskLookupError)
-from ...serializers.pickle import PickleSerializer
-from ...structures import JobResult, Task
-from ...util import reentrant
+from ..serializers.pickle import PickleSerializer
+from ..structures import JobResult, Task
+from ..util import reentrant
 
 
 @reentrant
@@ -58,7 +58,7 @@ class MongoDBDataStore(DataStore):
         self._jobs_results: Collection = database['job_results']
 
     @classmethod
-    def from_url(cls, uri: str, **options) -> 'MongoDBDataStore':
+    def from_url(cls, uri: str, **options) -> MongoDBDataStore:
         client = MongoClient(uri)
         return cls(client, **options)
 

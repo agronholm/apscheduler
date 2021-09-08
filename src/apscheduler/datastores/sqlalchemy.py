@@ -16,17 +16,17 @@ from sqlalchemy.future import Engine, create_engine
 from sqlalchemy.sql.ddl import DropTable
 from sqlalchemy.sql.elements import BindParameter, literal
 
-from ...abc import DataStore, Job, Schedule, Serializer
-from ...enums import CoalescePolicy, ConflictPolicy, JobOutcome
-from ...events import (
+from ..abc import DataStore, Job, Schedule, Serializer
+from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome
+from ..events import (
     Event, EventHub, JobAdded, JobDeserializationFailed, ScheduleAdded,
     ScheduleDeserializationFailed, ScheduleRemoved, ScheduleUpdated, SubscriptionToken, TaskAdded,
     TaskRemoved, TaskUpdated)
-from ...exceptions import ConflictingIdError, SerializationError, TaskLookupError
-from ...marshalling import callable_to_ref
-from ...serializers.pickle import PickleSerializer
-from ...structures import JobResult, Task
-from ...util import reentrant
+from ..exceptions import ConflictingIdError, SerializationError, TaskLookupError
+from ..marshalling import callable_to_ref
+from ..serializers.pickle import PickleSerializer
+from ..structures import JobResult, Task
+from ..util import reentrant
 
 
 class EmulatedUUID(TypeDecorator):
@@ -85,7 +85,7 @@ class SQLAlchemyDataStore(DataStore):
             self._supports_update_returning = True
 
     @classmethod
-    def from_url(cls, url: str | URL, **options) -> 'SQLAlchemyDataStore':
+    def from_url(cls, url: str | URL, **options) -> SQLAlchemyDataStore:
         engine = create_engine(url)
         return cls(engine, **options)
 

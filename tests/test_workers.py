@@ -7,7 +7,7 @@ import pytest
 from anyio import fail_after
 
 from apscheduler.abc import Job
-from apscheduler.datastores.sync.memory import MemoryDataStore
+from apscheduler.datastores.memory import MemoryDataStore
 from apscheduler.events import (
     Event, JobAdded, JobCompleted, JobDeadlineMissed, JobFailed, JobStarted, TaskAdded,
     WorkerStarted, WorkerStopped)

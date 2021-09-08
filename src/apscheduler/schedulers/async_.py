@@ -13,8 +13,8 @@ from anyio import TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_clas
 from anyio.abc import TaskGroup
 
 from ..abc import AsyncDataStore, DataStore, EventSource, Job, Schedule, Trigger
-from ..datastores.async_.sync_adapter import AsyncDataStoreAdapter
-from ..datastores.sync.memory import MemoryDataStore
+from ..datastores.async_adapter import AsyncDataStoreAdapter
+from ..datastores.memory import MemoryDataStore
 from ..enums import CoalescePolicy, ConflictPolicy, RunState
 from ..events import (
     AsyncEventHub, Event, ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated,

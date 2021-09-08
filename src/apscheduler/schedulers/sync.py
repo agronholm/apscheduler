@@ -11,7 +11,7 @@ from typing import Any, Callable, Iterable, Mapping, Optional
 from uuid import uuid4
 
 from ..abc import DataStore, EventSource, Trigger
-from ..datastores.sync.memory import MemoryDataStore
+from ..datastores.memory import MemoryDataStore
 from ..enums import CoalescePolicy, ConflictPolicy, RunState
 from ..events import (
     Event, EventHub, ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated,

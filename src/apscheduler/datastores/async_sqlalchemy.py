@@ -14,27 +14,28 @@ import sniffio
 from anyio import TASK_STATUS_IGNORED, create_task_group, sleep
 from attr import asdict
 from sqlalchemy import (
-    JSON, TIMESTAMP, Column, Enum, Integer, LargeBinary, MetaData, Table, TypeDecorator, Unicode,
-    and_, bindparam, func, or_, select)
-from sqlalchemy.engine import URL, Dialect, Result
+    JSON, TIMESTAMP, Column, Enum, Integer, LargeBinary, MetaData, Table, Unicode, and_, bindparam,
+    func, or_, select)
+from sqlalchemy.engine import URL, Result
 from sqlalchemy.exc import CompileError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 from sqlalchemy.ext.asyncio.engine import AsyncEngine
 from sqlalchemy.sql.ddl import DropTable
 from sqlalchemy.sql.elements import BindParameter, literal
 
-from ... import events as events_module
-from ...abc import AsyncDataStore, Job, Schedule, Serializer
-from ...enums import CoalescePolicy, ConflictPolicy, JobOutcome
-from ...events import (
+from .. import events as events_module
+from ..abc import AsyncDataStore, Job, Schedule, Serializer
+from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome
+from ..events import (
     AsyncEventHub, DataStoreEvent, Event, JobAdded, JobDeserializationFailed, ScheduleAdded,
     ScheduleDeserializationFailed, ScheduleRemoved, ScheduleUpdated, SubscriptionToken, TaskAdded,
     TaskRemoved, TaskUpdated)
-from ...exceptions import ConflictingIdError, SerializationError, TaskLookupError
-from ...marshalling import callable_to_ref
-from ...serializers.pickle import PickleSerializer
-from ...structures import JobResult, Task
-from ...util import reentrant
+from ..exceptions import ConflictingIdError, SerializationError, TaskLookupError
+from ..marshalling import callable_to_ref
+from ..serializers.pickle import PickleSerializer
+from ..structures import JobResult, Task
+from ..util import reentrant
+from .sqlalchemy import EmulatedTimestampTZ, EmulatedUUID
 
 
 def default_json_handler(obj: Any) -> Any:
@@ -60,31 +61,9 @@ def json_object_hook(obj: dict[str, Any]) -> Any:
     return obj
 
 
-class EmulatedUUID(TypeDecorator):
-    impl = Unicode(32)
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect: Dialect) -> Any:
-        return value.hex
-
-    def process_result_value(self, value: Any, dialect: Dialect):
-        return UUID(value) if value else None
-
-
-class EmulatedTimestampTZ(TypeDecorator):
-    impl = Unicode(32)
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect: Dialect) -> Any:
-        return value.isoformat() if value is not None else None
-
-    def process_result_value(self, value: Any, dialect: Dialect):
-        return datetime.fromisoformat(value) if value is not None else None
-
-
 @reentrant
 @attr.define(eq=False)
-class SQLAlchemyDataStore(AsyncDataStore):
+class AsyncSQLAlchemyDataStore(AsyncDataStore):
     engine: AsyncEngine
     schema: Optional[str] = attr.field(default=None, kw_only=True)
     serializer: Serializer = attr.field(factory=PickleSerializer, kw_only=True)
@@ -121,7 +100,7 @@ class SQLAlchemyDataStore(AsyncDataStore):
                 self.notify_channel = None
 
     @classmethod
-    def from_url(cls, url: str | URL, **options) -> 'SQLAlchemyDataStore':
+    def from_url(cls, url: str | URL, **options) -> AsyncSQLAlchemyDataStore:
         engine = create_async_engine(url, future=True)
         return cls(engine, **options)
 

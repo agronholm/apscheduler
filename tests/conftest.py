@@ -6,8 +6,8 @@ from typing import AsyncContextManager, AsyncGenerator, ContextManager, Generato
 import pytest
 
 from apscheduler.abc import AsyncDataStore, DataStore, Serializer
-from apscheduler.datastores.async_.sync_adapter import AsyncDataStoreAdapter
-from apscheduler.datastores.sync.memory import MemoryDataStore
+from apscheduler.datastores.async_adapter import AsyncDataStoreAdapter
+from apscheduler.datastores.memory import MemoryDataStore
 from apscheduler.serializers.cbor import CBORSerializer
 from apscheduler.serializers.json import JSONSerializer
 from apscheduler.serializers.pickle import PickleSerializer
@@ -47,7 +47,7 @@ def setup_memory_store() -> Generator[DataStore, None, None]:
 def setup_mongodb_store() -> Generator[DataStore, None, None]:
     from pymongo import MongoClient
 
-    from apscheduler.datastores.sync.mongodb import MongoDBDataStore
+    from apscheduler.datastores.mongodb import MongoDBDataStore
 
     with MongoClient(tz_aware=True, serverSelectionTimeoutMS=1000) as client:
         yield MongoDBDataStore(client, start_from_scratch=True)
@@ -57,7 +57,7 @@ def setup_mongodb_store() -> Generator[DataStore, None, None]:
 def setup_sqlite_store() -> Generator[DataStore, None, None]:
     from sqlalchemy.future import create_engine
 
-    from apscheduler.datastores.sync.sqlalchemy import SQLAlchemyDataStore
+    from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 
     with TemporaryDirectory('sqlite_') as tempdir:
         engine = create_engine(f'sqlite:///{tempdir}/test.db')
@@ -71,7 +71,7 @@ def setup_sqlite_store() -> Generator[DataStore, None, None]:
 def setup_psycopg2_store() -> Generator[DataStore, None, None]:
     from sqlalchemy.future import create_engine
 
-    from apscheduler.datastores.sync.sqlalchemy import SQLAlchemyDataStore
+    from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 
     engine = create_engine('postgresql+psycopg2://postgres:secret@localhost/testdb')
     try:
@@ -84,7 +84,7 @@ def setup_psycopg2_store() -> Generator[DataStore, None, None]:
 def setup_mysql_store() -> Generator[DataStore, None, None]:
     from sqlalchemy.future import create_engine
 
-    from apscheduler.datastores.sync.sqlalchemy import SQLAlchemyDataStore
+    from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 
     engine = create_engine('mysql+pymysql://root:secret@localhost/testdb')
     try:
@@ -97,12 +97,12 @@ def setup_mysql_store() -> Generator[DataStore, None, None]:
 async def setup_asyncpg_store() -> AsyncGenerator[AsyncDataStore, None]:
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    from apscheduler.datastores.async_.sqlalchemy import SQLAlchemyDataStore
+    from apscheduler.datastores.async_sqlalchemy import AsyncSQLAlchemyDataStore
 
     engine = create_async_engine('postgresql+asyncpg://postgres:secret@localhost/testdb',
                                  future=True)
     try:
-        yield SQLAlchemyDataStore(engine, start_from_scratch=True)
+        yield AsyncSQLAlchemyDataStore(engine, start_from_scratch=True)
     finally:
         await engine.dispose()
 
