@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import sys
 from datetime import date, datetime, tzinfo
 from functools import partial
-from typing import Any, Callable, Tuple, overload
+from typing import Any, Callable, overload
 
 from .exceptions import DeserializationError, SerializationError
 
@@ -11,7 +13,7 @@ else:
     from backports.zoneinfo import ZoneInfo
 
 
-def marshal_object(obj) -> Tuple[str, Any]:
+def marshal_object(obj) -> tuple[str, Any]:
     return f'{obj.__class__.__module__}:{obj.__class__.__qualname__}', obj.__getstate__()
 
 

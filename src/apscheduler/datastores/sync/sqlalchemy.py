@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Optional, Type
+from typing import Any, Callable, Iterable, Optional
 from uuid import UUID
 
 import attr
@@ -204,7 +204,7 @@ class SQLAlchemyDataStore(DataStore):
         return jobs
 
     def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[Type[Event]]] = None) -> SubscriptionToken:
+                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
         return self._events.subscribe(callback, event_types)
 
     def unsubscribe(self, token: SubscriptionToken) -> None:

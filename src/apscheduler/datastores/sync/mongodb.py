@@ -4,7 +4,7 @@ from collections import defaultdict
 from contextlib import ExitStack
 from datetime import datetime, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, ClassVar, Iterable, Optional, Tuple, Type
+from typing import Any, Callable, ClassVar, Iterable, Optional
 from uuid import UUID
 
 import attr
@@ -88,7 +88,7 @@ class MongoDBDataStore(DataStore):
         self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
 
     def subscribe(self, callback: Callable[[events.Event], Any],
-                  event_types: Optional[Iterable[Type[events.Event]]] = None) -> SubscriptionToken:
+                  event_types: Optional[Iterable[type[events.Event]]] = None) -> SubscriptionToken:
         return self._events.subscribe(callback, event_types)
 
     def unsubscribe(self, token: events.SubscriptionToken) -> None:
@@ -209,7 +209,7 @@ class MongoDBDataStore(DataStore):
         return schedules
 
     def release_schedules(self, scheduler_id: str, schedules: list[Schedule]) -> None:
-        updated_schedules: list[Tuple[str, datetime]] = []
+        updated_schedules: list[tuple[str, datetime]] = []
         finished_schedule_ids: list[str] = []
         with self.client.start_session() as s, s.start_transaction():
             # Update schedules that have a next fire time

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from functools import partial
-from typing import Any, Callable, Iterable, Optional, Type
+from typing import Any, Callable, Iterable, Optional
 from uuid import UUID
 
 import attr
@@ -79,7 +79,7 @@ class AsyncDataStoreAdapter(AsyncDataStore):
         return await to_thread.run_sync(self.original.get_job_result, job_id)
 
     def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[Type[Event]]] = None) -> SubscriptionToken:
+                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
         return self.original.subscribe(partial(self._portal.call, callback), event_types)
 
     def unsubscribe(self, token: events.SubscriptionToken) -> None:

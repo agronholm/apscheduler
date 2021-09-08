@@ -7,7 +7,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Mapping, Optional, Type
+from typing import Any, Callable, Iterable, Mapping, Optional
 from uuid import uuid4
 
 from ..abc import DataStore, EventSource, Trigger
@@ -89,7 +89,7 @@ class Scheduler(EventSource):
         del self._wakeup_event
 
     def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[Type[Event]]] = None) -> SubscriptionToken:
+                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
         return self._events.subscribe(callback, event_types)
 
     def unsubscribe(self, token: SubscriptionToken) -> None:

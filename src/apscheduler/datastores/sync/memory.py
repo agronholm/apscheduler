@@ -4,7 +4,7 @@ from bisect import bisect_left, insort_right
 from collections import defaultdict
 from datetime import MAXYEAR, datetime, timedelta, timezone
 from functools import partial
-from typing import Any, Callable, Iterable, Optional, Type
+from typing import Any, Callable, Iterable, Optional
 from uuid import UUID
 
 import attr
@@ -103,7 +103,7 @@ class MemoryDataStore(DataStore):
         self._events.__exit__(exc_type, exc_val, exc_tb)
 
     def subscribe(self, callback: Callable[[events.Event], Any],
-                  event_types: Optional[Iterable[Type[events.Event]]] = None) -> SubscriptionToken:
+                  event_types: Optional[Iterable[type[events.Event]]] = None) -> SubscriptionToken:
         return self._events.subscribe(callback, event_types)
 
     def unsubscribe(self, token: events.SubscriptionToken) -> None:

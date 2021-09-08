@@ -9,7 +9,7 @@ from functools import partial
 from inspect import isawaitable
 from logging import Logger
 from traceback import format_tb
-from typing import Any, Callable, Iterable, NewType, Optional, Type
+from typing import Any, Callable, Iterable, NewType, Optional
 from uuid import UUID
 
 import attr
@@ -226,7 +226,7 @@ class JobFailed(JobExecutionEvent):
 @attr.define(eq=False, frozen=True)
 class Subscription:
     callback: Callable[[Event], Any]
-    event_types: Optional[set[Type[Event]]]
+    event_types: Optional[set[type[Event]]]
 
 
 @attr.define
@@ -235,7 +235,7 @@ class _BaseEventHub(abc.EventSource):
     _subscriptions: dict[SubscriptionToken, Subscription] = attr.field(init=False, factory=dict)
 
     def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[Type[Event]]] = None) -> SubscriptionToken:
+                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
         types = set(event_types) if event_types else None
         token = SubscriptionToken(object())
         subscription = Subscription(callback, types)
@@ -264,7 +264,7 @@ class EventHub(_BaseEventHub):
         self._executor.shutdown(wait=exc_type is None)
 
     def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[Type[Event]]] = None) -> SubscriptionToken:
+                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
         if iscoroutinefunction(callback):
             raise ValueError('Coroutine functions are not supported as callbacks on a synchronous '
                              'event source')

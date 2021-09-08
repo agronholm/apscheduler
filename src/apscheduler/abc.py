@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from base64 import b64decode, b64encode
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, Optional
 from uuid import UUID
 
 from .enums import ConflictPolicy
@@ -68,7 +68,7 @@ class EventSource(metaclass=ABCMeta):
     @abstractmethod
     def subscribe(
         self, callback: Callable[[events.Event], Any],
-        event_types: Optional[Iterable[Type[events.Event]]] = None
+        event_types: Optional[Iterable[type[events.Event]]] = None
     ) -> events.SubscriptionToken:
         """
         Subscribe to events from this event source.

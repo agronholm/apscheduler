@@ -6,7 +6,7 @@ from contextlib import AsyncExitStack, closing
 from datetime import datetime, timedelta, timezone
 from json import JSONDecodeError
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Optional, Type
+from typing import Any, Callable, Iterable, Optional
 from uuid import UUID
 
 import attr
@@ -298,7 +298,7 @@ class SQLAlchemyDataStore(AsyncDataStore):
         return jobs
 
     def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[Type[Event]]] = None) -> SubscriptionToken:
+                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
         return self._events.subscribe(callback, event_types)
 
     def unsubscribe(self, token: SubscriptionToken) -> None:

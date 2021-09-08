@@ -6,7 +6,7 @@ from contextlib import AsyncExitStack
 from datetime import datetime, timezone
 from inspect import isawaitable
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Optional, Type
+from typing import Any, Callable, Iterable, Optional
 from uuid import UUID
 
 import anyio
@@ -83,7 +83,7 @@ class AsyncWorker(EventSource):
         del self._wakeup_event
 
     def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[Type[Event]]] = None) -> SubscriptionToken:
+                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
         return self._events.subscribe(callback, event_types)
 
     def unsubscribe(self, token: SubscriptionToken) -> None:
