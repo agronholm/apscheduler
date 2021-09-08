@@ -36,7 +36,7 @@ def test_repr(timezone, serializer):
     start_time = datetime(2020, 5, 15, 12, 55, 32, 954032, tzinfo=timezone)
     end_time = datetime(2020, 6, 4, 16, 18, 49, 306942, tzinfo=timezone)
     trigger = IntervalTrigger(weeks=1, days=2, hours=3, minutes=4, seconds=5, microseconds=123525,
-                              start_time=start_time, end_time=end_time, timezone=timezone)
+                              start_time=start_time, end_time=end_time)
     if serializer:
         trigger = serializer.deserialize(serializer.serialize(trigger))
 

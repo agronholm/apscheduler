@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, tzinfo
+from datetime import datetime, timedelta
 from typing import Optional
+
+import attr
 
 from ..abc import Trigger
 from ..marshalling import marshal_date, unmarshal_date
-from ..validators import as_aware_datetime, as_timezone, require_state_version
+from ..validators import as_aware_datetime, require_state_version
 
 
+@attr.define(kw_only=True)
 class IntervalTrigger(Trigger):
     """
     Triggers on specified intervals.
@@ -23,31 +26,25 @@ class IntervalTrigger(Trigger):
     :param minutes: number of minutes to wait
     :param seconds: number of seconds to wait
     :param microseconds: number of microseconds to wait
-    :param start_time: first trigger date/time
+    :param start_time: first trigger date/time (defaults to current date/time if omitted)
     :param end_time: latest possible date/time to trigger on
-    :param timezone: time zone used to make any passed naive datetimes timezone aware
     """
 
-    __slots__ = ('weeks', 'days', 'hours', 'minutes', 'seconds', 'microseconds', 'start_time',
-                 'end_time', '_interval', '_last_fire_time')
+    weeks: float = 0
+    days: float = 0
+    hours: float = 0
+    minutes: float = 0
+    seconds: float = 0
+    microseconds: float = 0
+    start_time: datetime = attr.field(converter=as_aware_datetime, factory=datetime.now)
+    end_time: Optional[datetime] = attr.field(converter=as_aware_datetime, default=None)
+    _interval: timedelta = attr.field(init=False, eq=False)
+    _last_fire_time: Optional[datetime] = attr.field(init=False, eq=False, default=None)
 
-    def __init__(self, *, weeks: float = 0, days: float = 0, hours: float = 0, minutes: float = 0,
-                 seconds: float = 0, microseconds: float = 0,
-                 start_time: Optional[datetime] = None, end_time: Optional[datetime] = None,
-                 timezone: tzinfo | str = 'local'):
-        self.weeks = weeks
-        self.days = days
-        self.hours = hours
-        self.minutes = minutes
-        self.seconds = seconds
-        self.microseconds = microseconds
-        timezone = as_timezone(timezone)
-        self.start_time = as_aware_datetime(start_time or datetime.now(), timezone)
-        self.end_time = as_aware_datetime(end_time, timezone)
+    def __attrs_post_init__(self) -> None:
         self._interval = timedelta(weeks=self.weeks, days=self.days, hours=self.hours,
                                    minutes=self.minutes, seconds=self.seconds,
                                    microseconds=self.microseconds)
-        self._last_fire_time = None
 
         if self._interval.total_seconds() <= 0:
             raise ValueError('The time interval must be positive')

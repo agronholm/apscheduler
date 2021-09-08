@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, tzinfo
-from typing import ClassVar, List, Optional, Sequence, Tuple
+from typing import ClassVar, Optional, Sequence
+
+import attr
+from tzlocal import get_localzone
 
 from ...abc import Trigger
 from ...marshalling import marshal_date, marshal_timezone, unmarshal_date, unmarshal_timezone
@@ -11,6 +14,7 @@ from .fields import (
     DEFAULT_VALUES, BaseField, DayOfMonthField, DayOfWeekField, MonthField, WeekField)
 
 
+@attr.define(kw_only=True)
 class CronTrigger(Trigger):
     """
     Triggers when current time matches all specified time constraints, similarly to how the UNIX
@@ -32,9 +36,7 @@ class CronTrigger(Trigger):
     .. note:: The first weekday is always **monday**.
     """
 
-    __slots__ = 'timezone', 'start_time', 'end_time', '_fields', '_last_fire_time'
-
-    FIELDS_MAP: ClassVar[List] = [
+    FIELDS_MAP: ClassVar[list[tuple[str, type[BaseField]]]] = [
         ('year', BaseField),
         ('month', MonthField),
         ('day', DayOfMonthField),
@@ -45,18 +47,23 @@ class CronTrigger(Trigger):
         ('second', BaseField)
     ]
 
-    def __init__(self, *, year: int | str | None = None, month: int | str | None = None,
-                 day: int | str | None = None, week: int | str | None = None,
-                 day_of_week: int | str | None = None, hour: int | str | None = None,
-                 minute: int | str | None = None, second: int | str | None = None,
-                 start_time: datetime | str | None = None,
-                 end_time: datetime | str | None = None,
-                 timezone: str | tzinfo | None = None):
-        self.timezone = as_timezone(timezone)
-        self.start_time = (as_aware_datetime(start_time, self.timezone)
-                           or datetime.now(self.timezone))
-        self.end_time = as_aware_datetime(end_time, self.timezone)
-        self._set_fields([year, month, day, week, day_of_week, hour, minute, second])
+    year: int | str | None = None
+    month: int | str | None = None
+    day: int | str | None = None
+    week: int | str | None = None
+    day_of_week: int | str | None = None
+    hour: int | str | None = None
+    minute: int | str | None = None
+    second: int | str | None = None
+    start_time: datetime = attr.field(converter=as_aware_datetime, factory=datetime.now)
+    end_time: datetime | None = None
+    timezone: tzinfo | str = attr.field(converter=as_timezone, factory=get_localzone)
+    _fields: list[BaseField] = attr.field(init=False, eq=False, factory=list)
+    _last_fire_time: Optional[datetime] = attr.field(init=False, eq=False, default=None)
+
+    def __attrs_post_init__(self) -> None:
+        self._set_fields([self.year, self.month, self.day, self.week, self.day_of_week, self.hour,
+                          self.minute, self.second])
         self._last_fire_time: Optional[datetime] = None
 
     def _set_fields(self, values: Sequence[int | str | None]) -> None:
@@ -91,7 +98,7 @@ class CronTrigger(Trigger):
         return cls(minute=values[0], hour=values[1], day=values[2], month=values[3],
                    day_of_week=values[4], timezone=timezone)
 
-    def _increment_field_value(self, dateval: datetime, fieldnum: int) -> Tuple[datetime, int]:
+    def _increment_field_value(self, dateval: datetime, fieldnum: int) -> tuple[datetime, int]:
         """
         Increments the designated field and resets all less significant fields to their minimum
         values.

@@ -57,12 +57,8 @@ def as_date(value: date | str | None) -> Optional[date]:
     """
     if value is None:
         return None
-    elif isinstance(value, int):
-        return date.fromordinal(value)
     elif isinstance(value, str):
         return date.fromisoformat(value)
-    elif isinstance(value, datetime):
-        return value.date()
     elif isinstance(value, date):
         return value
 
@@ -83,7 +79,7 @@ def as_ordinal_date(value: Optional[date]) -> Optional[int]:
     return value.toordinal()
 
 
-def as_aware_datetime(value: datetime | str | None, tz: tzinfo) -> Optional[datetime]:
+def as_aware_datetime(value: datetime | str | None) -> Optional[datetime]:
     """
     Convert the value to a timezone aware datetime.
 
@@ -103,7 +99,7 @@ def as_aware_datetime(value: datetime | str | None, tz: tzinfo) -> Optional[date
 
     if isinstance(value, datetime):
         if not value.tzinfo:
-            return value.replace(tzinfo=tz)
+            return value.replace(tzinfo=get_localzone())
         else:
             return value
 
@@ -130,18 +126,14 @@ def as_positive_integer(value, name: str) -> int:
     raise TypeError(f'{name} must be an integer, got {value.__class__.__name__} instead')
 
 
-def as_timedelta(value, name: str) -> timedelta:
+def as_timedelta(value: timedelta | float) -> timedelta:
     if isinstance(value, (int, float)):
-        value = timedelta(seconds=value)
+        return timedelta(seconds=value)
+    elif isinstance(value, timedelta):
+        return value
 
-    if isinstance(value, timedelta):
-        if value.total_seconds() < 0:
-            raise ValueError(f'{name} cannot be negative')
-        else:
-            return value
-
-    raise TypeError(f'{name} must be a timedelta or number of seconds, got '
-                    f'{value.__class__.__name__} instead')
+    # raise TypeError(f'{attribute.name} must be a timedelta or number of seconds, got '
+    #                 f'{value.__class__.__name__} instead')
 
 
 def as_list(value, element_type: type, name: str) -> list:

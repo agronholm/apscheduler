@@ -26,9 +26,8 @@ class TestAndTrigger:
     def test_max_iterations(self, timezone, serializer):
         start_time = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         trigger = AndTrigger([
-            IntervalTrigger(seconds=4, start_time=start_time, timezone=timezone),
-            IntervalTrigger(seconds=4, start_time=start_time + timedelta(seconds=2),
-                            timezone=timezone)
+            IntervalTrigger(seconds=4, start_time=start_time),
+            IntervalTrigger(seconds=4, start_time=start_time + timedelta(seconds=2))
         ])
         if serializer:
             trigger = serializer.deserialize(serializer.serialize(trigger))
@@ -38,9 +37,8 @@ class TestAndTrigger:
     def test_repr(self, timezone, serializer):
         start_time = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         trigger = AndTrigger([
-            IntervalTrigger(seconds=4, start_time=start_time, timezone=timezone),
-            IntervalTrigger(seconds=4, start_time=start_time + timedelta(seconds=2),
-                            timezone=timezone)
+            IntervalTrigger(seconds=4, start_time=start_time),
+            IntervalTrigger(seconds=4, start_time=start_time + timedelta(seconds=2))
         ])
         if serializer:
             trigger = serializer.deserialize(serializer.serialize(trigger))
