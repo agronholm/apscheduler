@@ -44,6 +44,8 @@ class ThreadPoolExecutor(BasePoolExecutor):
     Plugin alias: ``threadpool``
 
     :param max_workers: the maximum number of spawned threads.
+    :param kwargs: dict of keyword arguments to pass to the underlying
+        ThreadPoolExecutor constructor
     """
 
     def __init__(self, max_workers=10, **kwargs):
@@ -58,6 +60,8 @@ class ProcessPoolExecutor(BasePoolExecutor):
     Plugin alias: ``processpool``
 
     :param max_workers: the maximum number of spawned processes.
+    :param kwargs: dict of keyword arguments to pass to the underlying
+        ProcessPoolExecutor constructor
     """
 
     def __init__(self, max_workers=10, **kwargs):
