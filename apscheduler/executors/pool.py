@@ -46,8 +46,8 @@ class ThreadPoolExecutor(BasePoolExecutor):
     :param max_workers: the maximum number of spawned threads.
     """
 
-    def __init__(self, max_workers=10):
-        pool = concurrent.futures.ThreadPoolExecutor(int(max_workers))
+    def __init__(self, max_workers=10, **kwargs):
+        pool = concurrent.futures.ThreadPoolExecutor(int(max_workers), **kwargs)
         super(ThreadPoolExecutor, self).__init__(pool)
 
 
@@ -60,6 +60,6 @@ class ProcessPoolExecutor(BasePoolExecutor):
     :param max_workers: the maximum number of spawned processes.
     """
 
-    def __init__(self, max_workers=10):
-        pool = concurrent.futures.ProcessPoolExecutor(int(max_workers))
+    def __init__(self, max_workers=10, **kwargs):
+        pool = concurrent.futures.ProcessPoolExecutor(int(max_workers), **kwargs)
         super(ProcessPoolExecutor, self).__init__(pool)
