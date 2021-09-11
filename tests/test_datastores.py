@@ -385,10 +385,10 @@ class TestAsyncStores:
 
             await datastore.release_job(
                 'worker_id', acquired[0].task_id,
-                JobResult(job_id=acquired[0].id, outcome=JobOutcome.failure,
+                JobResult(job_id=acquired[0].id, outcome=JobOutcome.error,
                           exception=ValueError('foo')))
             result = await datastore.get_job_result(acquired[0].id)
-            assert result.outcome is JobOutcome.failure
+            assert result.outcome is JobOutcome.error
             assert isinstance(result.exception, ValueError)
             assert result.exception.args == ('foo',)
             assert result.return_value is None

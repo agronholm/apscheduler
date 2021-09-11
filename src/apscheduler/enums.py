@@ -10,7 +10,7 @@ class RunState(Enum):
 
 class JobOutcome(Enum):
     success = auto()
-    failure = auto()
+    error = auto()
     missed_start_deadline = auto()
     cancelled = auto()
     expired = auto()

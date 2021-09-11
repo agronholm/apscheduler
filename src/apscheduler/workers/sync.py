@@ -15,8 +15,7 @@ from ..abc import DataStore, EventSource
 from ..enums import JobOutcome, RunState
 from ..eventbrokers.local import LocalEventBroker
 from ..events import (
-    JobAdded, JobCompleted, JobDeadlineMissed, JobFailed, JobStarted, SubscriptionToken,
-    WorkerStarted, WorkerStopped)
+    JobAdded, JobEnded, JobStarted, SubscriptionToken, WorkerStarted, WorkerStopped)
 from ..structures import Job, JobResult
 
 
@@ -128,21 +127,22 @@ class Worker(EventSource):
             # Check if the job started before the deadline
             start_time = datetime.now(timezone.utc)
             if job.start_deadline is not None and start_time > job.start_deadline:
-                self._events.publish(JobDeadlineMissed.from_job(job, start_time))
+                self._events.publish(
+                    JobEnded.from_job(job, JobOutcome.missed_start_deadline, start_time))
                 return
 
             self._events.publish(JobStarted.from_job(job, start_time))
             try:
                 retval = func(*job.args, **job.kwargs)
             except BaseException as exc:
-                result = JobResult(job_id=job.id, outcome=JobOutcome.failure, exception=exc)
+                result = JobResult(job_id=job.id, outcome=JobOutcome.error, exception=exc)
                 self.data_store.release_job(self.identity, job.task_id, result)
-                self._events.publish(JobFailed.from_exception(job, start_time, exc))
+                self._events.publish(JobEnded.from_job(job, JobOutcome.error, start_time))
                 if not isinstance(exc, Exception):
                     raise
             else:
                 result = JobResult(job_id=job.id, outcome=JobOutcome.success, return_value=retval)
                 self.data_store.release_job(self.identity, job.task_id, result)
-                self._events.publish(JobCompleted.from_retval(job, start_time, retval))
+                self._events.publish(JobEnded.from_job(job, JobOutcome.success, start_time))
         finally:
             self._running_jobs.remove(job.id)

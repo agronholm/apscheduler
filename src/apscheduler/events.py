@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from functools import partial
-from traceback import format_tb
 from typing import Any, Callable, NewType, Optional
 from uuid import UUID
 
@@ -10,6 +9,7 @@ import attr
 from attr.converters import optional
 
 from .converters import as_aware_datetime, as_uuid
+from .enums import JobOutcome
 from .structures import Job
 
 SubscriptionToken = NewType('SubscriptionToken', object)
@@ -136,7 +136,7 @@ class JobExecutionEvent(WorkerEvent):
 
 @attr.define(kw_only=True, frozen=True)
 class JobStarted(JobExecutionEvent):
-    """Signals that a worker has started running a job."""
+    """Signals that a worker has started processing a job."""
 
     @classmethod
     def from_job(cls, job: Job, start_time: datetime) -> JobStarted:
@@ -147,62 +147,18 @@ class JobStarted(JobExecutionEvent):
 
 
 @attr.define(kw_only=True, frozen=True)
-class JobDeadlineMissed(JobExecutionEvent):
-    """Signals that a worker has skipped a job because its deadline was missed."""
+class JobEnded(JobExecutionEvent):
+    """Signals that a worker has finished processing of a job."""
+
+    outcome: JobOutcome
+    start_time: datetime = attr.field(converter=as_aware_datetime)
 
     @classmethod
-    def from_job(cls, job: Job, start_time: datetime) -> JobDeadlineMissed:
-        return JobDeadlineMissed(
+    def from_job(cls, job: Job, outcome: JobOutcome, start_time: datetime) -> JobEnded:
+        return JobEnded(
             timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
             schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-            start_deadline=job.start_deadline)
-
-
-@attr.define(kw_only=True, frozen=True)
-class JobCompleted(JobExecutionEvent):
-    """Signals that a worker has successfully run a job."""
-    start_time: datetime = attr.field(converter=optional(as_aware_datetime))
-    return_value: str
-
-    @classmethod
-    def from_retval(cls, job: Job, start_time: datetime, return_value: Any) -> JobCompleted:
-        return JobCompleted(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
-                            scheduled_fire_time=job.scheduled_fire_time, start_time=start_time,
-                            start_deadline=job.start_deadline, return_value=repr(return_value))
-
-
-@attr.define(kw_only=True, frozen=True)
-class JobCancelled(JobExecutionEvent):
-    """Signals that a job was cancelled."""
-    start_time: datetime = attr.field(converter=optional(as_aware_datetime))
-
-    @classmethod
-    def from_job(cls, job: Job, start_time: datetime) -> JobCancelled:
-        return JobCancelled(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
-                            scheduled_fire_time=job.scheduled_fire_time, start_time=start_time,
-                            start_deadline=job.start_deadline)
-
-
-@attr.define(kw_only=True, frozen=True)
-class JobFailed(JobExecutionEvent):
-    """Signals that a worker encountered an exception while running a job."""
-    start_time: datetime
-    exc_type: str
-    exc_val: str
-    exc_tb: str
-
-    @classmethod
-    def from_exception(cls, job: Job, start_time: datetime, exception: BaseException) -> JobFailed:
-        if exception.__class__.__module__ == 'builtins':
-            exc_type = exception.__class__.__qualname__
-        else:
-            exc_type = f'{exception.__class__.__module__}.{exception.__class__.__qualname__}'
-
-        return JobFailed(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
-                         scheduled_fire_time=job.scheduled_fire_time, start_time=start_time,
-                         start_deadline=job.start_deadline, exc_type=exc_type,
-                         exc_val=str(exception),
-                         exc_tb='\n'.join(format_tb(exception.__traceback__)))
+            start_deadline=job.start_deadline, outcome=outcome, start_time=start_time)
 
 
 #

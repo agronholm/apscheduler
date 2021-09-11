@@ -133,7 +133,7 @@ class JobResult:
     def marshal(self, serializer: abc.Serializer) -> dict[str, Any]:
         marshalled = attr.asdict(self)
         marshalled['outcome'] = self.outcome.name
-        if self.outcome is JobOutcome.failure:
+        if self.outcome is JobOutcome.error:
             marshalled['exception'] = serializer.serialize(self.exception)
         else:
             del marshalled['exception']

@@ -8,9 +8,9 @@ from anyio import fail_after
 
 from apscheduler.abc import Job
 from apscheduler.datastores.memory import MemoryDataStore
+from apscheduler.enums import JobOutcome
 from apscheduler.events import (
-    Event, JobAdded, JobCompleted, JobDeadlineMissed, JobFailed, JobStarted, TaskAdded,
-    WorkerStarted, WorkerStopped)
+    Event, JobAdded, JobEnded, JobStarted, TaskAdded, WorkerStarted, WorkerStopped)
 from apscheduler.structures import Task
 from apscheduler.workers.async_ import AsyncWorker
 from apscheduler.workers.sync import Worker
@@ -83,14 +83,12 @@ class TestAsyncWorker:
         received_event = received_events.pop(0)
         if fail:
             # Then the job failed
-            assert isinstance(received_event, JobFailed)
-            assert isinstance(received_event.exc_type, str)
-            assert isinstance(received_event.exc_val, str)
-            assert isinstance(received_event.exc_tb, str)
+            assert isinstance(received_event, JobEnded)
+            assert received_event.outcome is JobOutcome.error
         else:
             # Then the job finished successfully
-            assert isinstance(received_event, JobCompleted)
-            assert received_event.return_value == "((1, 2), {'x': 'foo'})"
+            assert isinstance(received_event, JobEnded)
+            assert received_event.outcome is JobOutcome.success
 
         # Finally, the worker was stopped
         received_event = received_events.pop(0)
@@ -138,7 +136,8 @@ class TestAsyncWorker:
 
         # Then the deadline was missed
         received_event = received_events.pop(0)
-        assert isinstance(received_event, JobDeadlineMissed)
+        assert isinstance(received_event, JobEnded)
+        assert received_event.outcome is JobOutcome.missed_start_deadline
         assert received_event.job_id == job.id
         assert received_event.task_id == 'task_id'
         assert received_event.schedule_id == 'foo'
@@ -196,14 +195,12 @@ class TestSyncWorker:
         received_event = received_events.pop(0)
         if fail:
             # Then the job failed
-            assert isinstance(received_event, JobFailed)
-            assert isinstance(received_event.exc_type, str)
-            assert isinstance(received_event.exc_val, str)
-            assert isinstance(received_event.exc_tb, str)
+            assert isinstance(received_event, JobEnded)
+            assert received_event.outcome is JobOutcome.error
         else:
             # Then the job finished successfully
-            assert isinstance(received_event, JobCompleted)
-            assert received_event.return_value == "((1, 2), {'x': 'foo'})"
+            assert isinstance(received_event, JobEnded)
+            assert received_event.outcome is JobOutcome.success
 
         # Finally, the worker was stopped
         received_event = received_events.pop(0)
@@ -250,7 +247,8 @@ class TestSyncWorker:
 
         # Then the deadline was missed
         received_event = received_events.pop(0)
-        assert isinstance(received_event, JobDeadlineMissed)
+        assert isinstance(received_event, JobEnded)
+        assert received_event.outcome is JobOutcome.missed_start_deadline
         assert received_event.job_id == job.id
         assert received_event.task_id == 'task_id'
         assert received_event.schedule_id == 'foo'
