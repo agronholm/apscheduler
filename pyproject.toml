@@ -14,6 +14,9 @@ local_scheme = "dirty-tag"
 addopts = "-rsx --tb=short"
 testpaths = "tests"
 filterwarnings = "always"
+markers = [
+    "external_service: marks tests as requiring some external service",
+]
 
 [tool.coverage.run]
 source = ["apscheduler"]
