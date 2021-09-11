@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from concurrent.futures import Future
-from logging import Logger, getLogger
 from threading import Thread
 from typing import Optional
 
@@ -23,7 +22,6 @@ class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
     serializer: Serializer = attr.field(factory=JSONSerializer)
     channel: str = attr.field(kw_only=True, default='apscheduler')
     message_poll_interval: float = attr.field(kw_only=True, default=0.05)
-    _logger: Logger = attr.field(init=False, factory=lambda: getLogger(__name__))
     _stopped: bool = attr.field(init=False, default=True)
     _ready_future: Future[None] = attr.field(init=False)
 
@@ -69,7 +67,7 @@ class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
                     if msg and isinstance(msg['data'], bytes):
                         event = self.reconstitute_event(msg['data'])
                         if event is not None:
-                            super().publish(event)
+                            self.publish_local(event)
             except BaseException:
                 self._logger.exception('Subscriber crashed')
                 raise

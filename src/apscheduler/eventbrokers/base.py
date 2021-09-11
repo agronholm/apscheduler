@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from base64 import b64decode, b64encode
-from logging import Logger
+from logging import Logger, getLogger
 from typing import Any, Callable, Iterable, Optional
 
 import attr
@@ -14,7 +14,11 @@ from ..exceptions import DeserializationError
 
 @attr.define(eq=False)
 class BaseEventBroker(EventBroker):
+    _logger: Logger = attr.field(init=False)
     _subscriptions: dict[SubscriptionToken, Subscription] = attr.field(init=False, factory=dict)
+
+    def __attrs_post_init__(self) -> None:
+        self._logger = getLogger(self.__class__.__module__)
 
     def subscribe(self, callback: Callable[[Event], Any],
                   event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
@@ -32,10 +36,10 @@ class BaseEventBroker(EventBroker):
 
 
 class DistributedEventBrokerMixin:
-    _logger: Logger
     serializer: Serializer
+    _logger: Logger
 
-    def generate_notification(self, event: Event, use_base64: bool = False) -> bytes:
+    def generate_notification(self, event: Event) -> bytes:
         serialized = self.serializer.serialize(attr.asdict(event))
         return event.__class__.__name__.encode('ascii') + b' ' + serialized
 

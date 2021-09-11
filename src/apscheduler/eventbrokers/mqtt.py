@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from concurrent.futures import Future
-from logging import Logger, getLogger
 from typing import Any, Optional
 
 import attr
@@ -27,10 +26,10 @@ class MQTTEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
     topic: str = attr.field(kw_only=True, default='apscheduler')
     subscribe_qos: int = attr.field(kw_only=True, default=0)
     publish_qos: int = attr.field(kw_only=True, default=0)
-    _logger: Logger = attr.field(init=False, factory=lambda: getLogger(__name__))
     _ready_future: Future[None] = attr.field(init=False)
 
     def __enter__(self):
+        super().__enter__()
         self._ready_future = Future()
         self.client.enable_logger(self._logger)
         self.client.on_connect = self._on_connect
@@ -39,12 +38,9 @@ class MQTTEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
         self.client.connect(self.host, self.port)
         self.client.loop_start()
         self._ready_future.result(10)
-        return super().__enter__()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.client.disconnect()
-        self.client.loop_stop(force=exc_type is not None)
-        return super().__exit__(exc_type, exc_val, exc_tb)
+        self._exit_stack.push(lambda exc_type, *_: self.client.loop_stop(force=bool(exc_type)))
+        self._exit_stack.callback(self.client.disconnect)
+        return self
 
     def _on_connect(self, client: Client, userdata: Any, flags: dict[str, Any],
                     rc: ReasonCodes | int, properties: Optional[Properties] = None) -> None:
@@ -60,7 +56,7 @@ class MQTTEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
     def _on_message(self, client: Client, userdata: Any, msg: MQTTMessage) -> None:
         event = self.reconstitute_event(msg.payload)
         if event is not None:
-            super().publish(event)
+            self.publish_local(event)
 
     def publish(self, event: Event) -> None:
         notification = self.generate_notification(event)

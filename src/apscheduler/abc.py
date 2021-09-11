@@ -105,6 +105,10 @@ class EventBroker(EventSource):
     def publish(self, event: events.Event) -> None:
         """Publish an event."""
 
+    @abstractmethod
+    def publish_local(self, event: events.Event) -> None:
+        """Publish an event, but only to local subscribers."""
+
 
 class AsyncEventBroker(EventSource):
     """
@@ -122,6 +126,10 @@ class AsyncEventBroker(EventSource):
     @abstractmethod
     async def publish(self, event: events.Event) -> None:
         """Publish an event."""
+
+    @abstractmethod
+    async def publish_local(self, event: events.Event) -> None:
+        """Publish an event, but only to local subscribers."""
 
 
 class DataStore:

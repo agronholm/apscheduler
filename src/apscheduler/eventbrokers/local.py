@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from asyncio import iscoroutinefunction
 from concurrent.futures import ThreadPoolExecutor
-from logging import Logger, getLogger
+from contextlib import ExitStack
 from typing import Any, Callable, Iterable, Optional
 
 import attr
@@ -16,14 +16,15 @@ from .base import BaseEventBroker
 @attr.define(eq=False)
 class LocalEventBroker(BaseEventBroker):
     _executor: ThreadPoolExecutor = attr.field(init=False)
-    _logger: Logger = attr.field(init=False, factory=lambda: getLogger(__name__))
+    _exit_stack: ExitStack = attr.field(init=False)
 
-    def __enter__(self) -> LocalEventBroker:
-        self._executor = ThreadPoolExecutor(1)
+    def __enter__(self):
+        self._exit_stack = ExitStack()
+        self._executor = self._exit_stack.enter_context(ThreadPoolExecutor(1))
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._executor.shutdown(wait=exc_type is None)
+        self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
         del self._executor
 
     def subscribe(self, callback: Callable[[Event], Any],
@@ -35,6 +36,9 @@ class LocalEventBroker(BaseEventBroker):
         return super().subscribe(callback, event_types)
 
     def publish(self, event: Event) -> None:
+        self.publish_local(event)
+
+    def publish_local(self, event: Event) -> None:
         event_type = type(event)
         for subscription in list(self._subscriptions.values()):
             if subscription.event_types is None or event_type in subscription.event_types:

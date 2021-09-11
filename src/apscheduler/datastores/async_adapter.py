@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from contextlib import AsyncExitStack
 from datetime import datetime
+from functools import partial
 from typing import Iterable, Optional
 from uuid import UUID
 
@@ -21,23 +23,28 @@ class AsyncDataStoreAdapter(AsyncDataStore):
     original: DataStore
     _portal: BlockingPortal = attr.field(init=False)
     _events: AsyncEventBroker = attr.field(init=False)
+    _exit_stack: AsyncExitStack = attr.field(init=False)
 
     @property
     def events(self) -> EventSource:
         return self._events
 
     async def __aenter__(self) -> AsyncDataStoreAdapter:
+        self._exit_stack = AsyncExitStack()
+
         self._portal = BlockingPortal()
-        await self._portal.__aenter__()
+        await self._exit_stack.enter_async_context(self._portal)
+
         self._events = AsyncEventBrokerAdapter(self.original.events, self._portal)
-        await self._events.__aenter__()
+        await self._exit_stack.enter_async_context(self._events)
+
         await to_thread.run_sync(self.original.__enter__)
+        self._exit_stack.push_async_exit(partial(to_thread.run_sync, self.original.__exit__))
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await to_thread.run_sync(self.original.__exit__, exc_type, exc_val, exc_tb)
-        await self._events.__aexit__(exc_type, exc_val, exc_tb)
-        await self._portal.__aexit__(exc_type, exc_val, exc_tb)
+        await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
 
     async def add_task(self, task: Task) -> None:
         await to_thread.run_sync(self.original.add_task, task)
