@@ -59,8 +59,10 @@ async def asyncpg_broker(serializer: Serializer) -> AsyncEventBroker:
 
 @pytest.fixture(params=[
     pytest.param(pytest.lazy_fixture('local_broker'), id='local'),
-    pytest.param(pytest.lazy_fixture('redis_broker'), id='redis'),
-    pytest.param(pytest.lazy_fixture('mqtt_broker'), id='mqtt')
+    pytest.param(pytest.lazy_fixture('redis_broker'), id='redis',
+                 marks=[pytest.mark.external_service]),
+    pytest.param(pytest.lazy_fixture('mqtt_broker'), id='mqtt',
+                 marks=[pytest.mark.external_service])
 ])
 def broker(request: FixtureRequest) -> Callable[[], EventBroker]:
     return request.param
@@ -68,7 +70,8 @@ def broker(request: FixtureRequest) -> Callable[[], EventBroker]:
 
 @pytest.fixture(params=[
     pytest.param(pytest.lazy_fixture('local_async_broker'), id='local'),
-    pytest.param(pytest.lazy_fixture('asyncpg_broker'), id='asyncpg')
+    pytest.param(pytest.lazy_fixture('asyncpg_broker'), id='asyncpg',
+                 marks=[pytest.mark.external_service])
 ])
 def async_broker(request: FixtureRequest) -> Callable[[], AsyncEventBroker]:
     return request.param
