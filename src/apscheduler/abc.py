@@ -65,6 +65,8 @@ class Serializer(metaclass=ABCMeta):
 
 
 class EventSource(metaclass=ABCMeta):
+    """Interface for objects that can deliver notifications to interested subscribers."""
+
     @abstractmethod
     def subscribe(
         self, callback: Callable[[events.Event], Any],
@@ -86,11 +88,52 @@ class EventSource(metaclass=ABCMeta):
         """
 
 
-class DataStore(EventSource):
+class EventBroker(EventSource):
+    """
+    Interface for objects that can be used to publish notifications to interested subscribers.
+
+    Can be used as a context manager.
+    """
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    @abstractmethod
+    def publish(self, event: events.Event) -> None:
+        """Publish an event."""
+
+
+class AsyncEventBroker(EventSource):
+    """
+    Asynchronous version of :class:`EventBroker`.
+
+    Can be used as an asynchronous context manager.
+    """
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    @abstractmethod
+    async def publish(self, event: events.Event) -> None:
+        """Publish an event."""
+
+
+class DataStore:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    @property
+    @abstractmethod
+    def events(self) -> EventSource:
         pass
 
     @abstractmethod
@@ -239,11 +282,16 @@ class DataStore(EventSource):
         """
 
 
-class AsyncDataStore(EventSource):
+class AsyncDataStore:
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    @property
+    @abstractmethod
+    def events(self) -> EventSource:
         pass
 
     @abstractmethod

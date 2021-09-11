@@ -16,12 +16,12 @@ from sqlalchemy.future import Engine, create_engine
 from sqlalchemy.sql.ddl import DropTable
 from sqlalchemy.sql.elements import BindParameter, literal
 
-from ..abc import DataStore, Job, Schedule, Serializer
+from ..abc import DataStore, EventBroker, EventSource, Job, Schedule, Serializer
 from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome
+from ..eventbrokers.local import LocalEventBroker
 from ..events import (
-    Event, EventHub, JobAdded, JobDeserializationFailed, ScheduleAdded,
-    ScheduleDeserializationFailed, ScheduleRemoved, ScheduleUpdated, SubscriptionToken, TaskAdded,
-    TaskRemoved, TaskUpdated)
+    Event, JobAdded, JobDeserializationFailed, ScheduleAdded, ScheduleDeserializationFailed,
+    ScheduleRemoved, ScheduleUpdated, SubscriptionToken, TaskAdded, TaskRemoved, TaskUpdated)
 from ..exceptions import ConflictingIdError, SerializationError, TaskLookupError
 from ..marshalling import callable_to_ref
 from ..serializers.pickle import PickleSerializer
@@ -179,7 +179,7 @@ class _BaseSQLAlchemyDataStore:
 class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
     engine: Engine
 
-    _events: EventHub = attr.field(init=False, factory=EventHub)
+    _events: EventBroker = attr.field(init=False, factory=LocalEventBroker)
 
     @classmethod
     def from_url(cls, url: str | URL, **options) -> SQLAlchemyDataStore:
@@ -207,6 +207,10 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._events.__exit__(exc_type, exc_val, exc_tb)
+
+    @property
+    def events(self) -> EventSource:
+        return self._events
 
     def subscribe(self, callback: Callable[[Event], Any],
                   event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:

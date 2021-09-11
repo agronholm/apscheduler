@@ -4,6 +4,7 @@ import sys
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any, Optional
 
+from attr import Attribute
 from tzlocal import get_localzone
 
 from .abc import Trigger
@@ -144,6 +145,11 @@ def as_list(value, element_type: type, name: str) -> list:
                             f'({element_type.__name__}')
 
     return value
+
+
+def aware_datetime(instance: Any, attribute: Attribute, value: datetime) -> None:
+    if not value.tzinfo:
+        raise ValueError(f'{attribute.name} must be a timezone aware datetime')
 
 
 def require_state_version(trigger: Trigger, state: dict[str, Any], max_version: int) -> None:

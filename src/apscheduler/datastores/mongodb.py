@@ -14,12 +14,12 @@ from pymongo import ASCENDING, DeleteOne, MongoClient, UpdateOne
 from pymongo.collection import Collection
 from pymongo.errors import DuplicateKeyError
 
-from .. import events
-from ..abc import DataStore, Job, Schedule, Serializer
+from ..abc import DataStore, EventBroker, EventSource, Job, Schedule, Serializer
 from ..enums import ConflictPolicy
+from ..eventbrokers.local import LocalEventBroker
 from ..events import (
-    DataStoreEvent, EventHub, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated,
-    SubscriptionToken, TaskAdded, TaskRemoved, TaskUpdated)
+    DataStoreEvent, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, SubscriptionToken,
+    TaskAdded, TaskRemoved, TaskUpdated)
 from ..exceptions import (
     ConflictingIdError, DeserializationError, SerializationError, TaskLookupError)
 from ..serializers.pickle import PickleSerializer
@@ -42,7 +42,7 @@ class MongoDBDataStore(DataStore):
 
     _logger: Logger = attr.field(init=False, factory=lambda: getLogger(__name__))
     _exit_stack: ExitStack = attr.field(init=False, factory=ExitStack)
-    _events: EventHub = attr.field(init=False, factory=EventHub)
+    _events: EventBroker = attr.field(init=False, factory=LocalEventBroker)
     _local_tasks: dict[str, Task] = attr.field(init=False, factory=dict)
 
     @client.validator
@@ -61,6 +61,10 @@ class MongoDBDataStore(DataStore):
     def from_url(cls, uri: str, **options) -> MongoDBDataStore:
         client = MongoClient(uri)
         return cls(client, **options)
+
+    @property
+    def events(self) -> EventSource:
+        return self._events
 
     def __enter__(self):
         server_info = self.client.server_info()

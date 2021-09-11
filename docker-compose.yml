@@ -20,3 +20,15 @@ services:
     image: mongo
     ports:
       - 127.0.0.1:27017:27017
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    ports:
+      - 127.0.0.1:1883:1883
+
+  redis:
+    image: redis:6
+    ports:
+      - 127.0.0.1:6379:6379

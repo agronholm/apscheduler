@@ -4,17 +4,16 @@ from bisect import bisect_left, insort_right
 from collections import defaultdict
 from datetime import MAXYEAR, datetime, timedelta, timezone
 from functools import partial
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Iterable, Optional
 from uuid import UUID
 
 import attr
 
-from .. import events
-from ..abc import DataStore, Job, Schedule
+from ..abc import DataStore, EventBroker, EventSource, Job, Schedule
 from ..enums import ConflictPolicy
+from ..eventbrokers.local import LocalEventBroker
 from ..events import (
-    EventHub, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, SubscriptionToken,
-    TaskAdded, TaskRemoved, TaskUpdated)
+    JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, TaskAdded, TaskRemoved, TaskUpdated)
 from ..exceptions import ConflictingIdError, TaskLookupError
 from ..structures import JobResult, Task
 from ..util import reentrant
@@ -75,7 +74,7 @@ class JobState:
 @attr.define(eq=False)
 class MemoryDataStore(DataStore):
     lock_expiration_delay: float = 30
-    _events: EventHub = attr.Factory(EventHub)
+    _events: EventBroker = attr.Factory(LocalEventBroker)
     _tasks: dict[str, TaskState] = attr.Factory(dict)
     _schedules: list[ScheduleState] = attr.Factory(list)
     _schedules_by_id: dict[str, ScheduleState] = attr.Factory(dict)
@@ -102,12 +101,9 @@ class MemoryDataStore(DataStore):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._events.__exit__(exc_type, exc_val, exc_tb)
 
-    def subscribe(self, callback: Callable[[events.Event], Any],
-                  event_types: Optional[Iterable[type[events.Event]]] = None) -> SubscriptionToken:
-        return self._events.subscribe(callback, event_types)
-
-    def unsubscribe(self, token: events.SubscriptionToken) -> None:
-        self._events.unsubscribe(token)
+    @property
+    def events(self) -> EventSource:
+        return self._events
 
     def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
         return [state.schedule for state in self._schedules

@@ -1,30 +1,25 @@
 from __future__ import annotations
 
-import json
 from collections import defaultdict
-from contextlib import AsyncExitStack, closing
 from datetime import datetime, timedelta, timezone
-from json import JSONDecodeError
 from typing import Any, Callable, Iterable, Optional
 from uuid import UUID
 
 import attr
 import sniffio
-from anyio import TASK_STATUS_IGNORED, create_task_group, sleep
-from attr import asdict
-from sqlalchemy import and_, bindparam, func, or_, select
+from sqlalchemy import and_, bindparam, or_, select
 from sqlalchemy.engine import URL, Result
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.ext.asyncio.engine import AsyncEngine
 from sqlalchemy.sql.ddl import DropTable
 from sqlalchemy.sql.elements import BindParameter
 
-from .. import events as events_module
-from ..abc import AsyncDataStore, Job, Schedule
+from ..abc import AsyncDataStore, AsyncEventBroker, EventSource, Job, Schedule
 from ..enums import ConflictPolicy
+from ..eventbrokers.async_local import LocalAsyncEventBroker
 from ..events import (
-    AsyncEventHub, DataStoreEvent, Event, JobAdded, JobDeserializationFailed, ScheduleAdded,
+    DataStoreEvent, Event, JobAdded, JobDeserializationFailed, ScheduleAdded,
     ScheduleDeserializationFailed, ScheduleRemoved, ScheduleUpdated, SubscriptionToken, TaskAdded,
     TaskRemoved, TaskUpdated)
 from ..exceptions import ConflictingIdError, SerializationError, TaskLookupError
@@ -34,43 +29,11 @@ from ..util import reentrant
 from .sqlalchemy import _BaseSQLAlchemyDataStore
 
 
-def default_json_handler(obj: Any) -> Any:
-    if isinstance(obj, datetime):
-        return obj.timestamp()
-    elif isinstance(obj, UUID):
-        return obj.hex
-    elif isinstance(obj, frozenset):
-        return list(obj)
-
-    raise TypeError(f'Cannot JSON encode type {type(obj)}')
-
-
-def json_object_hook(obj: dict[str, Any]) -> Any:
-    for key, value in obj.items():
-        if key == 'timestamp':
-            obj[key] = datetime.fromtimestamp(value, timezone.utc)
-        elif key == 'job_id':
-            obj[key] = UUID(value)
-        elif key == 'tags':
-            obj[key] = frozenset(value)
-
-    return obj
-
-
 @reentrant
 @attr.define(eq=False)
 class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
     engine: AsyncEngine
-
-    _exit_stack: AsyncExitStack = attr.field(init=False, factory=AsyncExitStack)
-    _events: AsyncEventHub = attr.field(init=False, factory=AsyncEventHub)
-
-    def __attrs_post_init__(self) -> None:
-        super().__attrs_post_init__()
-
-        if self.notify_channel:
-            if self.engine.dialect.name != 'postgresql' or self.engine.dialect.driver != 'asyncpg':
-                self.notify_channel = None
+    _events: AsyncEventBroker = attr.field(factory=LocalAsyncEventBroker)
 
     @classmethod
     def from_url(cls, url: str | URL, **options) -> AsyncSQLAlchemyDataStore:
@@ -98,93 +61,44 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                 raise RuntimeError(f'Unexpected schema version ({version}); '
                                    f'only version 1 is supported by this version of APScheduler')
 
-        await self._exit_stack.enter_async_context(self._events)
-
-        if self.notify_channel:
-            task_group = create_task_group()
-            await self._exit_stack.enter_async_context(task_group)
-            await task_group.start(self._listen_notifications)
-            self._exit_stack.callback(task_group.cancel_scope.cancel)
-
+        await self.events.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
+        await self.events.__aexit__(exc_type, exc_val, exc_tb)
 
-    async def _publish(self, conn: AsyncConnection, event: DataStoreEvent) -> None:
-        if self.notify_channel:
-            event_type = event.__class__.__name__
-            event_data = json.dumps(asdict(event), ensure_ascii=False,
-                                    default=default_json_handler)
-            notification = event_type + ' ' + event_data
-            if len(notification) < 8000:
-                await conn.execute(func.pg_notify(self.notify_channel, notification))
-                return
+    @property
+    def events(self) -> EventSource:
+        return self._events
 
-            self._logger.warning(
-                'Could not send %s notification because it is too long (%d >= 8000)',
-                event_type, len(notification))
-
-        self._events.publish(event)
-
-    async def _listen_notifications(self, *, task_status=TASK_STATUS_IGNORED) -> None:
-        def callback(connection, pid, channel: str, payload: str) -> None:
-            self._logger.debug('Received notification on channel %s: %s', channel, payload)
-            event_type, _, json_data = payload.partition(' ')
-            try:
-                event_data = json.loads(json_data, object_hook=json_object_hook)
-            except JSONDecodeError:
-                self._logger.exception('Failed decoding JSON payload of notification: %s', payload)
-                return
-
-            event_class = getattr(events_module, event_type)
-            event = event_class(**event_data)
-            self._events.publish(event)
-
-        task_started_sent = False
-        while True:
-            with closing(await self.engine.raw_connection()) as conn:
-                asyncpg_conn = conn.connection._connection
-                await asyncpg_conn.add_listener(self.notify_channel, callback)
-                if not task_started_sent:
-                    task_status.started()
-                    task_started_sent = True
-
-                try:
-                    while True:
-                        await sleep(self.max_idle_time)
-                        await asyncpg_conn.execute('SELECT 1')
-                finally:
-                    await asyncpg_conn.remove_listener(self.notify_channel, callback)
-
-    def _deserialize_schedules(self, result: Result) -> list[Schedule]:
+    async def _deserialize_schedules(self, result: Result) -> list[Schedule]:
         schedules: list[Schedule] = []
         for row in result:
             try:
                 schedules.append(Schedule.unmarshal(self.serializer, row._asdict()))
             except SerializationError as exc:
-                self._events.publish(
+                await self._events.publish(
                     ScheduleDeserializationFailed(schedule_id=row['id'], exception=exc))
 
         return schedules
 
-    def _deserialize_jobs(self, result: Result) -> list[Job]:
+    async def _deserialize_jobs(self, result: Result) -> list[Job]:
         jobs: list[Job] = []
         for row in result:
             try:
                 jobs.append(Job.unmarshal(self.serializer, row._asdict()))
             except SerializationError as exc:
-                self._events.publish(
+                await self._events.publish(
                     JobDeserializationFailed(job_id=row['id'], exception=exc))
 
         return jobs
 
     def subscribe(self, callback: Callable[[Event], Any],
                   event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
-        return self._events.subscribe(callback, event_types)
+        return self.events.subscribe(callback, event_types)
 
     def unsubscribe(self, token: SubscriptionToken) -> None:
-        self._events.unsubscribe(token)
+        self.events.unsubscribe(token)
 
     async def add_task(self, task: Task) -> None:
         insert = self.t_tasks.insert().\
@@ -201,9 +115,10 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                 where(self.t_tasks.c.id == task.id)
             async with self.engine.begin() as conn:
                 await conn.execute(update)
-                self._events.publish(TaskUpdated(task_id=task.id))
+
+            await self._events.publish(TaskUpdated(task_id=task.id))
         else:
-            self._events.publish(TaskAdded(task_id=task.id))
+            await self._events.publish(TaskAdded(task_id=task.id))
 
     async def remove_task(self, task_id: str) -> None:
         delete = self.t_tasks.delete().where(self.t_tasks.c.id == task_id)
@@ -212,7 +127,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
             if result.rowcount == 0:
                 raise TaskLookupError(task_id)
             else:
-                self._events.publish(TaskRemoved(task_id=task_id))
+                await self._events.publish(TaskRemoved(task_id=task_id))
 
     async def get_task(self, task_id: str) -> Task:
         query = select([self.t_tasks.c.id, self.t_tasks.c.func, self.t_tasks.c.max_running_jobs,
@@ -243,9 +158,6 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
         try:
             async with self.engine.begin() as conn:
                 await conn.execute(insert)
-                event = ScheduleAdded(schedule_id=schedule.id,
-                                      next_fire_time=schedule.next_fire_time)
-                await self._publish(conn, event)
         except IntegrityError:
             if conflict_policy is ConflictPolicy.exception:
                 raise ConflictingIdError(schedule.id) from None
@@ -257,9 +169,13 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                 async with self.engine.begin() as conn:
                     await conn.execute(update)
 
-                    event = ScheduleUpdated(schedule_id=schedule.id,
-                                            next_fire_time=schedule.next_fire_time)
-                    await self._publish(conn, event)
+                event = ScheduleUpdated(schedule_id=schedule.id,
+                                        next_fire_time=schedule.next_fire_time)
+                await self._events.publish(event)
+        else:
+            event = ScheduleAdded(schedule_id=schedule.id,
+                                  next_fire_time=schedule.next_fire_time)
+            await self._events.publish(event)
 
     async def remove_schedules(self, ids: Iterable[str]) -> None:
         async with self.engine.begin() as conn:
@@ -272,8 +188,8 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                 await conn.execute(delete)
                 removed_ids = ids
 
-            for schedule_id in removed_ids:
-                await self._publish(conn, ScheduleRemoved(schedule_id=schedule_id))
+        for schedule_id in removed_ids:
+            await self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
     async def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
         query = self.t_schedules.select().order_by(self.t_schedules.c.id)
@@ -282,7 +198,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
 
         async with self.engine.begin() as conn:
             result = await conn.execute(query)
-            return self._deserialize_schedules(result)
+            return await self._deserialize_schedules(result)
 
     async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
         async with self.engine.begin() as conn:
@@ -308,7 +224,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                     where(and_(self.t_schedules.c.acquired_by == scheduler_id))
                 result = conn.execute(query)
 
-            schedules = self._deserialize_schedules(result)
+            schedules = await self._deserialize_schedules(result)
 
         return schedules
 
@@ -365,11 +281,11 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                     where(self.t_schedules.c.id.in_(finished_schedule_ids))
                 await conn.execute(delete)
 
-            for event in update_events:
-                await self._publish(conn, event)
+        for event in update_events:
+            await self._events.publish(event)
 
-            for schedule_id in finished_schedule_ids:
-                await self._publish(conn, ScheduleRemoved(schedule_id=schedule_id))
+        for schedule_id in finished_schedule_ids:
+            await self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
     async def get_next_schedule_run_time(self) -> Optional[datetime]:
         statenent = select(self.t_schedules.c.id).\
@@ -386,9 +302,9 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
         async with self.engine.begin() as conn:
             await conn.execute(insert)
 
-            event = JobAdded(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
-                             tags=job.tags)
-            await self._publish(conn, event)
+        event = JobAdded(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
+                         tags=job.tags)
+        await self._events.publish(event)
 
     async def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> list[Job]:
         query = self.t_jobs.select().order_by(self.t_jobs.c.id)
@@ -398,7 +314,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
 
         async with self.engine.begin() as conn:
             result = await conn.execute(query)
-            return self._deserialize_jobs(result)
+            return await self._deserialize_jobs(result)
 
     async def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> list[Job]:
         async with self.engine.begin() as conn:
@@ -416,7 +332,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                 return []
 
             # Mark the jobs as acquired by this worker
-            jobs = self._deserialize_jobs(result)
+            jobs = await self._deserialize_jobs(result)
             task_ids: set[str] = {job.task_id for job in jobs}
 
             # Retrieve the limits

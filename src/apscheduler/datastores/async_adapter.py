@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime
-from functools import partial
-from typing import Any, Callable, Iterable, Optional
+from typing import Iterable, Optional
 from uuid import UUID
 
 import attr
 from anyio import to_thread
 from anyio.from_thread import BlockingPortal
 
-from .. import events
-from ..abc import AsyncDataStore, DataStore
+from ..abc import AsyncDataStore, AsyncEventBroker, DataStore, EventSource
 from ..enums import ConflictPolicy
-from ..events import Event, SubscriptionToken
+from ..eventbrokers.async_adapter import AsyncEventBrokerAdapter
 from ..structures import Job, JobResult, Schedule, Task
 from ..util import reentrant
 
@@ -21,16 +19,24 @@ from ..util import reentrant
 @attr.define(eq=False)
 class AsyncDataStoreAdapter(AsyncDataStore):
     original: DataStore
-    _portal: BlockingPortal = attr.field(init=False, eq=False)
+    _portal: BlockingPortal = attr.field(init=False)
+    _events: AsyncEventBroker = attr.field(init=False)
+
+    @property
+    def events(self) -> EventSource:
+        return self._events
 
     async def __aenter__(self) -> AsyncDataStoreAdapter:
         self._portal = BlockingPortal()
         await self._portal.__aenter__()
+        self._events = AsyncEventBrokerAdapter(self.original.events, self._portal)
+        await self._events.__aenter__()
         await to_thread.run_sync(self.original.__enter__)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await to_thread.run_sync(self.original.__exit__, exc_type, exc_val, exc_tb)
+        await self._events.__aexit__(exc_type, exc_val, exc_tb)
         await self._portal.__aexit__(exc_type, exc_val, exc_tb)
 
     async def add_task(self, task: Task) -> None:
@@ -77,10 +83,3 @@ class AsyncDataStoreAdapter(AsyncDataStore):
 
     async def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
         return await to_thread.run_sync(self.original.get_job_result, job_id)
-
-    def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
-        return self.original.subscribe(partial(self._portal.call, callback), event_types)
-
-    def unsubscribe(self, token: events.SubscriptionToken) -> None:
-        self.original.unsubscribe(token)

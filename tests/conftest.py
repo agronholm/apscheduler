@@ -24,7 +24,6 @@ def timezone() -> ZoneInfo:
 
 
 @pytest.fixture(params=[
-    pytest.param(None, id='none'),
     pytest.param(PickleSerializer, id='pickle'),
     pytest.param(CBORSerializer, id='cbor'),
     pytest.param(JSONSerializer, id='json')

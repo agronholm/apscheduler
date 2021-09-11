@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime
 from json import dumps, loads
 from typing import Any
 
 import attr
 
 from ..abc import Serializer
-from ..marshalling import marshal_object, unmarshal_object
+from ..marshalling import marshal_date, marshal_object, unmarshal_object
 
 
 @attr.define(kw_only=True, eq=False)
@@ -23,6 +24,8 @@ class JSONSerializer(Serializer):
         if hasattr(obj, '__getstate__'):
             cls_ref, state = marshal_object(obj)
             return {self.magic_key: [cls_ref, state]}
+        elif isinstance(obj, datetime):
+            return marshal_date(obj)
 
         raise TypeError(f'Object of type {obj.__class__.__name__!r} is not JSON serializable')
 

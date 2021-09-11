@@ -13,9 +13,9 @@ from uuid import uuid4
 from ..abc import DataStore, EventSource, Trigger
 from ..datastores.memory import MemoryDataStore
 from ..enums import CoalescePolicy, ConflictPolicy, RunState
+from ..eventbrokers.local import LocalEventBroker
 from ..events import (
-    Event, EventHub, ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated,
-    SubscriptionToken)
+    Event, ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated, SubscriptionToken)
 from ..marshalling import callable_to_ref
 from ..structures import Job, Schedule, Task
 from ..workers.sync import Worker
@@ -36,7 +36,7 @@ class Scheduler(EventSource):
         self.data_store = data_store or MemoryDataStore()
         self._exit_stack = ExitStack()
         self._executor = ThreadPoolExecutor(max_workers=1)
-        self._events = EventHub()
+        self._events = LocalEventBroker()
 
     @property
     def state(self) -> RunState:
@@ -54,13 +54,13 @@ class Scheduler(EventSource):
 
         # Initialize the data store
         self._exit_stack.enter_context(self.data_store)
-        relay_token = self._events.relay_events_from(self.data_store)
-        self._exit_stack.callback(self.data_store.unsubscribe, relay_token)
+        relay_token = self._events.relay_events_from(self.data_store.events)
+        self._exit_stack.callback(self.data_store.events.unsubscribe, relay_token)
 
         # Wake up the scheduler if the data store emits a significant schedule event
-        wakeup_token = self.data_store.subscribe(
+        wakeup_token = self.data_store.events.subscribe(
             lambda event: self._wakeup_event.set(), {ScheduleAdded, ScheduleUpdated})
-        self._exit_stack.callback(self.data_store.unsubscribe, wakeup_token)
+        self._exit_stack.callback(self.data_store.events.unsubscribe, wakeup_token)
 
         # Start the built-in worker, if configured to do so
         if self.start_worker:

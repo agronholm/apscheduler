@@ -13,8 +13,9 @@ from uuid import UUID
 from .. import events
 from ..abc import DataStore, EventSource
 from ..enums import JobOutcome, RunState
+from ..eventbrokers.local import LocalEventBroker
 from ..events import (
-    EventHub, JobAdded, JobCompleted, JobDeadlineMissed, JobFailed, JobStarted, SubscriptionToken,
+    JobAdded, JobCompleted, JobDeadlineMissed, JobFailed, JobStarted, SubscriptionToken,
     WorkerStarted, WorkerStopped)
 from ..structures import Job, JobResult
 
@@ -33,7 +34,7 @@ class Worker(EventSource):
         self.logger = logger or getLogger(__name__)
         self._acquired_jobs: set[Job] = set()
         self._exit_stack = ExitStack()
-        self._events = EventHub()
+        self._events = LocalEventBroker()
         self._running_jobs: set[UUID] = set()
 
         if self.max_concurrent_jobs < 1:
@@ -53,13 +54,13 @@ class Worker(EventSource):
 
         # Initialize the data store
         self._exit_stack.enter_context(self.data_store)
-        relay_token = self._events.relay_events_from(self.data_store)
-        self._exit_stack.callback(self.data_store.unsubscribe, relay_token)
+        relay_token = self._events.relay_events_from(self.data_store.events)
+        self._exit_stack.callback(self.data_store.events.unsubscribe, relay_token)
 
         # Wake up the worker if the data store emits a significant job event
-        wakeup_token = self.data_store.subscribe(
+        wakeup_token = self.data_store.events.subscribe(
             lambda event: self._wakeup_event.set(), {JobAdded})
-        self._exit_stack.callback(self.data_store.unsubscribe, wakeup_token)
+        self._exit_stack.callback(self.data_store.events.unsubscribe, wakeup_token)
 
         # Start the worker and return when it has signalled readiness or raised an exception
         start_future: Future[None] = Future()
