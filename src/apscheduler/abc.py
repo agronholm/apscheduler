@@ -65,13 +65,24 @@ class Serializer(metaclass=ABCMeta):
 
 
 class Subscription(metaclass=ABCMeta):
+    """
+    Represents a subscription with an event source.
+
+    If used as a context manager, unsubscribes on exit.
+    """
+
+    def __enter__(self) -> Subscription:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.unsubscribe()
+
     @abstractmethod
     def unsubscribe(self) -> None:
         """
         Cancel this subscription.
 
         Does nothing if the subscription has already been cancelled.
-
         """
 
 

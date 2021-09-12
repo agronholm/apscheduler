@@ -63,13 +63,14 @@ class AsyncScheduler:
 
         # Initialize the data store and start relaying events to the scheduler's event broker
         await self._exit_stack.enter_async_context(self.data_store)
-        relay_subscription = self.data_store.events.subscribe(self._events.publish)
-        self._exit_stack.callback(relay_subscription.unsubscribe)
+        self._exit_stack.enter_context(self.data_store.events.subscribe(self._events.publish))
 
         # Wake up the scheduler if the data store emits a significant schedule event
-        wakeup_subscription = self.data_store.events.subscribe(
-            lambda event: self._wakeup_event.set(), {ScheduleAdded, ScheduleUpdated})
-        self._exit_stack.callback(wakeup_subscription.unsubscribe)
+        self._exit_stack.enter_context(
+            self.data_store.events.subscribe(
+                lambda event: self._wakeup_event.set(), {ScheduleAdded, ScheduleUpdated}
+            )
+        )
 
         # Start the built-in worker, if configured to do so
         if self.start_worker:

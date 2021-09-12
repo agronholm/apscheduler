@@ -64,13 +64,12 @@ class AsyncWorker:
 
         # Initialize the data store and start relaying events to the worker's event broker
         await self._exit_stack.enter_async_context(self.data_store)
-        relay_subscription = self.data_store.events.subscribe(self._events.publish)
-        self._exit_stack.callback(relay_subscription.unsubscribe)
+        self._exit_stack.enter_context(self.data_store.events.subscribe(self._events.publish))
 
         # Wake up the worker if the data store emits a significant job event
-        wakeup_subscription = self.data_store.events.subscribe(
-            lambda event: self._wakeup_event.set(), {JobAdded})
-        self._exit_stack.callback(wakeup_subscription.unsubscribe)
+        self._exit_stack.enter_context(
+            self.data_store.events.subscribe(lambda event: self._wakeup_event.set(), {JobAdded})
+        )
 
         # Start the actual worker
         task_group = create_task_group()

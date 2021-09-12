@@ -55,23 +55,19 @@ class Worker:
 
         # Initialize the data store and start relaying events to the worker's event broker
         self._exit_stack.enter_context(self.data_store)
-        relay_subscription = self.data_store.events.subscribe(self._events.publish)
-        self._exit_stack.callback(relay_subscription.unsubscribe)
+        self._exit_stack.enter_context(self.data_store.events.subscribe(self._events.publish))
 
         # Wake up the worker if the data store emits a significant job event
-        wakeup_subscription = self.data_store.events.subscribe(
-            lambda event: self._wakeup_event.set(), {JobAdded})
-        self._exit_stack.callback(wakeup_subscription.unsubscribe)
+        self._exit_stack.enter_context(
+            self.data_store.events.subscribe(lambda event: self._wakeup_event.set(), {JobAdded})
+        )
 
         # Start the worker and return when it has signalled readiness or raised an exception
         start_future: Future[None] = Future()
-        start_subscription = self._events.subscribe(start_future.set_result)
-        self._executor = ThreadPoolExecutor(1)
-        run_future = self._executor.submit(self.run)
-        try:
+        with self._events.subscribe(start_future.set_result):
+            self._executor = ThreadPoolExecutor(1)
+            run_future = self._executor.submit(self.run)
             wait([start_future, run_future], return_when=FIRST_COMPLETED)
-        finally:
-            start_subscription.unsubscribe()
 
         if run_future.done():
             run_future.result()

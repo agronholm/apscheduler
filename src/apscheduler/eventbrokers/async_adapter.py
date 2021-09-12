@@ -29,8 +29,9 @@ class AsyncEventBrokerAdapter(LocalAsyncEventBroker):
         self._exit_stack.push_async_exit(partial(to_thread.run_sync, self.original.__exit__))
 
         # Relay events from the original broker to this one
-        relay_subscription = self.original.subscribe(partial(self.portal.call, self.publish_local))
-        self._exit_stack.callback(relay_subscription.unsubscribe)
+        self._exit_stack.enter_context(
+            self.original.subscribe(partial(self.portal.call, self.publish_local))
+        )
 
     async def publish(self, event: Event) -> None:
         await to_thread.run_sync(self.original.publish, event)
