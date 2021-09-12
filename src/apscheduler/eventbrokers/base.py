@@ -16,31 +16,33 @@ from ..exceptions import DeserializationError
 class LocalSubscription(Subscription):
     callback: Callable[[Event], Any]
     event_types: Optional[set[type[Event]]]
+    one_shot: bool
+    token: object
     _source: BaseEventBroker
-    _token: object
 
     def unsubscribe(self) -> None:
-        self._source.unsubscribe(self._token)
+        self._source.unsubscribe(self.token)
 
 
 @attr.define(eq=False)
 class BaseEventBroker(EventBroker):
     _logger: Logger = attr.field(init=False)
-    _subscriptions: dict[object, Subscription] = attr.field(init=False, factory=dict)
+    _subscriptions: dict[object, LocalSubscription] = attr.field(init=False, factory=dict)
 
     def __attrs_post_init__(self) -> None:
         self._logger = getLogger(self.__class__.__module__)
 
     def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[type[Event]]] = None) -> Subscription:
+                  event_types: Optional[Iterable[type[Event]]] = None, *,
+                  one_shot: bool = False) -> Subscription:
         types = set(event_types) if event_types else None
         token = object()
-        subscription = LocalSubscription(callback, types, self, token)
+        subscription = LocalSubscription(callback, types, one_shot, token, self)
         self._subscriptions[token] = subscription
         return subscription
 
     def unsubscribe(self, token: object) -> None:
-        self._subscriptions.pop(token)
+        self._subscriptions.pop(token, None)
 
 
 class DistributedEventBrokerMixin:

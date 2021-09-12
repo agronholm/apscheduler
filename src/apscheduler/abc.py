@@ -92,13 +92,16 @@ class EventSource(metaclass=ABCMeta):
     @abstractmethod
     def subscribe(
         self, callback: Callable[[Event], Any],
-        event_types: Optional[Iterable[type[Event]]] = None
+        event_types: Optional[Iterable[type[Event]]] = None,
+        *,
+        one_shot: bool = False
     ) -> Subscription:
         """
         Subscribe to events from this event source.
 
         :param callback: callable to be called with the event object when an event is published
         :param event_types: an iterable of concrete Event classes to subscribe to
+        :param one_shot: if ``True``, automatically unsubscribe after the first matching event
         """
 
 

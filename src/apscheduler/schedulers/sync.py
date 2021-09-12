@@ -73,7 +73,7 @@ class Scheduler:
 
         # Start the scheduler and return when it has signalled readiness or raised an exception
         start_future: Future[Event] = Future()
-        with self._events.subscribe(start_future.set_result):
+        with self._events.subscribe(start_future.set_result, one_shot=True):
             run_future = self._executor.submit(self.run)
             wait([start_future, run_future], return_when=FIRST_COMPLETED)
 

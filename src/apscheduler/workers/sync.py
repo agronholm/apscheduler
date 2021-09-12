@@ -64,7 +64,7 @@ class Worker:
 
         # Start the worker and return when it has signalled readiness or raised an exception
         start_future: Future[None] = Future()
-        with self._events.subscribe(start_future.set_result):
+        with self._events.subscribe(start_future.set_result, one_shot=True):
             self._executor = ThreadPoolExecutor(1)
             run_future = self._executor.submit(self.run)
             wait([start_future, run_future], return_when=FIRST_COMPLETED)
