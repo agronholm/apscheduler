@@ -154,7 +154,6 @@ class MongoDBDataStore(DataStore):
         document['_id'] = document.pop('id')
         try:
             self._schedules.insert_one(document)
-            print(document)
         except DuplicateKeyError:
             if conflict_policy is ConflictPolicy.exception:
                 raise ConflictingIdError(schedule.id) from None
