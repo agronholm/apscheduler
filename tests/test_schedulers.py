@@ -1,6 +1,5 @@
 import threading
 from datetime import datetime, timezone
-from typing import List
 
 import anyio
 import pytest
@@ -30,7 +29,7 @@ class TestAsyncScheduler:
             if len(received_events) == 5:
                 event.set()
 
-        received_events: List[Event] = []
+        received_events: list[Event] = []
         event = anyio.Event()
         scheduler = AsyncScheduler(start_worker=False)
         scheduler.events.subscribe(listener)
@@ -81,7 +80,7 @@ class TestSyncScheduler:
             if len(received_events) == 5:
                 event.set()
 
-        received_events: List[Event] = []
+        received_events: list[Event] = []
         event = threading.Event()
         scheduler = Scheduler(start_worker=False)
         scheduler.events.subscribe(listener)

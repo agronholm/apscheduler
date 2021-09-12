@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from tempfile import TemporaryDirectory
-from typing import AsyncGenerator, List, Optional, Set, Type
+from typing import AsyncGenerator, Optional
 
 import anyio
 import pytest
@@ -128,7 +128,7 @@ async def datastore(request):
 
 
 @pytest.fixture
-def schedules() -> List[Schedule]:
+def schedules() -> list[Schedule]:
     trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
     schedule1 = Schedule(id='s1', task_id='task1', trigger=trigger)
     schedule1.next_fire_time = trigger.next()
@@ -145,15 +145,15 @@ def schedules() -> List[Schedule]:
 @asynccontextmanager
 async def capture_events(
     datastore: AsyncDataStore, limit: int,
-    event_types: Optional[Set[Type[Event]]] = None
-) -> AsyncGenerator[List[Event], None]:
+    event_types: Optional[set[type[Event]]] = None
+) -> AsyncGenerator[list[Event], None]:
     def listener(event: Event) -> None:
         events.append(event)
         if len(events) == limit:
             limit_event.set()
             subscription.unsubscribe()
 
-    events: List[Event] = []
+    events: list[Event] = []
     limit_event = anyio.Event()
     subscription = datastore.events.subscribe(listener, event_types)
     yield events
@@ -195,7 +195,7 @@ class TestAsyncStores:
         assert not events
 
     async def test_add_schedules(self, datastore: AsyncDataStore,
-                                 schedules: List[Schedule]) -> None:
+                                 schedules: list[Schedule]) -> None:
         async with datastore, capture_events(datastore, 3, {ScheduleAdded}) as events:
             for schedule in schedules:
                 await datastore.add_schedule(schedule, ConflictPolicy.exception)
@@ -211,7 +211,7 @@ class TestAsyncStores:
             assert event.next_fire_time == schedule.next_fire_time
 
     async def test_replace_schedules(self, datastore: AsyncDataStore,
-                                     schedules: List[Schedule]) -> None:
+                                     schedules: list[Schedule]) -> None:
         async with datastore, capture_events(datastore, 1, {ScheduleUpdated}) as events:
             for schedule in schedules:
                 await datastore.add_schedule(schedule, ConflictPolicy.exception)
@@ -238,7 +238,7 @@ class TestAsyncStores:
         assert not events
 
     async def test_remove_schedules(self, datastore: AsyncDataStore,
-                                    schedules: List[Schedule]) -> None:
+                                    schedules: list[Schedule]) -> None:
         async with datastore, capture_events(datastore, 2, {ScheduleRemoved}) as events:
             for schedule in schedules:
                 await datastore.add_schedule(schedule, ConflictPolicy.exception)
@@ -256,7 +256,7 @@ class TestAsyncStores:
 
     @pytest.mark.freeze_time(datetime(2020, 9, 14, tzinfo=timezone.utc))
     async def test_acquire_release_schedules(
-            self, datastore: AsyncDataStore, schedules: List[Schedule]) -> None:
+            self, datastore: AsyncDataStore, schedules: list[Schedule]) -> None:
         event_types = {ScheduleRemoved, ScheduleUpdated}
         async with datastore, capture_events(datastore, 2, event_types) as events:
             for schedule in schedules:
@@ -304,7 +304,7 @@ class TestAsyncStores:
         assert not events
 
     async def test_acquire_schedules_lock_timeout(
-            self, datastore: AsyncDataStore, schedules: List[Schedule], freezer) -> None:
+            self, datastore: AsyncDataStore, schedules: list[Schedule], freezer) -> None:
         """
         Test that a scheduler can acquire schedules that were acquired by another scheduler but
         not released within the lock timeout period.

@@ -1,6 +1,6 @@
 import threading
 from datetime import datetime, timezone
-from typing import Callable, List
+from typing import Callable
 
 import anyio
 import pytest
@@ -45,7 +45,7 @@ class TestAsyncWorker:
             if len(received_events) == 5:
                 event.set()
 
-        received_events: List[Event] = []
+        received_events: list[Event] = []
         event = anyio.Event()
         data_store = MemoryDataStore()
         worker = AsyncWorker(data_store)
@@ -104,7 +104,7 @@ class TestAsyncWorker:
                 event.set()
 
         scheduled_start_time = datetime(2020, 9, 14, tzinfo=timezone.utc)
-        received_events: List[Event] = []
+        received_events: list[Event] = []
         event = anyio.Event()
         data_store = MemoryDataStore()
         worker = AsyncWorker(data_store)
@@ -158,7 +158,7 @@ class TestSyncWorker:
             if len(received_events) == 5:
                 event.set()
 
-        received_events: List[Event] = []
+        received_events: list[Event] = []
         event = threading.Event()
         data_store = MemoryDataStore()
         worker = Worker(data_store)
@@ -216,7 +216,7 @@ class TestSyncWorker:
                 event.set()
 
         scheduled_start_time = datetime(2020, 9, 14, tzinfo=timezone.utc)
-        received_events: List[Event] = []
+        received_events: list[Event] = []
         event = threading.Event()
         data_store = MemoryDataStore()
         worker = Worker(data_store)
