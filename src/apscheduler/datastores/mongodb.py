@@ -4,7 +4,7 @@ from collections import defaultdict
 from contextlib import ExitStack
 from datetime import datetime, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, ClassVar, Iterable, Optional
+from typing import ClassVar, Iterable, Optional
 from uuid import UUID
 
 import attr
@@ -18,8 +18,8 @@ from ..abc import DataStore, EventBroker, EventSource, Job, Schedule, Serializer
 from ..enums import ConflictPolicy
 from ..eventbrokers.local import LocalEventBroker
 from ..events import (
-    DataStoreEvent, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, SubscriptionToken,
-    TaskAdded, TaskRemoved, TaskUpdated)
+    DataStoreEvent, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, TaskAdded,
+    TaskRemoved, TaskUpdated)
 from ..exceptions import (
     ConflictingIdError, DeserializationError, SerializationError, TaskLookupError)
 from ..serializers.pickle import PickleSerializer
@@ -90,13 +90,6 @@ class MongoDBDataStore(DataStore):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
-
-    def subscribe(self, callback: Callable[[events.Event], Any],
-                  event_types: Optional[Iterable[type[events.Event]]] = None) -> SubscriptionToken:
-        return self._events.subscribe(callback, event_types)
-
-    def unsubscribe(self, token: events.SubscriptionToken) -> None:
-        self._events.unsubscribe(token)
 
     def add_task(self, task: Task) -> None:
         previous = self._tasks.find_one_and_update(

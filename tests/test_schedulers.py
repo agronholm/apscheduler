@@ -33,7 +33,7 @@ class TestAsyncScheduler:
         received_events: List[Event] = []
         event = anyio.Event()
         scheduler = AsyncScheduler(start_worker=False)
-        scheduler.subscribe(listener)
+        scheduler.events.subscribe(listener)
         trigger = DateTrigger(datetime.now(timezone.utc))
         async with scheduler:
             await scheduler.add_schedule(dummy_async_job, trigger, id='foo')
@@ -84,7 +84,7 @@ class TestSyncScheduler:
         received_events: List[Event] = []
         event = threading.Event()
         scheduler = Scheduler(start_worker=False)
-        scheduler.subscribe(listener)
+        scheduler.events.subscribe(listener)
         trigger = DateTrigger(datetime.now(timezone.utc))
         with scheduler:
             scheduler.add_schedule(dummy_sync_job, trigger, id='foo')

@@ -151,11 +151,11 @@ async def capture_events(
         events.append(event)
         if len(events) == limit:
             limit_event.set()
-            datastore.events.unsubscribe(token)
+            subscription.unsubscribe()
 
     events: List[Event] = []
     limit_event = anyio.Event()
-    token = datastore.events.subscribe(listener, event_types)
+    subscription = datastore.events.subscribe(listener, event_types)
     yield events
     if limit:
         with anyio.fail_after(3):

@@ -6,7 +6,7 @@ from contextlib import AsyncExitStack
 from datetime import datetime, timezone
 from inspect import isawaitable
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Optional
+from typing import Callable, Optional
 from uuid import UUID
 
 import anyio
@@ -17,18 +17,16 @@ from ..abc import AsyncDataStore, DataStore, EventSource, Job
 from ..datastores.async_adapter import AsyncDataStoreAdapter
 from ..enums import JobOutcome, RunState
 from ..eventbrokers.async_local import LocalAsyncEventBroker
-from ..events import (
-    Event, JobAdded, JobEnded, JobStarted, SubscriptionToken, WorkerStarted, WorkerStopped)
+from ..events import JobAdded, JobEnded, JobStarted, WorkerStarted, WorkerStopped
 from ..structures import JobResult
 
 
-class AsyncWorker(EventSource):
+class AsyncWorker:
     """Runs jobs locally in a task group."""
 
     _stop_event: Optional[anyio.Event] = None
     _state: RunState = RunState.stopped
     _acquire_cancel_scope: Optional[CancelScope] = None
-    _datastore_subscription: SubscriptionToken
     _wakeup_event: anyio.Event
 
     def __init__(self, data_store: DataStore | AsyncDataStore, *,
@@ -51,6 +49,10 @@ class AsyncWorker(EventSource):
             self.data_store = data_store
 
     @property
+    def events(self) -> EventSource:
+        return self._events
+
+    @property
     def state(self) -> RunState:
         return self._state
 
@@ -60,15 +62,15 @@ class AsyncWorker(EventSource):
         await self._exit_stack.__aenter__()
         await self._exit_stack.enter_async_context(self._events)
 
-        # Initialize the data store
+        # Initialize the data store and start relaying events to the worker's event broker
         await self._exit_stack.enter_async_context(self.data_store)
-        relay_token = self._events.relay_events_from(self.data_store.events)
-        self._exit_stack.callback(self.data_store.events.unsubscribe, relay_token)
+        relay_subscription = self.data_store.events.subscribe(self._events.publish)
+        self._exit_stack.callback(relay_subscription.unsubscribe)
 
         # Wake up the worker if the data store emits a significant job event
-        wakeup_token = self.data_store.events.subscribe(
+        wakeup_subscription = self.data_store.events.subscribe(
             lambda event: self._wakeup_event.set(), {JobAdded})
-        self._exit_stack.callback(self.data_store.events.unsubscribe, wakeup_token)
+        self._exit_stack.callback(wakeup_subscription.unsubscribe)
 
         # Start the actual worker
         task_group = create_task_group()
@@ -81,13 +83,6 @@ class AsyncWorker(EventSource):
         self._wakeup_event.set()
         await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
         del self._wakeup_event
-
-    def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
-        return self._events.subscribe(callback, event_types)
-
-    def unsubscribe(self, token: SubscriptionToken) -> None:
-        self._events.unsubscribe(token)
 
     async def run(self, *, task_status=TASK_STATUS_IGNORED) -> None:
         if self._state is not RunState.starting:

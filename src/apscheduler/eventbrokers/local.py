@@ -7,7 +7,8 @@ from typing import Any, Callable, Iterable, Optional
 
 import attr
 
-from ..events import Event, SubscriptionToken
+from ..abc import Subscription
+from ..events import Event
 from ..util import reentrant
 from .base import BaseEventBroker
 
@@ -28,7 +29,7 @@ class LocalEventBroker(BaseEventBroker):
         del self._executor
 
     def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
+                  event_types: Optional[Iterable[type[Event]]] = None) -> Subscription:
         if iscoroutinefunction(callback):
             raise ValueError('Coroutine functions are not supported as callbacks on a synchronous '
                              'event source')

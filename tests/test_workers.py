@@ -49,7 +49,7 @@ class TestAsyncWorker:
         event = anyio.Event()
         data_store = MemoryDataStore()
         worker = AsyncWorker(data_store)
-        worker.subscribe(listener)
+        worker.events.subscribe(listener)
         async with worker:
             await worker.data_store.add_task(Task(id='task_id', func=target_func))
             job = Job(task_id='task_id', args=(1, 2), kwargs={'x': 'foo', 'fail': fail})
@@ -108,7 +108,7 @@ class TestAsyncWorker:
         event = anyio.Event()
         data_store = MemoryDataStore()
         worker = AsyncWorker(data_store)
-        worker.subscribe(listener)
+        worker.events.subscribe(listener)
         async with worker:
             await worker.data_store.add_task(Task(id='task_id', func=fail_func))
             job = Job(task_id='task_id', schedule_id='foo',
@@ -162,7 +162,7 @@ class TestSyncWorker:
         event = threading.Event()
         data_store = MemoryDataStore()
         worker = Worker(data_store)
-        worker.subscribe(listener)
+        worker.events.subscribe(listener)
         with worker:
             worker.data_store.add_task(Task(id='task_id', func=sync_func))
             job = Job(task_id='task_id', args=(1, 2), kwargs={'x': 'foo', 'fail': fail})
@@ -220,7 +220,7 @@ class TestSyncWorker:
         event = threading.Event()
         data_store = MemoryDataStore()
         worker = Worker(data_store)
-        worker.subscribe(listener)
+        worker.events.subscribe(listener)
         with worker:
             worker.data_store.add_task(Task(id='task_id', func=fail_func))
             job = Job(task_id='task_id', schedule_id='foo',

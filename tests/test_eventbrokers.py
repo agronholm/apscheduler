@@ -105,11 +105,11 @@ class TestEventBroker:
     def test_unsubscribe(self, broker: EventBroker, caplog) -> None:
         queue = Queue()
         with broker:
-            token = broker.subscribe(queue.put_nowait)
+            subscription = broker.subscribe(queue.put_nowait)
             broker.publish(Event())
             queue.get(timeout=3)
 
-            broker.unsubscribe(token)
+            subscription.unsubscribe()
             broker.publish(Event())
             with pytest.raises(Empty):
                 queue.get(timeout=0.1)
@@ -168,12 +168,12 @@ class TestAsyncEventBroker:
     async def test_unsubscribe(self, async_broker: AsyncEventBroker) -> None:
         send, receive = create_memory_object_stream()
         async with async_broker:
-            token = async_broker.subscribe(send.send)
+            subscription = async_broker.subscribe(send.send)
             await async_broker.publish(Event())
             with fail_after(3):
                 await receive.receive()
 
-            async_broker.unsubscribe(token)
+            subscription.unsubscribe()
             await async_broker.publish(Event())
             with pytest.raises(TimeoutError), fail_after(0.1):
                 await receive.receive()

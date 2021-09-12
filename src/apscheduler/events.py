@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from functools import partial
-from typing import Any, Callable, NewType, Optional
+from typing import Optional
 from uuid import UUID
 
 import attr
@@ -11,8 +11,6 @@ from attr.converters import optional
 from .converters import as_aware_datetime, as_uuid
 from .enums import JobOutcome
 from .structures import Job
-
-SubscriptionToken = NewType('SubscriptionToken', object)
 
 
 @attr.define(kw_only=True, frozen=True)
@@ -159,13 +157,3 @@ class JobEnded(JobExecutionEvent):
             timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
             schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
             start_deadline=job.start_deadline, outcome=outcome, start_time=start_time)
-
-
-#
-# Event delivery
-#
-
-@attr.define(eq=False, frozen=True)
-class Subscription:
-    callback: Callable[[Event], Any]
-    event_types: Optional[set[type[Event]]]

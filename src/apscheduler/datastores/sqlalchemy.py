@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Iterable, Optional
 from uuid import UUID
 
 import attr
@@ -21,7 +21,7 @@ from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome
 from ..eventbrokers.local import LocalEventBroker
 from ..events import (
     Event, JobAdded, JobDeserializationFailed, ScheduleAdded, ScheduleDeserializationFailed,
-    ScheduleRemoved, ScheduleUpdated, SubscriptionToken, TaskAdded, TaskRemoved, TaskUpdated)
+    ScheduleRemoved, ScheduleUpdated, TaskAdded, TaskRemoved, TaskUpdated)
 from ..exceptions import ConflictingIdError, SerializationError, TaskLookupError
 from ..marshalling import callable_to_ref
 from ..serializers.pickle import PickleSerializer
@@ -211,13 +211,6 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
     @property
     def events(self) -> EventSource:
         return self._events
-
-    def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
-        return self._events.subscribe(callback, event_types)
-
-    def unsubscribe(self, token: SubscriptionToken) -> None:
-        self._events.unsubscribe(token)
 
     def add_task(self, task: Task) -> None:
         insert = self.t_tasks.insert().\

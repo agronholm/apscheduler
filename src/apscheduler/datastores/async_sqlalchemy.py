@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Iterable, Optional
 from uuid import UUID
 
 import attr
@@ -19,9 +19,9 @@ from ..abc import AsyncDataStore, AsyncEventBroker, EventSource, Job, Schedule
 from ..enums import ConflictPolicy
 from ..eventbrokers.async_local import LocalAsyncEventBroker
 from ..events import (
-    DataStoreEvent, Event, JobAdded, JobDeserializationFailed, ScheduleAdded,
-    ScheduleDeserializationFailed, ScheduleRemoved, ScheduleUpdated, SubscriptionToken, TaskAdded,
-    TaskRemoved, TaskUpdated)
+    DataStoreEvent, JobAdded, JobDeserializationFailed, ScheduleAdded,
+    ScheduleDeserializationFailed, ScheduleRemoved, ScheduleUpdated, TaskAdded, TaskRemoved,
+    TaskUpdated)
 from ..exceptions import ConflictingIdError, SerializationError, TaskLookupError
 from ..marshalling import callable_to_ref
 from ..structures import JobResult, Task
@@ -92,13 +92,6 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                     JobDeserializationFailed(job_id=row['id'], exception=exc))
 
         return jobs
-
-    def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
-        return self.events.subscribe(callback, event_types)
-
-    def unsubscribe(self, token: SubscriptionToken) -> None:
-        self.events.unsubscribe(token)
 
     async def add_task(self, task: Task) -> None:
         insert = self.t_tasks.insert().\

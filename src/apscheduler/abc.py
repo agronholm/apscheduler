@@ -10,7 +10,7 @@ from .enums import ConflictPolicy
 from .structures import Job, JobResult, Schedule, Task
 
 if TYPE_CHECKING:
-    from . import events
+    from .events import Event
 
 
 class Trigger(Iterator[datetime], metaclass=ABCMeta):
@@ -64,27 +64,30 @@ class Serializer(metaclass=ABCMeta):
         return self.deserialize(b64decode(serialized))
 
 
+class Subscription(metaclass=ABCMeta):
+    @abstractmethod
+    def unsubscribe(self) -> None:
+        """
+        Cancel this subscription.
+
+        Does nothing if the subscription has already been cancelled.
+
+        """
+
+
 class EventSource(metaclass=ABCMeta):
     """Interface for objects that can deliver notifications to interested subscribers."""
 
     @abstractmethod
     def subscribe(
-        self, callback: Callable[[events.Event], Any],
-        event_types: Optional[Iterable[type[events.Event]]] = None
-    ) -> events.SubscriptionToken:
+        self, callback: Callable[[Event], Any],
+        event_types: Optional[Iterable[type[Event]]] = None
+    ) -> Subscription:
         """
         Subscribe to events from this event source.
 
         :param callback: callable to be called with the event object when an event is published
         :param event_types: an iterable of concrete Event classes to subscribe to
-        """
-
-    @abstractmethod
-    def unsubscribe(self, token: events.SubscriptionToken) -> None:
-        """
-        Cancel an event subscription.
-
-        :param token: a token returned from :meth:`subscribe`
         """
 
 
@@ -102,11 +105,11 @@ class EventBroker(EventSource):
         pass
 
     @abstractmethod
-    def publish(self, event: events.Event) -> None:
+    def publish(self, event: Event) -> None:
         """Publish an event."""
 
     @abstractmethod
-    def publish_local(self, event: events.Event) -> None:
+    def publish_local(self, event: Event) -> None:
         """Publish an event, but only to local subscribers."""
 
 
@@ -124,11 +127,11 @@ class AsyncEventBroker(EventSource):
         pass
 
     @abstractmethod
-    async def publish(self, event: events.Event) -> None:
+    async def publish(self, event: Event) -> None:
         """Publish an event."""
 
     @abstractmethod
-    async def publish_local(self, event: events.Event) -> None:
+    async def publish_local(self, event: Event) -> None:
         """Publish an event, but only to local subscribers."""
 
 

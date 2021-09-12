@@ -6,33 +6,41 @@ from typing import Any, Callable, Iterable, Optional
 
 import attr
 
-from .. import abc, events
-from ..abc import EventBroker, Serializer
-from ..events import Event, Subscription, SubscriptionToken
+from .. import events
+from ..abc import EventBroker, Serializer, Subscription
+from ..events import Event
 from ..exceptions import DeserializationError
+
+
+@attr.define(eq=False, frozen=True)
+class LocalSubscription(Subscription):
+    callback: Callable[[Event], Any]
+    event_types: Optional[set[type[Event]]]
+    _source: BaseEventBroker
+    _token: object
+
+    def unsubscribe(self) -> None:
+        self._source.unsubscribe(self._token)
 
 
 @attr.define(eq=False)
 class BaseEventBroker(EventBroker):
     _logger: Logger = attr.field(init=False)
-    _subscriptions: dict[SubscriptionToken, Subscription] = attr.field(init=False, factory=dict)
+    _subscriptions: dict[object, Subscription] = attr.field(init=False, factory=dict)
 
     def __attrs_post_init__(self) -> None:
         self._logger = getLogger(self.__class__.__module__)
 
     def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
+                  event_types: Optional[Iterable[type[Event]]] = None) -> Subscription:
         types = set(event_types) if event_types else None
-        token = SubscriptionToken(object())
-        subscription = Subscription(callback, types)
+        token = object()
+        subscription = LocalSubscription(callback, types, self, token)
         self._subscriptions[token] = subscription
-        return token
+        return subscription
 
-    def unsubscribe(self, token: SubscriptionToken) -> None:
-        self._subscriptions.pop(token, None)
-
-    def relay_events_from(self, source: abc.EventSource) -> SubscriptionToken:
-        return source.subscribe(self.publish)
+    def unsubscribe(self, token: object) -> None:
+        self._subscriptions.pop(token)
 
 
 class DistributedEventBrokerMixin:

@@ -14,14 +14,13 @@ from ..abc import DataStore, EventSource, Trigger
 from ..datastores.memory import MemoryDataStore
 from ..enums import CoalescePolicy, ConflictPolicy, RunState
 from ..eventbrokers.local import LocalEventBroker
-from ..events import (
-    Event, ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated, SubscriptionToken)
+from ..events import Event, ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated
 from ..marshalling import callable_to_ref
 from ..structures import Job, Schedule, Task
 from ..workers.sync import Worker
 
 
-class Scheduler(EventSource):
+class Scheduler:
     """A synchronous scheduler implementation."""
 
     _state: RunState = RunState.stopped
@@ -39,6 +38,10 @@ class Scheduler(EventSource):
         self._events = LocalEventBroker()
 
     @property
+    def events(self) -> EventSource:
+        return self._events
+
+    @property
     def state(self) -> RunState:
         return self._state
 
@@ -52,29 +55,29 @@ class Scheduler(EventSource):
         self._exit_stack.__enter__()
         self._exit_stack.enter_context(self._events)
 
-        # Initialize the data store
+        # Initialize the data store and start relaying events to the scheduler's event broker
         self._exit_stack.enter_context(self.data_store)
-        relay_token = self._events.relay_events_from(self.data_store.events)
-        self._exit_stack.callback(self.data_store.events.unsubscribe, relay_token)
+        relay_subscription = self.data_store.events.subscribe(self._events.publish)
+        self._exit_stack.callback(relay_subscription.unsubscribe)
 
         # Wake up the scheduler if the data store emits a significant schedule event
-        wakeup_token = self.data_store.events.subscribe(
+        wakeup_subscription = self.data_store.events.subscribe(
             lambda event: self._wakeup_event.set(), {ScheduleAdded, ScheduleUpdated})
-        self._exit_stack.callback(self.data_store.events.unsubscribe, wakeup_token)
+        self._exit_stack.callback(wakeup_subscription.unsubscribe)
 
         # Start the built-in worker, if configured to do so
         if self.start_worker:
             self._worker = Worker(self.data_store)
             self._exit_stack.enter_context(self._worker)
 
-        # Start the worker and return when it has signalled readiness or raised an exception
+        # Start the scheduler and return when it has signalled readiness or raised an exception
         start_future: Future[Event] = Future()
-        token = self._events.subscribe(start_future.set_result)
+        start_subscription = self._events.subscribe(start_future.set_result)
         run_future = self._executor.submit(self.run)
         try:
             wait([start_future, run_future], return_when=FIRST_COMPLETED)
         finally:
-            self._events.unsubscribe(token)
+            start_subscription.unsubscribe()
 
         if run_future.done():
             run_future.result()
@@ -87,13 +90,6 @@ class Scheduler(EventSource):
         self._executor.shutdown(wait=exc_type is None)
         self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
         del self._wakeup_event
-
-    def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[type[Event]]] = None) -> SubscriptionToken:
-        return self._events.subscribe(callback, event_types)
-
-    def unsubscribe(self, token: SubscriptionToken) -> None:
-        self._events.unsubscribe(token)
 
     def add_schedule(
         self, func_or_task_id: str | Callable, trigger: Trigger, *, id: Optional[str] = None,
