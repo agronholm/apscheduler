@@ -18,8 +18,8 @@ from ..abc import DataStore, EventBroker, EventSource, Job, Schedule, Serializer
 from ..enums import ConflictPolicy
 from ..eventbrokers.local import LocalEventBroker
 from ..events import (
-    DataStoreEvent, JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, TaskAdded,
-    TaskRemoved, TaskUpdated)
+    DataStoreEvent, JobAcquired, JobAdded, JobReleased, ScheduleAdded, ScheduleRemoved,
+    ScheduleUpdated, TaskAdded, TaskRemoved, TaskUpdated)
 from ..exceptions import (
     ConflictingIdError, DeserializationError, SerializationError, TaskLookupError)
 from ..serializers.pickle import PickleSerializer
@@ -336,6 +336,10 @@ class MongoDBDataStore(DataStore):
                         session=session
                     )
 
+                # Publish the appropriate events
+                for job in acquired_jobs:
+                    self._events.publish(JobAcquired(job_id=job.id, worker_id=worker_id))
+
             return acquired_jobs
 
     def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
@@ -354,6 +358,11 @@ class MongoDBDataStore(DataStore):
 
             # Delete the job
             self._jobs.delete_one({'_id': result.job_id}, session=session)
+
+        # Publish the event
+        self._events.publish(
+            JobReleased(job_id=result.job_id, worker_id=worker_id, outcome=result.outcome)
+        )
 
     def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
         document = self._jobs_results.find_one_and_delete({'_id': job_id})

@@ -6,7 +6,7 @@ from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
 from typing import Any, Callable, Iterable, Mapping, Optional
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import anyio
 from anyio import TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class, move_on_after
@@ -15,11 +15,13 @@ from anyio.abc import TaskGroup
 from ..abc import AsyncDataStore, DataStore, EventSource, Job, Schedule, Trigger
 from ..datastores.async_adapter import AsyncDataStoreAdapter
 from ..datastores.memory import MemoryDataStore
-from ..enums import CoalescePolicy, ConflictPolicy, RunState
+from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState
 from ..eventbrokers.async_local import LocalAsyncEventBroker
-from ..events import ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated
+from ..events import (
+    JobReleased, ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated)
+from ..exceptions import JobCancelled, JobDeadlineMissed, JobLookupError
 from ..marshalling import callable_to_ref
-from ..structures import Task
+from ..structures import JobResult, Task
 from ..workers.async_ import AsyncWorker
 
 
@@ -121,6 +123,92 @@ class AsyncScheduler:
     async def remove_schedule(self, schedule_id: str) -> None:
         await self.data_store.remove_schedules({schedule_id})
 
+    async def add_job(
+        self, func_or_task_id: str | Callable, *, args: Optional[Iterable] = None,
+        kwargs: Optional[Mapping[str, Any]] = None, tags: Optional[Iterable[str]] = None
+    ) -> UUID:
+        """
+        Add a job to the data store.
+
+        :param func_or_task_id:
+        :param args: positional arguments to call the target callable with
+        :param kwargs: keyword arguments to call the target callable with
+        :param tags:
+        :return: the ID of the newly created job
+
+        """
+        if callable(func_or_task_id):
+            task = Task(id=callable_to_ref(func_or_task_id), func=func_or_task_id)
+            await self.data_store.add_task(task)
+        else:
+            task = await self.data_store.get_task(func_or_task_id)
+
+        job = Job(task_id=task.id, args=args, kwargs=kwargs, tags=tags)
+        await self.data_store.add_job(job)
+        return job.id
+
+    async def get_job_result(self, job_id: UUID, *, wait: bool = True) -> JobResult:
+        """
+        Retrieve the result of a job.
+
+        :param job_id: the ID of the job
+        :param wait: if ``True``, wait until the job has ended (one way or another), ``False`` to
+                     raise an exception if the result is not yet available
+        :raises JobLookupError: if the job does not exist in the data store
+
+        """
+        wait_event = anyio.Event()
+
+        def listener(event: JobReleased) -> None:
+            if event.job_id == job_id:
+                wait_event.set()
+
+        with self.data_store.events.subscribe(listener, {JobReleased}):
+            result = await self.data_store.get_job_result(job_id)
+            if result:
+                return result
+            elif not wait:
+                raise JobLookupError(job_id)
+
+            await wait_event.wait()
+
+        result = await self.data_store.get_job_result(job_id)
+        assert isinstance(result, JobResult)
+        return result
+
+    async def run_job(
+        self, func_or_task_id: str | Callable, *, args: Optional[Iterable] = None,
+        kwargs: Optional[Mapping[str, Any]] = None, tags: Optional[Iterable[str]] = ()
+    ) -> Any:
+        """
+        Convenience method to add a job and then return its result (or raise its exception).
+
+        :returns: the return value of the target function
+
+        """
+        job_complete_event = anyio.Event()
+
+        def listener(event: JobReleased) -> None:
+            if event.job_id == job_id:
+                job_complete_event.set()
+
+        job_id: Optional[UUID] = None
+        with self.data_store.events.subscribe(listener, {JobReleased}):
+            job_id = await self.add_job(func_or_task_id, args=args, kwargs=kwargs, tags=tags)
+            await job_complete_event.wait()
+
+        result = await self.get_job_result(job_id)
+        if result.outcome is JobOutcome.success:
+            return result.return_value
+        elif result.outcome is JobOutcome.error:
+            raise result.exception
+        elif result.outcome is JobOutcome.missed_start_deadline:
+            raise JobDeadlineMissed
+        elif result.outcome is JobOutcome.cancelled:
+            raise JobCancelled
+        else:
+            raise RuntimeError(f'Unknown job outcome: {result.outcome}')
+
     async def run(self, *, task_status=TASK_STATUS_IGNORED) -> None:
         if self._state is not RunState.starting:
             raise RuntimeError(f'This function cannot be called while the scheduler is in the '
@@ -192,17 +280,3 @@ class AsyncScheduler:
 
         self._state = RunState.stopped
         await self._events.publish(SchedulerStopped())
-
-    # async def stop(self, force: bool = False) -> None:
-    #     self._running = False
-    #     if self._worker:
-    #         await self._worker.stop(force)
-    #
-    #     if self._acquire_cancel_scope:
-    #         self._acquire_cancel_scope.cancel()
-    #     if force and self._task_group:
-    #         self._task_group.cancel_scope.cancel()
-    #
-    # async def wait_until_stopped(self) -> None:
-    #     if self._stop_event:
-    #         await self._stop_event.wait()

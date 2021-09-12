@@ -1,3 +1,6 @@
+from uuid import UUID
+
+
 class TaskLookupError(LookupError):
     """Raised by a data store when it cannot find the requested task."""
 
@@ -8,8 +11,23 @@ class TaskLookupError(LookupError):
 class JobLookupError(KeyError):
     """Raised when the job store cannot find a job for update or removal."""
 
-    def __init__(self, job_id):
-        super().__init__(u'No job by the id of %s was found' % job_id)
+    def __init__(self, job_id: UUID):
+        super().__init__(f'No job by the id of {job_id} was found')
+
+
+class JobResultNotReady(KeyError):
+    """Raised by ``get_job_result()`` if the job result is not ready."""
+
+    def __init__(self, job_id: UUID):
+        super().__init__(f'No job by the id of {job_id} was found')
+
+
+class JobCancelled(Exception):
+    """Raised by ``run_job()`` if the job was cancelled."""
+
+
+class JobDeadlineMissed(Exception):
+    """Raised by ``run_job()`` if the job failed to start within the allotted time."""
 
 
 class ConflictingIdError(KeyError):

@@ -10,7 +10,6 @@ from attr.converters import optional
 
 from .converters import as_aware_datetime, as_uuid
 from .enums import JobOutcome
-from .structures import Job
 
 
 @attr.define(kw_only=True, frozen=True)
@@ -124,36 +123,17 @@ class WorkerStopped(WorkerEvent):
 
 
 @attr.define(kw_only=True, frozen=True)
-class JobExecutionEvent(WorkerEvent):
+class JobAcquired(WorkerEvent):
+    """Signals that a worker has acquired a job for processing."""
+
     job_id: UUID = attr.field(converter=as_uuid)
-    task_id: str
-    schedule_id: Optional[str]
-    scheduled_fire_time: Optional[datetime] = attr.field(converter=optional(as_aware_datetime))
-    start_deadline: Optional[datetime] = attr.field(converter=optional(as_aware_datetime))
+    worker_id: str
 
 
 @attr.define(kw_only=True, frozen=True)
-class JobStarted(JobExecutionEvent):
-    """Signals that a worker has started processing a job."""
-
-    @classmethod
-    def from_job(cls, job: Job, start_time: datetime) -> JobStarted:
-        return JobStarted(
-            timestamp=start_time, job_id=job.id, task_id=job.task_id,
-            schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-            start_deadline=job.start_deadline)
-
-
-@attr.define(kw_only=True, frozen=True)
-class JobEnded(JobExecutionEvent):
+class JobReleased(WorkerEvent):
     """Signals that a worker has finished processing of a job."""
 
+    job_id: UUID = attr.field(converter=as_uuid)
+    worker_id: str
     outcome: JobOutcome
-    start_time: datetime = attr.field(converter=as_aware_datetime)
-
-    @classmethod
-    def from_job(cls, job: Job, outcome: JobOutcome, start_time: datetime) -> JobEnded:
-        return JobEnded(
-            timestamp=datetime.now(timezone.utc), job_id=job.id, task_id=job.task_id,
-            schedule_id=job.schedule_id, scheduled_fire_time=job.scheduled_fire_time,
-            start_deadline=job.start_deadline, outcome=outcome, start_time=start_time)

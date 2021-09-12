@@ -6,6 +6,7 @@ from typing import Any, Callable, Optional
 from uuid import UUID, uuid4
 
 import attr
+from attr.converters import default_if_none
 
 from . import abc
 from .enums import CoalescePolicy, JobOutcome
@@ -89,12 +90,14 @@ class Schedule:
 class Job:
     id: UUID = attr.field(factory=uuid4)
     task_id: str = attr.field(eq=False, order=False)
-    args: tuple = attr.field(eq=False, order=False, default=())
-    kwargs: dict[str, Any] = attr.field(eq=False, order=False, factory=dict)
+    args: tuple = attr.field(eq=False, order=False, converter=default_if_none(()))
+    kwargs: dict[str, Any] = attr.field(
+        eq=False, order=False, converter=default_if_none(factory=dict))
     schedule_id: Optional[str] = attr.field(eq=False, order=False, default=None)
     scheduled_fire_time: Optional[datetime] = attr.field(eq=False, order=False, default=None)
     start_deadline: Optional[datetime] = attr.field(eq=False, order=False, default=None)
-    tags: frozenset[str] = attr.field(eq=False, order=False, factory=frozenset)
+    tags: frozenset[str] = attr.field(
+        eq=False, order=False, converter=default_if_none(factory=frozenset))
     created_at: datetime = attr.field(eq=False, order=False,
                                       factory=partial(datetime.now, timezone.utc))
     started_at: Optional[datetime] = attr.field(eq=False, order=False, default=None)

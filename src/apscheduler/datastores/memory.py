@@ -13,7 +13,8 @@ from ..abc import DataStore, EventBroker, EventSource, Job, Schedule
 from ..enums import ConflictPolicy
 from ..eventbrokers.local import LocalEventBroker
 from ..events import (
-    JobAdded, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, TaskAdded, TaskRemoved, TaskUpdated)
+    JobAcquired, JobAdded, JobReleased, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, TaskAdded,
+    TaskRemoved, TaskUpdated)
 from ..exceptions import ConflictingIdError, TaskLookupError
 from ..structures import JobResult, Task
 from ..util import reentrant
@@ -261,6 +262,10 @@ class MemoryDataStore(DataStore):
             if len(jobs) == limit:
                 break
 
+        # Publish the appropriate events
+        for job in jobs:
+            self._events.publish(JobAcquired(job_id=job.id, worker_id=worker_id))
+
         return jobs
 
     def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
@@ -277,6 +282,11 @@ class MemoryDataStore(DataStore):
 
         # Record the result
         self._job_results[result.job_id] = result
+
+        # Publish the event
+        self._events.publish(
+            JobReleased(job_id=result.job_id, worker_id=worker_id, outcome=result.outcome)
+        )
 
     def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
         return self._job_results.pop(job_id, None)

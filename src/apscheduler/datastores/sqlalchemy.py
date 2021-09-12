@@ -20,8 +20,9 @@ from ..abc import DataStore, EventBroker, EventSource, Job, Schedule, Serializer
 from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome
 from ..eventbrokers.local import LocalEventBroker
 from ..events import (
-    Event, JobAdded, JobDeserializationFailed, ScheduleAdded, ScheduleDeserializationFailed,
-    ScheduleRemoved, ScheduleUpdated, TaskAdded, TaskRemoved, TaskUpdated)
+    Event, JobAcquired, JobAdded, JobDeserializationFailed, JobReleased, ScheduleAdded,
+    ScheduleDeserializationFailed, ScheduleRemoved, ScheduleUpdated, TaskAdded, TaskRemoved,
+    TaskUpdated)
 from ..exceptions import ConflictingIdError, SerializationError, TaskLookupError
 from ..marshalling import callable_to_ref
 from ..serializers.pickle import PickleSerializer
@@ -485,6 +486,10 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
                     where(self.t_tasks.c.id == p_id)
                 conn.execute(update, params)
 
+            # Publish the appropriate events
+            for job in acquired_jobs:
+                self._events.publish(JobAcquired(job_id=job.id, worker_id=worker_id))
+
             return acquired_jobs
 
     def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
@@ -503,6 +508,11 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
             # Delete the job
             delete = self.t_jobs.delete().where(self.t_jobs.c.id == result.job_id)
             conn.execute(delete)
+
+        # Publish the event
+        self._events.publish(
+            JobReleased(job_id=result.job_id, worker_id=worker_id, outcome=result.outcome)
+        )
 
     def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
         with self.engine.begin() as conn:

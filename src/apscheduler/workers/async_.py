@@ -17,7 +17,7 @@ from ..abc import AsyncDataStore, DataStore, EventSource, Job
 from ..datastores.async_adapter import AsyncDataStoreAdapter
 from ..enums import JobOutcome, RunState
 from ..eventbrokers.async_local import LocalAsyncEventBroker
-from ..events import JobAdded, JobEnded, JobStarted, WorkerStarted, WorkerStopped
+from ..events import JobAdded, WorkerStarted, WorkerStopped
 from ..structures import JobResult
 
 
@@ -122,11 +122,10 @@ class AsyncWorker:
             # Check if the job started before the deadline
             start_time = datetime.now(timezone.utc)
             if job.start_deadline is not None and start_time > job.start_deadline:
-                await self._events.publish(
-                    JobEnded.from_job(job, JobOutcome.missed_start_deadline, start_time))
+                result = JobResult(job_id=job.id, outcome=JobOutcome.missed_start_deadline)
+                await self.data_store.release_job(self.identity, job.task_id, result)
                 return
 
-            await self._events.publish(JobStarted.from_job(job, start_time))
             try:
                 retval = func(*job.args, **job.kwargs)
                 if isawaitable(retval):
@@ -135,31 +134,13 @@ class AsyncWorker:
                 with CancelScope(shield=True):
                     result = JobResult(job_id=job.id, outcome=JobOutcome.cancelled)
                     await self.data_store.release_job(self.identity, job.task_id, result)
-
-                with move_on_after(1, shield=True):
-                    await self._events.publish(
-                        JobEnded.from_job(job, JobOutcome.cancelled, start_time))
             except BaseException as exc:
                 result = JobResult(job_id=job.id, outcome=JobOutcome.error, exception=exc)
                 await self.data_store.release_job(self.identity, job.task_id, result)
-                await self._events.publish(JobEnded.from_job(job, JobOutcome.error, start_time))
                 if not isinstance(exc, Exception):
                     raise
             else:
                 result = JobResult(job_id=job.id, outcome=JobOutcome.success, return_value=retval)
                 await self.data_store.release_job(self.identity, job.task_id, result)
-                await self._events.publish(JobEnded.from_job(job, JobOutcome.success, start_time))
         finally:
             self._running_jobs.remove(job.id)
-
-    # async def stop(self, force: bool = False) -> None:
-    #     self._running = False
-    #     if self._acquire_cancel_scope:
-    #         self._acquire_cancel_scope.cancel()
-    #
-    #     if force and self._task_group:
-    #         self._task_group.cancel_scope.cancel()
-    #
-    # async def wait_until_stopped(self) -> None:
-    #     if self._stop_event:
-    #         await self._stop_event.wait()

@@ -19,7 +19,7 @@ from ..abc import AsyncDataStore, AsyncEventBroker, EventSource, Job, Schedule
 from ..enums import ConflictPolicy
 from ..eventbrokers.async_local import LocalAsyncEventBroker
 from ..events import (
-    DataStoreEvent, JobAdded, JobDeserializationFailed, ScheduleAdded,
+    DataStoreEvent, JobAcquired, JobAdded, JobDeserializationFailed, ScheduleAdded,
     ScheduleDeserializationFailed, ScheduleRemoved, ScheduleUpdated, TaskAdded, TaskRemoved,
     TaskUpdated)
 from ..exceptions import ConflictingIdError, SerializationError, TaskLookupError
@@ -367,6 +367,10 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                     values(running_jobs=self.t_tasks.c.running_jobs + p_increment).\
                     where(self.t_tasks.c.id == p_id)
                 await conn.execute(update, params)
+
+            # Publish the appropriate events
+            for job in acquired_jobs:
+                await self._events.publish(JobAcquired(job_id=job.id, worker_id=worker_id))
 
             return acquired_jobs
 
