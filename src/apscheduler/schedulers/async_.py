@@ -14,6 +14,7 @@ from anyio import TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_clas
 from anyio.abc import TaskGroup
 
 from ..abc import AsyncDataStore, DataStore, EventSource, Job, Schedule, Trigger
+from ..context import current_scheduler
 from ..datastores.async_adapter import AsyncDataStoreAdapter
 from ..datastores.memory import MemoryDataStore
 from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState
@@ -80,8 +81,12 @@ class AsyncScheduler:
 
         # Start the built-in worker, if configured to do so
         if self.start_worker:
-            self._worker = AsyncWorker(self.data_store)
-            await self._exit_stack.enter_async_context(self._worker)
+            token = current_scheduler.set(self)
+            try:
+                self._worker = AsyncWorker(self.data_store)
+                await self._exit_stack.enter_async_context(self._worker)
+            finally:
+                current_scheduler.reset(token)
 
         # Start the worker and return when it has signalled readiness or raised an exception
         self._task_group = create_task_group()

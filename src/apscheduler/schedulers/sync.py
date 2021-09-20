@@ -12,6 +12,7 @@ from typing import Any, Callable, Iterable, Mapping, Optional
 from uuid import UUID, uuid4
 
 from ..abc import DataStore, EventSource, Trigger
+from ..context import current_scheduler
 from ..datastores.memory import MemoryDataStore
 from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState
 from ..eventbrokers.local import LocalEventBroker
@@ -74,8 +75,12 @@ class Scheduler:
 
         # Start the built-in worker, if configured to do so
         if self.start_worker:
-            self._worker = Worker(self.data_store)
-            self._exit_stack.enter_context(self._worker)
+            token = current_scheduler.set(self)
+            try:
+                self._worker = Worker(self.data_store)
+                self._exit_stack.enter_context(self._worker)
+            finally:
+                current_scheduler.reset(token)
 
         # Start the scheduler and return when it has signalled readiness or raised an exception
         start_future: Future[Event] = Future()

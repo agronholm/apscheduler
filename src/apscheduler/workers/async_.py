@@ -14,11 +14,12 @@ from anyio import TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_clas
 from anyio.abc import CancelScope
 
 from ..abc import AsyncDataStore, DataStore, EventSource, Job
+from ..context import current_worker, job_info
 from ..datastores.async_adapter import AsyncDataStoreAdapter
 from ..enums import JobOutcome, RunState
 from ..eventbrokers.async_local import LocalAsyncEventBroker
 from ..events import JobAdded, WorkerStarted, WorkerStopped
-from ..structures import JobResult
+from ..structures import JobInfo, JobResult
 
 
 class AsyncWorker:
@@ -88,6 +89,9 @@ class AsyncWorker:
             raise RuntimeError(f'This function cannot be called while the worker is in the '
                                f'{self._state} state')
 
+        # Set the current worker
+        token = current_worker.set(self)
+
         # Signal that the worker has started
         self._state = RunState.started
         task_status.started()
@@ -114,6 +118,7 @@ class AsyncWorker:
 
             raise
 
+        current_worker.reset(token)
         self._state = RunState.stopped
         await self._events.publish(WorkerStopped())
 
@@ -126,6 +131,7 @@ class AsyncWorker:
                 await self.data_store.release_job(self.identity, job.task_id, result)
                 return
 
+            token = job_info.set(JobInfo.from_job(job))
             try:
                 retval = func(*job.args, **job.kwargs)
                 if isawaitable(retval):
@@ -142,5 +148,7 @@ class AsyncWorker:
             else:
                 result = JobResult(job_id=job.id, outcome=JobOutcome.success, return_value=retval)
                 await self.data_store.release_job(self.identity, job.task_id, result)
+            finally:
+                job_info.reset(token)
         finally:
             self._running_jobs.remove(job.id)

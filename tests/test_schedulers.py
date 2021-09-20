@@ -10,12 +10,14 @@ import pytest
 from anyio import fail_after
 from pytest_mock import MockerFixture
 
+from apscheduler.context import current_scheduler, current_worker, job_info
 from apscheduler.enums import JobOutcome
 from apscheduler.events import (
     Event, JobAdded, ScheduleAdded, ScheduleRemoved, SchedulerStarted, SchedulerStopped, TaskAdded)
 from apscheduler.exceptions import JobLookupError
 from apscheduler.schedulers.async_ import AsyncScheduler
 from apscheduler.schedulers.sync import Scheduler
+from apscheduler.structures import Job, Task
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -164,6 +166,32 @@ class TestAsyncScheduler:
             with pytest.raises(RuntimeError, match='failing as requested'):
                 await scheduler.run_job(dummy_async_job, kwargs={'fail': True})
 
+    async def test_contextvars(self) -> None:
+        def check_contextvars() -> None:
+            assert current_scheduler.get() is scheduler
+            assert current_worker.get() is scheduler.worker
+            info = job_info.get()
+            assert info.task_id == 'task_id'
+            assert info.schedule_id == 'foo'
+            assert info.scheduled_fire_time == scheduled_fire_time
+            assert info.jitter == timedelta(seconds=2.16)
+            assert info.start_deadline == start_deadline
+            assert info.tags == {'foo', 'bar'}
+
+        scheduled_fire_time = datetime.now(timezone.utc)
+        start_deadline = datetime.now(timezone.utc) + timedelta(seconds=10)
+        async with AsyncScheduler() as scheduler:
+            await scheduler.data_store.add_task(Task(id='task_id', func=check_contextvars))
+            job = Job(task_id='task_id', schedule_id='foo',
+                      scheduled_fire_time=scheduled_fire_time, jitter=timedelta(seconds=2.16),
+                      start_deadline=start_deadline, tags={'foo', 'bar'})
+            await scheduler.data_store.add_job(job)
+            result = await scheduler.get_job_result(job.id)
+            if result.outcome is JobOutcome.error:
+                raise result.exception
+            else:
+                assert result.outcome is JobOutcome.success
+
 
 class TestSyncScheduler:
     def test_schedule_job(self):
@@ -280,3 +308,29 @@ class TestSyncScheduler:
         with Scheduler() as scheduler:
             with pytest.raises(RuntimeError, match='failing as requested'):
                 scheduler.run_job(dummy_sync_job, kwargs={'fail': True})
+
+    def test_contextvars(self) -> None:
+        def check_contextvars() -> None:
+            assert current_scheduler.get() is scheduler
+            assert current_worker.get() is scheduler.worker
+            info = job_info.get()
+            assert info.task_id == 'task_id'
+            assert info.schedule_id == 'foo'
+            assert info.scheduled_fire_time == scheduled_fire_time
+            assert info.jitter == timedelta(seconds=2.16)
+            assert info.start_deadline == start_deadline
+            assert info.tags == {'foo', 'bar'}
+
+        scheduled_fire_time = datetime.now(timezone.utc)
+        start_deadline = datetime.now(timezone.utc) + timedelta(seconds=10)
+        with Scheduler() as scheduler:
+            scheduler.data_store.add_task(Task(id='task_id', func=check_contextvars))
+            job = Job(task_id='task_id', schedule_id='foo',
+                      scheduled_fire_time=scheduled_fire_time, jitter=timedelta(seconds=2.16),
+                      start_deadline=start_deadline, tags={'foo', 'bar'})
+            scheduler.data_store.add_job(job)
+            result = scheduler.get_job_result(job.id)
+            if result.outcome is JobOutcome.error:
+                raise result.exception
+            else:
+                assert result.outcome is JobOutcome.success

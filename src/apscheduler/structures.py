@@ -124,6 +124,23 @@ class Job:
         return cls(**marshalled)
 
 
+@attr.define(kw_only=True)
+class JobInfo:
+    job_id: UUID
+    task_id: str
+    schedule_id: Optional[str]
+    scheduled_fire_time: Optional[datetime]
+    jitter: timedelta
+    start_deadline: Optional[datetime]
+    tags: frozenset[str]
+
+    @classmethod
+    def from_job(cls, job: Job) -> JobInfo:
+        return cls(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
+                   scheduled_fire_time=job.scheduled_fire_time, jitter=job.jitter,
+                   start_deadline=job.start_deadline, tags=job.tags)
+
+
 @attr.define(kw_only=True, frozen=True)
 class JobResult:
     job_id: UUID

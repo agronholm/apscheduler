@@ -5,16 +5,18 @@ import platform
 import threading
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import ExitStack
+from contextvars import copy_context
 from datetime import datetime, timezone
 from logging import Logger, getLogger
 from typing import Callable, Optional
 from uuid import UUID
 
 from ..abc import DataStore, EventSource
+from ..context import current_worker, job_info
 from ..enums import JobOutcome, RunState
 from ..eventbrokers.local import LocalEventBroker
 from ..events import JobAdded, WorkerStarted, WorkerStopped
-from ..structures import Job, JobResult
+from ..structures import Job, JobInfo, JobResult
 
 
 class Worker:
@@ -66,7 +68,7 @@ class Worker:
         start_future: Future[None] = Future()
         with self._events.subscribe(start_future.set_result, one_shot=True):
             self._executor = ThreadPoolExecutor(1)
-            run_future = self._executor.submit(self.run)
+            run_future = self._executor.submit(copy_context().run, self.run)
             wait([start_future, run_future], return_when=FIRST_COMPLETED)
 
         if run_future.done():
@@ -86,6 +88,9 @@ class Worker:
             raise RuntimeError(f'This function cannot be called while the worker is in the '
                                f'{self._state} state')
 
+        # Set the current worker
+        token = current_worker.set(self)
+
         # Signal that the worker has started
         self._state = RunState.started
         self._events.publish(WorkerStarted())
@@ -99,7 +104,7 @@ class Worker:
                     for job in jobs:
                         task = self.data_store.get_task(job.task_id)
                         self._running_jobs.add(job.id)
-                        executor.submit(self._run_job, job, task.func)
+                        executor.submit(copy_context().run, self._run_job, job, task.func)
 
                 self._wakeup_event.wait()
                 self._wakeup_event = threading.Event()
@@ -110,6 +115,7 @@ class Worker:
             raise
 
         executor.shutdown()
+        current_worker.reset(token)
         self._state = RunState.stopped
         self._events.publish(WorkerStopped())
 
@@ -122,6 +128,7 @@ class Worker:
                 self.data_store.release_job(self.identity, job.task_id, result)
                 return
 
+            token = job_info.set(JobInfo.from_job(job))
             try:
                 retval = func(*job.args, **job.kwargs)
             except BaseException as exc:
@@ -132,5 +139,7 @@ class Worker:
             else:
                 result = JobResult(job_id=job.id, outcome=JobOutcome.success, return_value=retval)
                 self.data_store.release_job(self.identity, job.task_id, result)
+            finally:
+                job_info.reset(token)
         finally:
             self._running_jobs.remove(job.id)
