@@ -1,21 +1,24 @@
 from __future__ import annotations
 
+import operator
 from collections import defaultdict
 from contextlib import ExitStack
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
-from typing import ClassVar, Iterable, Optional
+from typing import Any, Callable, ClassVar, Iterable, Optional
 from uuid import UUID
 
 import attr
 import pymongo
 from attr.validators import instance_of
+from bson import CodecOptions
+from bson.codec_options import TypeEncoder, TypeRegistry
 from pymongo import ASCENDING, DeleteOne, MongoClient, UpdateOne
 from pymongo.collection import Collection
 from pymongo.errors import DuplicateKeyError
 
 from ..abc import DataStore, EventBroker, EventSource, Job, Schedule, Serializer
-from ..enums import ConflictPolicy
+from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome
 from ..eventbrokers.local import LocalEventBroker
 from ..events import (
     DataStoreEvent, JobAcquired, JobAdded, JobReleased, ScheduleAdded, ScheduleRemoved,
@@ -25,6 +28,19 @@ from ..exceptions import (
 from ..serializers.pickle import PickleSerializer
 from ..structures import JobResult, Task
 from ..util import reentrant
+
+
+class CustomEncoder(TypeEncoder):
+    def __init__(self, python_type: type, encoder: Callable):
+        self._python_type = python_type
+        self._encoder = encoder
+
+    @property
+    def python_type(self) -> type:
+        return self._python_type
+
+    def transform_python(self, value: Any) -> Any:
+        return self._encoder(value)
 
 
 @reentrant
@@ -45,13 +61,15 @@ class MongoDBDataStore(DataStore):
     _events: EventBroker = attr.field(init=False, factory=LocalEventBroker)
     _local_tasks: dict[str, Task] = attr.field(init=False, factory=dict)
 
-    @client.validator
-    def validate_client(self, attribute: attr.Attribute, value: MongoClient) -> None:
-        if not value.delegate.codec_options.tz_aware:
-            raise ValueError('MongoDB client must have tz_aware set to True')
-
     def __attrs_post_init__(self) -> None:
-        database = self.client[self.database]
+        type_registry = TypeRegistry([
+            CustomEncoder(timedelta, timedelta.total_seconds),
+            CustomEncoder(ConflictPolicy, operator.attrgetter('name')),
+            CustomEncoder(CoalescePolicy, operator.attrgetter('name')),
+            CustomEncoder(JobOutcome, operator.attrgetter('name'))
+        ])
+        codec_options = CodecOptions(tz_aware=True, type_registry=type_registry)
+        database = self.client.get_database(self.database, codec_options=codec_options)
         self._tasks: Collection = database['tasks']
         self._schedules: Collection = database['schedules']
         self._jobs: Collection = database['jobs']

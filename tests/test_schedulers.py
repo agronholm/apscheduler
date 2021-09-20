@@ -1,10 +1,14 @@
+import sys
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+from uuid import UUID
 
 import anyio
 import pytest
 from anyio import fail_after
+from pytest_mock import MockerFixture
 
 from apscheduler.enums import JobOutcome
 from apscheduler.events import (
@@ -13,6 +17,12 @@ from apscheduler.exceptions import JobLookupError
 from apscheduler.schedulers.async_ import AsyncScheduler
 from apscheduler.schedulers.sync import Scheduler
 from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
+
+if sys.version_info >= (3, 9):
+    from zoneinfo import ZoneInfo
+else:
+    from backports.zoneinfo import ZoneInfo
 
 pytestmark = pytest.mark.anyio
 
@@ -82,6 +92,44 @@ class TestAsyncScheduler:
 
         # There should be no more events on the list
         assert not received_events
+
+    @pytest.mark.parametrize('max_jitter, expected_upper_bound', [
+        pytest.param(2, 2, id='within'),
+        pytest.param(4, 2.999999, id='exceed')
+    ])
+    async def test_jitter(self, mocker: MockerFixture, timezone: ZoneInfo, max_jitter: float,
+                          expected_upper_bound: float) -> None:
+        def job_added_listener(event: Event) -> None:
+            nonlocal job_id
+            assert isinstance(event, JobAdded)
+            job_id = event.job_id
+            job_added_event.set()
+
+        jitter = 1.569374
+        orig_start_time = datetime.now(timezone) - timedelta(seconds=1)
+        fake_uniform = mocker.patch('random.uniform')
+        fake_uniform.configure_mock(side_effect=lambda a, b: jitter)
+        async with AsyncScheduler(start_worker=False) as scheduler:
+            trigger = IntervalTrigger(seconds=3, start_time=orig_start_time)
+            job_added_event = anyio.Event()
+            job_id: Optional[UUID] = None
+            scheduler.events.subscribe(job_added_listener, {JobAdded})
+            schedule_id = await scheduler.add_schedule(dummy_async_job, trigger,
+                                                       max_jitter=max_jitter)
+            schedule = await scheduler.get_schedule(schedule_id)
+            assert schedule.max_jitter == timedelta(seconds=max_jitter)
+
+            # Wait for the job to be added
+            with fail_after(3):
+                await job_added_event.wait()
+
+            fake_uniform.assert_called_once_with(0, expected_upper_bound)
+
+            # Check that the job was created with the proper amount of jitter in its scheduled time
+            jobs = await scheduler.data_store.get_jobs({job_id})
+            assert jobs[0].jitter == timedelta(seconds=jitter)
+            assert jobs[0].scheduled_fire_time == orig_start_time + timedelta(seconds=jitter)
+            assert jobs[0].original_scheduled_time == orig_start_time
 
     async def test_get_job_result_success(self) -> None:
         async with AsyncScheduler() as scheduler:
@@ -164,6 +212,42 @@ class TestSyncScheduler:
 
         # There should be no more events on the list
         assert not received_events
+
+    @pytest.mark.parametrize('max_jitter, expected_upper_bound', [
+        pytest.param(2, 2, id='within'),
+        pytest.param(4, 2.999999, id='exceed')
+    ])
+    def test_jitter(self, mocker: MockerFixture, timezone: ZoneInfo, max_jitter: float,
+                    expected_upper_bound: float) -> None:
+        def job_added_listener(event: Event) -> None:
+            nonlocal job_id
+            assert isinstance(event, JobAdded)
+            job_id = event.job_id
+            job_added_event.set()
+
+        jitter = 1.569374
+        orig_start_time = datetime.now(timezone) - timedelta(seconds=1)
+        fake_uniform = mocker.patch('random.uniform')
+        fake_uniform.configure_mock(side_effect=lambda a, b: jitter)
+        with Scheduler(start_worker=False) as scheduler:
+            trigger = IntervalTrigger(seconds=3, start_time=orig_start_time)
+            job_added_event = threading.Event()
+            job_id: Optional[UUID] = None
+            scheduler.events.subscribe(job_added_listener, {JobAdded})
+            schedule_id = scheduler.add_schedule(dummy_async_job, trigger, max_jitter=max_jitter)
+            schedule = scheduler.get_schedule(schedule_id)
+            assert schedule.max_jitter == timedelta(seconds=max_jitter)
+
+            # Wait for the job to be added
+            job_added_event.wait(3)
+
+            fake_uniform.assert_called_once_with(0, expected_upper_bound)
+
+            # Check that the job was created with the proper amount of jitter in its scheduled time
+            jobs = scheduler.data_store.get_jobs({job_id})
+            assert jobs[0].jitter == timedelta(seconds=jitter)
+            assert jobs[0].scheduled_fire_time == orig_start_time + timedelta(seconds=jitter)
+            assert jobs[0].original_scheduled_time == orig_start_time
 
     def test_get_job_result(self) -> None:
         with Scheduler() as scheduler:

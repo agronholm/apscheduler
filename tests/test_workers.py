@@ -77,8 +77,7 @@ class TestAsyncWorker:
         received_event = received_events.pop(0)
         assert isinstance(received_event, JobAcquired)
         assert received_event.job_id == job.id
-        assert received_event.task_id == 'task_id'
-        assert received_event.schedule_id is None
+        assert received_event.worker_id == worker.identity
 
         received_event = received_events.pop(0)
         if fail:
@@ -100,7 +99,7 @@ class TestAsyncWorker:
     async def test_run_deadline_missed(self) -> None:
         def listener(received_event: Event):
             received_events.append(received_event)
-            if len(received_events) == 4:
+            if len(received_events) == 5:
                 event.set()
 
         scheduled_start_time = datetime(2020, 9, 14, tzinfo=timezone.utc)
@@ -134,13 +133,18 @@ class TestAsyncWorker:
         assert received_event.task_id == 'task_id'
         assert received_event.schedule_id == 'foo'
 
-        # Then the deadline was missed
+        # The worker acquired the job
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, JobAcquired)
+        assert received_event.job_id == job.id
+        assert received_event.worker_id == worker.identity
+
+        # The worker determined that the deadline has been missed
         received_event = received_events.pop(0)
         assert isinstance(received_event, JobReleased)
         assert received_event.outcome is JobOutcome.missed_start_deadline
         assert received_event.job_id == job.id
-        assert received_event.task_id == 'task_id'
-        assert received_event.schedule_id == 'foo'
+        assert received_event.worker_id == worker.identity
 
         # Finally, the worker was stopped
         received_event = received_events.pop(0)
@@ -189,8 +193,7 @@ class TestSyncWorker:
         received_event = received_events.pop(0)
         assert isinstance(received_event, JobAcquired)
         assert received_event.job_id == job.id
-        assert received_event.task_id == 'task_id'
-        assert received_event.schedule_id is None
+        assert received_event.worker_id == worker.identity
 
         received_event = received_events.pop(0)
         if fail:
@@ -212,7 +215,7 @@ class TestSyncWorker:
     def test_run_deadline_missed(self) -> None:
         def listener(worker_event: Event):
             received_events.append(worker_event)
-            if len(received_events) == 4:
+            if len(received_events) == 5:
                 event.set()
 
         scheduled_start_time = datetime(2020, 9, 14, tzinfo=timezone.utc)
@@ -227,7 +230,7 @@ class TestSyncWorker:
                       scheduled_fire_time=scheduled_start_time,
                       start_deadline=datetime(2020, 9, 14, 1, tzinfo=timezone.utc))
             worker.data_store.add_job(job)
-            event.wait(5)
+            event.wait(3)
 
         # The worker was first started
         received_event = received_events.pop(0)
@@ -245,13 +248,18 @@ class TestSyncWorker:
         assert received_event.task_id == 'task_id'
         assert received_event.schedule_id == 'foo'
 
-        # Then the deadline was missed
+        # The worker acquired the job
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, JobAcquired)
+        assert received_event.job_id == job.id
+        assert received_event.worker_id == worker.identity
+
+        # The worker determined that the deadline has been missed
         received_event = received_events.pop(0)
         assert isinstance(received_event, JobReleased)
         assert received_event.outcome is JobOutcome.missed_start_deadline
         assert received_event.job_id == job.id
-        assert received_event.task_id == 'task_id'
-        assert received_event.schedule_id == 'foo'
+        assert received_event.worker_id == worker.identity
 
         # Finally, the worker was stopped
         received_event = received_events.pop(0)

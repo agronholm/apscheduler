@@ -8,8 +8,8 @@ from uuid import UUID
 
 import attr
 from sqlalchemy import (
-    JSON, TIMESTAMP, Column, Enum, Integer, LargeBinary, MetaData, Table, TypeDecorator, Unicode,
-    and_, bindparam, or_, select)
+    JSON, TIMESTAMP, BigInteger, Column, Enum, Integer, LargeBinary, MetaData, Table,
+    TypeDecorator, Unicode, and_, bindparam, or_, select)
 from sqlalchemy.engine import URL, Dialect, Result
 from sqlalchemy.exc import CompileError, IntegrityError
 from sqlalchemy.future import Engine, create_engine
@@ -52,6 +52,17 @@ class EmulatedTimestampTZ(TypeDecorator):
         return datetime.fromisoformat(value) if value is not None else None
 
 
+class EmulatedInterval(TypeDecorator):
+    impl = BigInteger()
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect: Dialect) -> Any:
+        return value.total_seconds() if value is not None else None
+
+    def process_result_value(self, value: Any, dialect: Dialect):
+        return timedelta(seconds=value) if value is not None else None
+
+
 @attr.define(kw_only=True, eq=False)
 class _BaseSQLAlchemyDataStore:
     schema: Optional[str] = attr.field(default=None)
@@ -88,9 +99,11 @@ class _BaseSQLAlchemyDataStore:
 
             timestamp_type = TIMESTAMP(timezone=True)
             job_id_type = postgresql.UUID(as_uuid=True)
+            interval_type = postgresql.INTERVAL(precision=6)
         else:
             timestamp_type = EmulatedTimestampTZ
             job_id_type = EmulatedUUID
+            interval_type = EmulatedInterval
 
         metadata = MetaData()
         Table(
@@ -105,7 +118,7 @@ class _BaseSQLAlchemyDataStore:
             Column('func', Unicode(500), nullable=False),
             Column('state', LargeBinary),
             Column('max_running_jobs', Integer),
-            Column('misfire_grace_time', Unicode(16)),
+            Column('misfire_grace_time', interval_type),
             Column('running_jobs', Integer, nullable=False, server_default=literal(0))
         )
         Table(
@@ -117,8 +130,8 @@ class _BaseSQLAlchemyDataStore:
             Column('args', LargeBinary),
             Column('kwargs', LargeBinary),
             Column('coalesce', Enum(CoalescePolicy), nullable=False),
-            Column('misfire_grace_time', Unicode(16)),
-            # Column('max_jitter', Unicode(16)),
+            Column('misfire_grace_time', interval_type),
+            Column('max_jitter', interval_type),
             Column('tags', JSON, nullable=False),
             Column('next_fire_time', timestamp_type, index=True),
             Column('last_fire_time', timestamp_type),
@@ -134,6 +147,7 @@ class _BaseSQLAlchemyDataStore:
             Column('kwargs', LargeBinary, nullable=False),
             Column('schedule_id', Unicode(500)),
             Column('scheduled_fire_time', timestamp_type),
+            Column('jitter', interval_type),
             Column('start_deadline', timestamp_type),
             Column('tags', JSON, nullable=False),
             Column('created_at', timestamp_type, nullable=False),
