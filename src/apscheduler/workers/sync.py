@@ -11,35 +11,36 @@ from logging import Logger, getLogger
 from typing import Callable, Optional
 from uuid import UUID
 
+import attr
+
 from ..abc import DataStore, EventSource
 from ..context import current_worker, job_info
 from ..enums import JobOutcome, RunState
 from ..eventbrokers.local import LocalEventBroker
 from ..events import JobAdded, WorkerStarted, WorkerStopped
 from ..structures import Job, JobInfo, JobResult
+from ..validators import positive_integer
 
 
+@attr.define(eq=False)
 class Worker:
     """Runs jobs locally in a thread pool."""
+    data_store: DataStore
+    max_concurrent_jobs: int = attr.field(kw_only=True, validator=positive_integer, default=20)
+    identity: str = attr.field(kw_only=True, default=None)
+    logger: Optional[Logger] = attr.field(kw_only=True, default=getLogger(__name__))
 
-    _executor: ThreadPoolExecutor
-    _state: RunState = RunState.stopped
-    _wakeup_event: threading.Event
+    _state: RunState = attr.field(init=False, default=RunState.stopped)
+    _wakeup_event: threading.Event = attr.field(init=False)
+    _acquired_jobs: set[Job] = attr.field(init=False, factory=set)
+    _events: LocalEventBroker = attr.field(init=False, factory=LocalEventBroker)
+    _running_jobs: set[UUID] = attr.field(init=False, factory=set)
+    _exit_stack: ExitStack = attr.field(init=False)
+    _executor: ThreadPoolExecutor = attr.field(init=False)
 
-    def __init__(self, data_store: DataStore, *, max_concurrent_jobs: int = 20,
-                 identity: Optional[str] = None, logger: Optional[Logger] = None):
-        self.max_concurrent_jobs = max_concurrent_jobs
-        self.identity = identity or f'{platform.node()}-{os.getpid()}-{id(self)}'
-        self.logger = logger or getLogger(__name__)
-        self._acquired_jobs: set[Job] = set()
-        self._exit_stack = ExitStack()
-        self._events = LocalEventBroker()
-        self._running_jobs: set[UUID] = set()
-
-        if self.max_concurrent_jobs < 1:
-            raise ValueError('max_concurrent_jobs must be at least 1')
-
-        self.data_store = data_store
+    def __attrs_post_init__(self) -> None:
+        if not self.identity:
+            self.identity = f'{platform.node()}-{os.getpid()}-{id(self)}'
 
     @property
     def events(self) -> EventSource:
@@ -52,6 +53,7 @@ class Worker:
     def __enter__(self) -> Worker:
         self._state = RunState.starting
         self._wakeup_event = threading.Event()
+        self._exit_stack = ExitStack()
         self._exit_stack.__enter__()
         self._exit_stack.enter_context(self._events)
 

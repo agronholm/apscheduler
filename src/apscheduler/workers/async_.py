@@ -10,44 +10,38 @@ from typing import Callable, Optional
 from uuid import UUID
 
 import anyio
+import attr
 from anyio import TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class, move_on_after
 from anyio.abc import CancelScope
 
-from ..abc import AsyncDataStore, DataStore, EventSource, Job
+from ..abc import AsyncDataStore, EventSource, Job
 from ..context import current_worker, job_info
-from ..datastores.async_adapter import AsyncDataStoreAdapter
+from ..converters import as_async_datastore
 from ..enums import JobOutcome, RunState
 from ..eventbrokers.async_local import LocalAsyncEventBroker
 from ..events import JobAdded, WorkerStarted, WorkerStopped
 from ..structures import JobInfo, JobResult
+from ..validators import positive_integer
 
 
+@attr.define(eq=False)
 class AsyncWorker:
     """Runs jobs locally in a task group."""
+    data_store: AsyncDataStore = attr.field(converter=as_async_datastore)
+    max_concurrent_jobs: int = attr.field(kw_only=True, validator=positive_integer, default=100)
+    identity: str = attr.field(kw_only=True, default=None)
+    logger: Optional[Logger] = attr.field(kw_only=True, default=getLogger(__name__))
 
-    _stop_event: Optional[anyio.Event] = None
-    _state: RunState = RunState.stopped
-    _acquire_cancel_scope: Optional[CancelScope] = None
-    _wakeup_event: anyio.Event
+    _state: RunState = attr.field(init=False, default=RunState.stopped)
+    _wakeup_event: anyio.Event = attr.field(init=False, factory=anyio.Event)
+    _acquired_jobs: set[Job] = attr.field(init=False, factory=set)
+    _events: LocalAsyncEventBroker = attr.field(init=False, factory=LocalAsyncEventBroker)
+    _running_jobs: set[UUID] = attr.field(init=False, factory=set)
+    _exit_stack: AsyncExitStack = attr.field(init=False)
 
-    def __init__(self, data_store: DataStore | AsyncDataStore, *,
-                 max_concurrent_jobs: int = 100, identity: Optional[str] = None,
-                 logger: Optional[Logger] = None):
-        self.max_concurrent_jobs = max_concurrent_jobs
-        self.identity = identity or f'{platform.node()}-{os.getpid()}-{id(self)}'
-        self.logger = logger or getLogger(__name__)
-        self._acquired_jobs: set[Job] = set()
-        self._exit_stack = AsyncExitStack()
-        self._events = LocalAsyncEventBroker()
-        self._running_jobs: set[UUID] = set()
-
-        if self.max_concurrent_jobs < 1:
-            raise ValueError('max_concurrent_jobs must be at least 1')
-
-        if isinstance(data_store, DataStore):
-            self.data_store = AsyncDataStoreAdapter(data_store)
-        else:
-            self.data_store = data_store
+    def __attrs_post_init__(self) -> None:
+        if not self.identity:
+            self.identity = f'{platform.node()}-{os.getpid()}-{id(self)}'
 
     @property
     def events(self) -> EventSource:
@@ -60,6 +54,7 @@ class AsyncWorker:
     async def __aenter__(self):
         self._state = RunState.starting
         self._wakeup_event = anyio.Event()
+        self._exit_stack = AsyncExitStack()
         await self._exit_stack.__aenter__()
         await self._exit_stack.enter_async_context(self._events)
 

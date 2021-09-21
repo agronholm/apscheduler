@@ -5,6 +5,8 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID
 
+from . import abc
+
 
 def as_aware_datetime(value: datetime | str) -> Optional[datetime]:
     """Convert the value from a string to a timezone aware datetime."""
@@ -41,3 +43,11 @@ def as_enum(enum_class: type[Enum]):
         return value
 
     return converter
+
+
+def as_async_datastore(value: abc.DataStore | abc.AsyncDataStore) -> abc.AsyncDataStore:
+    if isinstance(value, abc.DataStore):
+        from apscheduler.datastores.async_adapter import AsyncDataStoreAdapter
+        return AsyncDataStoreAdapter(value)
+
+    return value

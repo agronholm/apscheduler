@@ -10,12 +10,12 @@ from typing import Any, Callable, Iterable, Mapping, Optional
 from uuid import UUID, uuid4
 
 import anyio
+import attr
 from anyio import TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class, move_on_after
-from anyio.abc import TaskGroup
 
-from ..abc import AsyncDataStore, DataStore, EventSource, Job, Schedule, Trigger
+from ..abc import AsyncDataStore, EventSource, Job, Schedule, Trigger
 from ..context import current_scheduler
-from ..datastores.async_adapter import AsyncDataStoreAdapter
+from ..converters import as_async_datastore
 from ..datastores.memory import MemoryDataStore
 from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState
 from ..eventbrokers.async_local import LocalAsyncEventBroker
@@ -30,29 +30,24 @@ _microsecond_delta = timedelta(microseconds=1)
 _zero_timedelta = timedelta()
 
 
+@attr.define(eq=False)
 class AsyncScheduler:
     """An asynchronous (AnyIO based) scheduler implementation."""
 
-    data_store: AsyncDataStore
-    _state: RunState = RunState.stopped
-    _wakeup_event: anyio.Event
-    _worker: Optional[AsyncWorker] = None
-    _task_group: Optional[TaskGroup] = None
+    data_store: AsyncDataStore = attr.field(converter=as_async_datastore, factory=MemoryDataStore)
+    identity: str = attr.field(kw_only=True, default=None)
+    start_worker: bool = attr.field(kw_only=True, default=True)
+    logger: Optional[Logger] = attr.field(kw_only=True, default=getLogger(__name__))
 
-    def __init__(self, data_store: DataStore | AsyncDataStore | None = None, *,
-                 identity: Optional[str] = None, logger: Optional[Logger] = None,
-                 start_worker: bool = True):
-        self.identity = identity or f'{platform.node()}-{os.getpid()}-{id(self)}'
-        self.logger = logger or getLogger(__name__)
-        self.start_worker = start_worker
-        self._exit_stack = AsyncExitStack()
-        self._events = LocalAsyncEventBroker()
+    _state: RunState = attr.field(init=False, default=RunState.stopped)
+    _wakeup_event: anyio.Event = attr.field(init=False)
+    _worker: Optional[AsyncWorker] = attr.field(init=False, default=None)
+    _events: LocalAsyncEventBroker = attr.field(init=False, factory=LocalAsyncEventBroker)
+    _exit_stack: AsyncExitStack = attr.field(init=False)
 
-        data_store = data_store or MemoryDataStore()
-        if isinstance(data_store, DataStore):
-            self.data_store = AsyncDataStoreAdapter(data_store)
-        else:
-            self.data_store = data_store
+    def __attrs_post_init__(self) -> None:
+        if not self.identity:
+            self.identity = f'{platform.node()}-{os.getpid()}-{id(self)}'
 
     @property
     def events(self) -> EventSource:
@@ -65,6 +60,7 @@ class AsyncScheduler:
     async def __aenter__(self):
         self._state = RunState.starting
         self._wakeup_event = anyio.Event()
+        self._exit_stack = AsyncExitStack()
         await self._exit_stack.__aenter__()
         await self._exit_stack.enter_async_context(self._events)
 
@@ -89,16 +85,16 @@ class AsyncScheduler:
                 current_scheduler.reset(token)
 
         # Start the worker and return when it has signalled readiness or raised an exception
-        self._task_group = create_task_group()
-        await self._exit_stack.enter_async_context(self._task_group)
-        await self._task_group.start(self.run)
+        task_group = create_task_group()
+        await self._exit_stack.enter_async_context(task_group)
+        await task_group.start(self.run)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         self._state = RunState.stopping
         self._wakeup_event.set()
         await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
-        del self._task_group
+        self._state = RunState.stopped
         del self._wakeup_event
 
     async def add_schedule(
