@@ -20,7 +20,7 @@ from ..datastores.memory import MemoryDataStore
 from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState
 from ..eventbrokers.async_local import LocalAsyncEventBroker
 from ..events import (
-    JobReleased, ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated)
+    Event, JobReleased, ScheduleAdded, SchedulerStarted, SchedulerStopped, ScheduleUpdated)
 from ..exceptions import JobCancelled, JobDeadlineMissed, JobLookupError
 from ..marshalling import callable_to_ref
 from ..structures import JobResult, Task
@@ -71,7 +71,7 @@ class AsyncScheduler:
         # Wake up the scheduler if the data store emits a significant schedule event
         self._exit_stack.enter_context(
             self.data_store.events.subscribe(
-                lambda event: self._wakeup_event.set(), {ScheduleAdded, ScheduleUpdated}
+                self._schedule_added_or_modified, {ScheduleAdded, ScheduleUpdated}
             )
         )
 
@@ -96,6 +96,10 @@ class AsyncScheduler:
         await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
         self._state = RunState.stopped
         del self._wakeup_event
+
+    def _schedule_added_or_modified(self, event: Event) -> None:
+        self.logger.debug('Detected a %s event – waking up the scheduler', type(event).__name__)
+        self._wakeup_event.set()
 
     async def add_schedule(
         self, func_or_task_id: str | Callable, trigger: Trigger, *, id: Optional[str] = None,
@@ -296,12 +300,17 @@ class AsyncScheduler:
                 if len(schedules) < 100:
                     next_fire_time = await self.data_store.get_next_schedule_run_time()
                     if next_fire_time:
-                        wait_time = (datetime.now(timezone.utc) - next_fire_time).total_seconds()
+                        wait_time = (next_fire_time - datetime.now(timezone.utc)).total_seconds()
+                        self.logger.debug('Sleeping %.3f seconds until the next fire time (%s)',
+                                          wait_time, next_fire_time)
+                    else:
+                        self.logger.debug('Waiting for any due schedules to appear')
+                else:
+                    self.logger.debug('Processing more schedules on the next iteration')
 
                 with move_on_after(wait_time):
                     await self._wakeup_event.wait()
-
-                self._wakeup_event = anyio.Event()
+                    self._wakeup_event = anyio.Event()
         except get_cancelled_exc_class():
             pass
         except BaseException as exc:
