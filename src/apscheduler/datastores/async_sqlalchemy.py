@@ -281,7 +281,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
             await self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
     async def get_next_schedule_run_time(self) -> Optional[datetime]:
-        statenent = select(self.t_schedules.c.id).\
+        statenent = select(self.t_schedules.c.next_fire_time).\
             where(self.t_schedules.c.next_fire_time.isnot(None)).\
             order_by(self.t_schedules.c.next_fire_time).\
             limit(1)

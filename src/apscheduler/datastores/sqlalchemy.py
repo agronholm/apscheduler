@@ -284,9 +284,6 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
         try:
             with self.engine.begin() as conn:
                 conn.execute(insert)
-                event = ScheduleAdded(schedule_id=schedule.id,
-                                      next_fire_time=schedule.next_fire_time)
-                self._events.publish(event)
         except IntegrityError:
             if conflict_policy is ConflictPolicy.exception:
                 raise ConflictingIdError(schedule.id) from None
@@ -301,6 +298,10 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
                 event = ScheduleUpdated(schedule_id=schedule.id,
                                         next_fire_time=schedule.next_fire_time)
                 self._events.publish(event)
+        else:
+            event = ScheduleAdded(schedule_id=schedule.id,
+                                  next_fire_time=schedule.next_fire_time)
+            self._events.publish(event)
 
     def remove_schedules(self, ids: Iterable[str]) -> None:
         with self.engine.begin() as conn:
@@ -413,7 +414,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
             self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
     def get_next_schedule_run_time(self) -> Optional[datetime]:
-        query = select(self.t_schedules.c.id).\
+        query = select(self.t_schedules.c.next_fire_time).\
             where(self.t_schedules.c.next_fire_time.isnot(None)).\
             order_by(self.t_schedules.c.next_fire_time).\
             limit(1)
