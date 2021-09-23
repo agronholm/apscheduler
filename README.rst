@@ -1,8 +1,8 @@
-.. image:: https://travis-ci.com/agronholm/apscheduler.svg?branch=master
+.. image:: https://travis-ci.com/agronholm/apscheduler.svg?branch=3.x
   :target: https://travis-ci.com/agronholm/apscheduler
   :alt: Build Status
-.. image:: https://coveralls.io/repos/github/agronholm/apscheduler/badge.svg?branch=master
-  :target: https://coveralls.io/github/agronholm/apscheduler?branch=master
+.. image:: https://coveralls.io/repos/github/agronholm/apscheduler/badge.svg?branch=3.x
+  :target: https://coveralls.io/github/agronholm/apscheduler?branch=3.x
   :alt: Code Coverage
 
 Advanced Python Scheduler (APScheduler) is a Python library that lets you schedule your Python code
@@ -57,13 +57,13 @@ There are third party solutions for integrating APScheduler with other framework
 Documentation
 -------------
 
-Documentation can be found `here <http://readthedocs.org/docs/apscheduler/en/latest/>`_.
+Documentation can be found `here <https://apscheduler.readthedocs.io/>`_.
 
 
 Source
 ------
 
-The source can be browsed at `Github <https://github.com/agronholm/apscheduler>`_.
+The source can be browsed at `Github <https://github.com/agronholm/apscheduler/tree/3.x>`_.
 
 
 Reporting bugs
