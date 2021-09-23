@@ -16,16 +16,12 @@ jobs:
 
     - &test
       stage: test
-      env: TOXENV=pypy
-      python: pypy
+      env: TOXENV=pypy3
+      python: pypy3
       before_install: docker-compose up -d
       after_success:
         - pip install coveralls
         - coveralls
-
-    - <<: *test
-      env: TOXENV=pypy3
-      python: pypy3
 
     - <<: *test
       env: TOXENV=py27
