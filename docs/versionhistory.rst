@@ -4,6 +4,13 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.8.0
+-----
+
+* Allowed passing through keyword arguments to the underlying stdlib executors in the
+  thread/process pool executors (PR by Albert Xu)
+
+
 3.7.0
 -----
 
