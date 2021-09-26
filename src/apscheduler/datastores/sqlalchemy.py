@@ -336,7 +336,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
                            or_(self.t_schedules.c.acquired_until.is_(None),
                                self.t_schedules.c.acquired_until < now))).\
                 order_by(self.t_schedules.c.next_fire_time).\
-                limit(limit).cte()
+                limit(limit).with_for_update(skip_locked=True).cte()
             subselect = select([schedules_cte.c.id])
             update = self.t_schedules.update().\
                 where(self.t_schedules.c.id.in_(subselect)).\
@@ -451,6 +451,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
                 where(or_(self.t_jobs.c.acquired_until.is_(None),
                           self.t_jobs.c.acquired_until < now)).\
                 order_by(self.t_jobs.c.created_at).\
+                with_for_update(skip_locked=True).\
                 limit(limit)
 
             result = conn.execute(query)
