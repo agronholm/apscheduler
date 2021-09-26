@@ -70,7 +70,6 @@ class _BaseSQLAlchemyDataStore:
     lock_expiration_delay: float = attr.field(default=30)
     max_poll_time: Optional[float] = attr.field(default=1)
     max_idle_time: float = attr.field(default=60)
-    notify_channel: Optional[str] = attr.field(default='apscheduler')
     start_from_scratch: bool = attr.field(default=False)
 
     _logger: Logger = attr.field(init=False, factory=lambda: getLogger(__name__))
