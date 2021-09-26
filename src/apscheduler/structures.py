@@ -6,6 +6,9 @@ from typing import Any, Callable, Optional
 from uuid import UUID, uuid4
 
 import attr
+import tenacity.stop
+import tenacity.wait
+from attr.validators import instance_of
 
 from . import abc
 from .converters import as_enum, as_timedelta
@@ -172,3 +175,15 @@ class JobResult:
             marshalled['return_value'] = serializer.deserialize(marshalled['return_value'])
 
         return cls(**marshalled)
+
+
+@attr.define(kw_only=True, frozen=True)
+class RetrySettings:
+    stop: tenacity.stop.stop_base = attr.field(validator=instance_of(tenacity.stop.stop_base),
+                                               default=tenacity.stop_after_delay(60))
+    wait: tenacity.wait.wait_base = attr.field(validator=instance_of(tenacity.wait.wait_base),
+                                               default=tenacity.wait_exponential(min=0.5, max=20))
+
+    @classmethod
+    def fail_immediately(cls) -> RetrySettings:
+        return cls(stop=tenacity.stop_after_attempt(1))
