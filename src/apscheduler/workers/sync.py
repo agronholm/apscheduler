@@ -98,6 +98,7 @@ class Worker:
         self._events.publish(WorkerStarted())
 
         executor = ThreadPoolExecutor(max_workers=self.max_concurrent_jobs)
+        exception: Optional[BaseException] = None
         try:
             while self._state is RunState.started:
                 available_slots = self.max_concurrent_jobs - len(self._running_jobs)
@@ -111,15 +112,15 @@ class Worker:
                 self._wakeup_event.wait()
                 self._wakeup_event = threading.Event()
         except BaseException as exc:
-            executor.shutdown(wait=False)
+            self.logger.exception('Worker crashed')
+            exception = exc
+        else:
+            self.logger.info('Worker stopped')
+        finally:
+            current_worker.reset(token)
             self._state = RunState.stopped
-            self._events.publish(WorkerStopped(exception=exc))
-            raise
-
-        executor.shutdown()
-        current_worker.reset(token)
-        self._state = RunState.stopped
-        self._events.publish(WorkerStopped())
+            self._events.publish(WorkerStopped(exception=exception))
+            executor.shutdown()
 
     def _run_job(self, job: Job, func: Callable) -> None:
         try:

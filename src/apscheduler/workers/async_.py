@@ -92,6 +92,7 @@ class AsyncWorker:
         task_status.started()
         await self._events.publish(WorkerStarted())
 
+        exception: Optional[BaseException] = None
         try:
             async with create_task_group() as tg:
                 while self._state is RunState.started:
@@ -107,15 +108,16 @@ class AsyncWorker:
         except get_cancelled_exc_class():
             pass
         except BaseException as exc:
+            self.logger.exception('Worker crashed')
+            exception = exc
+        else:
+            self.logger.info('Worker stopped')
+        finally:
+            current_worker.reset(token)
             self._state = RunState.stopped
-            with move_on_after(1, shield=True):
-                await self._events.publish(WorkerStopped(exception=exc))
-
-            raise
-
-        current_worker.reset(token)
-        self._state = RunState.stopped
-        await self._events.publish(WorkerStopped())
+            self.logger.exception('Worker crashed')
+            with move_on_after(3, shield=True):
+                await self._events.publish(WorkerStopped(exception=exception))
 
     async def _run_job(self, job: Job, func: Callable) -> None:
         try:

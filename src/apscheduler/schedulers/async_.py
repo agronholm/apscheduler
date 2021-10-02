@@ -234,6 +234,7 @@ class AsyncScheduler:
         task_status.started()
         await self._events.publish(SchedulerStarted())
 
+        exception: Optional[BaseException] = None
         try:
             while self._state is RunState.started:
                 schedules = await self.data_store.acquire_schedules(self.identity, 100)
@@ -314,9 +315,11 @@ class AsyncScheduler:
         except get_cancelled_exc_class():
             pass
         except BaseException as exc:
+            self.logger.exception('Scheduler crashed')
+            exception = exc
+        else:
+            self.logger.info('Scheduler stopped')
+        finally:
             self._state = RunState.stopped
-            await self._events.publish(SchedulerStopped(exception=exc))
-            raise
-
-        self._state = RunState.stopped
-        await self._events.publish(SchedulerStopped())
+            with move_on_after(3, shield=True):
+                await self._events.publish(SchedulerStopped(exception=exception))

@@ -323,10 +323,12 @@ class Scheduler:
                     self._wakeup_event = threading.Event()
         except BaseException as exc:
             self._state = RunState.stopped
+            self.logger.exception('Scheduler crashed')
             self._events.publish(SchedulerStopped(exception=exc))
             raise
 
         self._state = RunState.stopped
+        self.logger.info('Scheduler stopped')
         self._events.publish(SchedulerStopped())
 
     # def stop(self) -> None:
