@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, tzinfo
-from typing import ClassVar, Optional, Sequence
+from typing import Any, ClassVar, Optional, Sequence
 
 import attr
 from tzlocal import get_localzone
@@ -139,9 +139,8 @@ class CronTrigger(Trigger):
         dateval = datetime.fromtimestamp(dateval.timestamp() + difference.total_seconds(),
                                          self.timezone)
         return dateval, fieldnum
-        # return datetime_normalize(dateval + difference), fieldnum
 
-    def _set_field_value(self, dateval, fieldnum, new_value):
+    def _set_field_value(self, dateval: datetime, fieldnum: int, new_value: int) -> datetime:
         values = {}
         for i, field in enumerate(self._fields):
             if field.real:
@@ -189,7 +188,7 @@ class CronTrigger(Trigger):
             self._last_fire_time = next_time
             return next_time
 
-    def __getstate__(self):
+    def __getstate__(self) -> dict[str, Any]:
         return {
             'version': 1,
             'timezone': marshal_timezone(self.timezone),
@@ -199,7 +198,7 @@ class CronTrigger(Trigger):
             'last_fire_time': marshal_date(self._last_fire_time)
         }
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
         self.timezone = unmarshal_timezone(state['timezone'])
         self.start_time = unmarshal_date(state['start_time'])
@@ -207,7 +206,7 @@ class CronTrigger(Trigger):
         self._last_fire_time = unmarshal_date(state['last_fire_time'])
         self._set_fields(state['fields'])
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         fields = [f'{field.name}={str(field)!r}' for field in self._fields]
         fields.append(f'start_time={self.start_time.isoformat()!r}')
         if self.end_time:

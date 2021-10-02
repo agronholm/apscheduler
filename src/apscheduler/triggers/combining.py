@@ -97,7 +97,7 @@ class AndTrigger(BaseCombiningTrigger):
         self.threshold = timedelta(seconds=state['threshold'])
         self.max_iterations = state['max_iterations']
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.triggers}, ' \
                f'threshold={self.threshold.total_seconds()}, max_iterations={self.max_iterations})'
 
@@ -134,5 +134,5 @@ class OrTrigger(BaseCombiningTrigger):
         require_state_version(self, state, 1)
         super().__setstate__(state)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.triggers})'

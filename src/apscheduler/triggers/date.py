@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 import attr
 
@@ -28,17 +28,17 @@ class DateTrigger(Trigger):
         else:
             return None
 
-    def __getstate__(self):
+    def __getstate__(self) -> dict[str, Any]:
         return {
             'version': 1,
             'run_time': marshal_date(self.run_time),
             'completed': self._completed
         }
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
         self.run_time = unmarshal_date(state['run_time'])
         self._completed = state['completed']
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}('{self.run_time}')"

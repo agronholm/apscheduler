@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
 
 import attr
 
@@ -38,7 +38,7 @@ class IntervalTrigger(Trigger):
     microseconds: float = 0
     start_time: datetime = attr.field(converter=as_aware_datetime, factory=datetime.now)
     end_time: Optional[datetime] = attr.field(converter=as_aware_datetime, default=None)
-    _interval: timedelta = attr.field(init=False, eq=False)
+    _interval: timedelta = attr.field(init=False, eq=False, repr=False)
     _last_fire_time: Optional[datetime] = attr.field(init=False, eq=False, default=None)
 
     def __attrs_post_init__(self) -> None:
@@ -63,7 +63,7 @@ class IntervalTrigger(Trigger):
         else:
             return None
 
-    def __getstate__(self):
+    def __getstate__(self) -> dict[str, Any]:
         return {
             'version': 1,
             'interval': [self.weeks, self.days, self.hours, self.minutes, self.seconds,
@@ -73,7 +73,7 @@ class IntervalTrigger(Trigger):
             'last_fire_time': marshal_date(self._last_fire_time)
         }
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
         self.weeks, self.days, self.hours, self.minutes, self.seconds, self.microseconds = \
             state['interval']
@@ -84,7 +84,7 @@ class IntervalTrigger(Trigger):
                                    minutes=self.minutes, seconds=self.seconds,
                                    microseconds=self.microseconds)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         fields = []
         for field in 'weeks', 'days', 'hours', 'minutes', 'seconds', 'microseconds':
             value = getattr(self, field)

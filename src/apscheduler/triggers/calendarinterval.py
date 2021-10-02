@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, tzinfo
-from typing import Optional
+from typing import Any, Optional
 
 import attr
 
@@ -112,7 +112,7 @@ class CalendarIntervalTrigger(Trigger):
                 self._last_fire_date = next_date
                 return next_time
 
-    def __getstate__(self):
+    def __getstate__(self) -> dict[str, Any]:
         return {
             'version': 1,
             'interval': [self.years, self.months, self.weeks, self.days],
@@ -123,7 +123,7 @@ class CalendarIntervalTrigger(Trigger):
             'last_fire_date': marshal_date(self._last_fire_date)
         }
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
         self.years, self.months, self.weeks, self.days = state['interval']
         self.start_date = unmarshal_date(state['start_date'])
@@ -132,7 +132,7 @@ class CalendarIntervalTrigger(Trigger):
         self._time = time(*state['time'], tzinfo=self.timezone)
         self._last_fire_date = unmarshal_date(state['last_fire_date'])
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         fields = []
         for field in 'years', 'months', 'weeks', 'days':
             value = getattr(self, field)
