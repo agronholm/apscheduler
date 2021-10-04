@@ -8,12 +8,14 @@ MONTHRANGE_CACHE = {}
 WEEKDAY_CACHE = {}
 BUSINESS_DAYS_CACHE = {}
 
+MAX_CACHE_SIZE = 2097152  # 2 MB
+
 
 def monthrange(year, month):
     
     global MONTHRANGE_CACHE
     
-    if sys_getsizeof(MONTHRANGE_CACHE) > 2097152:
+    if sys_getsizeof(MONTHRANGE_CACHE) > MAX_CACHE_SIZE:
         MONTHRANGE_CACHE = {}
     
     args = (year, month)
@@ -28,7 +30,7 @@ def get_weekday_in_month(year, month, day):
     
     global WEEKDAY_CACHE
     
-    if sys_getsizeof(WEEKDAY_CACHE) > 2097152:
+    if sys_getsizeof(WEEKDAY_CACHE) > MAX_CACHE_SIZE:
         WEEKDAY_CACHE = {}
     
     if not WEEKDAY_CACHE or (year, month, day) not in WEEKDAY_CACHE:
@@ -108,14 +110,16 @@ def get_business_days(year, month):
     
     global BUSINESS_DAYS_CACHE
     
-    if sys_getsizeof(BUSINESS_DAYS_CACHE) > 2097152:
+    if sys_getsizeof(BUSINESS_DAYS_CACHE) > MAX_CACHE_SIZE:
         BUSINESS_DAYS_CACHE = {}
+        
+    args = (year, month)
     
-    if not BUSINESS_DAYS_CACHE or (year, month) not in BUSINESS_DAYS_CACHE:
+    if not BUSINESS_DAYS_CACHE or args not in BUSINESS_DAYS_CACHE:
         
         business_days = {}
         
-        for week_list in monthcalendar(year, month):
+        for week_list in monthcalendar(*args):
             business_days.update(
                 zip(week_list, BUSINESS_DAYS)
             )
@@ -123,6 +127,6 @@ def get_business_days(year, month):
         if 0 in business_days:
             del business_days[0]
         
-        BUSINESS_DAYS_CACHE[(year, month)] = business_days
+        BUSINESS_DAYS_CACHE[args] = business_days
     
-    return BUSINESS_DAYS_CACHE[(year, month)]
+    return BUSINESS_DAYS_CACHE[args]
