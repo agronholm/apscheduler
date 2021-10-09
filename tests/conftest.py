@@ -41,10 +41,8 @@ def maxpython(*version):
 
 @pytest.fixture
 def timezone(monkeypatch):
-    tz = pytz.timezone('Europe/Berlin')
-    monkeypatch.setattr('apscheduler.schedulers.base.get_localzone',
-                        Mock(return_value=tz))
-    return tz
+    monkeypatch.setenv('TZ', 'Europe/Berlin')
+    return pytz.timezone('Europe/Berlin')
 
 
 @pytest.fixture

@@ -12,11 +12,6 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.combining import AndTrigger, OrTrigger, BaseCombiningTrigger
 
-try:
-    from unittest.mock import Mock
-except ImportError:
-    from mock import Mock
-
 
 class _DummyTriggerWithJitter(BaseTrigger):
     def __init__(self, dt, jitter):
@@ -114,7 +109,6 @@ class TestCronTrigger(object):
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_start_end_times_string(self, timezone, monkeypatch):
-        monkeypatch.setattr('apscheduler.triggers.cron.get_localzone', Mock(return_value=timezone))
         trigger = CronTrigger(start_date='2016-11-05 05:06:53', end_date='2017-11-05 05:11:32')
         assert trigger.start_date == timezone.localize(datetime(2016, 11, 5, 5, 6, 53))
         assert trigger.end_date == timezone.localize(datetime(2017, 11, 5, 5, 11, 32))
@@ -455,8 +449,6 @@ class TestIntervalTrigger(object):
         pytest.raises(TypeError, IntervalTrigger, '1-6', timezone=timezone)
 
     def test_start_end_times_string(self, timezone, monkeypatch):
-        monkeypatch.setattr('apscheduler.triggers.interval.get_localzone',
-                            Mock(return_value=timezone))
         trigger = IntervalTrigger(start_date='2016-11-05 05:06:53', end_date='2017-11-05 05:11:32')
         assert trigger.start_date == timezone.localize(datetime(2016, 11, 5, 5, 6, 53))
         assert trigger.end_date == timezone.localize(datetime(2017, 11, 5, 5, 11, 32))
