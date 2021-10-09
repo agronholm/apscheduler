@@ -4,6 +4,12 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+UNRELEASED
+----------
+
+- Enabled the use of ``tzlocal`` 4 and later
+
+
 3.8.0
 -----
 

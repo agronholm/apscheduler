@@ -11,6 +11,7 @@ import sys
 
 from pytz import timezone, utc, FixedOffset
 import six
+import tzlocal
 
 try:
     from inspect import signature
@@ -431,3 +432,13 @@ def iscoroutinefunction_partial(f):
     # The asyncio version of iscoroutinefunction includes testing for @coroutine
     # decorations vs. the inspect version which does not.
     return iscoroutinefunction(f)
+
+
+def get_pytz_localzone():
+    if hasattr(tzlocal, 'get_localzone_name'):
+        # tzlocal 4 or later
+        zone_name = tzlocal.get_localzone_name()
+        return timezone(zone_name)
+    else:
+        # tzlocal 2 or earlier
+        return tzlocal.get_localzone()

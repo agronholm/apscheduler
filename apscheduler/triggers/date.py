@@ -1,9 +1,7 @@
 from datetime import datetime
 
-from tzlocal import get_localzone
-
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import convert_to_datetime, datetime_repr, astimezone
+from apscheduler.util import convert_to_datetime, datetime_repr, astimezone, get_pytz_localzone
 
 
 class DateTrigger(BaseTrigger):
@@ -17,7 +15,7 @@ class DateTrigger(BaseTrigger):
     __slots__ = 'run_date'
 
     def __init__(self, run_date=None, timezone=None):
-        timezone = astimezone(timezone) or get_localzone()
+        timezone = astimezone(timezone) or get_pytz_localzone()
         if run_date is not None:
             self.run_date = convert_to_datetime(run_date, timezone, 'run_date')
         else:

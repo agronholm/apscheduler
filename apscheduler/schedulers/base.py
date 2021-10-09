@@ -8,7 +8,6 @@ import warnings
 import sys
 
 from pkg_resources import iter_entry_points
-from tzlocal import get_localzone
 import six
 
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
@@ -19,7 +18,8 @@ from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import (
-    asbool, asint, astimezone, maybe_ref, timedelta_seconds, undefined, TIMEOUT_MAX)
+    asbool, asint, astimezone, get_pytz_localzone, maybe_ref, timedelta_seconds, undefined,
+    TIMEOUT_MAX)
 from apscheduler.events import (
     SchedulerEvent, JobEvent, JobSubmissionEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN,
     EVENT_JOBSTORE_ADDED, EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_JOB_MODIFIED, EVENT_JOB_REMOVED,
@@ -699,7 +699,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     def _configure(self, config):
         # Set general options
         self._logger = maybe_ref(config.pop('logger', None)) or getLogger('apscheduler.scheduler')
-        self.timezone = astimezone(config.pop('timezone', None)) or get_localzone()
+        self.timezone = astimezone(config.pop('timezone', None)) or get_pytz_localzone()
         self.jobstore_retry_interval = float(config.pop('jobstore_retry_interval', 10))
 
         # Set the job defaults

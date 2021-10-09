@@ -1,8 +1,7 @@
 # coding: utf-8
 import os.path
 
-from setuptools import setup, find_packages
-
+from setuptools import find_packages, setup
 
 here = os.path.dirname(__file__)
 readme_path = os.path.join(here, 'README.rst')
@@ -41,7 +40,7 @@ setup(
         'setuptools >= 0.7',
         'six >= 1.4.0',
         'pytz',
-        'tzlocal ~= 2.0',
+        'tzlocal >= 2.0, != 3.*',
     ],
     extras_require={
         ':python_version == "2.7"': ['futures'],

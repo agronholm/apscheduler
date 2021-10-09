@@ -1,10 +1,9 @@
 from datetime import timedelta, datetime
 from math import ceil
 
-from tzlocal import get_localzone
-
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import convert_to_datetime, timedelta_seconds, datetime_repr, astimezone
+from apscheduler.util import (
+    convert_to_datetime, timedelta_seconds, datetime_repr, astimezone, get_pytz_localzone)
 
 
 class IntervalTrigger(BaseTrigger):
@@ -41,7 +40,7 @@ class IntervalTrigger(BaseTrigger):
         elif isinstance(end_date, datetime) and end_date.tzinfo:
             self.timezone = end_date.tzinfo
         else:
-            self.timezone = get_localzone()
+            self.timezone = get_pytz_localzone()
 
         start_date = start_date or (datetime.now(self.timezone) + self.interval)
         self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date')

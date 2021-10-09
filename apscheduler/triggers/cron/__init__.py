@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta
 
-from tzlocal import get_localzone
 import six
 
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.cron.fields import (
     BaseField, MonthField, WeekField, DayOfMonthField, DayOfWeekField, DEFAULT_VALUES)
-from apscheduler.util import datetime_ceil, convert_to_datetime, datetime_repr, astimezone
+from apscheduler.util import (
+    datetime_ceil, convert_to_datetime, datetime_repr, astimezone, get_pytz_localzone)
 
 
 class CronTrigger(BaseTrigger):
@@ -55,7 +55,7 @@ class CronTrigger(BaseTrigger):
         elif isinstance(end_date, datetime) and end_date.tzinfo:
             self.timezone = end_date.tzinfo
         else:
-            self.timezone = get_localzone()
+            self.timezone = get_pytz_localzone()
 
         self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date')
         self.end_date = convert_to_datetime(end_date, self.timezone, 'end_date')
