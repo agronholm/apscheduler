@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Stack Overflow
+    url: https://stackoverflow.com/questions/tagged/apscheduler
+    about: The preferred site for asking questions
+  - name: Support chat on Gitter
+    url: https://gitter.im/apscheduler/Lobby
+    about: Technical support chat
