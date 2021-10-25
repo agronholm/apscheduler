@@ -14,6 +14,15 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 .. _AnyIO: https://github.com/agronholm/anyio
 
+**3.8.1**
+
+- Allowed the use of tzlocal v4.0+ in addition to v2.*
+
+**3.8.0**
+
+- Allowed passing through keyword arguments to the underlying stdlib executors in the
+  thread/process pool executors (PR by Albert Xu)
+
 **3.7.0**
 
 - Dropped support for Python 3.4
