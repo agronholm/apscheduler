@@ -1,0 +1,48 @@
+name: Python codeqa/test
+
+on:
+  push:
+    branches: [3.x]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.x
+    - uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: pip-lint
+    - name: Install dependencies
+      run: pip install tox
+    - name: Run flake8
+      run: tox -e flake8
+
+  test-linux:
+    needs: [lint]
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.6", "3.9"]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: pip-test-${{ matrix.python-version }}-ubuntu-latest
+    - name: Start external services
+      run: docker-compose up -d
+    - name: Install the project and its dependencies
+      run: pip install -e .[testing,asyncio,gevent,mongodb,redis,rethinkdb,sqlalchemy,tornado,twisted,zookeeper]
+    - name: Test with pytest
+      run: pytest

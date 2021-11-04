@@ -56,7 +56,7 @@ setup(
         'twisted': ['twisted'],
         'zookeeper': ['kazoo'],
         'testing': [
-            'pytest < 6',
+            'pytest',
             'pytest-cov',
             'pytest-tornado5'
         ],
