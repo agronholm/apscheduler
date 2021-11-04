@@ -56,7 +56,7 @@ class IntervalTrigger(Trigger):
         if self._last_fire_time is None:
             self._last_fire_time = self.start_time
         else:
-            self._last_fire_time = self._last_fire_time + self._interval
+            self._last_fire_time += self._interval
 
         if self.end_time is None or self._last_fire_time <= self.end_time:
             return self._last_fire_time
