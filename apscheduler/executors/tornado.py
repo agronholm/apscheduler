@@ -3,6 +3,7 @@ from __future__ import absolute_import
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
+from tornado.ioloop import IOLoop
 from tornado.gen import convert_yielded
 
 from apscheduler.executors.base import BaseExecutor, run_job
@@ -33,6 +34,8 @@ class TornadoExecutor(BaseExecutor):
 
     def start(self, scheduler, alias):
         super(TornadoExecutor, self).start(scheduler, alias)
+        if not hasattr(scheduler, "_ioloop"):
+            scheduler._ioloop = IOLoop.current()
         self._ioloop = scheduler._ioloop
 
     def _do_submit_job(self, job, run_times):
