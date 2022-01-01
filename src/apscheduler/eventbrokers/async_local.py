@@ -4,7 +4,7 @@ from asyncio import iscoroutine
 from contextlib import AsyncExitStack
 from typing import Any, Callable
 
-import attr
+import attrs
 from anyio import create_task_group
 from anyio.abc import TaskGroup
 
@@ -15,10 +15,10 @@ from .base import BaseEventBroker
 
 
 @reentrant
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class LocalAsyncEventBroker(AsyncEventBroker, BaseEventBroker):
-    _task_group: TaskGroup = attr.field(init=False)
-    _exit_stack: AsyncExitStack = attr.field(init=False)
+    _task_group: TaskGroup = attrs.field(init=False)
+    _exit_stack: AsyncExitStack = attrs.field(init=False)
 
     async def __aenter__(self) -> LocalAsyncEventBroker:
         self._exit_stack = AsyncExitStack()

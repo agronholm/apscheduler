@@ -7,7 +7,7 @@ from functools import partial
 from typing import Any, Iterable, Optional
 from uuid import UUID
 
-import attr
+import attrs
 
 from ..abc import DataStore, EventBroker, EventSource, Job, Schedule
 from ..enums import ConflictPolicy
@@ -22,7 +22,7 @@ from ..util import reentrant
 max_datetime = datetime(MAXYEAR, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
 
 
-@attr.define
+@attrs.define
 class TaskState:
     task: Task
     running_jobs: int = 0
@@ -32,12 +32,12 @@ class TaskState:
         return self.task.id == other.task.id
 
 
-@attr.define
+@attrs.define
 class ScheduleState:
     schedule: Schedule
-    next_fire_time: Optional[datetime] = attr.field(init=False, eq=False)
-    acquired_by: Optional[str] = attr.field(init=False, eq=False, default=None)
-    acquired_until: Optional[datetime] = attr.field(init=False, eq=False, default=None)
+    next_fire_time: Optional[datetime] = attrs.field(init=False, eq=False)
+    acquired_by: Optional[str] = attrs.field(init=False, eq=False, default=None)
+    acquired_until: Optional[datetime] = attrs.field(init=False, eq=False, default=None)
 
     def __attrs_post_init__(self):
         self.next_fire_time = self.schedule.next_fire_time
@@ -57,12 +57,12 @@ class ScheduleState:
         return hash(self.schedule.id)
 
 
-@attr.define(order=True)
+@attrs.define(order=True)
 class JobState:
-    job: Job = attr.field(order=False)
-    created_at: datetime = attr.field(init=False, factory=partial(datetime.now, timezone.utc))
-    acquired_by: Optional[str] = attr.field(eq=False, order=False, default=None)
-    acquired_until: Optional[datetime] = attr.field(eq=False, order=False, default=None)
+    job: Job = attrs.field(order=False)
+    created_at: datetime = attrs.field(init=False, factory=partial(datetime.now, timezone.utc))
+    acquired_by: Optional[str] = attrs.field(eq=False, order=False, default=None)
+    acquired_until: Optional[datetime] = attrs.field(eq=False, order=False, default=None)
 
     def __eq__(self, other):
         return self.job.id == other.job.id
@@ -72,18 +72,18 @@ class JobState:
 
 
 @reentrant
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class MemoryDataStore(DataStore):
     lock_expiration_delay: float = 30
-    _events: EventBroker = attr.Factory(LocalEventBroker)
-    _tasks: dict[str, TaskState] = attr.Factory(dict)
-    _schedules: list[ScheduleState] = attr.Factory(list)
-    _schedules_by_id: dict[str, ScheduleState] = attr.Factory(dict)
-    _schedules_by_task_id: dict[str, set[ScheduleState]] = attr.Factory(partial(defaultdict, set))
-    _jobs: list[JobState] = attr.Factory(list)
-    _jobs_by_id: dict[UUID, JobState] = attr.Factory(dict)
-    _jobs_by_task_id: dict[str, set[JobState]] = attr.Factory(partial(defaultdict, set))
-    _job_results: dict[UUID, JobResult] = attr.Factory(dict)
+    _events: EventBroker = attrs.Factory(LocalEventBroker)
+    _tasks: dict[str, TaskState] = attrs.Factory(dict)
+    _schedules: list[ScheduleState] = attrs.Factory(list)
+    _schedules_by_id: dict[str, ScheduleState] = attrs.Factory(dict)
+    _schedules_by_task_id: dict[str, set[ScheduleState]] = attrs.Factory(partial(defaultdict, set))
+    _jobs: list[JobState] = attrs.Factory(list)
+    _jobs_by_id: dict[UUID, JobState] = attrs.Factory(dict)
+    _jobs_by_task_id: dict[str, set[JobState]] = attrs.Factory(partial(defaultdict, set))
+    _job_results: dict[UUID, JobResult] = attrs.Factory(dict)
 
     def _find_schedule_index(self, state: ScheduleState) -> Optional[int]:
         left_index = bisect_left(self._schedules, state)

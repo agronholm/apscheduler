@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta, tzinfo
 from typing import Any, Optional
 
-import attr
+import attrs
 
 from ..abc import Trigger
 from ..marshalling import marshal_date, marshal_timezone, unmarshal_date, unmarshal_timezone
@@ -11,7 +11,7 @@ from ..util import timezone_repr
 from ..validators import as_date, as_timezone, require_state_version
 
 
-@attr.define(kw_only=True)
+@attrs.define(kw_only=True)
 class CalendarIntervalTrigger(Trigger):
     """
     Runs the task on specified calendar-based intervals always at the same exact time of day.
@@ -63,11 +63,11 @@ class CalendarIntervalTrigger(Trigger):
     hour: int = 0
     minute: int = 0
     second: int = 0
-    start_date: date = attr.field(converter=as_date, factory=date.today)
-    end_date: date | None = attr.field(converter=as_date, default=None)
-    timezone: tzinfo = attr.field(converter=as_timezone, default='local')
-    _time: time = attr.field(init=False, eq=False)
-    _last_fire_date: Optional[date] = attr.field(init=False, eq=False, default=None)
+    start_date: date = attrs.field(converter=as_date, factory=date.today)
+    end_date: date | None = attrs.field(converter=as_date, default=None)
+    timezone: tzinfo = attrs.field(converter=as_timezone, default='local')
+    _time: time = attrs.field(init=False, eq=False)
+    _last_fire_date: Optional[date] = attrs.field(init=False, eq=False, default=None)
 
     def __attrs_post_init__(self) -> None:
         self._time = time(self.hour, self.minute, self.second, tzinfo=self.timezone)

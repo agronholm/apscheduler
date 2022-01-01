@@ -11,7 +11,7 @@ from logging import Logger, getLogger
 from typing import Any, Callable, Iterable, Mapping, Optional
 from uuid import UUID, uuid4
 
-import attr
+import attrs
 
 from ..abc import DataStore, EventSource, Trigger
 from ..context import current_scheduler
@@ -29,20 +29,20 @@ _microsecond_delta = timedelta(microseconds=1)
 _zero_timedelta = timedelta()
 
 
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class Scheduler:
     """A synchronous scheduler implementation."""
 
-    data_store: DataStore = attr.field(factory=MemoryDataStore)
-    identity: str = attr.field(kw_only=True, default=None)
-    start_worker: bool = attr.field(kw_only=True, default=True)
-    logger: Optional[Logger] = attr.field(kw_only=True, default=getLogger(__name__))
+    data_store: DataStore = attrs.field(factory=MemoryDataStore)
+    identity: str = attrs.field(kw_only=True, default=None)
+    start_worker: bool = attrs.field(kw_only=True, default=True)
+    logger: Optional[Logger] = attrs.field(kw_only=True, default=getLogger(__name__))
 
-    _state: RunState = attr.field(init=False, default=RunState.stopped)
-    _wakeup_event: threading.Event = attr.field(init=False)
-    _worker: Optional[Worker] = attr.field(init=False, default=None)
-    _events: LocalEventBroker = attr.field(init=False, factory=LocalEventBroker)
-    _exit_stack: ExitStack = attr.field(init=False)
+    _state: RunState = attrs.field(init=False, default=RunState.stopped)
+    _wakeup_event: threading.Event = attrs.field(init=False)
+    _worker: Optional[Worker] = attrs.field(init=False, default=None)
+    _events: LocalEventBroker = attrs.field(init=False, factory=LocalEventBroker)
+    _exit_stack: ExitStack = attrs.field(init=False)
 
     def __attrs_post_init__(self) -> None:
         if not self.identity:

@@ -4,7 +4,7 @@ from abc import abstractmethod
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-import attr
+import attrs
 
 from ..abc import Trigger
 from ..exceptions import MaxIterationsReached
@@ -12,10 +12,10 @@ from ..marshalling import marshal_object, unmarshal_object
 from ..validators import as_timedelta, require_state_version
 
 
-@attr.define
+@attrs.define
 class BaseCombiningTrigger(Trigger):
     triggers: list[Trigger]
-    _next_fire_times: list[Optional[datetime]] = attr.field(init=False, eq=False, factory=list)
+    _next_fire_times: list[Optional[datetime]] = attrs.field(init=False, eq=False, factory=list)
 
     def __getstate__(self) -> dict[str, Any]:
         return {
@@ -30,7 +30,7 @@ class BaseCombiningTrigger(Trigger):
         self._next_fire_times = state['next_fire_times']
 
 
-@attr.define
+@attrs.define
 class AndTrigger(BaseCombiningTrigger):
     """
     Fires on times produced by the enclosed triggers whenever the fire times are within the given
@@ -50,7 +50,7 @@ class AndTrigger(BaseCombiningTrigger):
     :param max_iterations: maximum number of iterations of fire time calculations before giving up
     """
 
-    threshold: timedelta = attr.field(converter=as_timedelta, default=1)
+    threshold: timedelta = attrs.field(converter=as_timedelta, default=1)
     max_iterations: Optional[int] = 10000
 
     def next(self) -> Optional[datetime]:
@@ -102,7 +102,7 @@ class AndTrigger(BaseCombiningTrigger):
                f'threshold={self.threshold.total_seconds()}, max_iterations={self.max_iterations})'
 
 
-@attr.define
+@attrs.define
 class OrTrigger(BaseCombiningTrigger):
     """
     Fires on every fire time of every trigger in chronological order.

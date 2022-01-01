@@ -10,7 +10,7 @@ from typing import Callable, Optional
 from uuid import UUID
 
 import anyio
-import attr
+import attrs
 from anyio import TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class, move_on_after
 from anyio.abc import CancelScope
 
@@ -24,20 +24,20 @@ from ..structures import JobInfo, JobResult
 from ..validators import positive_integer
 
 
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class AsyncWorker:
     """Runs jobs locally in a task group."""
-    data_store: AsyncDataStore = attr.field(converter=as_async_datastore)
-    max_concurrent_jobs: int = attr.field(kw_only=True, validator=positive_integer, default=100)
-    identity: str = attr.field(kw_only=True, default=None)
-    logger: Optional[Logger] = attr.field(kw_only=True, default=getLogger(__name__))
+    data_store: AsyncDataStore = attrs.field(converter=as_async_datastore)
+    max_concurrent_jobs: int = attrs.field(kw_only=True, validator=positive_integer, default=100)
+    identity: str = attrs.field(kw_only=True, default=None)
+    logger: Optional[Logger] = attrs.field(kw_only=True, default=getLogger(__name__))
 
-    _state: RunState = attr.field(init=False, default=RunState.stopped)
-    _wakeup_event: anyio.Event = attr.field(init=False, factory=anyio.Event)
-    _acquired_jobs: set[Job] = attr.field(init=False, factory=set)
-    _events: LocalAsyncEventBroker = attr.field(init=False, factory=LocalAsyncEventBroker)
-    _running_jobs: set[UUID] = attr.field(init=False, factory=set)
-    _exit_stack: AsyncExitStack = attr.field(init=False)
+    _state: RunState = attrs.field(init=False, default=RunState.stopped)
+    _wakeup_event: anyio.Event = attrs.field(init=False, factory=anyio.Event)
+    _acquired_jobs: set[Job] = attrs.field(init=False, factory=set)
+    _events: LocalAsyncEventBroker = attrs.field(init=False, factory=LocalAsyncEventBroker)
+    _running_jobs: set[UUID] = attrs.field(init=False, factory=set)
+    _exit_stack: AsyncExitStack = attrs.field(init=False)
 
     def __attrs_post_init__(self) -> None:
         if not self.identity:

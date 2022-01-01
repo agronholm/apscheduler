@@ -4,8 +4,8 @@ import sys
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any, Optional
 
-import attr
-from attr import Attribute
+import attrs
+from attrs import Attribute
 from tzlocal import get_localzone
 
 from .abc import Trigger
@@ -166,6 +166,6 @@ def require_state_version(trigger: Trigger, state: dict[str, Any], max_version: 
         raise DeserializationError('Missing "version" key in the serialized state') from exc
 
 
-def positive_integer(inst, field: attr.Attribute, value) -> None:
+def positive_integer(inst, field: attrs.Attribute, value) -> None:
     if value <= 0:
         raise ValueError(f'{field} must be a positive integer')

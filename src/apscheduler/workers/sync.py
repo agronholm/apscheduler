@@ -11,7 +11,7 @@ from logging import Logger, getLogger
 from typing import Callable, Optional
 from uuid import UUID
 
-import attr
+import attrs
 
 from ..abc import DataStore, EventSource
 from ..context import current_worker, job_info
@@ -22,21 +22,21 @@ from ..structures import Job, JobInfo, JobResult
 from ..validators import positive_integer
 
 
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class Worker:
     """Runs jobs locally in a thread pool."""
     data_store: DataStore
-    max_concurrent_jobs: int = attr.field(kw_only=True, validator=positive_integer, default=20)
-    identity: str = attr.field(kw_only=True, default=None)
-    logger: Optional[Logger] = attr.field(kw_only=True, default=getLogger(__name__))
+    max_concurrent_jobs: int = attrs.field(kw_only=True, validator=positive_integer, default=20)
+    identity: str = attrs.field(kw_only=True, default=None)
+    logger: Optional[Logger] = attrs.field(kw_only=True, default=getLogger(__name__))
 
-    _state: RunState = attr.field(init=False, default=RunState.stopped)
-    _wakeup_event: threading.Event = attr.field(init=False)
-    _acquired_jobs: set[Job] = attr.field(init=False, factory=set)
-    _events: LocalEventBroker = attr.field(init=False, factory=LocalEventBroker)
-    _running_jobs: set[UUID] = attr.field(init=False, factory=set)
-    _exit_stack: ExitStack = attr.field(init=False)
-    _executor: ThreadPoolExecutor = attr.field(init=False)
+    _state: RunState = attrs.field(init=False, default=RunState.stopped)
+    _wakeup_event: threading.Event = attrs.field(init=False)
+    _acquired_jobs: set[Job] = attrs.field(init=False, factory=set)
+    _events: LocalEventBroker = attrs.field(init=False, factory=LocalEventBroker)
+    _running_jobs: set[UUID] = attrs.field(init=False, factory=set)
+    _exit_stack: ExitStack = attrs.field(init=False)
+    _executor: ThreadPoolExecutor = attrs.field(init=False)
 
     def __attrs_post_init__(self) -> None:
         if not self.identity:

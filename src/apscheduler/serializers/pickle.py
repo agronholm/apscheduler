@@ -1,11 +1,11 @@
 from pickle import dumps, loads
 
-import attr
+import attrs
 
 from ..abc import Serializer
 
 
-@attr.define(kw_only=True, eq=False)
+@attrs.define(kw_only=True, eq=False)
 class PickleSerializer(Serializer):
     protocol: int = 4
 

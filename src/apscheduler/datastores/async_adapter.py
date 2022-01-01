@@ -6,7 +6,7 @@ from functools import partial
 from typing import Iterable, Optional
 from uuid import UUID
 
-import attr
+import attrs
 from anyio import to_thread
 from anyio.from_thread import BlockingPortal
 
@@ -18,12 +18,12 @@ from ..util import reentrant
 
 
 @reentrant
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class AsyncDataStoreAdapter(AsyncDataStore):
     original: DataStore
-    _portal: BlockingPortal = attr.field(init=False)
-    _events: AsyncEventBroker = attr.field(init=False)
-    _exit_stack: AsyncExitStack = attr.field(init=False)
+    _portal: BlockingPortal = attrs.field(init=False)
+    _events: AsyncEventBroker = attrs.field(init=False)
+    _exit_stack: AsyncExitStack = attrs.field(init=False)
 
     @property
     def events(self) -> EventSource:

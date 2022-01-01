@@ -3,14 +3,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Optional
 
-import attr
+import attrs
 
 from ..abc import Trigger
 from ..marshalling import marshal_date, unmarshal_date
 from ..validators import as_aware_datetime, require_state_version
 
 
-@attr.define
+@attrs.define
 class DateTrigger(Trigger):
     """
     Triggers once on the given date/time.
@@ -18,8 +18,8 @@ class DateTrigger(Trigger):
     :param run_time: the date/time to run the job at
     """
 
-    run_time: datetime = attr.field(converter=as_aware_datetime)
-    _completed: bool = attr.field(init=False, eq=False, default=False)
+    run_time: datetime = attrs.field(converter=as_aware_datetime)
+    _completed: bool = attrs.field(init=False, eq=False, default=False)
 
     def next(self) -> Optional[datetime]:
         if not self._completed:

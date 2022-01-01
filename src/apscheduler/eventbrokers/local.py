@@ -6,7 +6,7 @@ from contextlib import ExitStack
 from threading import Lock
 from typing import Any, Callable, Iterable, Optional
 
-import attr
+import attrs
 
 from ..abc import Subscription
 from ..events import Event
@@ -15,11 +15,11 @@ from .base import BaseEventBroker
 
 
 @reentrant
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class LocalEventBroker(BaseEventBroker):
-    _executor: ThreadPoolExecutor = attr.field(init=False)
-    _exit_stack: ExitStack = attr.field(init=False)
-    _subscriptions_lock: Lock = attr.field(init=False, factory=Lock)
+    _executor: ThreadPoolExecutor = attrs.field(init=False)
+    _exit_stack: ExitStack = attrs.field(init=False)
+    _subscriptions_lock: Lock = attrs.field(init=False, factory=Lock)
 
     def __enter__(self):
         self._exit_stack = ExitStack()

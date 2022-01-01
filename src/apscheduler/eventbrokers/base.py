@@ -4,7 +4,7 @@ from base64 import b64decode, b64encode
 from logging import Logger, getLogger
 from typing import Any, Callable, Iterable, Optional
 
-import attr
+import attrs
 
 from .. import events
 from ..abc import EventBroker, Serializer, Subscription
@@ -12,7 +12,7 @@ from ..events import Event
 from ..exceptions import DeserializationError
 
 
-@attr.define(eq=False, frozen=True)
+@attrs.define(eq=False, frozen=True)
 class LocalSubscription(Subscription):
     callback: Callable[[Event], Any]
     event_types: Optional[set[type[Event]]]
@@ -24,10 +24,10 @@ class LocalSubscription(Subscription):
         self._source.unsubscribe(self.token)
 
 
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class BaseEventBroker(EventBroker):
-    _logger: Logger = attr.field(init=False)
-    _subscriptions: dict[object, LocalSubscription] = attr.field(init=False, factory=dict)
+    _logger: Logger = attrs.field(init=False)
+    _subscriptions: dict[object, LocalSubscription] = attrs.field(init=False, factory=dict)
 
     def __attrs_post_init__(self) -> None:
         self._logger = getLogger(self.__class__.__module__)
@@ -50,11 +50,11 @@ class DistributedEventBrokerMixin:
     _logger: Logger
 
     def generate_notification(self, event: Event) -> bytes:
-        serialized = self.serializer.serialize(attr.asdict(event))
+        serialized = self.serializer.serialize(attrs.asdict(event))
         return event.__class__.__name__.encode('ascii') + b' ' + serialized
 
     def generate_notification_str(self, event: Event) -> str:
-        serialized = self.serializer.serialize(attr.asdict(event))
+        serialized = self.serializer.serialize(attrs.asdict(event))
         return event.__class__.__name__ + ' ' + b64encode(serialized).decode('ascii')
 
     def _reconstitute_event(self, event_type: str, serialized: bytes) -> Optional[Event]:

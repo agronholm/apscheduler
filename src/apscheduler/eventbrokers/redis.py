@@ -4,7 +4,7 @@ from concurrent.futures import Future
 from threading import Thread
 from typing import Optional
 
-import attr
+import attrs
 from redis import ConnectionPool, Redis
 
 from ..abc import Serializer
@@ -16,14 +16,14 @@ from .local import LocalEventBroker
 
 
 @reentrant
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
     client: Redis
-    serializer: Serializer = attr.field(factory=JSONSerializer)
-    channel: str = attr.field(kw_only=True, default='apscheduler')
-    message_poll_interval: float = attr.field(kw_only=True, default=0.05)
-    _stopped: bool = attr.field(init=False, default=True)
-    _ready_future: Future[None] = attr.field(init=False)
+    serializer: Serializer = attrs.field(factory=JSONSerializer)
+    channel: str = attrs.field(kw_only=True, default='apscheduler')
+    message_poll_interval: float = attrs.field(kw_only=True, default=0.05)
+    _stopped: bool = attrs.field(init=False, default=True)
+    _ready_future: Future[None] = attrs.field(init=False)
 
     @classmethod
     def from_url(cls, url: str, db: Optional[str] = None, decode_components: bool = False,

@@ -8,10 +8,10 @@ from logging import Logger, getLogger
 from typing import Any, Callable, ClassVar, Iterable, Optional
 from uuid import UUID
 
-import attr
+import attrs
 import pymongo
 import tenacity
-from attr.validators import instance_of
+from attrs.validators import instance_of
 from bson import CodecOptions
 from bson.codec_options import TypeEncoder, TypeRegistry
 from pymongo import ASCENDING, DeleteOne, MongoClient, UpdateOne
@@ -46,24 +46,24 @@ class CustomEncoder(TypeEncoder):
 
 
 @reentrant
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class MongoDBDataStore(DataStore):
-    client: MongoClient = attr.field(validator=instance_of(MongoClient))
-    serializer: Serializer = attr.field(factory=PickleSerializer, kw_only=True)
-    database: str = attr.field(default='apscheduler', kw_only=True)
-    lock_expiration_delay: float = attr.field(default=30, kw_only=True)
-    retry_settings: RetrySettings = attr.field(default=RetrySettings())
-    start_from_scratch: bool = attr.field(default=False, kw_only=True)
+    client: MongoClient = attrs.field(validator=instance_of(MongoClient))
+    serializer: Serializer = attrs.field(factory=PickleSerializer, kw_only=True)
+    database: str = attrs.field(default='apscheduler', kw_only=True)
+    lock_expiration_delay: float = attrs.field(default=30, kw_only=True)
+    retry_settings: RetrySettings = attrs.field(default=RetrySettings())
+    start_from_scratch: bool = attrs.field(default=False, kw_only=True)
 
-    _task_attrs: ClassVar[list[str]] = [field.name for field in attr.fields(Task)]
-    _schedule_attrs: ClassVar[list[str]] = [field.name for field in attr.fields(Schedule)]
-    _job_attrs: ClassVar[list[str]] = [field.name for field in attr.fields(Job)]
+    _task_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Task)]
+    _schedule_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Schedule)]
+    _job_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Job)]
 
-    _logger: Logger = attr.field(init=False, factory=lambda: getLogger(__name__))
-    _retrying: Retrying = attr.field(init=False)
-    _exit_stack: ExitStack = attr.field(init=False, factory=ExitStack)
-    _events: EventBroker = attr.field(init=False, factory=LocalEventBroker)
-    _local_tasks: dict[str, Task] = attr.field(init=False, factory=dict)
+    _logger: Logger = attrs.field(init=False, factory=lambda: getLogger(__name__))
+    _retrying: Retrying = attrs.field(init=False)
+    _exit_stack: ExitStack = attrs.field(init=False, factory=ExitStack)
+    _events: EventBroker = attrs.field(init=False, factory=LocalEventBroker)
+    _local_tasks: dict[str, Task] = attrs.field(init=False, factory=dict)
 
     def __attrs_post_init__(self) -> None:
         # Construct the Tenacity retry controller

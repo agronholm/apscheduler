@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, tzinfo
 from typing import Any, ClassVar, Optional, Sequence
 
-import attr
+import attrs
 from tzlocal import get_localzone
 
 from ...abc import Trigger
@@ -14,7 +14,7 @@ from .fields import (
     DEFAULT_VALUES, BaseField, DayOfMonthField, DayOfWeekField, MonthField, WeekField)
 
 
-@attr.define(kw_only=True)
+@attrs.define(kw_only=True)
 class CronTrigger(Trigger):
     """
     Triggers when current time matches all specified time constraints, similarly to how the UNIX
@@ -55,11 +55,11 @@ class CronTrigger(Trigger):
     hour: int | str | None = None
     minute: int | str | None = None
     second: int | str | None = None
-    start_time: datetime = attr.field(converter=as_aware_datetime, factory=datetime.now)
+    start_time: datetime = attrs.field(converter=as_aware_datetime, factory=datetime.now)
     end_time: datetime | None = None
-    timezone: tzinfo | str = attr.field(converter=as_timezone, factory=get_localzone)
-    _fields: list[BaseField] = attr.field(init=False, eq=False, factory=list)
-    _last_fire_time: Optional[datetime] = attr.field(init=False, eq=False, default=None)
+    timezone: tzinfo | str = attrs.field(converter=as_timezone, factory=get_localzone)
+    _fields: list[BaseField] = attrs.field(init=False, eq=False, factory=list)
+    _last_fire_time: Optional[datetime] = attrs.field(init=False, eq=False, default=None)
 
     def __attrs_post_init__(self) -> None:
         self._set_fields([self.year, self.month, self.day, self.week, self.day_of_week, self.hour,

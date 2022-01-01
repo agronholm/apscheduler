@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, AsyncContextManager, AsyncGenerator, Callable
 
-import attr
+import attrs
 from anyio import TASK_STATUS_IGNORED, sleep
 from asyncpg import Connection
 from asyncpg.pool import Pool
@@ -19,11 +19,11 @@ if TYPE_CHECKING:
 
 
 @reentrant
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
     connection_factory: Callable[[], AsyncContextManager[Connection]]
-    channel: str = attr.field(kw_only=True, default='apscheduler')
-    max_idle_time: float = attr.field(kw_only=True, default=30)
+    channel: str = attrs.field(kw_only=True, default='apscheduler')
+    max_idle_time: float = attrs.field(kw_only=True, default=30)
 
     @classmethod
     def from_asyncpg_pool(cls, pool: Pool) -> AsyncpgEventBroker:

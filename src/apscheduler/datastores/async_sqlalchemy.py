@@ -6,7 +6,7 @@ from typing import Any, Iterable, Optional
 from uuid import UUID
 
 import anyio
-import attr
+import attrs
 import sniffio
 import tenacity
 from sqlalchemy import and_, bindparam, or_, select
@@ -32,12 +32,12 @@ from .sqlalchemy import _BaseSQLAlchemyDataStore
 
 
 @reentrant
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
     engine: AsyncEngine
 
-    _events: AsyncEventBroker = attr.field(factory=LocalAsyncEventBroker)
-    _retrying: tenacity.AsyncRetrying = attr.field(init=False)
+    _events: AsyncEventBroker = attrs.field(factory=LocalAsyncEventBroker)
+    _retrying: tenacity.AsyncRetrying = attrs.field(init=False)
 
     @classmethod
     def from_url(cls, url: str | URL, **options) -> AsyncSQLAlchemyDataStore:

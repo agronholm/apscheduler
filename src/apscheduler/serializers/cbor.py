@@ -2,18 +2,18 @@ from __future__ import annotations
 
 from typing import Any
 
-import attr
+import attrs
 from cbor2 import CBOREncodeTypeError, CBORTag, dumps, loads
 
 from ..abc import Serializer
 from ..marshalling import marshal_object, unmarshal_object
 
 
-@attr.define(kw_only=True, eq=False)
+@attrs.define(kw_only=True, eq=False)
 class CBORSerializer(Serializer):
     type_tag: int = 4664
-    dump_options: dict[str, Any] = attr.field(factory=dict)
-    load_options: dict[str, Any] = attr.field(factory=dict)
+    dump_options: dict[str, Any] = attrs.field(factory=dict)
+    load_options: dict[str, Any] = attrs.field(factory=dict)
 
     def __attrs_post_init__(self):
         self.dump_options.setdefault('default', self._default_hook)

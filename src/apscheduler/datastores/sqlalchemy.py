@@ -6,7 +6,7 @@ from logging import Logger, getLogger
 from typing import Any, Iterable, Optional
 from uuid import UUID
 
-import attr
+import attrs
 import tenacity
 from sqlalchemy import (
     JSON, TIMESTAMP, BigInteger, Column, Enum, Integer, LargeBinary, MetaData, Table,
@@ -64,17 +64,17 @@ class EmulatedInterval(TypeDecorator):
         return timedelta(seconds=value) if value is not None else None
 
 
-@attr.define(kw_only=True, eq=False)
+@attrs.define(kw_only=True, eq=False)
 class _BaseSQLAlchemyDataStore:
-    schema: Optional[str] = attr.field(default=None)
-    serializer: Serializer = attr.field(factory=PickleSerializer)
-    lock_expiration_delay: float = attr.field(default=30)
-    max_poll_time: Optional[float] = attr.field(default=1)
-    max_idle_time: float = attr.field(default=60)
-    retry_settings: RetrySettings = attr.field(default=RetrySettings())
-    start_from_scratch: bool = attr.field(default=False)
+    schema: Optional[str] = attrs.field(default=None)
+    serializer: Serializer = attrs.field(factory=PickleSerializer)
+    lock_expiration_delay: float = attrs.field(default=30)
+    max_poll_time: Optional[float] = attrs.field(default=1)
+    max_idle_time: float = attrs.field(default=60)
+    retry_settings: RetrySettings = attrs.field(default=RetrySettings())
+    start_from_scratch: bool = attrs.field(default=False)
 
-    _logger: Logger = attr.field(init=False, factory=lambda: getLogger(__name__))
+    _logger: Logger = attrs.field(init=False, factory=lambda: getLogger(__name__))
 
     def __attrs_post_init__(self) -> None:
         # Generate the table definitions
@@ -195,12 +195,12 @@ class _BaseSQLAlchemyDataStore:
 
 
 @reentrant
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
     engine: Engine
 
-    _events: EventBroker = attr.field(init=False, factory=LocalEventBroker)
-    _retrying: tenacity.Retrying = attr.field(init=False)
+    _events: EventBroker = attrs.field(init=False, factory=LocalEventBroker)
+    _retrying: tenacity.Retrying = attrs.field(init=False)
 
     @classmethod
     def from_url(cls, url: str | URL, **options) -> SQLAlchemyDataStore:

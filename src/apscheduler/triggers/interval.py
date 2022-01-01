@@ -3,14 +3,14 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-import attr
+import attrs
 
 from ..abc import Trigger
 from ..marshalling import marshal_date, unmarshal_date
 from ..validators import as_aware_datetime, require_state_version
 
 
-@attr.define(kw_only=True)
+@attrs.define(kw_only=True)
 class IntervalTrigger(Trigger):
     """
     Triggers on specified intervals.
@@ -36,10 +36,10 @@ class IntervalTrigger(Trigger):
     minutes: float = 0
     seconds: float = 0
     microseconds: float = 0
-    start_time: datetime = attr.field(converter=as_aware_datetime, factory=datetime.now)
-    end_time: Optional[datetime] = attr.field(converter=as_aware_datetime, default=None)
-    _interval: timedelta = attr.field(init=False, eq=False, repr=False)
-    _last_fire_time: Optional[datetime] = attr.field(init=False, eq=False, default=None)
+    start_time: datetime = attrs.field(converter=as_aware_datetime, factory=datetime.now)
+    end_time: Optional[datetime] = attrs.field(converter=as_aware_datetime, default=None)
+    _interval: timedelta = attrs.field(init=False, eq=False, repr=False)
+    _last_fire_time: Optional[datetime] = attrs.field(init=False, eq=False, default=None)
 
     def __attrs_post_init__(self) -> None:
         self._interval = timedelta(weeks=self.weeks, days=self.days, hours=self.hours,

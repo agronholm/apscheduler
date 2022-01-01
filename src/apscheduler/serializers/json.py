@@ -4,17 +4,17 @@ from datetime import datetime
 from json import dumps, loads
 from typing import Any
 
-import attr
+import attrs
 
 from ..abc import Serializer
 from ..marshalling import marshal_date, marshal_object, unmarshal_object
 
 
-@attr.define(kw_only=True, eq=False)
+@attrs.define(kw_only=True, eq=False)
 class JSONSerializer(Serializer):
     magic_key: str = '_apscheduler_json'
-    dump_options: dict[str, Any] = attr.field(factory=dict)
-    load_options: dict[str, Any] = attr.field(factory=dict)
+    dump_options: dict[str, Any] = attrs.field(factory=dict)
+    load_options: dict[str, Any] = attrs.field(factory=dict)
 
     def __attrs_post_init__(self):
         self.dump_options['default'] = self._default_hook

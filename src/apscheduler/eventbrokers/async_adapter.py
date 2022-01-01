@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import partial
 
-import attr
+import attrs
 from anyio import to_thread
 from anyio.from_thread import BlockingPortal
 
@@ -13,7 +13,7 @@ from apscheduler.util import reentrant
 
 
 @reentrant
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class AsyncEventBrokerAdapter(LocalAsyncEventBroker):
     original: EventBroker
     portal: BlockingPortal

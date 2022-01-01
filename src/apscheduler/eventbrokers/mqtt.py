@@ -3,7 +3,7 @@ from __future__ import annotations
 from concurrent.futures import Future
 from typing import Any, Optional
 
-import attr
+import attrs
 from paho.mqtt.client import Client, MQTTMessage
 from paho.mqtt.properties import Properties
 from paho.mqtt.reasoncodes import ReasonCodes
@@ -17,16 +17,16 @@ from .local import LocalEventBroker
 
 
 @reentrant
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class MQTTEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
     client: Client
-    serializer: Serializer = attr.field(factory=JSONSerializer)
-    host: str = attr.field(kw_only=True, default='localhost')
-    port: int = attr.field(kw_only=True, default=1883)
-    topic: str = attr.field(kw_only=True, default='apscheduler')
-    subscribe_qos: int = attr.field(kw_only=True, default=0)
-    publish_qos: int = attr.field(kw_only=True, default=0)
-    _ready_future: Future[None] = attr.field(init=False)
+    serializer: Serializer = attrs.field(factory=JSONSerializer)
+    host: str = attrs.field(kw_only=True, default='localhost')
+    port: int = attrs.field(kw_only=True, default=1883)
+    topic: str = attrs.field(kw_only=True, default='apscheduler')
+    subscribe_qos: int = attrs.field(kw_only=True, default=0)
+    publish_qos: int = attrs.field(kw_only=True, default=0)
+    _ready_future: Future[None] = attrs.field(init=False)
 
     def __enter__(self):
         super().__enter__()
