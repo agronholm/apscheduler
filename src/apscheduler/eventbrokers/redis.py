@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from concurrent.futures import Future
 from threading import Thread
-from typing import Optional
 
 import attrs
 from redis import ConnectionPool, Redis
@@ -26,9 +25,8 @@ class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
     _ready_future: Future[None] = attrs.field(init=False)
 
     @classmethod
-    def from_url(cls, url: str, db: Optional[str] = None, decode_components: bool = False,
-                 **kwargs) -> RedisEventBroker:
-        pool = ConnectionPool.from_url(url, db, decode_components, **kwargs)
+    def from_url(cls, url: str, **kwargs) -> RedisEventBroker:
+        pool = ConnectionPool.from_url(url, **kwargs)
         client = Redis(connection_pool=pool)
         return cls(client)
 
