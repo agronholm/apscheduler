@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 import sys
 import threading
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 from uuid import UUID
 
 import anyio
@@ -114,7 +115,7 @@ class TestAsyncScheduler:
         async with AsyncScheduler(start_worker=False) as scheduler:
             trigger = IntervalTrigger(seconds=3, start_time=orig_start_time)
             job_added_event = anyio.Event()
-            job_id: Optional[UUID] = None
+            job_id: UUID | None = None
             scheduler.events.subscribe(job_added_listener, {JobAdded})
             schedule_id = await scheduler.add_schedule(dummy_async_job, trigger,
                                                        max_jitter=max_jitter)
@@ -260,7 +261,7 @@ class TestSyncScheduler:
         with Scheduler(start_worker=False) as scheduler:
             trigger = IntervalTrigger(seconds=3, start_time=orig_start_time)
             job_added_event = threading.Event()
-            job_id: Optional[UUID] = None
+            job_id: UUID | None = None
             scheduler.events.subscribe(job_added_listener, {JobAdded})
             schedule_id = scheduler.add_schedule(dummy_async_job, trigger, max_jitter=max_jitter)
             schedule = scheduler.get_schedule(schedule_id)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, tzinfo
-from typing import Any, Optional
+from typing import Any
 
 import attrs
 
@@ -67,7 +67,7 @@ class CalendarIntervalTrigger(Trigger):
     end_date: date | None = attrs.field(converter=as_date, default=None)
     timezone: tzinfo = attrs.field(converter=as_timezone, default='local')
     _time: time = attrs.field(init=False, eq=False)
-    _last_fire_date: Optional[date] = attrs.field(init=False, eq=False, default=None)
+    _last_fire_date: date | None = attrs.field(init=False, eq=False, default=None)
 
     def __attrs_post_init__(self) -> None:
         self._time = time(self.hour, self.minute, self.second, tzinfo=self.timezone)
@@ -78,7 +78,7 @@ class CalendarIntervalTrigger(Trigger):
         if self.start_date and self.end_date and self.start_date > self.end_date:
             raise ValueError('end_date cannot be earlier than start_date')
 
-    def next(self) -> Optional[datetime]:
+    def next(self) -> datetime | None:
         previous_date: date = self._last_fire_date
         while True:
             if previous_date:

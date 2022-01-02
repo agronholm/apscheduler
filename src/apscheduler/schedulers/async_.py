@@ -6,7 +6,7 @@ import random
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Mapping, Optional
+from typing import Any, Callable, Iterable, Mapping
 from uuid import UUID, uuid4
 
 import anyio
@@ -37,11 +37,11 @@ class AsyncScheduler:
     data_store: AsyncDataStore = attrs.field(converter=as_async_datastore, factory=MemoryDataStore)
     identity: str = attrs.field(kw_only=True, default=None)
     start_worker: bool = attrs.field(kw_only=True, default=True)
-    logger: Optional[Logger] = attrs.field(kw_only=True, default=getLogger(__name__))
+    logger: Logger | None = attrs.field(kw_only=True, default=getLogger(__name__))
 
     _state: RunState = attrs.field(init=False, default=RunState.stopped)
     _wakeup_event: anyio.Event = attrs.field(init=False)
-    _worker: Optional[AsyncWorker] = attrs.field(init=False, default=None)
+    _worker: AsyncWorker | None = attrs.field(init=False, default=None)
     _events: LocalAsyncEventBroker = attrs.field(init=False, factory=LocalAsyncEventBroker)
     _exit_stack: AsyncExitStack = attrs.field(init=False)
 
@@ -54,7 +54,7 @@ class AsyncScheduler:
         return self._events
 
     @property
-    def worker(self) -> Optional[AsyncWorker]:
+    def worker(self) -> AsyncWorker | None:
         return self._worker
 
     async def __aenter__(self):
@@ -102,11 +102,11 @@ class AsyncScheduler:
         self._wakeup_event.set()
 
     async def add_schedule(
-        self, func_or_task_id: str | Callable, trigger: Trigger, *, id: Optional[str] = None,
-        args: Optional[Iterable] = None, kwargs: Optional[Mapping[str, Any]] = None,
+        self, func_or_task_id: str | Callable, trigger: Trigger, *, id: str | None = None,
+        args: Iterable | None = None, kwargs: Mapping[str, Any] | None = None,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
         misfire_grace_time: float | timedelta | None = None,
-        max_jitter: float | timedelta | None = None, tags: Optional[Iterable[str]] = None,
+        max_jitter: float | timedelta | None = None, tags: Iterable[str] | None = None,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing
     ) -> str:
         id = id or str(uuid4())
@@ -139,8 +139,8 @@ class AsyncScheduler:
         await self.data_store.remove_schedules({schedule_id})
 
     async def add_job(
-        self, func_or_task_id: str | Callable, *, args: Optional[Iterable] = None,
-        kwargs: Optional[Mapping[str, Any]] = None, tags: Optional[Iterable[str]] = None
+        self, func_or_task_id: str | Callable, *, args: Iterable | None = None,
+        kwargs: Mapping[str, Any] | None = None, tags: Iterable[str] | None = None
     ) -> UUID:
         """
         Add a job to the data store.
@@ -192,8 +192,8 @@ class AsyncScheduler:
         return result
 
     async def run_job(
-        self, func_or_task_id: str | Callable, *, args: Optional[Iterable] = None,
-        kwargs: Optional[Mapping[str, Any]] = None, tags: Optional[Iterable[str]] = ()
+        self, func_or_task_id: str | Callable, *, args: Iterable | None = None,
+        kwargs: Mapping[str, Any] | None = None, tags: Iterable[str] | None = ()
     ) -> Any:
         """
         Convenience method to add a job and then return its result (or raise its exception).
@@ -207,7 +207,7 @@ class AsyncScheduler:
             if event.job_id == job_id:
                 job_complete_event.set()
 
-        job_id: Optional[UUID] = None
+        job_id: UUID | None = None
         with self.data_store.events.subscribe(listener, {JobReleased}):
             job_id = await self.add_job(func_or_task_id, args=args, kwargs=kwargs, tags=tags)
             await job_complete_event.wait()
@@ -234,7 +234,7 @@ class AsyncScheduler:
         task_status.started()
         await self._events.publish(SchedulerStarted())
 
-        exception: Optional[BaseException] = None
+        exception: BaseException | None = None
         try:
             while self._state is RunState.started:
                 schedules = await self.data_store.acquire_schedules(self.identity, 100)

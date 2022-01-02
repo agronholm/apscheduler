@@ -8,7 +8,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Mapping, Optional
+from typing import Any, Callable, Iterable, Mapping
 from uuid import UUID, uuid4
 
 import attrs
@@ -36,11 +36,11 @@ class Scheduler:
     data_store: DataStore = attrs.field(factory=MemoryDataStore)
     identity: str = attrs.field(kw_only=True, default=None)
     start_worker: bool = attrs.field(kw_only=True, default=True)
-    logger: Optional[Logger] = attrs.field(kw_only=True, default=getLogger(__name__))
+    logger: Logger | None = attrs.field(kw_only=True, default=getLogger(__name__))
 
     _state: RunState = attrs.field(init=False, default=RunState.stopped)
     _wakeup_event: threading.Event = attrs.field(init=False)
-    _worker: Optional[Worker] = attrs.field(init=False, default=None)
+    _worker: Worker | None = attrs.field(init=False, default=None)
     _events: LocalEventBroker = attrs.field(init=False, factory=LocalEventBroker)
     _exit_stack: ExitStack = attrs.field(init=False)
 
@@ -57,7 +57,7 @@ class Scheduler:
         return self._state
 
     @property
-    def worker(self) -> Optional[Worker]:
+    def worker(self) -> Worker | None:
         return self._worker
 
     def __enter__(self) -> Scheduler:
@@ -112,11 +112,11 @@ class Scheduler:
         self._wakeup_event.set()
 
     def add_schedule(
-        self, func_or_task_id: str | Callable, trigger: Trigger, *, id: Optional[str] = None,
-        args: Optional[Iterable] = None, kwargs: Optional[Mapping[str, Any]] = None,
+        self, func_or_task_id: str | Callable, trigger: Trigger, *, id: str | None = None,
+        args: Iterable | None = None, kwargs: Mapping[str, Any] | None = None,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
         misfire_grace_time: float | timedelta | None = None,
-        max_jitter: float | timedelta | None = None, tags: Optional[Iterable[str]] = None,
+        max_jitter: float | timedelta | None = None, tags: Iterable[str] | None = None,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing
     ) -> str:
         id = id or str(uuid4())
@@ -149,8 +149,8 @@ class Scheduler:
         self.data_store.remove_schedules({schedule_id})
 
     def add_job(
-        self, func_or_task_id: str | Callable, *, args: Optional[Iterable] = None,
-        kwargs: Optional[Mapping[str, Any]] = None, tags: Optional[Iterable[str]] = None
+        self, func_or_task_id: str | Callable, *, args: Iterable | None = None,
+        kwargs: Mapping[str, Any] | None = None, tags: Iterable[str] | None = None
     ) -> UUID:
         """
         Add a job to the data store.
@@ -202,8 +202,8 @@ class Scheduler:
         return result
 
     def run_job(
-        self, func_or_task_id: str | Callable, *, args: Optional[Iterable] = None,
-        kwargs: Optional[Mapping[str, Any]] = None, tags: Optional[Iterable[str]] = ()
+        self, func_or_task_id: str | Callable, *, args: Iterable | None = None,
+        kwargs: Mapping[str, Any] | None = None, tags: Iterable[str] | None = ()
     ) -> Any:
         """
         Convenience method to add a job and then return its result (or raise its exception).
@@ -217,7 +217,7 @@ class Scheduler:
             if event.job_id == job_id:
                 job_complete_event.set()
 
-        job_id: Optional[UUID] = None
+        job_id: UUID | None = None
         with self.data_store.events.subscribe(listener, {JobReleased}):
             job_id = self.add_job(func_or_task_id, args=args, kwargs=kwargs, tags=tags)
             job_complete_event.wait()

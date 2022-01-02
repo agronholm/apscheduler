@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, tzinfo
-from typing import Any, ClassVar, Optional, Sequence
+from typing import Any, ClassVar, Sequence
 
 import attrs
 from tzlocal import get_localzone
@@ -59,12 +59,12 @@ class CronTrigger(Trigger):
     end_time: datetime | None = None
     timezone: tzinfo | str = attrs.field(converter=as_timezone, factory=get_localzone)
     _fields: list[BaseField] = attrs.field(init=False, eq=False, factory=list)
-    _last_fire_time: Optional[datetime] = attrs.field(init=False, eq=False, default=None)
+    _last_fire_time: datetime | None = attrs.field(init=False, eq=False, default=None)
 
     def __attrs_post_init__(self) -> None:
         self._set_fields([self.year, self.month, self.day, self.week, self.day_of_week, self.hour,
                           self.minute, self.second])
-        self._last_fire_time: Optional[datetime] = None
+        self._last_fire_time: datetime | None = None
 
     def _set_fields(self, values: Sequence[int | str | None]) -> None:
         self._fields = []
@@ -80,7 +80,7 @@ class CronTrigger(Trigger):
             self._fields.append(field)
 
     @classmethod
-    def from_crontab(cls, expr: str, timezone: str | tzinfo = 'local') -> 'CronTrigger':
+    def from_crontab(cls, expr: str, timezone: str | tzinfo = 'local') -> CronTrigger:
         """
         Create a :class:`~CronTrigger` from a standard crontab expression.
 
@@ -153,7 +153,7 @@ class CronTrigger(Trigger):
 
         return datetime(**values, tzinfo=self.timezone)
 
-    def next(self) -> Optional[datetime]:
+    def next(self) -> datetime | None:
         if self._last_fire_time:
             start_time = self._last_fire_time + timedelta(microseconds=1)
         else:

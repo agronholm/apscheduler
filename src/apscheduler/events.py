@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from functools import partial
-from typing import Optional
 from uuid import UUID
 
 import attrs
@@ -45,13 +44,13 @@ class TaskRemoved(DataStoreEvent):
 @attrs.define(kw_only=True, frozen=True)
 class ScheduleAdded(DataStoreEvent):
     schedule_id: str
-    next_fire_time: Optional[datetime] = attrs.field(converter=optional(as_aware_datetime))
+    next_fire_time: datetime | None = attrs.field(converter=optional(as_aware_datetime))
 
 
 @attrs.define(kw_only=True, frozen=True)
 class ScheduleUpdated(DataStoreEvent):
     schedule_id: str
-    next_fire_time: Optional[datetime] = attrs.field(converter=optional(as_aware_datetime))
+    next_fire_time: datetime | None = attrs.field(converter=optional(as_aware_datetime))
 
 
 @attrs.define(kw_only=True, frozen=True)
@@ -63,7 +62,7 @@ class ScheduleRemoved(DataStoreEvent):
 class JobAdded(DataStoreEvent):
     job_id: UUID = attrs.field(converter=as_uuid)
     task_id: str
-    schedule_id: Optional[str]
+    schedule_id: str | None
     tags: frozenset[str] = attrs.field(converter=frozenset)
 
 
@@ -100,7 +99,7 @@ class SchedulerStarted(SchedulerEvent):
 
 @attrs.define(kw_only=True, frozen=True)
 class SchedulerStopped(SchedulerEvent):
-    exception: Optional[BaseException] = None
+    exception: BaseException | None = None
 
 
 #
@@ -119,7 +118,7 @@ class WorkerStarted(WorkerEvent):
 
 @attrs.define(kw_only=True, frozen=True)
 class WorkerStopped(WorkerEvent):
-    exception: Optional[BaseException] = None
+    exception: BaseException | None = None
 
 
 @attrs.define(kw_only=True, frozen=True)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import Future
-from typing import Any, Optional
+from typing import Any
 
 import attrs
 from paho.mqtt.client import Client, MQTTMessage
@@ -43,7 +43,7 @@ class MQTTEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
         return self
 
     def _on_connect(self, client: Client, userdata: Any, flags: dict[str, Any],
-                    rc: ReasonCodes | int, properties: Optional[Properties] = None) -> None:
+                    rc: ReasonCodes | int, properties: Properties | None = None) -> None:
         try:
             client.subscribe(self.topic, qos=self.subscribe_qos)
         except Exception as exc:

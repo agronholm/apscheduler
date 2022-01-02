@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import sys
-from typing import Optional
 
 import pytest
 
@@ -24,10 +25,10 @@ def timezone() -> ZoneInfo:
     pytest.param(CBORSerializer, id='cbor'),
     pytest.param(JSONSerializer, id='json')
 ])
-def serializer(request) -> Optional[Serializer]:
+def serializer(request) -> Serializer | None:
     return request.param() if request.param else None
 
 
 @pytest.fixture
-def anyio_backend() -> 'str':
+def anyio_backend() -> str:
     return 'asyncio'

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 import attrs
 
@@ -37,9 +37,9 @@ class IntervalTrigger(Trigger):
     seconds: float = 0
     microseconds: float = 0
     start_time: datetime = attrs.field(converter=as_aware_datetime, factory=datetime.now)
-    end_time: Optional[datetime] = attrs.field(converter=as_aware_datetime, default=None)
+    end_time: datetime | None = attrs.field(converter=as_aware_datetime, default=None)
     _interval: timedelta = attrs.field(init=False, eq=False, repr=False)
-    _last_fire_time: Optional[datetime] = attrs.field(init=False, eq=False, default=None)
+    _last_fire_time: datetime | None = attrs.field(init=False, eq=False, default=None)
 
     def __attrs_post_init__(self) -> None:
         self._interval = timedelta(weeks=self.weeks, days=self.days, hours=self.hours,
@@ -52,7 +52,7 @@ class IntervalTrigger(Trigger):
         if self.end_time and self.end_time < self.start_time:
             raise ValueError('end_time cannot be earlier than start_time')
 
-    def next(self) -> Optional[datetime]:
+    def next(self) -> datetime | None:
         if self._last_fire_time is None:
             self._last_fire_time = self.start_time
         else:

@@ -38,7 +38,7 @@ class LocalAsyncEventBroker(AsyncEventBroker, BaseEventBroker):
     async def publish_local(self, event: Event) -> None:
         event_type = type(event)
         one_shot_tokens: list[object] = []
-        for token, subscription in self._subscriptions.items():
+        for _token, subscription in self._subscriptions.items():
             if subscription.event_types is None or event_type in subscription.event_types:
                 self._task_group.start_soon(self._deliver_event, subscription.callback, event)
                 if subscription.one_shot:

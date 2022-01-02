@@ -7,6 +7,8 @@ To run, first install RPyC using pip. Then change the working directory to the `
 and run it with ``python -m server``.
 """
 
+from __future__ import annotations
+
 import rpyc
 from rpyc.utils.server import ThreadedServer
 

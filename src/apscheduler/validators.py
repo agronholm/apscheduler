@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from datetime import date, datetime, timedelta, timezone, tzinfo
-from typing import Any, Optional
+from typing import Any
 
 import attrs
 from attrs import Attribute
@@ -17,7 +17,7 @@ else:
     from backports.zoneinfo import ZoneInfo
 
 
-def as_int(value) -> Optional[int]:
+def as_int(value) -> int | None:
     """Convert the value into an integer."""
     if value is None:
         return None
@@ -49,7 +49,7 @@ def as_timezone(value: str | tzinfo | None) -> tzinfo:
                     f'{value.__class__.__qualname__} instead')
 
 
-def as_date(value: date | str | None) -> Optional[date]:
+def as_date(value: date | str | None) -> date | None:
     """
     Convert the value to a date.
 
@@ -67,21 +67,21 @@ def as_date(value: date | str | None) -> Optional[date]:
     raise TypeError(f'Expected string or date, got {value.__class__.__qualname__} instead')
 
 
-def as_timestamp(value: Optional[datetime]) -> Optional[float]:
+def as_timestamp(value: datetime | None) -> float | None:
     if value is None:
         return None
 
     return value.timestamp()
 
 
-def as_ordinal_date(value: Optional[date]) -> Optional[int]:
+def as_ordinal_date(value: date | None) -> int | None:
     if value is None:
         return None
 
     return value.toordinal()
 
 
-def as_aware_datetime(value: datetime | str | None) -> Optional[datetime]:
+def as_aware_datetime(value: datetime | str | None) -> datetime | None:
     """
     Convert the value to a timezone aware datetime.
 

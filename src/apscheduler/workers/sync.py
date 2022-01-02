@@ -8,7 +8,7 @@ from contextlib import ExitStack
 from contextvars import copy_context
 from datetime import datetime, timezone
 from logging import Logger, getLogger
-from typing import Callable, Optional
+from typing import Callable
 from uuid import UUID
 
 import attrs
@@ -28,7 +28,7 @@ class Worker:
     data_store: DataStore
     max_concurrent_jobs: int = attrs.field(kw_only=True, validator=positive_integer, default=20)
     identity: str = attrs.field(kw_only=True, default=None)
-    logger: Optional[Logger] = attrs.field(kw_only=True, default=getLogger(__name__))
+    logger: Logger | None = attrs.field(kw_only=True, default=getLogger(__name__))
 
     _state: RunState = attrs.field(init=False, default=RunState.stopped)
     _wakeup_event: threading.Event = attrs.field(init=False)
@@ -98,7 +98,7 @@ class Worker:
         self._events.publish(WorkerStarted())
 
         executor = ThreadPoolExecutor(max_workers=self.max_concurrent_jobs)
-        exception: Optional[BaseException] = None
+        exception: BaseException | None = None
         try:
             while self._state is RunState.started:
                 available_slots = self.max_concurrent_jobs - len(self._running_jobs)

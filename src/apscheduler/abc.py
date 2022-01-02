@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from base64 import b64decode, b64encode
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, Optional
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
 from uuid import UUID
 
 from .enums import ConflictPolicy
@@ -19,7 +19,7 @@ class Trigger(Iterator[datetime], metaclass=ABCMeta):
     __slots__ = ()
 
     @abstractmethod
-    def next(self) -> Optional[datetime]:
+    def next(self) -> datetime | None:
         """
         Return the next datetime to fire on.
 
@@ -92,7 +92,7 @@ class EventSource(metaclass=ABCMeta):
     @abstractmethod
     def subscribe(
         self, callback: Callable[[Event], Any],
-        event_types: Optional[Iterable[type[Event]]] = None,
+        event_types: Iterable[type[Event]] | None = None,
         *,
         one_shot: bool = False
     ) -> Subscription:
@@ -200,7 +200,7 @@ class DataStore:
         """
 
     @abstractmethod
-    def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
+    def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
         """
         Get schedules from the data store.
 
@@ -249,7 +249,7 @@ class DataStore:
         """
 
     @abstractmethod
-    def get_next_schedule_run_time(self) -> Optional[datetime]:
+    def get_next_schedule_run_time(self) -> datetime | None:
         """
         Return the earliest upcoming run time of all the schedules in the store, or ``None`` if
         there are no active schedules.
@@ -264,7 +264,7 @@ class DataStore:
         """
 
     @abstractmethod
-    def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> list[Job]:
+    def get_jobs(self, ids: Iterable[UUID] | None = None) -> list[Job]:
         """
         Get the list of pending jobs.
 
@@ -273,7 +273,7 @@ class DataStore:
         """
 
     @abstractmethod
-    def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> list[Job]:
+    def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
         """
         Acquire unclaimed jobs for execution.
 
@@ -296,7 +296,7 @@ class DataStore:
         """
 
     @abstractmethod
-    def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
+    def get_job_result(self, job_id: UUID) -> JobResult | None:
         """
         Retrieve the result of a job.
 
@@ -358,7 +358,7 @@ class AsyncDataStore:
         """
 
     @abstractmethod
-    async def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
+    async def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
         """
         Get schedules from the data store.
 
@@ -407,7 +407,7 @@ class AsyncDataStore:
         """
 
     @abstractmethod
-    async def get_next_schedule_run_time(self) -> Optional[datetime]:
+    async def get_next_schedule_run_time(self) -> datetime | None:
         """
         Return the earliest upcoming run time of all the schedules in the store, or ``None`` if
         there are no active schedules.
@@ -422,7 +422,7 @@ class AsyncDataStore:
         """
 
     @abstractmethod
-    async def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> list[Job]:
+    async def get_jobs(self, ids: Iterable[UUID] | None = None) -> list[Job]:
         """
         Get the list of pending jobs.
 
@@ -431,7 +431,7 @@ class AsyncDataStore:
         """
 
     @abstractmethod
-    async def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> list[Job]:
+    async def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
         """
         Acquire unclaimed jobs for execution.
 
@@ -454,7 +454,7 @@ class AsyncDataStore:
         """
 
     @abstractmethod
-    async def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
+    async def get_job_result(self, job_id: UUID) -> JobResult | None:
         """
         Retrieve the result of a job.
 

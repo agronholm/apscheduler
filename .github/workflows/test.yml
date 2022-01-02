@@ -1,4 +1,4 @@
-name: Python codeqa/test
+name: Run the test suite
 
 on:
   push:
@@ -6,29 +6,7 @@ on:
   pull_request:
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.x
-    - uses: actions/cache@v2
-      with:
-        path: ~/.cache/pip
-        key: pip-lint
-    - name: Install dependencies
-      run: pip install pyproject-flake8 isort mypy
-    - name: Run flake8
-      run: pflake8 src tests
-#    - name: Check types with Mypy
-#      run: mypy src tests
-    - name: Run isort
-      run: isort -c src tests
-
   test-linux:
-    needs: [lint]
     strategy:
       fail-fast: false
       matrix:
@@ -48,7 +26,6 @@ jobs:
       run: pytest
 
   test-others:
-    needs: [lint]
     strategy:
       fail-fast: false
       matrix:

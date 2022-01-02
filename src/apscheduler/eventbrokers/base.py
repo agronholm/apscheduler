@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from base64 import b64decode, b64encode
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable
 
 import attrs
 
@@ -15,7 +15,7 @@ from ..exceptions import DeserializationError
 @attrs.define(eq=False, frozen=True)
 class LocalSubscription(Subscription):
     callback: Callable[[Event], Any]
-    event_types: Optional[set[type[Event]]]
+    event_types: set[type[Event]] | None
     one_shot: bool
     token: object
     _source: BaseEventBroker
@@ -33,7 +33,7 @@ class BaseEventBroker(EventBroker):
         self._logger = getLogger(self.__class__.__module__)
 
     def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[type[Event]]] = None, *,
+                  event_types: Iterable[type[Event]] | None = None, *,
                   one_shot: bool = False) -> Subscription:
         types = set(event_types) if event_types else None
         token = object()
@@ -57,7 +57,7 @@ class DistributedEventBrokerMixin:
         serialized = self.serializer.serialize(attrs.asdict(event))
         return event.__class__.__name__ + ' ' + b64encode(serialized).decode('ascii')
 
-    def _reconstitute_event(self, event_type: str, serialized: bytes) -> Optional[Event]:
+    def _reconstitute_event(self, event_type: str, serialized: bytes) -> Event | None:
         try:
             kwargs = self.serializer.deserialize(serialized)
         except DeserializationError:
@@ -78,7 +78,7 @@ class DistributedEventBrokerMixin:
             self._logger.exception('Error reconstituting event of type %s', event_type)
             return None
 
-    def reconstitute_event(self, payload: bytes) -> Optional[Event]:
+    def reconstitute_event(self, payload: bytes) -> Event | None:
         try:
             event_type_bytes, serialized = payload.split(b' ', 1)
         except ValueError:
@@ -88,7 +88,7 @@ class DistributedEventBrokerMixin:
         event_type = event_type_bytes.decode('ascii', errors='replace')
         return self._reconstitute_event(event_type, serialized)
 
-    def reconstitute_event_str(self, payload: str) -> Optional[Event]:
+    def reconstitute_event_str(self, payload: str) -> Event | None:
         try:
             event_type, b64_serialized = payload.split(' ', 1)
         except ValueError:

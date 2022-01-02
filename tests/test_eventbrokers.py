@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from concurrent.futures import Future
 from datetime import datetime, timezone
 from queue import Empty, Queue

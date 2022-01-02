@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from tempfile import TemporaryDirectory
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator
 
 import anyio
 import pytest
@@ -145,7 +145,7 @@ def schedules() -> list[Schedule]:
 @asynccontextmanager
 async def capture_events(
     datastore: AsyncDataStore, limit: int,
-    event_types: Optional[set[type[Event]]] = None
+    event_types: set[type[Event]] | None = None
 ) -> AsyncGenerator[list[Event], None]:
     def listener(event: Event) -> None:
         events.append(event)

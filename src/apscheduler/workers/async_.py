@@ -6,7 +6,7 @@ from contextlib import AsyncExitStack
 from datetime import datetime, timezone
 from inspect import isawaitable
 from logging import Logger, getLogger
-from typing import Callable, Optional
+from typing import Callable
 from uuid import UUID
 
 import anyio
@@ -30,7 +30,7 @@ class AsyncWorker:
     data_store: AsyncDataStore = attrs.field(converter=as_async_datastore)
     max_concurrent_jobs: int = attrs.field(kw_only=True, validator=positive_integer, default=100)
     identity: str = attrs.field(kw_only=True, default=None)
-    logger: Optional[Logger] = attrs.field(kw_only=True, default=getLogger(__name__))
+    logger: Logger | None = attrs.field(kw_only=True, default=getLogger(__name__))
 
     _state: RunState = attrs.field(init=False, default=RunState.stopped)
     _wakeup_event: anyio.Event = attrs.field(init=False, factory=anyio.Event)
@@ -92,7 +92,7 @@ class AsyncWorker:
         task_status.started()
         await self._events.publish(WorkerStarted())
 
-        exception: Optional[BaseException] = None
+        exception: BaseException | None = None
         try:
             async with create_task_group() as tg:
                 while self._state is RunState.started:

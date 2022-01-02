@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import AsyncExitStack
 from datetime import datetime
 from functools import partial
-from typing import Iterable, Optional
+from typing import Iterable
 from uuid import UUID
 
 import attrs
@@ -58,7 +58,7 @@ class AsyncDataStoreAdapter(AsyncDataStore):
     async def get_tasks(self) -> list[Task]:
         return await to_thread.run_sync(self.original.get_tasks)
 
-    async def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
+    async def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
         return await to_thread.run_sync(self.original.get_schedules, ids)
 
     async def add_schedule(self, schedule: Schedule, conflict_policy: ConflictPolicy) -> None:
@@ -73,20 +73,20 @@ class AsyncDataStoreAdapter(AsyncDataStore):
     async def release_schedules(self, scheduler_id: str, schedules: list[Schedule]) -> None:
         await to_thread.run_sync(self.original.release_schedules, scheduler_id, schedules)
 
-    async def get_next_schedule_run_time(self) -> Optional[datetime]:
+    async def get_next_schedule_run_time(self) -> datetime | None:
         return await to_thread.run_sync(self.original.get_next_schedule_run_time)
 
     async def add_job(self, job: Job) -> None:
         await to_thread.run_sync(self.original.add_job, job)
 
-    async def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> list[Job]:
+    async def get_jobs(self, ids: Iterable[UUID] | None = None) -> list[Job]:
         return await to_thread.run_sync(self.original.get_jobs, ids)
 
-    async def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> list[Job]:
+    async def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
         return await to_thread.run_sync(self.original.acquire_jobs, worker_id, limit)
 
     async def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
         await to_thread.run_sync(self.original.release_job, worker_id, task_id, result)
 
-    async def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
+    async def get_job_result(self, job_id: UUID) -> JobResult | None:
         return await to_thread.run_sync(self.original.get_job_result, job_id)

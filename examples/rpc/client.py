@@ -6,10 +6,11 @@ Then it schedules a job to run on 2 second intervals and sleeps for 10 seconds.
 After that, it unschedules the job and exits.
 """
 
+from __future__ import annotations
+
 from time import sleep
 
 import rpyc
-
 
 conn = rpyc.connect('localhost', 12345)
 job = conn.root.add_job('server:print_text', 'interval', args=['Hello, World'], seconds=2)

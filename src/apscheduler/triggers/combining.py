@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 import attrs
 
@@ -15,7 +15,7 @@ from ..validators import as_timedelta, require_state_version
 @attrs.define
 class BaseCombiningTrigger(Trigger):
     triggers: list[Trigger]
-    _next_fire_times: list[Optional[datetime]] = attrs.field(init=False, eq=False, factory=list)
+    _next_fire_times: list[datetime | None] = attrs.field(init=False, eq=False, factory=list)
 
     def __getstate__(self) -> dict[str, Any]:
         return {
@@ -51,17 +51,17 @@ class AndTrigger(BaseCombiningTrigger):
     """
 
     threshold: timedelta = attrs.field(converter=as_timedelta, default=1)
-    max_iterations: Optional[int] = 10000
+    max_iterations: int | None = 10000
 
-    def next(self) -> Optional[datetime]:
+    def next(self) -> datetime | None:
         if not self._next_fire_times:
             # Fill out the fire times on the first run
             self._next_fire_times = [t.next() for t in self.triggers]
 
         for _ in range(self.max_iterations):
             # Find the earliest and latest fire times
-            earliest_fire_time: Optional[datetime] = None
-            latest_fire_time: Optional[datetime] = None
+            earliest_fire_time: datetime | None = None
+            latest_fire_time: datetime | None = None
             for fire_time in self._next_fire_times:
                 # If any of the fire times is None, this trigger is finished
                 if fire_time is None:
@@ -74,7 +74,7 @@ class AndTrigger(BaseCombiningTrigger):
                     latest_fire_time = fire_time
 
             # Replace all the fire times that were within the threshold
-            for i, trigger in enumerate(self.triggers):
+            for i, _trigger in enumerate(self.triggers):
                 if self._next_fire_times[i] - earliest_fire_time <= self.threshold:
                     self._next_fire_times[i] = self.triggers[i].next()
 
@@ -114,14 +114,14 @@ class OrTrigger(BaseCombiningTrigger):
     :param triggers: triggers to combine
     """
 
-    def next(self) -> Optional[datetime]:
+    def next(self) -> datetime | None:
         # Fill out the fire times on the first run
         if not self._next_fire_times:
             self._next_fire_times = [t.next() for t in self.triggers]
 
         # Find out the earliest of the fire times
-        earliest_time: Optional[datetime] = min([fire_time for fire_time in self._next_fire_times
-                                                 if fire_time is not None], default=None)
+        earliest_time: datetime | None = min((fire_time for fire_time in self._next_fire_times
+                                              if fire_time is not None), default=None)
         if earliest_time is not None:
             # Generate new fire times for the trigger(s) that generated the earliest fire time
             for i, fire_time in enumerate(self._next_fire_times):

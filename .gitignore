@@ -1,6 +1,5 @@
 .project
 .pydevproject
-.pre-commit-config.yaml
 .idea/
 .coverage
 .cache/

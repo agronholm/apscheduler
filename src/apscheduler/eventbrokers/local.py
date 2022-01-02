@@ -4,7 +4,7 @@ from asyncio import iscoroutinefunction
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from threading import Lock
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable
 
 import attrs
 
@@ -31,7 +31,7 @@ class LocalEventBroker(BaseEventBroker):
         del self._executor
 
     def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Optional[Iterable[type[Event]]] = None, *,
+                  event_types: Iterable[type[Event]] | None = None, *,
                   one_shot: bool = False) -> Subscription:
         if iscoroutinefunction(callback):
             raise ValueError('Coroutine functions are not supported as callbacks on a synchronous '
@@ -51,7 +51,7 @@ class LocalEventBroker(BaseEventBroker):
         event_type = type(event)
         with self._subscriptions_lock:
             one_shot_tokens: list[object] = []
-            for token, subscription in self._subscriptions.items():
+            for _token, subscription in self._subscriptions.items():
                 if subscription.event_types is None or event_type in subscription.event_types:
                     self._executor.submit(self._deliver_event, subscription.callback, event)
                     if subscription.one_shot:

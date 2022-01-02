@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import logging
 
 import anyio
+
 from apscheduler.schedulers.async_ import AsyncScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.workers.async_ import AsyncWorker

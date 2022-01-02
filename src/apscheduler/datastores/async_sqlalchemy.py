@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable
 from uuid import UUID
 
 import anyio
@@ -216,7 +216,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
         for schedule_id in removed_ids:
             await self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
-    async def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
+    async def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
         query = self.t_schedules.select().order_by(self.t_schedules.c.id)
         if ids:
             query = query.where(self.t_schedules.c.id.in_(ids))
@@ -321,7 +321,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
         for schedule_id in finished_schedule_ids:
             await self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
-    async def get_next_schedule_run_time(self) -> Optional[datetime]:
+    async def get_next_schedule_run_time(self) -> datetime | None:
         statenent = select(self.t_schedules.c.next_fire_time).\
             where(self.t_schedules.c.next_fire_time.isnot(None)).\
             order_by(self.t_schedules.c.next_fire_time).\
@@ -344,7 +344,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                          tags=job.tags)
         await self._events.publish(event)
 
-    async def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> list[Job]:
+    async def get_jobs(self, ids: Iterable[UUID] | None = None) -> list[Job]:
         query = self.t_jobs.select().order_by(self.t_jobs.c.id)
         if ids:
             job_ids = [job_id for job_id in ids]
@@ -356,7 +356,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                     result = await conn.execute(query)
                     return await self._deserialize_jobs(result)
 
-    async def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> list[Job]:
+    async def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
         async for attempt in self._retrying:
             with attempt:
                 async with self.engine.begin() as conn:
@@ -444,7 +444,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                     delete = self.t_jobs.delete().where(self.t_jobs.c.id == result.job_id)
                     await conn.execute(delete)
 
-    async def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
+    async def get_job_result(self, job_id: UUID) -> JobResult | None:
         async for attempt in self._retrying:
             with attempt:
                 async with self.engine.begin() as conn:

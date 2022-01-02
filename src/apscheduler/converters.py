@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Optional
 from uuid import UUID
 
 from . import abc
 
 
-def as_aware_datetime(value: datetime | str) -> Optional[datetime]:
+def as_aware_datetime(value: datetime | str) -> datetime | None:
     """Convert the value from a string to a timezone aware datetime."""
     if isinstance(value, str):
         # fromisoformat() does not handle the "Z" suffix

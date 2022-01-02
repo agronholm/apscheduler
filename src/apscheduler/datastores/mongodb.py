@@ -5,7 +5,7 @@ from collections import defaultdict
 from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, ClassVar, Iterable, Optional
+from typing import Any, Callable, ClassVar, Iterable
 from uuid import UUID
 
 import attrs
@@ -182,7 +182,7 @@ class MongoDBDataStore(DataStore):
 
         return tasks
 
-    def get_schedules(self, ids: Optional[set[str]] = None) -> list[Schedule]:
+    def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
         filters = {'_id': {'$in': list(ids)}} if ids is not None else {}
         for attempt in self._retrying:
             with attempt:
@@ -311,7 +311,7 @@ class MongoDBDataStore(DataStore):
         for schedule_id in finished_schedule_ids:
             self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
-    def get_next_schedule_run_time(self) -> Optional[datetime]:
+    def get_next_schedule_run_time(self) -> datetime | None:
         for attempt in self._retrying:
             with attempt:
                 document = self._schedules.find_one({'next_run_time': {'$ne': None}},
@@ -334,7 +334,7 @@ class MongoDBDataStore(DataStore):
                          tags=job.tags)
         self._events.publish(event)
 
-    def get_jobs(self, ids: Optional[Iterable[UUID]] = None) -> list[Job]:
+    def get_jobs(self, ids: Iterable[UUID] | None = None) -> list[Job]:
         filters = {'_id': {'$in': list(ids)}} if ids is not None else {}
         for attempt in self._retrying:
             with attempt:
@@ -352,7 +352,7 @@ class MongoDBDataStore(DataStore):
 
         return jobs
 
-    def acquire_jobs(self, worker_id: str, limit: Optional[int] = None) -> list[Job]:
+    def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
         for attempt in self._retrying:
             with attempt, self.client.start_session() as session:
                 cursor = self._jobs.find(
@@ -438,7 +438,7 @@ class MongoDBDataStore(DataStore):
             JobReleased(job_id=result.job_id, worker_id=worker_id, outcome=result.outcome)
         )
 
-    def get_job_result(self, job_id: UUID) -> Optional[JobResult]:
+    def get_job_result(self, job_id: UUID) -> JobResult | None:
         for attempt in self._retrying:
             with attempt:
                 document = self._jobs_results.find_one_and_delete({'_id': job_id})

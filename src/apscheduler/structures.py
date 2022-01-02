@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from functools import partial
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 from uuid import UUID, uuid4
 
 import attrs
@@ -27,8 +27,8 @@ def serialize(inst, field, value):
 class Task:
     id: str
     func: Callable = attrs.field(eq=False, order=False)
-    max_running_jobs: Optional[int] = attrs.field(eq=False, order=False, default=None)
-    misfire_grace_time: Optional[timedelta] = attrs.field(eq=False, order=False, default=None)
+    max_running_jobs: int | None = attrs.field(eq=False, order=False, default=None)
+    misfire_grace_time: timedelta | None = attrs.field(eq=False, order=False, default=None)
     state: Any = None
 
     def marshal(self, serializer: abc.Serializer) -> dict[str, Any]:
@@ -55,15 +55,15 @@ class Schedule:
     kwargs: dict[str, Any] = attrs.field(eq=False, order=False, converter=dict, default=())
     coalesce: CoalescePolicy = attrs.field(eq=False, order=False, default=CoalescePolicy.latest,
                                            converter=as_enum(CoalescePolicy))
-    misfire_grace_time: Optional[timedelta] = attrs.field(eq=False, order=False, default=None,
-                                                          converter=as_timedelta)
-    max_jitter: Optional[timedelta] = attrs.field(eq=False, order=False, converter=as_timedelta,
-                                                  default=None)
+    misfire_grace_time: timedelta | None = attrs.field(eq=False, order=False, default=None,
+                                                       converter=as_timedelta)
+    max_jitter: timedelta | None = attrs.field(eq=False, order=False, converter=as_timedelta,
+                                               default=None)
     tags: frozenset[str] = attrs.field(eq=False, order=False, converter=frozenset, default=())
-    next_fire_time: Optional[datetime] = attrs.field(eq=False, order=False, default=None)
-    last_fire_time: Optional[datetime] = attrs.field(eq=False, order=False, default=None)
-    acquired_by: Optional[str] = attrs.field(eq=False, order=False, default=None)
-    acquired_until: Optional[datetime] = attrs.field(eq=False, order=False, default=None)
+    next_fire_time: datetime | None = attrs.field(eq=False, order=False, default=None)
+    last_fire_time: datetime | None = attrs.field(eq=False, order=False, default=None)
+    acquired_by: str | None = attrs.field(eq=False, order=False, default=None)
+    acquired_until: datetime | None = attrs.field(eq=False, order=False, default=None)
 
     def marshal(self, serializer: abc.Serializer) -> dict[str, Any]:
         marshalled = attrs.asdict(self, value_serializer=serialize)
@@ -84,7 +84,7 @@ class Schedule:
         return cls(**marshalled)
 
     @property
-    def next_deadline(self) -> Optional[datetime]:
+    def next_deadline(self) -> datetime | None:
         if self.next_fire_time and self.misfire_grace_time:
             return self.next_fire_time + self.misfire_grace_time
 
@@ -97,20 +97,20 @@ class Job:
     task_id: str = attrs.field(eq=False, order=False)
     args: tuple = attrs.field(eq=False, order=False, converter=tuple, default=())
     kwargs: dict[str, Any] = attrs.field(eq=False, order=False, converter=dict, default=())
-    schedule_id: Optional[str] = attrs.field(eq=False, order=False, default=None)
-    scheduled_fire_time: Optional[datetime] = attrs.field(eq=False, order=False, default=None)
+    schedule_id: str | None = attrs.field(eq=False, order=False, default=None)
+    scheduled_fire_time: datetime | None = attrs.field(eq=False, order=False, default=None)
     jitter: timedelta = attrs.field(eq=False, order=False, converter=as_timedelta,
                                     factory=timedelta)
-    start_deadline: Optional[datetime] = attrs.field(eq=False, order=False, default=None)
+    start_deadline: datetime | None = attrs.field(eq=False, order=False, default=None)
     tags: frozenset[str] = attrs.field(eq=False, order=False, converter=frozenset, default=())
     created_at: datetime = attrs.field(eq=False, order=False,
                                        factory=partial(datetime.now, timezone.utc))
-    started_at: Optional[datetime] = attrs.field(eq=False, order=False, default=None)
-    acquired_by: Optional[str] = attrs.field(eq=False, order=False, default=None)
-    acquired_until: Optional[datetime] = attrs.field(eq=False, order=False, default=None)
+    started_at: datetime | None = attrs.field(eq=False, order=False, default=None)
+    acquired_by: str | None = attrs.field(eq=False, order=False, default=None)
+    acquired_until: datetime | None = attrs.field(eq=False, order=False, default=None)
 
     @property
-    def original_scheduled_time(self) -> Optional[datetime]:
+    def original_scheduled_time(self) -> datetime | None:
         """The scheduled time without any jitter included."""
         if self.scheduled_fire_time is None:
             return None
@@ -138,10 +138,10 @@ class Job:
 class JobInfo:
     job_id: UUID
     task_id: str
-    schedule_id: Optional[str]
-    scheduled_fire_time: Optional[datetime]
+    schedule_id: str | None
+    scheduled_fire_time: datetime | None
     jitter: timedelta
-    start_deadline: Optional[datetime]
+    start_deadline: datetime | None
     tags: frozenset[str]
 
     @classmethod
@@ -157,7 +157,7 @@ class JobResult:
     outcome: JobOutcome = attrs.field(eq=False, order=False, converter=as_enum(JobOutcome))
     finished_at: datetime = attrs.field(eq=False, order=False,
                                         factory=partial(datetime.now, timezone.utc))
-    exception: Optional[BaseException] = attrs.field(eq=False, order=False, default=None)
+    exception: BaseException | None = attrs.field(eq=False, order=False, default=None)
     return_value: Any = attrs.field(eq=False, order=False, default=None)
 
     def marshal(self, serializer: abc.Serializer) -> dict[str, Any]:

@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from calendar import monthrange
 from datetime import datetime
-from typing import Any, ClassVar, List, Optional, Sequence
+from typing import Any, ClassVar, Sequence
 
 from .expressions import (
     WEEKDAYS, AllExpression, LastDayOfMonthExpression, MonthRangeExpression, RangeExpression,
@@ -32,7 +32,7 @@ class BaseField:
 
     def __init__(self, name: str, exprs: int | str):
         self.name = name
-        self.expressions: List = []
+        self.expressions: list = []
         for expr in SEPARATOR.split(str(exprs).strip()):
             self.append_expression(expr)
 
@@ -45,7 +45,7 @@ class BaseField:
     def get_value(self, dateval: datetime) -> int:
         return getattr(dateval, self.name)
 
-    def get_next_value(self, dateval: datetime) -> Optional[int]:
+    def get_next_value(self, dateval: datetime) -> int | None:
         smallest = None
         for expr in self.expressions:
             value = expr.get_next_value(dateval, self)

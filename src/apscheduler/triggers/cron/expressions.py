@@ -4,7 +4,6 @@ from __future__ import annotations
 import re
 from calendar import monthrange
 from datetime import datetime
-from typing import Optional
 
 from ...validators import as_int
 
@@ -35,7 +34,7 @@ class AllExpression:
             raise ValueError(f'the step value ({self.step}) is higher than the total range of the '
                              f'expression ({value_range})')
 
-    def get_next_value(self, dateval: datetime, field) -> Optional[int]:
+    def get_next_value(self, dateval: datetime, field) -> int | None:
         start = field.get_value(dateval)
         minval = field.get_min(dateval)
         maxval = field.get_max(dateval)
@@ -144,7 +143,7 @@ class WeekdayRangeExpression(RangeExpression):
 
     value_re = re.compile(r'(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?', re.IGNORECASE)
 
-    def __init__(self, first: str, last: Optional[str] = None):
+    def __init__(self, first: str, last: str | None = None):
         first_num = get_weekday_index(first)
         last_num = get_weekday_index(last) if last else None
         super().__init__(first_num, last_num)
@@ -171,7 +170,7 @@ class WeekdayPositionExpression(AllExpression):
         except ValueError:
             raise ValueError(f'Invalid weekday name {weekday_name!r}') from None
 
-    def get_next_value(self, dateval: datetime, field) -> Optional[int]:
+    def get_next_value(self, dateval: datetime, field) -> int | None:
         # Figure out the weekday of the month's first day and the number of days in that month
         first_day_wday, last_day = monthrange(dateval.year, dateval.month)
 

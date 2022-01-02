@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 from datetime import timedelta
 from functools import partial
@@ -36,7 +38,7 @@ class InheritedDummyClass(DummyClass):
         pass
 
 
-class TestCallableToRef(object):
+class TestCallableToRef:
     @pytest.mark.parametrize('obj, error', [
         (partial(DummyClass.meth), 'Cannot create a reference to a partial()'),
         (lambda: None, 'Cannot create a reference to a lambda')
@@ -66,7 +68,7 @@ class TestCallableToRef(object):
         assert callable_to_ref(input) == expected
 
 
-class TestCallableFromRef(object):
+class TestCallableFromRef:
     def test_valid_ref(self):
         from logging.handlers import RotatingFileHandler
         assert callable_from_ref('logging.handlers:RotatingFileHandler') is RotatingFileHandler

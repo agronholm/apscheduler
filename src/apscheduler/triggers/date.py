@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 import attrs
 
@@ -21,7 +21,7 @@ class DateTrigger(Trigger):
     run_time: datetime = attrs.field(converter=as_aware_datetime)
     _completed: bool = attrs.field(init=False, eq=False, default=False)
 
-    def next(self) -> Optional[datetime]:
+    def next(self) -> datetime | None:
         if not self._completed:
             self._completed = True
             return self.run_time
