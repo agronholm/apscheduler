@@ -6,9 +6,10 @@ from queue import Empty, Queue
 from typing import Callable
 
 import pytest
-from _pytest.fixtures import FixtureRequest
+from _pytest.fixtures import SubRequest
 from _pytest.logging import LogCaptureFixture
 from anyio import create_memory_object_stream, fail_after
+from pytest_lazyfixture import lazy_fixture
 
 from apscheduler.abc import AsyncEventBroker, EventBroker, Serializer
 from apscheduler.events import Event, ScheduleAdded
@@ -60,28 +61,28 @@ async def asyncpg_broker(serializer: Serializer) -> AsyncEventBroker:
 
 
 @pytest.fixture(params=[
-    pytest.param(pytest.lazy_fixture('local_broker'), id='local'),
-    pytest.param(pytest.lazy_fixture('redis_broker'), id='redis',
+    pytest.param(lazy_fixture('local_broker'), id='local'),
+    pytest.param(lazy_fixture('redis_broker'), id='redis',
                  marks=[pytest.mark.external_service]),
-    pytest.param(pytest.lazy_fixture('mqtt_broker'), id='mqtt',
+    pytest.param(lazy_fixture('mqtt_broker'), id='mqtt',
                  marks=[pytest.mark.external_service])
 ])
-def broker(request: FixtureRequest) -> Callable[[], EventBroker]:
+def broker(request: SubRequest) -> Callable[[], EventBroker]:
     return request.param
 
 
 @pytest.fixture(params=[
-    pytest.param(pytest.lazy_fixture('local_async_broker'), id='local'),
-    pytest.param(pytest.lazy_fixture('asyncpg_broker'), id='asyncpg',
+    pytest.param(lazy_fixture('local_async_broker'), id='local'),
+    pytest.param(lazy_fixture('asyncpg_broker'), id='asyncpg',
                  marks=[pytest.mark.external_service])
 ])
-def async_broker(request: FixtureRequest) -> Callable[[], AsyncEventBroker]:
+def async_broker(request: SubRequest) -> Callable[[], AsyncEventBroker]:
     return request.param
 
 
 class TestEventBroker:
     def test_publish_subscribe(self, broker: EventBroker) -> None:
-        queue = Queue()
+        queue: Queue[Event] = Queue()
         with broker:
             broker.subscribe(queue.put_nowait)
             broker.subscribe(queue.put_nowait)
@@ -99,7 +100,7 @@ class TestEventBroker:
         assert event1.next_fire_time == datetime(2021, 9, 11, 12, 31, 56, 254867, timezone.utc)
 
     def test_subscribe_one_shot(self, broker: EventBroker) -> None:
-        queue = Queue()
+        queue: Queue[Event] = Queue()
         with broker:
             broker.subscribe(queue.put_nowait, one_shot=True)
             event = ScheduleAdded(
@@ -118,7 +119,7 @@ class TestEventBroker:
         assert received_event.schedule_id == 'schedule1'
 
     def test_unsubscribe(self, broker: EventBroker, caplog) -> None:
-        queue = Queue()
+        queue: Queue[Event] = Queue()
         with broker:
             subscription = broker.subscribe(queue.put_nowait)
             broker.publish(Event())

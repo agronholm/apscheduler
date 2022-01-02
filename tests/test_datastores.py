@@ -8,6 +8,7 @@ from typing import AsyncGenerator
 import anyio
 import pytest
 from freezegun.api import FrozenDateTimeFactory
+from pytest_lazyfixture import lazy_fixture
 
 from apscheduler.abc import AsyncDataStore, DataStore, Job, Schedule
 from apscheduler.datastores.async_adapter import AsyncDataStoreAdapter
@@ -89,13 +90,13 @@ async def asyncpg_store() -> AsyncDataStore:
 
 
 @pytest.fixture(params=[
-    pytest.param(pytest.lazy_fixture('memory_store'), id='memory'),
-    pytest.param(pytest.lazy_fixture('sqlite'), id='sqlite'),
-    pytest.param(pytest.lazy_fixture('mongodb_store'), id='mongodb',
+    pytest.param(lazy_fixture('memory_store'), id='memory'),
+    pytest.param(lazy_fixture('sqlite'), id='sqlite'),
+    pytest.param(lazy_fixture('mongodb_store'), id='mongodb',
                  marks=[pytest.mark.external_service]),
-    pytest.param(pytest.lazy_fixture('psycopg2_store'), id='psycopg2',
+    pytest.param(lazy_fixture('psycopg2_store'), id='psycopg2',
                  marks=[pytest.mark.external_service]),
-    pytest.param(pytest.lazy_fixture('mysql_store'), id='mysql',
+    pytest.param(lazy_fixture('mysql_store'), id='mysql',
                  marks=[pytest.mark.external_service])
 ])
 def sync_store(request) -> DataStore:
@@ -103,7 +104,7 @@ def sync_store(request) -> DataStore:
 
 
 @pytest.fixture(params=[
-    pytest.param(pytest.lazy_fixture('asyncpg_store'), id='asyncpg',
+    pytest.param(lazy_fixture('asyncpg_store'), id='asyncpg',
                  marks=[pytest.mark.external_service])
 ])
 def async_store(request) -> AsyncDataStore:
@@ -111,13 +112,13 @@ def async_store(request) -> AsyncDataStore:
 
 
 @pytest.fixture(params=[
-    pytest.param(pytest.lazy_fixture('memory_store'), id='memory'),
-    pytest.param(pytest.lazy_fixture('sqlite_store'), id='sqlite'),
-    pytest.param(pytest.lazy_fixture('mongodb_store'), id='mongodb',
+    pytest.param(lazy_fixture('memory_store'), id='memory'),
+    pytest.param(lazy_fixture('sqlite_store'), id='sqlite'),
+    pytest.param(lazy_fixture('mongodb_store'), id='mongodb',
                  marks=[pytest.mark.external_service]),
-    pytest.param(pytest.lazy_fixture('psycopg2_store'), id='psycopg2',
+    pytest.param(lazy_fixture('psycopg2_store'), id='psycopg2',
                  marks=[pytest.mark.external_service]),
-    pytest.param(pytest.lazy_fixture('mysql_store'), id='mysql',
+    pytest.param(lazy_fixture('mysql_store'), id='mysql',
                  marks=[pytest.mark.external_service])
 ])
 async def datastore(request):

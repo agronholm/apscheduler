@@ -102,6 +102,8 @@ class TestAsyncScheduler:
     ])
     async def test_jitter(self, mocker: MockerFixture, timezone: ZoneInfo, max_jitter: float,
                           expected_upper_bound: float) -> None:
+        job_id: UUID | None = None
+
         def job_added_listener(event: Event) -> None:
             nonlocal job_id
             assert isinstance(event, JobAdded)
@@ -115,7 +117,6 @@ class TestAsyncScheduler:
         async with AsyncScheduler(start_worker=False) as scheduler:
             trigger = IntervalTrigger(seconds=3, start_time=orig_start_time)
             job_added_event = anyio.Event()
-            job_id: UUID | None = None
             scheduler.events.subscribe(job_added_listener, {JobAdded})
             schedule_id = await scheduler.add_schedule(dummy_async_job, trigger,
                                                        max_jitter=max_jitter)
@@ -248,6 +249,8 @@ class TestSyncScheduler:
     ])
     def test_jitter(self, mocker: MockerFixture, timezone: ZoneInfo, max_jitter: float,
                     expected_upper_bound: float) -> None:
+        job_id: UUID | None = None
+
         def job_added_listener(event: Event) -> None:
             nonlocal job_id
             assert isinstance(event, JobAdded)
@@ -261,7 +264,6 @@ class TestSyncScheduler:
         with Scheduler(start_worker=False) as scheduler:
             trigger = IntervalTrigger(seconds=3, start_time=orig_start_time)
             job_added_event = threading.Event()
-            job_id: UUID | None = None
             scheduler.events.subscribe(job_added_listener, {JobAdded})
             schedule_id = scheduler.add_schedule(dummy_async_job, trigger, max_jitter=max_jitter)
             schedule = scheduler.get_schedule(schedule_id)
