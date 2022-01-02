@@ -12,7 +12,7 @@ import attrs
 import pymongo
 import tenacity
 from attrs.validators import instance_of
-from bson import CodecOptions
+from bson import CodecOptions, UuidRepresentation
 from bson.codec_options import TypeEncoder, TypeRegistry
 from pymongo import ASCENDING, DeleteOne, MongoClient, UpdateOne
 from pymongo.collection import Collection
@@ -43,6 +43,11 @@ class CustomEncoder(TypeEncoder):
 
     def transform_python(self, value: Any) -> Any:
         return self._encoder(value)
+
+
+def ensure_uuid_presentation(client: MongoClient) -> None:
+    # if client.
+    pass
 
 
 @reentrant
@@ -77,7 +82,8 @@ class MongoDBDataStore(DataStore):
             CustomEncoder(CoalescePolicy, operator.attrgetter('name')),
             CustomEncoder(JobOutcome, operator.attrgetter('name'))
         ])
-        codec_options = CodecOptions(tz_aware=True, type_registry=type_registry)
+        codec_options = CodecOptions(tz_aware=True, type_registry=type_registry,
+                                     uuid_representation=UuidRepresentation.STANDARD)
         database = self.client.get_database(self.database, codec_options=codec_options)
         self._tasks: Collection = database['tasks']
         self._schedules: Collection = database['schedules']
