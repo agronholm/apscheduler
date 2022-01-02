@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import TypeVar
 from uuid import UUID
 
 from . import abc
 
+TEnum = TypeVar('TEnum', bound=Enum)
 
-def as_aware_datetime(value: datetime | str) -> datetime | None:
+
+def as_aware_datetime(value: datetime | str) -> datetime:
     """Convert the value from a string to a timezone aware datetime."""
     if isinstance(value, str):
         # fromisoformat() does not handle the "Z" suffix
@@ -27,15 +31,15 @@ def as_uuid(value: UUID | str) -> UUID:
     return value
 
 
-def as_timedelta(value: timedelta | float | None) -> timedelta:
+def as_timedelta(value: timedelta | float | None) -> timedelta | None:
     if isinstance(value, (float, int)):
         return timedelta(seconds=value)
 
     return value
 
 
-def as_enum(enum_class: type[Enum]):
-    def converter(value: enum_class | str):
+def as_enum(enum_class: type[TEnum]) -> Callable[[TEnum | str], TEnum]:
+    def converter(value: TEnum | str) -> TEnum:
         if isinstance(value, str):
             return enum_class.__members__[value]
 

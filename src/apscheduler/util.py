@@ -11,7 +11,7 @@ if sys.version_info >= (3, 9):
 else:
     from backports.zoneinfo import ZoneInfo
 
-T_Type = TypeVar('T_Type', bound=type)
+T = TypeVar('T')
 
 
 class _Undefined:
@@ -36,7 +36,7 @@ def absolute_datetime_diff(dateval1: datetime, dateval2: datetime) -> float:
     return dateval1.timestamp() - dateval2.timestamp()
 
 
-def reentrant(cls: T_Type) -> T_Type:
+def reentrant(cls: type[T]) -> type[T]:
     """
     Modifies a class so that its ``__enter__`` / ``__exit__`` (or ``__aenter__`` / ``__aexit__``)
     methods track the number of times it has been entered and exited and only actually invoke
@@ -44,20 +44,20 @@ def reentrant(cls: T_Type) -> T_Type:
 
     """
 
-    def __enter__(self):
+    def __enter__(self: T) -> T:
         loans[self] += 1
         if loans[self] == 1:
             previous_enter(self)
 
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         assert loans[self]
         loans[self] -= 1
         if loans[self] == 0:
             return previous_exit(self, exc_type, exc_val, exc_tb)
 
-    async def __aenter__(self):
+    async def __aenter__(self: T) -> T:
         loans[self] += 1
         if loans[self] == 1:
             await previous_aenter(self)
@@ -71,7 +71,7 @@ def reentrant(cls: T_Type) -> T_Type:
             del loans[self]
             return await previous_aexit(self, exc_type, exc_val, exc_tb)
 
-    loans: dict[T_Type, int] = defaultdict(lambda: 0)
+    loans: dict[T, int] = defaultdict(lambda: 0)
     previous_enter: Callable = getattr(cls, '__enter__', None)
     previous_exit: Callable = getattr(cls, '__exit__', None)
     previous_aenter: Callable = getattr(cls, '__aenter__', None)
