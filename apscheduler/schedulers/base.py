@@ -11,7 +11,10 @@ from pkg_resources import iter_entry_points
 from tzlocal import get_localzone
 import six
 
-from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
+from apscheduler.schedulers import (
+    SchedulerAlreadyRunningError,
+    SchedulerNotRunningError,
+)
 from apscheduler.executors.base import MaxInstancesReachedError, BaseExecutor
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError, BaseJobStore
@@ -19,12 +22,34 @@ from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.job import Job
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import (
-    asbool, asint, astimezone, maybe_ref, timedelta_seconds, undefined, TIMEOUT_MAX)
+    asbool,
+    asint,
+    astimezone,
+    maybe_ref,
+    timedelta_seconds,
+    undefined,
+    TIMEOUT_MAX,
+)
 from apscheduler.events import (
-    SchedulerEvent, JobEvent, JobSubmissionEvent, EVENT_SCHEDULER_START, EVENT_SCHEDULER_SHUTDOWN,
-    EVENT_JOBSTORE_ADDED, EVENT_JOBSTORE_REMOVED, EVENT_ALL, EVENT_JOB_MODIFIED, EVENT_JOB_REMOVED,
-    EVENT_JOB_ADDED, EVENT_EXECUTOR_ADDED, EVENT_EXECUTOR_REMOVED, EVENT_ALL_JOBS_REMOVED,
-    EVENT_JOB_SUBMITTED, EVENT_JOB_MAX_INSTANCES, EVENT_SCHEDULER_RESUMED, EVENT_SCHEDULER_PAUSED)
+    SchedulerEvent,
+    JobEvent,
+    JobSubmissionEvent,
+    EVENT_SCHEDULER_START,
+    EVENT_SCHEDULER_SHUTDOWN,
+    EVENT_JOBSTORE_ADDED,
+    EVENT_JOBSTORE_REMOVED,
+    EVENT_ALL,
+    EVENT_JOB_MODIFIED,
+    EVENT_JOB_REMOVED,
+    EVENT_JOB_ADDED,
+    EVENT_EXECUTOR_ADDED,
+    EVENT_EXECUTOR_REMOVED,
+    EVENT_ALL_JOBS_REMOVED,
+    EVENT_JOB_SUBMITTED,
+    EVENT_JOB_MAX_INSTANCES,
+    EVENT_SCHEDULER_RESUMED,
+    EVENT_SCHEDULER_PAUSED,
+)
 
 try:
     from collections.abc import MutableMapping
@@ -63,11 +88,17 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     .. seealso:: :ref:`scheduler-config`
     """
 
-    _trigger_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
+    _trigger_plugins = dict(
+        (ep.name, ep) for ep in iter_entry_points("apscheduler.triggers")
+    )
     _trigger_classes = {}
-    _executor_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.executors'))
+    _executor_plugins = dict(
+        (ep.name, ep) for ep in iter_entry_points("apscheduler.executors")
+    )
     _executor_classes = {}
-    _jobstore_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.jobstores'))
+    _jobstore_plugins = dict(
+        (ep.name, ep) for ep in iter_entry_points("apscheduler.jobstores")
+    )
     _jobstore_classes = {}
 
     #
@@ -87,11 +118,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self.configure(gconfig, **options)
 
     def __getstate__(self):
-        raise TypeError("Schedulers cannot be serialized. Ensure that you are not passing a "
-                        "scheduler instance as an argument to a job, or scheduling an instance "
-                        "method where the instance contains a scheduler as an attribute.")
+        raise TypeError(
+            "Schedulers cannot be serialized. Ensure that you are not passing a "
+            "scheduler instance as an argument to a job, or scheduling an instance "
+            "method where the instance contains a scheduler as an attribute."
+        )
 
-    def configure(self, gconfig={}, prefix='apscheduler.', **options):
+    def configure(self, gconfig={}, prefix="apscheduler.", **options):
         """
         Reconfigures the scheduler with the given options.
 
@@ -111,14 +144,17 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         # global configuration dict
         if prefix:
             prefixlen = len(prefix)
-            gconfig = dict((key[prefixlen:], value) for key, value in six.iteritems(gconfig)
-                           if key.startswith(prefix))
+            gconfig = dict(
+                (key[prefixlen:], value)
+                for key, value in six.iteritems(gconfig)
+                if key.startswith(prefix)
+            )
 
         # Create a structure from the dotted options
         # (e.g. "a.b.c = d" -> {'a': {'b': {'c': 'd'}}})
         config = {}
         for key, value in six.iteritems(gconfig):
-            parts = key.split('.')
+            parts = key.split(".")
             parent = config
             key = parts.pop(0)
             while parts:
@@ -146,8 +182,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         with self._executors_lock:
             # Create a default executor if nothing else is configured
-            if 'default' not in self._executors:
-                self.add_executor(self._create_default_executor(), 'default')
+            if "default" not in self._executors:
+                self.add_executor(self._create_default_executor(), "default")
 
             # Start all the executors
             for alias, executor in six.iteritems(self._executors):
@@ -155,8 +191,8 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         with self._jobstores_lock:
             # Create a default job store if nothing else is configured
-            if 'default' not in self._jobstores:
-                self.add_jobstore(self._create_default_jobstore(), 'default')
+            if "default" not in self._jobstores:
+                self.add_jobstore(self._create_default_jobstore(), "default")
 
             # Start all the job stores
             for alias, store in six.iteritems(self._jobstores):
@@ -168,7 +204,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             del self._pending_jobs[:]
 
         self.state = STATE_PAUSED if paused else STATE_RUNNING
-        self._logger.info('Scheduler started')
+        self._logger.info("Scheduler started")
         self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_START))
 
         if not paused:
@@ -200,7 +236,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             for jobstore in six.itervalues(self._jobstores):
                 jobstore.shutdown()
 
-        self._logger.info('Scheduler has been shut down')
+        self._logger.info("Scheduler has been shut down")
         self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_SHUTDOWN))
 
     def pause(self):
@@ -215,7 +251,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             raise SchedulerNotRunningError
         elif self.state == STATE_RUNNING:
             self.state = STATE_PAUSED
-            self._logger.info('Paused scheduler job processing')
+            self._logger.info("Paused scheduler job processing")
             self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_PAUSED))
 
     def resume(self):
@@ -224,7 +260,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             raise SchedulerNotRunningError
         elif self.state == STATE_PAUSED:
             self.state = STATE_RUNNING
-            self._logger.info('Resumed scheduler job processing')
+            self._logger.info("Resumed scheduler job processing")
             self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_RESUMED))
             self.wakeup()
 
@@ -238,7 +274,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         return self.state != STATE_STOPPED
 
-    def add_executor(self, executor, alias='default', **executor_opts):
+    def add_executor(self, executor, alias="default", **executor_opts):
         """
         Adds an executor to this scheduler.
 
@@ -253,17 +289,22 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         with self._executors_lock:
             if alias in self._executors:
-                raise ValueError('This scheduler already has an executor by the alias of "%s"' %
-                                 alias)
+                raise ValueError(
+                    'This scheduler already has an executor by the alias of "%s"'
+                    % alias
+                )
 
             if isinstance(executor, BaseExecutor):
                 self._executors[alias] = executor
             elif isinstance(executor, six.string_types):
                 self._executors[alias] = executor = self._create_plugin_instance(
-                    'executor', executor, executor_opts)
+                    "executor", executor, executor_opts
+                )
             else:
-                raise TypeError('Expected an executor instance or a string, got %s instead' %
-                                executor.__class__.__name__)
+                raise TypeError(
+                    "Expected an executor instance or a string, got %s instead"
+                    % executor.__class__.__name__
+                )
 
             # Start the executor right away if the scheduler is running
             if self.state != STATE_STOPPED:
@@ -289,7 +330,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         self._dispatch_event(SchedulerEvent(EVENT_EXECUTOR_REMOVED, alias))
 
-    def add_jobstore(self, jobstore, alias='default', **jobstore_opts):
+    def add_jobstore(self, jobstore, alias="default", **jobstore_opts):
         """
         Adds a job store to this scheduler.
 
@@ -303,17 +344,22 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         with self._jobstores_lock:
             if alias in self._jobstores:
-                raise ValueError('This scheduler already has a job store by the alias of "%s"' %
-                                 alias)
+                raise ValueError(
+                    'This scheduler already has a job store by the alias of "%s"'
+                    % alias
+                )
 
             if isinstance(jobstore, BaseJobStore):
                 self._jobstores[alias] = jobstore
             elif isinstance(jobstore, six.string_types):
                 self._jobstores[alias] = jobstore = self._create_plugin_instance(
-                    'jobstore', jobstore, jobstore_opts)
+                    "jobstore", jobstore, jobstore_opts
+                )
             else:
-                raise TypeError('Expected a job store instance or a string, got %s instead' %
-                                jobstore.__class__.__name__)
+                raise TypeError(
+                    "Expected a job store instance or a string, got %s instead"
+                    % jobstore.__class__.__name__
+                )
 
             # Start the job store right away if the scheduler isn't stopped
             if self.state != STATE_STOPPED:
@@ -372,10 +418,23 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 if callback == cb:
                     del self._listeners[i]
 
-    def add_job(self, func, trigger=None, args=None, kwargs=None, id=None, name=None,
-                misfire_grace_time=undefined, coalesce=undefined, max_instances=undefined,
-                next_run_time=undefined, jobstore='default', executor='default',
-                replace_existing=False, **trigger_args):
+    def add_job(
+        self,
+        func,
+        trigger=None,
+        args=None,
+        kwargs=None,
+        id=None,
+        name=None,
+        misfire_grace_time=undefined,
+        coalesce=undefined,
+        max_instances=undefined,
+        next_run_time=undefined,
+        jobstore="default",
+        executor="default",
+        replace_existing=False,
+        **trigger_args
+    ):
         """
         add_job(func, trigger=None, args=None, kwargs=None, id=None, \
             name=None, misfire_grace_time=undefined, coalesce=undefined, \
@@ -422,37 +481,55 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         """
         job_kwargs = {
-            'trigger': self._create_trigger(trigger, trigger_args),
-            'executor': executor,
-            'func': func,
-            'args': tuple(args) if args is not None else (),
-            'kwargs': dict(kwargs) if kwargs is not None else {},
-            'id': id,
-            'name': name,
-            'misfire_grace_time': misfire_grace_time,
-            'coalesce': coalesce,
-            'max_instances': max_instances,
-            'next_run_time': next_run_time
+            "trigger": self._create_trigger(trigger, trigger_args),
+            "executor": executor,
+            "func": func,
+            "args": tuple(args) if args is not None else (),
+            "kwargs": dict(kwargs) if kwargs is not None else {},
+            "id": id,
+            "name": name,
+            "misfire_grace_time": misfire_grace_time,
+            "coalesce": coalesce,
+            "max_instances": max_instances,
+            "next_run_time": next_run_time,
         }
-        job_kwargs = dict((key, value) for key, value in six.iteritems(job_kwargs) if
-                          value is not undefined)
+        job_kwargs = dict(
+            (key, value)
+            for key, value in six.iteritems(job_kwargs)
+            if value is not undefined
+        )
+        job_kwargs["scheduled_time"] = None
+        job_kwargs["job_id"] = None
         job = Job(self, **job_kwargs)
 
         # Don't really add jobs to job stores before the scheduler is up and running
         with self._jobstores_lock:
             if self.state == STATE_STOPPED:
                 self._pending_jobs.append((job, jobstore, replace_existing))
-                self._logger.info('Adding job tentatively -- it will be properly scheduled when '
-                                  'the scheduler starts')
+                self._logger.info(
+                    "Adding job tentatively -- it will be properly scheduled when "
+                    "the scheduler starts"
+                )
             else:
                 self._real_add_job(job, jobstore, replace_existing)
 
         return job
 
-    def scheduled_job(self, trigger, args=None, kwargs=None, id=None, name=None,
-                      misfire_grace_time=undefined, coalesce=undefined, max_instances=undefined,
-                      next_run_time=undefined, jobstore='default', executor='default',
-                      **trigger_args):
+    def scheduled_job(
+        self,
+        trigger,
+        args=None,
+        kwargs=None,
+        id=None,
+        name=None,
+        misfire_grace_time=undefined,
+        coalesce=undefined,
+        max_instances=undefined,
+        next_run_time=undefined,
+        jobstore="default",
+        executor="default",
+        **trigger_args
+    ):
         """
         scheduled_job(trigger, args=None, kwargs=None, id=None, \
             name=None, misfire_grace_time=undefined, \
@@ -467,10 +544,26 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         store. The scheduler cannot, however, enforce this requirement.
 
         """
+
         def inner(func):
-            self.add_job(func, trigger, args, kwargs, id, name, misfire_grace_time, coalesce,
-                         max_instances, next_run_time, jobstore, executor, True, **trigger_args)
+            self.add_job(
+                func,
+                trigger,
+                args,
+                kwargs,
+                id,
+                name,
+                misfire_grace_time,
+                coalesce,
+                max_instances,
+                next_run_time,
+                jobstore,
+                executor,
+                True,
+                **trigger_args
+            )
             return func
+
         return inner
 
     def modify_job(self, job_id, jobstore=None, **changes):
@@ -513,7 +606,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         trigger = self._create_trigger(trigger, trigger_args)
         now = datetime.now(self.timezone)
         next_run_time = trigger.get_next_fire_time(None, now)
-        return self.modify_job(job_id, jobstore, trigger=trigger, next_run_time=next_run_time)
+        return self.modify_job(
+            job_id, jobstore, trigger=trigger, next_run_time=next_run_time
+        )
 
     def pause_job(self, job_id, jobstore=None):
         """
@@ -559,9 +654,12 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         """
         if pending is not None:
-            warnings.warn('The "pending" option is deprecated -- get_jobs() always returns '
-                          'scheduled jobs if the scheduler has been started and pending jobs '
-                          'otherwise', DeprecationWarning)
+            warnings.warn(
+                'The "pending" option is deprecated -- get_jobs() always returns '
+                "scheduled jobs if the scheduler has been started and pending jobs "
+                "otherwise",
+                DeprecationWarning,
+            )
 
         with self._jobstores_lock:
             jobs = []
@@ -629,7 +727,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         event = JobEvent(EVENT_JOB_REMOVED, job_id, jobstore_alias)
         self._dispatch_event(event)
 
-        self._logger.info('Removed job %s', job_id)
+        self._logger.info("Removed job %s", job_id)
 
     def remove_all_jobs(self, jobstore=None):
         """
@@ -641,8 +739,11 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         with self._jobstores_lock:
             if self.state == STATE_STOPPED:
                 if jobstore:
-                    self._pending_jobs = [pending for pending in self._pending_jobs if
-                                          pending[1] != jobstore]
+                    self._pending_jobs = [
+                        pending
+                        for pending in self._pending_jobs
+                        if pending[1] != jobstore
+                    ]
                 else:
                     self._pending_jobs = []
             else:
@@ -667,23 +768,23 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         out = out or sys.stdout
         with self._jobstores_lock:
             if self.state == STATE_STOPPED:
-                print(u'Pending jobs:', file=out)
+                print(u"Pending jobs:", file=out)
                 if self._pending_jobs:
                     for job, jobstore_alias, replace_existing in self._pending_jobs:
                         if jobstore in (None, jobstore_alias):
-                            print(u'    %s' % job, file=out)
+                            print(u"    %s" % job, file=out)
                 else:
-                    print(u'    No pending jobs', file=out)
+                    print(u"    No pending jobs", file=out)
             else:
                 for alias, store in sorted(six.iteritems(self._jobstores)):
                     if jobstore in (None, alias):
-                        print(u'Jobstore %s:' % alias, file=out)
+                        print(u"Jobstore %s:" % alias, file=out)
                         jobs = store.get_all_jobs()
                         if jobs:
                             for job in jobs:
-                                print(u'    %s' % job, file=out)
+                                print(u"    %s" % job, file=out)
                         else:
-                            print(u'    No scheduled jobs', file=out)
+                            print(u"    No scheduled jobs", file=out)
 
     @abstractmethod
     def wakeup(self):
@@ -698,65 +799,71 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     def _configure(self, config):
         # Set general options
-        self._logger = maybe_ref(config.pop('logger', None)) or getLogger('apscheduler.scheduler')
-        self.timezone = astimezone(config.pop('timezone', None)) or get_localzone()
-        self.jobstore_retry_interval = float(config.pop('jobstore_retry_interval', 10))
+        self._logger = maybe_ref(config.pop("logger", None)) or getLogger(
+            "apscheduler.scheduler"
+        )
+        self.timezone = astimezone(config.pop("timezone", None)) or get_localzone()
+        self.jobstore_retry_interval = float(config.pop("jobstore_retry_interval", 10))
 
         # Set the job defaults
-        job_defaults = config.get('job_defaults', {})
+        job_defaults = config.get("job_defaults", {})
         self._job_defaults = {
-            'misfire_grace_time': asint(job_defaults.get('misfire_grace_time', 1)),
-            'coalesce': asbool(job_defaults.get('coalesce', True)),
-            'max_instances': asint(job_defaults.get('max_instances', 1))
+            "misfire_grace_time": asint(job_defaults.get("misfire_grace_time", 1)),
+            "coalesce": asbool(job_defaults.get("coalesce", True)),
+            "max_instances": asint(job_defaults.get("max_instances", 1)),
         }
 
         # Configure executors
         self._executors.clear()
-        for alias, value in six.iteritems(config.get('executors', {})):
+        for alias, value in six.iteritems(config.get("executors", {})):
             if isinstance(value, BaseExecutor):
                 self.add_executor(value, alias)
             elif isinstance(value, MutableMapping):
-                executor_class = value.pop('class', None)
-                plugin = value.pop('type', None)
+                executor_class = value.pop("class", None)
+                plugin = value.pop("type", None)
                 if plugin:
-                    executor = self._create_plugin_instance('executor', plugin, value)
+                    executor = self._create_plugin_instance("executor", plugin, value)
                 elif executor_class:
                     cls = maybe_ref(executor_class)
                     executor = cls(**value)
                 else:
                     raise ValueError(
-                        'Cannot create executor "%s" -- either "type" or "class" must be defined' %
-                        alias)
+                        'Cannot create executor "%s" -- either "type" or "class" must be defined'
+                        % alias
+                    )
 
                 self.add_executor(executor, alias)
             else:
                 raise TypeError(
-                    "Expected executor instance or dict for executors['%s'], got %s instead" %
-                    (alias, value.__class__.__name__))
+                    "Expected executor instance or dict for executors['%s'], got %s instead"
+                    % (alias, value.__class__.__name__)
+                )
 
         # Configure job stores
         self._jobstores.clear()
-        for alias, value in six.iteritems(config.get('jobstores', {})):
+        for alias, value in six.iteritems(config.get("jobstores", {})):
             if isinstance(value, BaseJobStore):
                 self.add_jobstore(value, alias)
             elif isinstance(value, MutableMapping):
-                jobstore_class = value.pop('class', None)
-                plugin = value.pop('type', None)
+                jobstore_class = value.pop("class", None)
+                plugin = value.pop("type", None)
                 if plugin:
-                    jobstore = self._create_plugin_instance('jobstore', plugin, value)
+                    jobstore = self._create_plugin_instance("jobstore", plugin, value)
                 elif jobstore_class:
                     cls = maybe_ref(jobstore_class)
                     jobstore = cls(**value)
                 else:
                     raise ValueError(
                         'Cannot create job store "%s" -- either "type" or "class" must be '
-                        'defined' % alias)
+                        "defined" % alias
+                    )
 
                 self.add_jobstore(jobstore, alias)
             else:
                 raise TypeError(
-                    "Expected job store instance or dict for jobstores['%s'], got %s instead" %
-                    (alias, value.__class__.__name__))
+                    "Expected job store instance or dict for jobstores['%s'], got %s instead"
+                    % (alias, value.__class__.__name__)
+                )
 
     def _create_default_executor(self):
         """Creates a default executor store, specific to the particular scheduler type."""
@@ -778,7 +885,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         try:
             return self._executors[alias]
         except KeyError:
-            raise KeyError('No such executor: %s' % alias)
+            raise KeyError("No such executor: %s" % alias)
 
     def _lookup_jobstore(self, alias):
         """
@@ -792,7 +899,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         try:
             return self._jobstores[alias]
         except KeyError:
-            raise KeyError('No such job store: %s' % alias)
+            raise KeyError("No such job store: %s" % alias)
 
     def _lookup_job(self, job_id, jobstore_alias):
         """
@@ -835,15 +942,17 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 try:
                     cb(event)
                 except BaseException:
-                    self._logger.exception('Error notifying listener')
+                    self._logger.exception("Error notifying listener")
 
     def _check_uwsgi(self):
         """Check if we're running under uWSGI with threads disabled."""
-        uwsgi_module = sys.modules.get('uwsgi')
-        if not getattr(uwsgi_module, 'has_threads', True):
-            raise RuntimeError('The scheduler seems to be running under uWSGI, but threads have '
-                               'been disabled. You must run uWSGI with the --enable-threads '
-                               'option for the scheduler to work.')
+        uwsgi_module = sys.modules.get("uwsgi")
+        if not getattr(uwsgi_module, "has_threads", True):
+            raise RuntimeError(
+                "The scheduler seems to be running under uWSGI, but threads have "
+                "been disabled. You must run uWSGI with the --enable-threads "
+                "option for the scheduler to work."
+            )
 
     def _real_add_job(self, job, jobstore_alias, replace_existing):
         """
@@ -859,9 +968,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 replacements[key] = value
 
         # Calculate the next run time if there is none defined
-        if not hasattr(job, 'next_run_time'):
+        if not hasattr(job, "next_run_time"):
             now = datetime.now(self.timezone)
-            replacements['next_run_time'] = job.trigger.get_next_fire_time(None, now)
+            replacements["next_run_time"] = job.trigger.get_next_fire_time(None, now)
 
         # Apply any replacements
         job._modify(**replacements)
@@ -892,9 +1001,9 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     def _create_plugin_instance(self, type_, alias, constructor_kwargs):
         """Creates an instance of the given plugin type, loading the plugin first if necessary."""
         plugin_container, class_container, base_class = {
-            'trigger': (self._trigger_plugins, self._trigger_classes, BaseTrigger),
-            'jobstore': (self._jobstore_plugins, self._jobstore_classes, BaseJobStore),
-            'executor': (self._executor_plugins, self._executor_classes, BaseExecutor)
+            "trigger": (self._trigger_plugins, self._trigger_classes, BaseTrigger),
+            "jobstore": (self._jobstore_plugins, self._jobstore_classes, BaseJobStore),
+            "executor": (self._executor_plugins, self._executor_classes, BaseExecutor),
         }[type_]
 
         try:
@@ -903,10 +1012,15 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             if alias in plugin_container:
                 plugin_cls = class_container[alias] = plugin_container[alias].load()
                 if not issubclass(plugin_cls, base_class):
-                    raise TypeError('The {0} entry point does not point to a {0} class'.
-                                    format(type_))
+                    raise TypeError(
+                        "The {0} entry point does not point to a {0} class".format(
+                            type_
+                        )
+                    )
             else:
-                raise LookupError('No {0} by the name "{1}" was found'.format(type_, alias))
+                raise LookupError(
+                    'No {0} by the name "{1}" was found'.format(type_, alias)
+                )
 
         return plugin_cls(**constructor_kwargs)
 
@@ -914,16 +1028,18 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         if isinstance(trigger, BaseTrigger):
             return trigger
         elif trigger is None:
-            trigger = 'date'
+            trigger = "date"
         elif not isinstance(trigger, six.string_types):
-            raise TypeError('Expected a trigger instance or string, got %s instead' %
-                            trigger.__class__.__name__)
+            raise TypeError(
+                "Expected a trigger instance or string, got %s instead"
+                % trigger.__class__.__name__
+            )
 
         # Use the scheduler's time zone if nothing else is specified
-        trigger_args.setdefault('timezone', self.timezone)
+        trigger_args.setdefault("timezone", self.timezone)
 
         # Instantiate the trigger class
-        return self._create_plugin_instance('trigger', trigger, trigger_args)
+        return self._create_plugin_instance("trigger", trigger, trigger_args)
 
     def _create_lock(self):
         """Creates a reentrant lock object."""
@@ -939,10 +1055,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         """
         if self.state == STATE_PAUSED:
-            self._logger.debug('Scheduler is paused -- not processing jobs')
+            self._logger.debug("Scheduler is paused -- not processing jobs")
             return None
 
-        self._logger.debug('Looking for jobs to run')
+        self._logger.debug("Looking for jobs to run")
         now = datetime.now(self.timezone)
         next_wakeup_time = None
         events = []
@@ -953,9 +1069,14 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     due_jobs = jobstore.get_due_jobs(now)
                 except Exception as e:
                     # Schedule a wakeup at least in jobstore_retry_interval seconds
-                    self._logger.warning('Error getting due jobs from job store %r: %s',
-                                         jobstore_alias, e)
-                    retry_wakeup_time = now + timedelta(seconds=self.jobstore_retry_interval)
+                    self._logger.warning(
+                        "Error getting due jobs from job store %r: %s",
+                        jobstore_alias,
+                        e,
+                    )
+                    retry_wakeup_time = now + timedelta(
+                        seconds=self.jobstore_retry_interval
+                    )
                     if not next_wakeup_time or next_wakeup_time > retry_wakeup_time:
                         next_wakeup_time = retry_wakeup_time
 
@@ -968,33 +1089,51 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     except BaseException:
                         self._logger.error(
                             'Executor lookup ("%s") failed for job "%s" -- removing it from the '
-                            'job store', job.executor, job)
+                            "job store",
+                            job.executor,
+                            job,
+                        )
                         self.remove_job(job.id, jobstore_alias)
                         continue
 
                     run_times = job._get_run_times(now)
-                    run_times = run_times[-1:] if run_times and job.coalesce else run_times
+                    run_times = (
+                        run_times[-1:] if run_times and job.coalesce else run_times
+                    )
                     if run_times:
                         try:
                             executor.submit_job(job, run_times)
                         except MaxInstancesReachedError:
                             self._logger.warning(
                                 'Execution of job "%s" skipped: maximum number of running '
-                                'instances reached (%d)', job, job.max_instances)
-                            event = JobSubmissionEvent(EVENT_JOB_MAX_INSTANCES, job.id,
-                                                       jobstore_alias, run_times)
+                                "instances reached (%d)",
+                                job,
+                                job.max_instances,
+                            )
+                            event = JobSubmissionEvent(
+                                EVENT_JOB_MAX_INSTANCES,
+                                job.id,
+                                jobstore_alias,
+                                run_times,
+                            )
                             events.append(event)
                         except BaseException:
-                            self._logger.exception('Error submitting job "%s" to executor "%s"',
-                                                   job, job.executor)
+                            self._logger.exception(
+                                'Error submitting job "%s" to executor "%s"',
+                                job,
+                                job.executor,
+                            )
                         else:
-                            event = JobSubmissionEvent(EVENT_JOB_SUBMITTED, job.id, jobstore_alias,
-                                                       run_times)
+                            event = JobSubmissionEvent(
+                                EVENT_JOB_SUBMITTED, job.id, jobstore_alias, run_times
+                            )
                             events.append(event)
 
                         # Update the job if it has a next execution time.
                         # Otherwise remove it from the job store.
-                        job_next_run = job.trigger.get_next_fire_time(run_times[-1], now)
+                        job_next_run = job.trigger.get_next_fire_time(
+                            run_times[-1], now
+                        )
                         if job_next_run:
                             job._modify(next_run_time=job_next_run)
                             jobstore.update_job(job)
@@ -1004,8 +1143,10 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 # Set a new next wakeup time if there isn't one yet or
                 # the jobstore has an even earlier one
                 jobstore_next_run_time = jobstore.get_next_run_time()
-                if jobstore_next_run_time and (next_wakeup_time is None or
-                                               jobstore_next_run_time < next_wakeup_time):
+                if jobstore_next_run_time and (
+                    next_wakeup_time is None
+                    or jobstore_next_run_time < next_wakeup_time
+                ):
                     next_wakeup_time = jobstore_next_run_time.astimezone(self.timezone)
 
         # Dispatch collected events
@@ -1015,13 +1156,18 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         # Determine the delay until this method should be called again
         if self.state == STATE_PAUSED:
             wait_seconds = None
-            self._logger.debug('Scheduler is paused; waiting until resume() is called')
+            self._logger.debug("Scheduler is paused; waiting until resume() is called")
         elif next_wakeup_time is None:
             wait_seconds = None
-            self._logger.debug('No jobs; waiting until a job is added')
+            self._logger.debug("No jobs; waiting until a job is added")
         else:
-            wait_seconds = min(max(timedelta_seconds(next_wakeup_time - now), 0), TIMEOUT_MAX)
-            self._logger.debug('Next wakeup is due at %s (in %f seconds)', next_wakeup_time,
-                               wait_seconds)
+            wait_seconds = min(
+                max(timedelta_seconds(next_wakeup_time - now), 0), TIMEOUT_MAX
+            )
+            self._logger.debug(
+                "Next wakeup is due at %s (in %f seconds)",
+                next_wakeup_time,
+                wait_seconds,
+            )
 
         return wait_seconds

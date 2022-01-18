@@ -5,8 +5,14 @@ import six
 
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import (
-    ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name, check_callable_args,
-    convert_to_datetime)
+    ref_to_obj,
+    obj_to_ref,
+    datetime_repr,
+    repr_escape,
+    get_callable_name,
+    check_callable_args,
+    convert_to_datetime,
+)
 
 try:
     from collections.abc import Iterable, Mapping
@@ -38,9 +44,23 @@ class Job(object):
         :ref:`missed-job-executions` section in the documentation for an in-depth explanation.
     """
 
-    __slots__ = ('_scheduler', '_jobstore_alias', 'id', 'trigger', 'executor', 'func', 'func_ref',
-                 'args', 'kwargs', 'name', 'misfire_grace_time', 'coalesce', 'max_instances',
-                 'next_run_time', '__weakref__')
+    __slots__ = (
+        "_scheduler",
+        "_jobstore_alias",
+        "id",
+        "trigger",
+        "executor",
+        "func",
+        "func_ref",
+        "args",
+        "kwargs",
+        "name",
+        "misfire_grace_time",
+        "coalesce",
+        "max_instances",
+        "next_run_time",
+        "__weakref__",
+    )
 
     def __init__(self, scheduler, id=None, **kwargs):
         super(Job, self).__init__()
@@ -71,7 +91,9 @@ class Job(object):
         :return Job: this job instance
 
         """
-        self._scheduler.reschedule_job(self.id, self._jobstore_alias, trigger, **trigger_args)
+        self._scheduler.reschedule_job(
+            self.id, self._jobstore_alias, trigger, **trigger_args
+        )
         return self
 
     def pause(self):
@@ -144,18 +166,18 @@ class Job(object):
         """
         approved = {}
 
-        if 'id' in changes:
-            value = changes.pop('id')
+        if "id" in changes:
+            value = changes.pop("id")
             if not isinstance(value, six.string_types):
                 raise TypeError("id must be a nonempty string")
-            if hasattr(self, 'id'):
-                raise ValueError('The job ID may not be changed')
-            approved['id'] = value
+            if hasattr(self, "id"):
+                raise ValueError("The job ID may not be changed")
+            approved["id"] = value
 
-        if 'func' in changes or 'args' in changes or 'kwargs' in changes:
-            func = changes.pop('func') if 'func' in changes else self.func
-            args = changes.pop('args') if 'args' in changes else self.args
-            kwargs = changes.pop('kwargs') if 'kwargs' in changes else self.kwargs
+        if "func" in changes or "args" in changes or "kwargs" in changes:
+            func = changes.pop("func") if "func" in changes else self.func
+            args = changes.pop("args") if "args" in changes else self.args
+            kwargs = changes.pop("kwargs") if "kwargs" in changes else self.kwargs
 
             if isinstance(func, six.string_types):
                 func_ref = func
@@ -167,67 +189,82 @@ class Job(object):
                     # If this happens, this Job won't be serializable
                     func_ref = None
             else:
-                raise TypeError('func must be a callable or a textual reference to one')
+                raise TypeError("func must be a callable or a textual reference to one")
 
-            if not hasattr(self, 'name') and changes.get('name', None) is None:
-                changes['name'] = get_callable_name(func)
+            if not hasattr(self, "name") and changes.get("name", None) is None:
+                changes["name"] = get_callable_name(func)
 
             if isinstance(args, six.string_types) or not isinstance(args, Iterable):
-                raise TypeError('args must be a non-string iterable')
+                raise TypeError("args must be a non-string iterable")
             if isinstance(kwargs, six.string_types) or not isinstance(kwargs, Mapping):
-                raise TypeError('kwargs must be a dict-like object')
+                raise TypeError("kwargs must be a dict-like object")
 
             check_callable_args(func, args, kwargs)
 
-            approved['func'] = func
-            approved['func_ref'] = func_ref
-            approved['args'] = args
-            approved['kwargs'] = kwargs
+            approved["func"] = func
+            approved["func_ref"] = func_ref
+            approved["args"] = args
+            approved["kwargs"] = kwargs
 
-        if 'name' in changes:
-            value = changes.pop('name')
+        if "name" in changes:
+            value = changes.pop("name")
             if not value or not isinstance(value, six.string_types):
                 raise TypeError("name must be a nonempty string")
-            approved['name'] = value
+            approved["name"] = value
 
-        if 'misfire_grace_time' in changes:
-            value = changes.pop('misfire_grace_time')
-            if value is not None and (not isinstance(value, six.integer_types) or value <= 0):
-                raise TypeError('misfire_grace_time must be either None or a positive integer')
-            approved['misfire_grace_time'] = value
+        if "misfire_grace_time" in changes:
+            value = changes.pop("misfire_grace_time")
+            if value is not None and (
+                not isinstance(value, six.integer_types) or value <= 0
+            ):
+                raise TypeError(
+                    "misfire_grace_time must be either None or a positive integer"
+                )
+            approved["misfire_grace_time"] = value
 
-        if 'coalesce' in changes:
-            value = bool(changes.pop('coalesce'))
-            approved['coalesce'] = value
+        if "coalesce" in changes:
+            value = bool(changes.pop("coalesce"))
+            approved["coalesce"] = value
 
-        if 'max_instances' in changes:
-            value = changes.pop('max_instances')
+        if "max_instances" in changes:
+            value = changes.pop("max_instances")
             if not isinstance(value, six.integer_types) or value <= 0:
-                raise TypeError('max_instances must be a positive integer')
-            approved['max_instances'] = value
+                raise TypeError("max_instances must be a positive integer")
+            approved["max_instances"] = value
 
-        if 'trigger' in changes:
-            trigger = changes.pop('trigger')
+        if "trigger" in changes:
+            trigger = changes.pop("trigger")
             if not isinstance(trigger, BaseTrigger):
-                raise TypeError('Expected a trigger instance, got %s instead' %
-                                trigger.__class__.__name__)
+                raise TypeError(
+                    "Expected a trigger instance, got %s instead"
+                    % trigger.__class__.__name__
+                )
 
-            approved['trigger'] = trigger
+            approved["trigger"] = trigger
 
-        if 'executor' in changes:
-            value = changes.pop('executor')
+        if "executor" in changes:
+            value = changes.pop("executor")
             if not isinstance(value, six.string_types):
-                raise TypeError('executor must be a string')
-            approved['executor'] = value
+                raise TypeError("executor must be a string")
+            approved["executor"] = value
 
-        if 'next_run_time' in changes:
-            value = changes.pop('next_run_time')
-            approved['next_run_time'] = convert_to_datetime(value, self._scheduler.timezone,
-                                                            'next_run_time')
+        if "next_run_time" in changes:
+            value = changes.pop("next_run_time")
+            approved["next_run_time"] = convert_to_datetime(
+                value, self._scheduler.timezone, "next_run_time"
+            )
+
+        if "scheduled_time" in changes:
+            value = changes.pop("scheduled_time")
+
+        if "job_id" in changes:
+            value = changes.pop("job_id")
 
         if changes:
-            raise AttributeError('The following are not modifiable attributes of Job: %s' %
-                                 ', '.join(changes))
+            raise AttributeError(
+                "The following are not modifiable attributes of Job: %s"
+                % ", ".join(changes)
+            )
 
         for key, value in six.iteritems(approved):
             setattr(self, key, value)
@@ -236,50 +273,57 @@ class Job(object):
         # Don't allow this Job to be serialized if the function reference could not be determined
         if not self.func_ref:
             raise ValueError(
-                'This Job cannot be serialized since the reference to its callable (%r) could not '
-                'be determined. Consider giving a textual reference (module:function name) '
-                'instead.' % (self.func,))
+                "This Job cannot be serialized since the reference to its callable (%r) could not "
+                "be determined. Consider giving a textual reference (module:function name) "
+                "instead." % (self.func,)
+            )
 
         # Instance methods cannot survive serialization as-is, so store the "self" argument
         # explicitly
         func = self.func
-        if ismethod(func) and not isclass(func.__self__) and obj_to_ref(func) == self.func_ref:
+        if (
+            ismethod(func)
+            and not isclass(func.__self__)
+            and obj_to_ref(func) == self.func_ref
+        ):
             args = (func.__self__,) + tuple(self.args)
         else:
             args = self.args
 
         return {
-            'version': 1,
-            'id': self.id,
-            'func': self.func_ref,
-            'trigger': self.trigger,
-            'executor': self.executor,
-            'args': args,
-            'kwargs': self.kwargs,
-            'name': self.name,
-            'misfire_grace_time': self.misfire_grace_time,
-            'coalesce': self.coalesce,
-            'max_instances': self.max_instances,
-            'next_run_time': self.next_run_time
+            "version": 1,
+            "id": self.id,
+            "func": self.func_ref,
+            "trigger": self.trigger,
+            "executor": self.executor,
+            "args": args,
+            "kwargs": self.kwargs,
+            "name": self.name,
+            "misfire_grace_time": self.misfire_grace_time,
+            "coalesce": self.coalesce,
+            "max_instances": self.max_instances,
+            "next_run_time": self.next_run_time,
         }
 
     def __setstate__(self, state):
-        if state.get('version', 1) > 1:
-            raise ValueError('Job has version %s, but only version 1 can be handled' %
-                             state['version'])
+        if state.get("version", 1) > 1:
+            raise ValueError(
+                "Job has version %s, but only version 1 can be handled"
+                % state["version"]
+            )
 
-        self.id = state['id']
-        self.func_ref = state['func']
+        self.id = state["id"]
+        self.func_ref = state["func"]
         self.func = ref_to_obj(self.func_ref)
-        self.trigger = state['trigger']
-        self.executor = state['executor']
-        self.args = state['args']
-        self.kwargs = state['kwargs']
-        self.name = state['name']
-        self.misfire_grace_time = state['misfire_grace_time']
-        self.coalesce = state['coalesce']
-        self.max_instances = state['max_instances']
-        self.next_run_time = state['next_run_time']
+        self.trigger = state["trigger"]
+        self.executor = state["executor"]
+        self.args = state["args"]
+        self.kwargs = state["kwargs"]
+        self.name = state["name"]
+        self.misfire_grace_time = state["misfire_grace_time"]
+        self.coalesce = state["coalesce"]
+        self.max_instances = state["max_instances"]
+        self.next_run_time = state["next_run_time"]
 
     def __eq__(self, other):
         if isinstance(other, Job):
@@ -287,16 +331,19 @@ class Job(object):
         return NotImplemented
 
     def __repr__(self):
-        return '<Job (id=%s name=%s)>' % (repr_escape(self.id), repr_escape(self.name))
+        return "<Job (id=%s name=%s)>" % (repr_escape(self.id), repr_escape(self.name))
 
     def __str__(self):
         return repr_escape(self.__unicode__())
 
     def __unicode__(self):
-        if hasattr(self, 'next_run_time'):
-            status = ('next run at: ' + datetime_repr(self.next_run_time) if
-                      self.next_run_time else 'paused')
+        if hasattr(self, "next_run_time"):
+            status = (
+                "next run at: " + datetime_repr(self.next_run_time)
+                if self.next_run_time
+                else "paused"
+            )
         else:
-            status = 'pending'
+            status = "pending"
 
-        return u'%s (trigger: %s, %s)' % (self.name, self.trigger, status)
+        return u"%s (trigger: %s, %s)" % (self.name, self.trigger, status)
