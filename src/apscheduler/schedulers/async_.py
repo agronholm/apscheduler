@@ -6,7 +6,7 @@ import random
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, cast
 from uuid import UUID, uuid4
 
 import anyio
@@ -41,6 +41,7 @@ class AsyncScheduler:
 
     _state: RunState = attrs.field(init=False, default=RunState.stopped)
     _wakeup_event: anyio.Event = attrs.field(init=False)
+    _wakeup_deadline: datetime | None = attrs.field(init=False, default=None)
     _worker: AsyncWorker | None = attrs.field(init=False, default=None)
     _events: LocalAsyncEventBroker = attrs.field(init=False, factory=LocalAsyncEventBroker)
     _exit_stack: AsyncExitStack = attrs.field(init=False)
@@ -98,8 +99,14 @@ class AsyncScheduler:
         del self._wakeup_event
 
     def _schedule_added_or_modified(self, event: Event) -> None:
-        self.logger.debug('Detected a %s event – waking up the scheduler', type(event).__name__)
-        self._wakeup_event.set()
+        event_ = cast('ScheduleAdded | ScheduleUpdated', event)
+        if (
+            not self._wakeup_deadline
+            or (event_.next_fire_time and event_.next_fire_time < self._wakeup_deadline)
+        ):
+            self.logger.debug('Detected a %s event – waking up the scheduler',
+                              type(event).__name__)
+            self._wakeup_event.set()
 
     async def add_schedule(
         self, func_or_task_id: str | Callable, trigger: Trigger, *, id: str | None = None,
@@ -299,19 +306,21 @@ class AsyncScheduler:
                 # schedule is due or the scheduler is explicitly woken up
                 wait_time = None
                 if len(schedules) < 100:
-                    next_fire_time = await self.data_store.get_next_schedule_run_time()
-                    if next_fire_time:
-                        wait_time = (next_fire_time - datetime.now(timezone.utc)).total_seconds()
+                    self._wakeup_deadline = await self.data_store.get_next_schedule_run_time()
+                    if self._wakeup_deadline:
+                        wait_time = (
+                            self._wakeup_deadline - datetime.now(timezone.utc)
+                        ).total_seconds()
                         self.logger.debug('Sleeping %.3f seconds until the next fire time (%s)',
-                                          wait_time, next_fire_time)
+                                          wait_time, self._wakeup_deadline)
                     else:
                         self.logger.debug('Waiting for any due schedules to appear')
+
+                    with move_on_after(wait_time):
+                        await self._wakeup_event.wait()
+                        self._wakeup_event = anyio.Event()
                 else:
                     self.logger.debug('Processing more schedules on the next iteration')
-
-                with move_on_after(wait_time):
-                    await self._wakeup_event.wait()
-                    self._wakeup_event = anyio.Event()
         except get_cancelled_exc_class():
             pass
         except BaseException as exc:
