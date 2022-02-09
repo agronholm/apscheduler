@@ -191,12 +191,11 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self.state = STATE_STOPPED
 
         # Shut down all executors
-        with self._executors_lock:
+        with self._executors_lock, self._jobstores_lock:
             for executor in six.itervalues(self._executors):
                 executor.shutdown(wait)
 
-        # Shut down all job stores
-        with self._jobstores_lock:
+            # Shut down all job stores
             for jobstore in six.itervalues(self._jobstores):
                 jobstore.shutdown()
 

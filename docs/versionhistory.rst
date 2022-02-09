@@ -10,6 +10,8 @@ UNRELEASED
 * No longer enforce pytz time zones (support for others is experimental in the 3.x series)
 * Fixed compatibility with PyMongo 4
 * Fixed pytz deprecation warnings
+* Fixed RuntimeError when shutting down the scheduler from a scheduled job
+
 
 3.8.1
 -----
