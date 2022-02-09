@@ -34,7 +34,7 @@ except ImportError:
 __all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
            'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'get_callable_name',
            'obj_to_ref', 'ref_to_obj', 'maybe_ref', 'repr_escape', 'check_callable_args',
-           'TIMEOUT_MAX')
+           'normalize', 'localize', 'TIMEOUT_MAX')
 
 
 class _Undefined(object):
@@ -162,11 +162,7 @@ def convert_to_datetime(input, tz, arg_name):
     if isinstance(tz, six.string_types):
         tz = timezone(tz)
 
-    try:
-        return tz.localize(datetime_, is_dst=None)
-    except AttributeError:
-        raise TypeError(
-            'Only pytz timezones are supported (need the localize() and normalize() methods)')
+    return localize(datetime_, tz)
 
 
 def datetime_to_utc_timestamp(timeval):
@@ -431,3 +427,14 @@ def iscoroutinefunction_partial(f):
     # The asyncio version of iscoroutinefunction includes testing for @coroutine
     # decorations vs. the inspect version which does not.
     return iscoroutinefunction(f)
+
+
+def normalize(dt):
+    return datetime.fromtimestamp(dt.timestamp(), dt.tzinfo)
+
+
+def localize(dt, tzinfo):
+    if hasattr(tzinfo, 'localize'):
+        return tzinfo.localize(dt)
+
+    return normalize(dt.replace(tzinfo=tzinfo))

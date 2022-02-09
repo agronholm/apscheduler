@@ -6,7 +6,8 @@ import six
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.cron.fields import (
     BaseField, MonthField, WeekField, DayOfMonthField, DayOfWeekField, DEFAULT_VALUES)
-from apscheduler.util import datetime_ceil, convert_to_datetime, datetime_repr, astimezone
+from apscheduler.util import (
+    datetime_ceil, convert_to_datetime, datetime_repr, astimezone, localize, normalize)
 
 
 class CronTrigger(BaseTrigger):
@@ -143,7 +144,7 @@ class CronTrigger(BaseTrigger):
                     i += 1
 
         difference = datetime(**values) - dateval.replace(tzinfo=None)
-        return self.timezone.normalize(dateval + difference), fieldnum
+        return normalize(dateval + difference), fieldnum
 
     def _set_field_value(self, dateval, fieldnum, new_value):
         values = {}
@@ -156,7 +157,7 @@ class CronTrigger(BaseTrigger):
                 else:
                     values[field.name] = new_value
 
-        return self.timezone.localize(datetime(**values))
+        return localize(datetime(**values), self.timezone)
 
     def get_next_fire_time(self, previous_fire_time, now):
         if previous_fire_time:

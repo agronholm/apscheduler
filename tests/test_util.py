@@ -148,11 +148,6 @@ class TestConvertToDatetime(object):
         returned = convert_to_datetime('2009-8-1', 'UTC', None)
         assert returned == datetime(2009, 8, 1, tzinfo=pytz.utc)
 
-    def test_bad_timezone(self):
-        exc = pytest.raises(TypeError, convert_to_datetime, '2009-8-1', tzinfo(), None)
-        assert str(exc.value) == ('Only pytz timezones are supported (need the localize() and '
-                                  'normalize() methods)')
-
 
 def test_datetime_to_utc_timestamp(timezone):
     dt = timezone.localize(datetime(2014, 3, 12, 5, 40, 13, 254012))

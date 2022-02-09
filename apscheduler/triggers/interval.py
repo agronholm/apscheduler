@@ -4,7 +4,9 @@ from math import ceil
 from tzlocal import get_localzone
 
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import convert_to_datetime, timedelta_seconds, datetime_repr, astimezone
+from apscheduler.util import (
+    convert_to_datetime, normalize, timedelta_seconds, datetime_repr,
+    astimezone)
 
 
 class IntervalTrigger(BaseTrigger):
@@ -63,7 +65,7 @@ class IntervalTrigger(BaseTrigger):
             next_fire_time = self._apply_jitter(next_fire_time, self.jitter, now)
 
         if not self.end_date or next_fire_time <= self.end_date:
-            return self.timezone.normalize(next_fire_time)
+            return normalize(next_fire_time)
 
     def __getstate__(self):
         return {
