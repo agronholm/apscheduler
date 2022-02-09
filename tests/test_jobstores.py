@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime
 
 import pytest
@@ -48,6 +49,9 @@ def sqlalchemyjobstore(tmpdir):
 
 @pytest.fixture
 def rethinkdbjobstore():
+    if sys.version_info >= (3, 10):
+        pytest.skip('RethinkDB does not work on Python 3.10+')
+
     rethinkdb = pytest.importorskip('apscheduler.jobstores.rethinkdb')
     store = rethinkdb.RethinkDBJobStore(database='apscheduler_unittest')
     store.start(None, 'rethinkdb')
