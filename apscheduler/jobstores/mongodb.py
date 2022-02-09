@@ -106,7 +106,7 @@ class MongoDBJobStore(BaseJobStore):
             raise JobLookupError(job_id)
 
     def remove_all_jobs(self):
-        self.collection.remove()
+        self.collection.delete_many({})
 
     def shutdown(self):
         self.client.close()
@@ -133,7 +133,7 @@ class MongoDBJobStore(BaseJobStore):
 
         # Remove all the jobs we failed to restore
         if failed_job_ids:
-            self.collection.remove({'_id': {'$in': failed_job_ids}})
+            self.collection.delete_many({'_id': {'$in': failed_job_ids}})
 
         return jobs
 
