@@ -81,6 +81,6 @@ Getting help
 If you have problems or other questions, you can either:
 
 * Ask in the `apscheduler <https://gitter.im/apscheduler/Lobby>`_ room on Gitter
-* Ask on the `APScheduler Google group <http://groups.google.com/group/apscheduler>`_, or
+* Ask on the `APScheduler GitHub discussion forum <https://github.com/agronholm/apscheduler/discussions>`_, or
 * Ask on `StackOverflow <http://stackoverflow.com/questions/tagged/apscheduler>`_ and tag your
   question with the ``apscheduler`` tag
