@@ -7,6 +7,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 UNRELEASED
 ----------
 
+* Added support for PySide6 to the Qt scheduler
 * No longer enforce pytz time zones (support for others is experimental in the 3.x series)
 * Fixed compatibility with PyMongo 4
 * Fixed pytz deprecation warnings
