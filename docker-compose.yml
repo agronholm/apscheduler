@@ -21,12 +21,13 @@ services:
     ports:
       - 127.0.0.1:27017:27017
 
-  mosquitto:
-    image: eclipse-mosquitto:2
-    volumes:
-      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+  vernemq:
+    image: vernemq/vernemq:latest-alpine
     ports:
       - 127.0.0.1:1883:1883
+    environment:
+      DOCKER_VERNEMQ_ACCEPT_EULA: "yes"
+      DOCKER_VERNEMQ_ALLOW_ANONYMOUS: "on"
 
   redis:
     image: redis:6
