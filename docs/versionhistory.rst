@@ -4,8 +4,8 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
-UNRELEASED
-----------
+3.9.0
+-----
 
 * Added support for PySide6 to the Qt scheduler
 * No longer enforce pytz time zones (support for others is experimental in the 3.x series)
