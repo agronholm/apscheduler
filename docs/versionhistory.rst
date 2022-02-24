@@ -14,6 +14,14 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 .. _AnyIO: https://github.com/agronholm/anyio
 
+**3.9.0**
+
+- Added support for PySide6 to the Qt scheduler
+- No longer enforce pytz time zones (support for others is experimental in the 3.x series)
+- Fixed compatibility with PyMongo 4
+- Fixed pytz deprecation warnings
+- Fixed RuntimeError when shutting down the scheduler from a scheduled job
+
 **3.8.1**
 
 - Allowed the use of tzlocal v4.0+ in addition to v2.*
