@@ -68,6 +68,7 @@ but if you were instantiating triggers manually before, then one must be supplie
 The only other backwards incompatible change was that ``get_next_fire_time()`` takes two arguments
 now: the previous fire time and the current datetime.
 
+.. note:: APScheduler 3.9.0 added experimental support for non-pytz timezones.
 
 From v1.x to 2.0
 ================

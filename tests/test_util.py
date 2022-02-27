@@ -94,8 +94,8 @@ class TestAstimezone(object):
         assert astimezone(None) is None
 
     def test_bad_timezone_type(self):
-        exc = pytest.raises(TypeError, astimezone, tzinfo())
-        assert 'Only timezones from the pytz library are supported' in str(exc.value)
+        pytest.raises(NotImplementedError, astimezone, tzinfo()).\
+            match(r'(a )?tzinfo subclass must (implement|override) tzname\(\)')
 
     def test_bad_local_timezone(self):
         zone = Mock(tzinfo, localize=None, normalize=None, tzname=lambda dt: 'local')
