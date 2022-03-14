@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 import os
 import platform
 import random
@@ -49,7 +50,6 @@ class Scheduler:
     _wakeup_deadline: datetime | None = attrs.field(init=False, default=None)
     _worker: Worker | None = attrs.field(init=False, default=None)
     _events: LocalEventBroker = attrs.field(init=False, factory=LocalEventBroker)
-    _exit_stack: ExitStack = attrs.field(init=False)
 
     def __attrs_post_init__(self) -> None:
         if not self.identity:
@@ -68,55 +68,11 @@ class Scheduler:
         return self._worker
 
     def __enter__(self) -> Scheduler:
-        self._state = RunState.starting
-        self._wakeup_event = threading.Event()
-        self._exit_stack = ExitStack()
-        self._exit_stack.__enter__()
-        self._exit_stack.enter_context(self._events)
-
-        # Initialize the data store and start relaying events to the scheduler's event broker
-        self._exit_stack.enter_context(self.data_store)
-        self._exit_stack.enter_context(
-            self.data_store.events.subscribe(self._events.publish)
-        )
-
-        # Wake up the scheduler if the data store emits a significant schedule event
-        self._exit_stack.enter_context(
-            self.data_store.events.subscribe(
-                self._schedule_added_or_modified, {ScheduleAdded, ScheduleUpdated}
-            )
-        )
-
-        # Start the built-in worker, if configured to do so
-        if self.start_worker:
-            token = current_scheduler.set(self)
-            try:
-                self._worker = Worker(self.data_store)
-                self._exit_stack.enter_context(self._worker)
-            finally:
-                current_scheduler.reset(token)
-
-        # Start the scheduler and return when it has signalled readiness or raised an exception
-        start_future: Future[Event] = Future()
-        with self._events.subscribe(start_future.set_result, one_shot=True):
-            executor = ThreadPoolExecutor(1)
-            self._exit_stack.push(
-                lambda exc_type, *args: executor.shutdown(wait=exc_type is None)
-            )
-            run_future = executor.submit(self.run)
-            wait([start_future, run_future], return_when=FIRST_COMPLETED)
-
-        if run_future.done():
-            run_future.result()
-
+        self.start_in_background()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._state = RunState.stopping
-        self._wakeup_event.set()
-        self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
-        self._state = RunState.stopped
-        del self._wakeup_event
+        self.stop()
 
     def _schedule_added_or_modified(self, event: Event) -> None:
         event_ = cast("ScheduleAdded | ScheduleUpdated", event)
@@ -282,7 +238,60 @@ class Scheduler:
         else:
             raise RuntimeError(f"Unknown job outcome: {result.outcome}")
 
-    def run(self) -> None:
+    def start_in_background(self) -> None:
+        if self._state is not RunState.stopped:
+            raise RuntimeError("Scheduler already running")
+
+        thread = threading.Thread(target=self.run_until_stopped, daemon=True)
+        thread.start()
+        atexit.register(self.stop)
+
+    def stop(self) -> None:
+        if self._state is RunState.started:
+            self._state = RunState.stopping
+            self._wakeup_event.set()
+
+    def run_until_stopped(self):
+        self._state = RunState.starting
+        self._wakeup_event = threading.Event()
+        with ExitStack() as exit_stack:
+            exit_stack.enter_context(self._events)
+
+            # Initialize the data store and start relaying events to the scheduler's event broker
+            exit_stack.enter_context(self.data_store)
+            exit_stack.enter_context(self.data_store.events.subscribe(self._events.publish))
+
+            # Wake up the scheduler if the data store emits a significant schedule event
+            exit_stack.enter_context(
+                self.data_store.events.subscribe(
+                    self._schedule_added_or_modified, {ScheduleAdded, ScheduleUpdated}
+                )
+            )
+
+            # Start the built-in worker, if configured to do so
+            if self.start_worker:
+                token = current_scheduler.set(self)
+                try:
+                    self._worker = Worker(self.data_store)
+                    exit_stack.enter_context(self._worker)
+                finally:
+                    current_scheduler.reset(token)
+
+            # Start the scheduler and return when it has signalled readiness or raised an exception
+            start_future: Future[Event] = Future()
+            with self._events.subscribe(start_future.set_result, one_shot=True):
+                executor = ThreadPoolExecutor(1)
+                exit_stack.push(lambda exc_type, *args: executor.shutdown(wait=exc_type is None))
+                run_future = executor.submit(self._run)
+                wait([start_future, run_future], return_when=FIRST_COMPLETED)
+
+        self._state = RunState.stopped
+        del self._wakeup_event
+
+        if run_future.done():
+            run_future.result()
+
+    def _run(self) -> None:
         if self._state is not RunState.starting:
             raise RuntimeError(
                 f"This function cannot be called while the scheduler is in the "
@@ -405,9 +414,3 @@ class Scheduler:
         self._state = RunState.stopped
         self.logger.info("Scheduler stopped")
         self._events.publish(SchedulerStopped())
-
-    # def stop(self) -> None:
-    #     self.portal.call(self._scheduler.stop)
-    #
-    # def wait_until_stopped(self) -> None:
-    #     self.portal.call(self._scheduler.wait_until_stopped)
