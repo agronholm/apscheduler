@@ -146,7 +146,7 @@ def test_weekday_range(timezone, serializer):
     assert trigger.next() == datetime(2020, 1, 5, tzinfo=timezone)
     assert trigger.next() is None
     assert repr(trigger) == ("CronTrigger(year='2020', month='1', day='*', week='1', "
-                             "day_of_week='fri-sun', hour='0', minute='0', second='0', "
+                             "day_of_week='sun,fri-sat', hour='0', minute='0', second='0', "
                              "start_time='2020-01-01T00:00:00+01:00', timezone='Europe/Berlin')")
 
 
@@ -325,15 +325,15 @@ def test_year_list(timezone, serializer):
      "minute='*', second='0', start_time='2020-05-19T19:53:22+02:00', "
      "timezone='Europe/Berlin')"),
     ('* * * * 0-3',
-     "CronTrigger(year='*', month='*', day='*', week='*', day_of_week='mon-wed,sun', hour='*', "
+     "CronTrigger(year='*', month='*', day='*', week='*', day_of_week='sun-wed', hour='*', "
      "minute='*', second='0', start_time='2020-05-19T19:53:22+02:00', "
      "timezone='Europe/Berlin')"),
     ('* * * * 6-1',
-     "CronTrigger(year='*', month='*', day='*', week='*', day_of_week='mon,sat-sun', hour='*', "
+     "CronTrigger(year='*', month='*', day='*', week='*', day_of_week='sun-mon,sat', hour='*', "
      "minute='*', second='0', start_time='2020-05-19T19:53:22+02:00', "
      "timezone='Europe/Berlin')"),
-    ('* * * * 6-7',
-     "CronTrigger(year='*', month='*', day='*', week='*', day_of_week='sat-sun', hour='*', "
+    ('* * * * 6-0',
+     "CronTrigger(year='*', month='*', day='*', week='*', day_of_week='sun,sat', hour='*', "
      "minute='*', second='0', start_time='2020-05-19T19:53:22+02:00', "
      "timezone='Europe/Berlin')"),
 ], ids=['always', 'assorted', 'multiple_spaces_in_format', 'working_week', 'sunday_first',
