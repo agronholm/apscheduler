@@ -326,6 +326,7 @@ class AsyncScheduler:
         except BaseException as exc:
             self.logger.exception('Scheduler crashed')
             exception = exc
+            raise
         else:
             self.logger.info('Scheduler stopped')
         finally:
