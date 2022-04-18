@@ -304,6 +304,23 @@ class TestAsyncStores:
 
         assert not events
 
+    async def test_release_schedule_two_identical_fire_times(self, datastore: AsyncDataStore) -> None:
+        """Regression test for #616."""
+        async with datastore:
+            for i in range(1, 3):
+                trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
+                schedule = Schedule(id=f's{i}', task_id='task1', trigger=trigger)
+                schedule.next_fire_time = trigger.next()
+                await datastore.add_schedule(schedule, ConflictPolicy.exception)
+
+            schedules = await datastore.acquire_schedules('foo', 3)
+            schedules[0].next_fire_time = None
+            await datastore.release_schedules('foo', schedules)
+
+        remaining = await datastore.get_schedules({s.id for s in schedules})
+        assert len(remaining) == 1
+        assert remaining[0].id == schedules[1].id
+
     async def test_acquire_schedules_lock_timeout(
             self, datastore: AsyncDataStore, schedules: list[Schedule], freezer) -> None:
         """

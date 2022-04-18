@@ -50,8 +50,10 @@ class ScheduleState:
             return False
         elif other.next_fire_time is None:
             return self.next_fire_time is not None
-        else:
+        elif self.next_fire_time != other.next_fire_time:
             return self.next_fire_time < other.next_fire_time
+        else:
+            return self.schedule.id < other.schedule.id
 
     def __hash__(self):
         return hash(self.schedule.id)
