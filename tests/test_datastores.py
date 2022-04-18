@@ -304,7 +304,9 @@ class TestAsyncStores:
 
         assert not events
 
-    async def test_release_schedule_two_identical_fire_times(self, datastore: AsyncDataStore) -> None:
+    async def test_release_schedule_two_identical_fire_times(
+        self, datastore: AsyncDataStore
+    ) -> None:
         """Regression test for #616."""
         async with datastore:
             for i in range(1, 3):
