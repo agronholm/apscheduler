@@ -299,8 +299,8 @@ class AsyncScheduler:
                                   start_deadline=schedule.next_deadline, tags=schedule.tags)
                         await self.data_store.add_job(job)
 
-                    # Update the schedules (and release the scheduler's claim on them)
-                    await self.data_store.release_schedules(self.identity, schedules)
+                # Update the schedules (and release the scheduler's claim on them)
+                await self.data_store.release_schedules(self.identity, schedules)
 
                 # If we received fewer schedules than the maximum amount, sleep until the next
                 # schedule is due or the scheduler is explicitly woken up
