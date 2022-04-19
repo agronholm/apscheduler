@@ -99,44 +99,6 @@ async def asyncpg_store() -> AsyncDataStore:
 @pytest.fixture(
     params=[
         pytest.param(lazy_fixture("memory_store"), id="memory"),
-        pytest.param(lazy_fixture("sqlite"), id="sqlite"),
-        pytest.param(
-            lazy_fixture("mongodb_store"),
-            id="mongodb",
-            marks=[pytest.mark.external_service],
-        ),
-        pytest.param(
-            lazy_fixture("psycopg2_store"),
-            id="psycopg2",
-            marks=[pytest.mark.external_service],
-        ),
-        pytest.param(
-            lazy_fixture("mysql_store"),
-            id="mysql",
-            marks=[pytest.mark.external_service],
-        ),
-    ]
-)
-def sync_store(request) -> DataStore:
-    return request.param
-
-
-@pytest.fixture(
-    params=[
-        pytest.param(
-            lazy_fixture("asyncpg_store"),
-            id="asyncpg",
-            marks=[pytest.mark.external_service],
-        )
-    ]
-)
-def async_store(request) -> AsyncDataStore:
-    return request.param
-
-
-@pytest.fixture(
-    params=[
-        pytest.param(lazy_fixture("memory_store"), id="memory"),
         pytest.param(lazy_fixture("sqlite_store"), id="sqlite"),
         pytest.param(
             lazy_fixture("mongodb_store"),
@@ -146,6 +108,11 @@ def async_store(request) -> AsyncDataStore:
         pytest.param(
             lazy_fixture("psycopg2_store"),
             id="psycopg2",
+            marks=[pytest.mark.external_service],
+        ),
+        pytest.param(
+            lazy_fixture("asyncpg_store"),
+            id="asyncpg",
             marks=[pytest.mark.external_service],
         ),
         pytest.param(
@@ -370,6 +337,23 @@ class TestAsyncStores:
         remaining = await datastore.get_schedules({s.id for s in schedules})
         assert len(remaining) == 1
         assert remaining[0].id == schedules[1].id
+
+    async def test_release_two_schedules_at_once(
+        self, datastore: AsyncDataStore
+    ) -> None:
+        """Regression test for #621."""
+        async with datastore:
+            for i in range(2):
+                trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
+                schedule = Schedule(id=f"s{i}", task_id="task1", trigger=trigger)
+                schedule.next_fire_time = trigger.next()
+                await datastore.add_schedule(schedule, ConflictPolicy.exception)
+
+            schedules = await datastore.acquire_schedules("foo", 3)
+            await datastore.release_schedules("foo", schedules)
+
+        remaining = await datastore.get_schedules({s.id for s in schedules})
+        assert len(remaining) == 2
 
     async def test_acquire_schedules_lock_timeout(
         self, datastore: AsyncDataStore, schedules: list[Schedule], freezer

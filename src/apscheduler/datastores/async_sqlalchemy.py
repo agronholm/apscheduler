@@ -374,16 +374,9 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                         next_fire_times = {
                             arg["p_id"]: arg["p_next_fire_time"] for arg in update_args
                         }
-                        if self._supports_update_returning:
-                            update = update.returning(self.t_schedules.c.id)
-                            updated_ids = [
-                                row[0]
-                                for row in await conn.execute(update, update_args)
-                            ]
-                        else:
-                            # TODO: actually check which rows were updated?
-                            await conn.execute(update, update_args)
-                            updated_ids = list(next_fire_times)
+                        # TODO: actually check which rows were updated?
+                        await conn.execute(update, update_args)
+                        updated_ids = list(next_fire_times)
 
                         for schedule_id in updated_ids:
                             event = ScheduleUpdated(
