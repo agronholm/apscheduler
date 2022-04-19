@@ -11,11 +11,13 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 
 class TestAndTrigger:
-    @pytest.mark.parametrize('threshold', [1, 0])
+    @pytest.mark.parametrize("threshold", [1, 0])
     def test_two_datetriggers(self, timezone, serializer, threshold):
         date1 = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         date2 = datetime(2020, 5, 16, 14, 17, 31, 254212, tzinfo=timezone)
-        trigger = AndTrigger([DateTrigger(date1), DateTrigger(date2)], threshold=threshold)
+        trigger = AndTrigger(
+            [DateTrigger(date1), DateTrigger(date2)], threshold=threshold
+        )
         if serializer:
             trigger = serializer.deserialize(serializer.serialize(trigger))
 
@@ -27,10 +29,14 @@ class TestAndTrigger:
 
     def test_max_iterations(self, timezone, serializer):
         start_time = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
-        trigger = AndTrigger([
-            IntervalTrigger(seconds=4, start_time=start_time),
-            IntervalTrigger(seconds=4, start_time=start_time + timedelta(seconds=2))
-        ])
+        trigger = AndTrigger(
+            [
+                IntervalTrigger(seconds=4, start_time=start_time),
+                IntervalTrigger(
+                    seconds=4, start_time=start_time + timedelta(seconds=2)
+                ),
+            ]
+        )
         if serializer:
             trigger = serializer.deserialize(serializer.serialize(trigger))
 
@@ -38,10 +44,14 @@ class TestAndTrigger:
 
     def test_repr(self, timezone, serializer):
         start_time = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
-        trigger = AndTrigger([
-            IntervalTrigger(seconds=4, start_time=start_time),
-            IntervalTrigger(seconds=4, start_time=start_time + timedelta(seconds=2))
-        ])
+        trigger = AndTrigger(
+            [
+                IntervalTrigger(seconds=4, start_time=start_time),
+                IntervalTrigger(
+                    seconds=4, start_time=start_time + timedelta(seconds=2)
+                ),
+            ]
+        )
         if serializer:
             trigger = serializer.deserialize(serializer.serialize(trigger))
 
@@ -68,10 +78,12 @@ class TestOrTrigger:
         start_time = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         end_time1 = start_time + timedelta(seconds=16)
         end_time2 = start_time + timedelta(seconds=18)
-        trigger = OrTrigger([
-            IntervalTrigger(seconds=4, start_time=start_time, end_time=end_time1),
-            IntervalTrigger(seconds=6, start_time=start_time, end_time=end_time2)
-        ])
+        trigger = OrTrigger(
+            [
+                IntervalTrigger(seconds=4, start_time=start_time, end_time=end_time1),
+                IntervalTrigger(seconds=6, start_time=start_time, end_time=end_time2),
+            ]
+        )
         if serializer:
             trigger = serializer.deserialize(serializer.serialize(trigger))
 
@@ -90,5 +102,7 @@ class TestOrTrigger:
         date1 = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         date2 = datetime(2020, 5, 18, 15, 1, 53, 940564, tzinfo=timezone)
         trigger = OrTrigger([DateTrigger(date1), DateTrigger(date2)])
-        assert repr(trigger) == ("OrTrigger([DateTrigger('2020-05-16 14:17:30.254212+02:00'), "
-                                 "DateTrigger('2020-05-18 15:01:53.940564+02:00')])")
+        assert repr(trigger) == (
+            "OrTrigger([DateTrigger('2020-05-16 14:17:30.254212+02:00'), "
+            "DateTrigger('2020-05-18 15:01:53.940564+02:00')])"
+        )

@@ -11,7 +11,7 @@ if sys.version_info >= (3, 9):
 else:
     from backports.zoneinfo import ZoneInfo
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class _Undefined:
@@ -19,10 +19,12 @@ class _Undefined:
         return False
 
     def __repr__(self):
-        return '<undefined>'
+        return "<undefined>"
 
 
-undefined = _Undefined()  #: a unique object that only signifies that no value is defined
+undefined = (
+    _Undefined()
+)  #: a unique object that only signifies that no value is defined
 
 
 def timezone_repr(timezone: tzinfo) -> str:
@@ -72,10 +74,10 @@ def reentrant(cls: type[T]) -> type[T]:
             return await previous_aexit(self, exc_type, exc_val, exc_tb)
 
     loans: dict[T, int] = defaultdict(lambda: 0)
-    previous_enter: Callable = getattr(cls, '__enter__', None)
-    previous_exit: Callable = getattr(cls, '__exit__', None)
-    previous_aenter: Callable = getattr(cls, '__aenter__', None)
-    previous_aexit: Callable = getattr(cls, '__aexit__', None)
+    previous_enter: Callable = getattr(cls, "__enter__", None)
+    previous_exit: Callable = getattr(cls, "__exit__", None)
+    previous_aenter: Callable = getattr(cls, "__aenter__", None)
+    previous_aexit: Callable = getattr(cls, "__aexit__", None)
     if previous_enter and previous_exit:
         cls.__enter__ = __enter__
         cls.__exit__ = __exit__

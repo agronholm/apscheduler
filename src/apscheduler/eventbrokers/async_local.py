@@ -39,8 +39,13 @@ class LocalAsyncEventBroker(AsyncEventBroker, BaseEventBroker):
         event_type = type(event)
         one_shot_tokens: list[object] = []
         for _token, subscription in self._subscriptions.items():
-            if subscription.event_types is None or event_type in subscription.event_types:
-                self._task_group.start_soon(self._deliver_event, subscription.callback, event)
+            if (
+                subscription.event_types is None
+                or event_type in subscription.event_types
+            ):
+                self._task_group.start_soon(
+                    self._deliver_event, subscription.callback, event
+                )
                 if subscription.one_shot:
                     one_shot_tokens.append(subscription.token)
 
@@ -53,4 +58,6 @@ class LocalAsyncEventBroker(AsyncEventBroker, BaseEventBroker):
             if iscoroutine(retval):
                 await retval
         except BaseException:
-            self._logger.exception('Error delivering %s event', event.__class__.__name__)
+            self._logger.exception(
+                "Error delivering %s event", event.__class__.__name__
+            )

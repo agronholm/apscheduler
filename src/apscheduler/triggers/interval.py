@@ -36,21 +36,28 @@ class IntervalTrigger(Trigger):
     minutes: float = 0
     seconds: float = 0
     microseconds: float = 0
-    start_time: datetime = attrs.field(converter=as_aware_datetime, factory=datetime.now)
+    start_time: datetime = attrs.field(
+        converter=as_aware_datetime, factory=datetime.now
+    )
     end_time: datetime | None = attrs.field(converter=as_aware_datetime, default=None)
     _interval: timedelta = attrs.field(init=False, eq=False, repr=False)
     _last_fire_time: datetime | None = attrs.field(init=False, eq=False, default=None)
 
     def __attrs_post_init__(self) -> None:
-        self._interval = timedelta(weeks=self.weeks, days=self.days, hours=self.hours,
-                                   minutes=self.minutes, seconds=self.seconds,
-                                   microseconds=self.microseconds)
+        self._interval = timedelta(
+            weeks=self.weeks,
+            days=self.days,
+            hours=self.hours,
+            minutes=self.minutes,
+            seconds=self.seconds,
+            microseconds=self.microseconds,
+        )
 
         if self._interval.total_seconds() <= 0:
-            raise ValueError('The time interval must be positive')
+            raise ValueError("The time interval must be positive")
 
         if self.end_time and self.end_time < self.start_time:
-            raise ValueError('end_time cannot be earlier than start_time')
+            raise ValueError("end_time cannot be earlier than start_time")
 
     def next(self) -> datetime | None:
         if self._last_fire_time is None:
@@ -65,31 +72,48 @@ class IntervalTrigger(Trigger):
 
     def __getstate__(self) -> dict[str, Any]:
         return {
-            'version': 1,
-            'interval': [self.weeks, self.days, self.hours, self.minutes, self.seconds,
-                         self.microseconds],
-            'start_time': marshal_date(self.start_time),
-            'end_time': marshal_date(self.end_time),
-            'last_fire_time': marshal_date(self._last_fire_time)
+            "version": 1,
+            "interval": [
+                self.weeks,
+                self.days,
+                self.hours,
+                self.minutes,
+                self.seconds,
+                self.microseconds,
+            ],
+            "start_time": marshal_date(self.start_time),
+            "end_time": marshal_date(self.end_time),
+            "last_fire_time": marshal_date(self._last_fire_time),
         }
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
-        self.weeks, self.days, self.hours, self.minutes, self.seconds, self.microseconds = \
-            state['interval']
-        self.start_time = unmarshal_date(state['start_time'])
-        self.end_time = unmarshal_date(state['end_time'])
-        self._last_fire_time = unmarshal_date(state['last_fire_time'])
-        self._interval = timedelta(weeks=self.weeks, days=self.days, hours=self.hours,
-                                   minutes=self.minutes, seconds=self.seconds,
-                                   microseconds=self.microseconds)
+        (
+            self.weeks,
+            self.days,
+            self.hours,
+            self.minutes,
+            self.seconds,
+            self.microseconds,
+        ) = state["interval"]
+        self.start_time = unmarshal_date(state["start_time"])
+        self.end_time = unmarshal_date(state["end_time"])
+        self._last_fire_time = unmarshal_date(state["last_fire_time"])
+        self._interval = timedelta(
+            weeks=self.weeks,
+            days=self.days,
+            hours=self.hours,
+            minutes=self.minutes,
+            seconds=self.seconds,
+            microseconds=self.microseconds,
+        )
 
     def __repr__(self) -> str:
         fields = []
-        for field in 'weeks', 'days', 'hours', 'minutes', 'seconds', 'microseconds':
+        for field in "weeks", "days", "hours", "minutes", "seconds", "microseconds":
             value = getattr(self, field)
             if value > 0:
-                fields.append(f'{field}={value}')
+                fields.append(f"{field}={value}")
 
         fields.append(f"start_time='{self.start_time}'")
         if self.end_time:

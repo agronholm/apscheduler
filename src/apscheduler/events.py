@@ -13,13 +13,15 @@ from .enums import JobOutcome
 
 @attrs.define(kw_only=True, frozen=True)
 class Event:
-    timestamp: datetime = attrs.field(factory=partial(datetime.now, timezone.utc),
-                                      converter=as_aware_datetime)
+    timestamp: datetime = attrs.field(
+        factory=partial(datetime.now, timezone.utc), converter=as_aware_datetime
+    )
 
 
 #
 # Data store events
 #
+
 
 @attrs.define(kw_only=True, frozen=True)
 class DataStoreEvent(Event):
@@ -87,6 +89,7 @@ class JobDeserializationFailed(DataStoreEvent):
 # Scheduler events
 #
 
+
 @attrs.define(kw_only=True, frozen=True)
 class SchedulerEvent(Event):
     pass
@@ -105,6 +108,7 @@ class SchedulerStopped(SchedulerEvent):
 #
 # Worker events
 #
+
 
 @attrs.define(kw_only=True, frozen=True)
 class WorkerEvent(Event):

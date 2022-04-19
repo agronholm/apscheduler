@@ -30,12 +30,18 @@ class LocalEventBroker(BaseEventBroker):
         self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
         del self._executor
 
-    def subscribe(self, callback: Callable[[Event], Any],
-                  event_types: Iterable[type[Event]] | None = None, *,
-                  one_shot: bool = False) -> Subscription:
+    def subscribe(
+        self,
+        callback: Callable[[Event], Any],
+        event_types: Iterable[type[Event]] | None = None,
+        *,
+        one_shot: bool = False,
+    ) -> Subscription:
         if iscoroutinefunction(callback):
-            raise ValueError('Coroutine functions are not supported as callbacks on a synchronous '
-                             'event source')
+            raise ValueError(
+                "Coroutine functions are not supported as callbacks on a synchronous "
+                "event source"
+            )
 
         with self._subscriptions_lock:
             return super().subscribe(callback, event_types, one_shot=one_shot)
@@ -52,8 +58,13 @@ class LocalEventBroker(BaseEventBroker):
         with self._subscriptions_lock:
             one_shot_tokens: list[object] = []
             for _token, subscription in self._subscriptions.items():
-                if subscription.event_types is None or event_type in subscription.event_types:
-                    self._executor.submit(self._deliver_event, subscription.callback, event)
+                if (
+                    subscription.event_types is None
+                    or event_type in subscription.event_types
+                ):
+                    self._executor.submit(
+                        self._deliver_event, subscription.callback, event
+                    )
                     if subscription.one_shot:
                         one_shot_tokens.append(subscription.token)
 
@@ -64,4 +75,6 @@ class LocalEventBroker(BaseEventBroker):
         try:
             func(event)
         except BaseException:
-            self._logger.exception('Error delivering %s event', event.__class__.__name__)
+            self._logger.exception(
+                "Error delivering %s event", event.__class__.__name__
+            )

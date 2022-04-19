@@ -26,7 +26,9 @@ class SchedulerService(rpyc.Service):
     def exposed_modify_job(self, job_id, jobstore=None, **changes):
         return scheduler.modify_job(job_id, jobstore, **changes)
 
-    def exposed_reschedule_job(self, job_id, jobstore=None, trigger=None, **trigger_args):
+    def exposed_reschedule_job(
+        self, job_id, jobstore=None, trigger=None, **trigger_args
+    ):
         return scheduler.reschedule_job(job_id, jobstore, trigger, **trigger_args)
 
     def exposed_pause_job(self, job_id, jobstore=None):
@@ -45,11 +47,13 @@ class SchedulerService(rpyc.Service):
         return scheduler.get_jobs(jobstore)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     scheduler = BackgroundScheduler()
     scheduler.initialize()
-    protocol_config = {'allow_public_attrs': True}
-    server = ThreadedServer(SchedulerService, port=12345, protocol_config=protocol_config)
+    protocol_config = {"allow_public_attrs": True}
+    server = ThreadedServer(
+        SchedulerService, port=12345, protocol_config=protocol_config
+    )
     try:
         server.initialize()
     except (KeyboardInterrupt, SystemExit):

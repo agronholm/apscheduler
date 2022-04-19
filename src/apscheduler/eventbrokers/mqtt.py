@@ -21,9 +21,9 @@ from .local import LocalEventBroker
 class MQTTEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
     client: Client
     serializer: Serializer = attrs.field(factory=JSONSerializer)
-    host: str = attrs.field(kw_only=True, default='localhost')
+    host: str = attrs.field(kw_only=True, default="localhost")
     port: int = attrs.field(kw_only=True, default=1883)
-    topic: str = attrs.field(kw_only=True, default='apscheduler')
+    topic: str = attrs.field(kw_only=True, default="apscheduler")
     subscribe_qos: int = attrs.field(kw_only=True, default=0)
     publish_qos: int = attrs.field(kw_only=True, default=0)
     _ready_future: Future[None] = attrs.field(init=False)
@@ -38,19 +38,29 @@ class MQTTEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
         self.client.connect(self.host, self.port)
         self.client.loop_start()
         self._ready_future.result(10)
-        self._exit_stack.push(lambda exc_type, *_: self.client.loop_stop(force=bool(exc_type)))
+        self._exit_stack.push(
+            lambda exc_type, *_: self.client.loop_stop(force=bool(exc_type))
+        )
         self._exit_stack.callback(self.client.disconnect)
         return self
 
-    def _on_connect(self, client: Client, userdata: Any, flags: dict[str, Any],
-                    rc: ReasonCodes | int, properties: Properties | None = None) -> None:
+    def _on_connect(
+        self,
+        client: Client,
+        userdata: Any,
+        flags: dict[str, Any],
+        rc: ReasonCodes | int,
+        properties: Properties | None = None,
+    ) -> None:
         try:
             client.subscribe(self.topic, qos=self.subscribe_qos)
         except Exception as exc:
             self._ready_future.set_exception(exc)
             raise
 
-    def _on_subscribe(self, client: Client, userdata: Any, mid, granted_qos: list[int]) -> None:
+    def _on_subscribe(
+        self, client: Client, userdata: Any, mid, granted_qos: list[int]
+    ) -> None:
         self._ready_future.set_result(None)
 
     def _on_message(self, client: Client, userdata: Any, msg: MQTTMessage) -> None:

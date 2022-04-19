@@ -13,8 +13,16 @@ from ..abc import DataStore, EventBroker, EventSource, Job, Schedule
 from ..enums import ConflictPolicy
 from ..eventbrokers.local import LocalEventBroker
 from ..events import (
-    JobAcquired, JobAdded, JobReleased, ScheduleAdded, ScheduleRemoved, ScheduleUpdated, TaskAdded,
-    TaskRemoved, TaskUpdated)
+    JobAcquired,
+    JobAdded,
+    JobReleased,
+    ScheduleAdded,
+    ScheduleRemoved,
+    ScheduleUpdated,
+    TaskAdded,
+    TaskRemoved,
+    TaskUpdated,
+)
 from ..exceptions import ConflictingIdError, TaskLookupError
 from ..structures import JobResult, Task
 from ..util import reentrant
@@ -62,7 +70,9 @@ class ScheduleState:
 @attrs.define(order=True)
 class JobState:
     job: Job = attrs.field(order=False)
-    created_at: datetime = attrs.field(init=False, factory=partial(datetime.now, timezone.utc))
+    created_at: datetime = attrs.field(
+        init=False, factory=partial(datetime.now, timezone.utc)
+    )
     acquired_by: str | None = attrs.field(eq=False, order=False, default=None)
     acquired_until: datetime | None = attrs.field(eq=False, order=False, default=None)
 
@@ -81,10 +91,14 @@ class MemoryDataStore(DataStore):
     _tasks: dict[str, TaskState] = attrs.Factory(dict)
     _schedules: list[ScheduleState] = attrs.Factory(list)
     _schedules_by_id: dict[str, ScheduleState] = attrs.Factory(dict)
-    _schedules_by_task_id: dict[str, set[ScheduleState]] = attrs.Factory(partial(defaultdict, set))
+    _schedules_by_task_id: dict[str, set[ScheduleState]] = attrs.Factory(
+        partial(defaultdict, set)
+    )
     _jobs: list[JobState] = attrs.Factory(list)
     _jobs_by_id: dict[UUID, JobState] = attrs.Factory(dict)
-    _jobs_by_task_id: dict[str, set[JobState]] = attrs.Factory(partial(defaultdict, set))
+    _jobs_by_task_id: dict[str, set[JobState]] = attrs.Factory(
+        partial(defaultdict, set)
+    )
     _job_results: dict[UUID, JobResult] = attrs.Factory(dict)
 
     def _find_schedule_index(self, state: ScheduleState) -> int | None:
@@ -109,8 +123,11 @@ class MemoryDataStore(DataStore):
         return self._events
 
     def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
-        return [state.schedule for state in self._schedules
-                if ids is None or state.schedule.id in ids]
+        return [
+            state.schedule
+            for state in self._schedules
+            if ids is None or state.schedule.id in ids
+        ]
 
     def add_task(self, task: Task) -> None:
         task_exists = task.id in self._tasks
@@ -135,7 +152,9 @@ class MemoryDataStore(DataStore):
             raise TaskLookupError(task_id) from None
 
     def get_tasks(self) -> list[Task]:
-        return sorted((state.task for state in self._tasks.values()), key=lambda task: task.id)
+        return sorted(
+            (state.task for state in self._tasks.values()), key=lambda task: task.id
+        )
 
     def add_schedule(self, schedule: Schedule, conflict_policy: ConflictPolicy) -> None:
         old_state = self._schedules_by_id.get(schedule.id)
@@ -155,11 +174,13 @@ class MemoryDataStore(DataStore):
         insort_right(self._schedules, state)
 
         if old_state is not None:
-            event = ScheduleUpdated(schedule_id=schedule.id,
-                                    next_fire_time=schedule.next_fire_time)
+            event = ScheduleUpdated(
+                schedule_id=schedule.id, next_fire_time=schedule.next_fire_time
+            )
         else:
-            event = ScheduleAdded(schedule_id=schedule.id,
-                                  next_fire_time=schedule.next_fire_time)
+            event = ScheduleAdded(
+                schedule_id=schedule.id, next_fire_time=schedule.next_fire_time
+            )
 
         self._events.publish(event)
 
@@ -207,7 +228,9 @@ class MemoryDataStore(DataStore):
                 schedule_state.acquired_by = None
                 schedule_state.acquired_until = None
                 insort_right(self._schedules, schedule_state)
-                event = ScheduleUpdated(schedule_id=s.id, next_fire_time=s.next_fire_time)
+                event = ScheduleUpdated(
+                    schedule_id=s.id, next_fire_time=s.next_fire_time
+                )
                 self._events.publish(event)
             else:
                 finished_schedule_ids.append(s.id)
@@ -224,8 +247,12 @@ class MemoryDataStore(DataStore):
         self._jobs_by_id[job.id] = state
         self._jobs_by_task_id[job.task_id].add(state)
 
-        event = JobAdded(job_id=job.id, task_id=job.task_id, schedule_id=job.schedule_id,
-                         tags=job.tags)
+        event = JobAdded(
+            job_id=job.id,
+            task_id=job.task_id,
+            schedule_id=job.schedule_id,
+            tags=job.tags,
+        )
         self._events.publish(event)
 
     def get_jobs(self, ids: Iterable[UUID] | None = None) -> list[Job]:
@@ -248,14 +275,18 @@ class MemoryDataStore(DataStore):
                     task_state.running_jobs -= 1
 
             # Check if the task allows one more job to be started
-            if (task_state.task.max_running_jobs is not None
-                    and task_state.running_jobs >= task_state.task.max_running_jobs):
+            if (
+                task_state.task.max_running_jobs is not None
+                and task_state.running_jobs >= task_state.task.max_running_jobs
+            ):
                 continue
 
             # Mark the job as acquired by this worker
             jobs.append(job_state.job)
             job_state.acquired_by = worker_id
-            job_state.acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
+            job_state.acquired_until = now + timedelta(
+                seconds=self.lock_expiration_delay
+            )
 
             # Increment the number of running jobs for this task
             task_state.running_jobs += 1
@@ -287,7 +318,9 @@ class MemoryDataStore(DataStore):
 
         # Publish the event
         self._events.publish(
-            JobReleased(job_id=result.job_id, worker_id=worker_id, outcome=result.outcome)
+            JobReleased(
+                job_id=result.job_id, worker_id=worker_id, outcome=result.outcome
+            )
         )
 
     def get_job_result(self, job_id: UUID) -> JobResult | None:

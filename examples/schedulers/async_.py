@@ -10,13 +10,14 @@ from apscheduler.workers.async_ import AsyncWorker
 
 
 def say_hello():
-    print('Hello!')
+    print("Hello!")
 
 
 async def main():
     async with AsyncScheduler() as scheduler, AsyncWorker(scheduler.data_store):
         await scheduler.add_schedule(say_hello, IntervalTrigger(seconds=1))
         await scheduler.wait_until_stopped()
+
 
 logging.basicConfig(level=logging.DEBUG)
 try:
