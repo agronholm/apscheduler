@@ -17,7 +17,6 @@ from bson.codec_options import TypeEncoder, TypeRegistry
 from pymongo import ASCENDING, DeleteOne, MongoClient, UpdateOne
 from pymongo.collection import Collection
 from pymongo.errors import ConnectionFailure, DuplicateKeyError
-from tenacity import Retrying
 
 from ..abc import DataStore, EventBroker, EventSource, Job, Schedule, Serializer
 from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome
@@ -80,21 +79,11 @@ class MongoDBDataStore(DataStore):
     _job_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Job)]
 
     _logger: Logger = attrs.field(init=False, factory=lambda: getLogger(__name__))
-    _retrying: Retrying = attrs.field(init=False)
     _exit_stack: ExitStack = attrs.field(init=False, factory=ExitStack)
     _events: EventBroker = attrs.field(init=False, factory=LocalEventBroker)
     _local_tasks: dict[str, Task] = attrs.field(init=False, factory=dict)
 
     def __attrs_post_init__(self) -> None:
-        # Construct the Tenacity retry controller
-        self._retrying = Retrying(
-            stop=self.retry_settings.stop,
-            wait=self.retry_settings.wait,
-            retry=tenacity.retry_if_exception_type(ConnectionFailure),
-            after=self._after_attempt,
-            reraise=True,
-        )
-
         type_registry = TypeRegistry(
             [
                 CustomEncoder(timedelta, timedelta.total_seconds),
@@ -123,6 +112,15 @@ class MongoDBDataStore(DataStore):
     def events(self) -> EventSource:
         return self._events
 
+    def _retry(self) -> tenacity.Retrying:
+        return tenacity.Retrying(
+            stop=self.retry_settings.stop,
+            wait=self.retry_settings.wait,
+            retry=tenacity.retry_if_exception_type(ConnectionFailure),
+            after=self._after_attempt,
+            reraise=True,
+        )
+
     def _after_attempt(self, retry_state: tenacity.RetryCallState) -> None:
         self._logger.warning(
             "Temporary data store error (attempt %d): %s",
@@ -141,7 +139,7 @@ class MongoDBDataStore(DataStore):
         self._exit_stack.__enter__()
         self._exit_stack.enter_context(self._events)
 
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.client.start_session() as session:
                 if self.start_from_scratch:
                     self._tasks.delete_many({}, session=session)
@@ -161,7 +159,7 @@ class MongoDBDataStore(DataStore):
         self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
 
     def add_task(self, task: Task) -> None:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt:
                 previous = self._tasks.find_one_and_update(
                     {"_id": task.id},
@@ -179,7 +177,7 @@ class MongoDBDataStore(DataStore):
             self._events.publish(TaskAdded(task_id=task.id))
 
     def remove_task(self, task_id: str) -> None:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt:
                 if not self._tasks.find_one_and_delete({"_id": task_id}):
                     raise TaskLookupError(task_id)
@@ -191,7 +189,7 @@ class MongoDBDataStore(DataStore):
         try:
             return self._local_tasks[task_id]
         except KeyError:
-            for attempt in self._retrying:
+            for attempt in self._retry():
                 with attempt:
                     document = self._tasks.find_one(
                         {"_id": task_id}, projection=self._task_attrs
@@ -207,7 +205,7 @@ class MongoDBDataStore(DataStore):
             return task
 
     def get_tasks(self) -> list[Task]:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt:
                 tasks: list[Task] = []
                 for document in self._tasks.find(
@@ -220,7 +218,7 @@ class MongoDBDataStore(DataStore):
 
     def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
         filters = {"_id": {"$in": list(ids)}} if ids is not None else {}
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt:
                 schedules: list[Schedule] = []
                 cursor = self._schedules.find(filters).sort("_id")
@@ -243,14 +241,14 @@ class MongoDBDataStore(DataStore):
         document = schedule.marshal(self.serializer)
         document["_id"] = document.pop("id")
         try:
-            for attempt in self._retrying:
+            for attempt in self._retry():
                 with attempt:
                     self._schedules.insert_one(document)
         except DuplicateKeyError:
             if conflict_policy is ConflictPolicy.exception:
                 raise ConflictingIdError(schedule.id) from None
             elif conflict_policy is ConflictPolicy.replace:
-                for attempt in self._retrying:
+                for attempt in self._retry():
                     with attempt:
                         self._schedules.replace_one(
                             {"_id": schedule.id}, document, True
@@ -268,7 +266,7 @@ class MongoDBDataStore(DataStore):
 
     def remove_schedules(self, ids: Iterable[str]) -> None:
         filters = {"_id": {"$in": list(ids)}} if ids is not None else {}
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.client.start_session() as session:
                 cursor = self._schedules.find(
                     filters, projection=["_id"], session=session
@@ -281,7 +279,7 @@ class MongoDBDataStore(DataStore):
             self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
     def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.client.start_session() as session:
                 schedules: list[Schedule] = []
                 cursor = (
@@ -356,7 +354,7 @@ class MongoDBDataStore(DataStore):
                 finished_schedule_ids.append(schedule.id)
 
             if requests:
-                for attempt in self._retrying:
+                for attempt in self._retry():
                     with attempt, self.client.start_session() as session:
                         self._schedules.bulk_write(
                             requests, ordered=False, session=session
@@ -372,7 +370,7 @@ class MongoDBDataStore(DataStore):
             self._events.publish(ScheduleRemoved(schedule_id=schedule_id))
 
     def get_next_schedule_run_time(self) -> datetime | None:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt:
                 document = self._schedules.find_one(
                     {"next_run_time": {"$ne": None}},
@@ -388,7 +386,7 @@ class MongoDBDataStore(DataStore):
     def add_job(self, job: Job) -> None:
         document = job.marshal(self.serializer)
         document["_id"] = document.pop("id")
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt:
                 self._jobs.insert_one(document)
 
@@ -402,7 +400,7 @@ class MongoDBDataStore(DataStore):
 
     def get_jobs(self, ids: Iterable[UUID] | None = None) -> list[Job]:
         filters = {"_id": {"$in": list(ids)}} if ids is not None else {}
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt:
                 jobs: list[Job] = []
                 cursor = self._jobs.find(filters).sort("_id")
@@ -421,7 +419,7 @@ class MongoDBDataStore(DataStore):
         return jobs
 
     def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.client.start_session() as session:
                 cursor = self._jobs.find(
                     {
@@ -494,7 +492,7 @@ class MongoDBDataStore(DataStore):
         return acquired_jobs
 
     def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.client.start_session() as session:
                 # Insert the job result
                 document = result.marshal(self.serializer)
@@ -517,7 +515,7 @@ class MongoDBDataStore(DataStore):
         )
 
     def get_job_result(self, job_id: UUID) -> JobResult | None:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt:
                 document = self._jobs_results.find_one_and_delete({"_id": job_id})
 

@@ -46,19 +46,15 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
     engine: AsyncEngine
 
     _events: AsyncEventBroker = attrs.field(factory=LocalAsyncEventBroker)
-    _retrying: tenacity.AsyncRetrying = attrs.field(init=False)
 
     @classmethod
     def from_url(cls, url: str | URL, **options) -> AsyncSQLAlchemyDataStore:
         engine = create_async_engine(url, future=True)
         return cls(engine, **options)
 
-    def __attrs_post_init__(self) -> None:
-        super().__attrs_post_init__()
-
-        # Construct the Tenacity retry controller
+    def _retry(self) -> tenacity.AsyncRetrying:
         # OSError is raised by asyncpg if it can't connect
-        self._retrying = tenacity.AsyncRetrying(
+        return tenacity.AsyncRetrying(
             stop=self.retry_settings.stop,
             wait=self.retry_settings.wait,
             retry=tenacity.retry_if_exception_type((InterfaceError, OSError)),
@@ -75,7 +71,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
             )
 
         # Verify that the schema is in place
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     if self.start_from_scratch:
@@ -138,7 +134,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
             misfire_grace_time=task.misfire_grace_time,
         )
         try:
-            async for attempt in self._retrying:
+            async for attempt in self._retry():
                 with attempt:
                     async with self.engine.begin() as conn:
                         await conn.execute(insert)
@@ -152,7 +148,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                 )
                 .where(self.t_tasks.c.id == task.id)
             )
-            async for attempt in self._retrying:
+            async for attempt in self._retry():
                 with attempt:
                     async with self.engine.begin() as conn:
                         await conn.execute(update)
@@ -163,7 +159,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
 
     async def remove_task(self, task_id: str) -> None:
         delete = self.t_tasks.delete().where(self.t_tasks.c.id == task_id)
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     result = await conn.execute(delete)
@@ -182,7 +178,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                 self.t_tasks.c.misfire_grace_time,
             ]
         ).where(self.t_tasks.c.id == task_id)
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     result = await conn.execute(query)
@@ -203,7 +199,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                 self.t_tasks.c.misfire_grace_time,
             ]
         ).order_by(self.t_tasks.c.id)
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     result = await conn.execute(query)
@@ -219,7 +215,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
         values = schedule.marshal(self.serializer)
         insert = self.t_schedules.insert().values(**values)
         try:
-            async for attempt in self._retrying:
+            async for attempt in self._retry():
                 with attempt:
                     async with self.engine.begin() as conn:
                         await conn.execute(insert)
@@ -233,7 +229,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                     .where(self.t_schedules.c.id == schedule.id)
                     .values(**values)
                 )
-                async for attempt in self._retrying:
+                async for attempt in self._retry():
                     async with attempt, self.engine.begin() as conn:
                         await conn.execute(update)
 
@@ -248,7 +244,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
             await self._events.publish(event)
 
     async def remove_schedules(self, ids: Iterable[str]) -> None:
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     delete = self.t_schedules.delete().where(
@@ -272,14 +268,14 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
         if ids:
             query = query.where(self.t_schedules.c.id.in_(ids))
 
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     result = await conn.execute(query)
                     return await self._deserialize_schedules(result)
 
     async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     now = datetime.now(timezone.utc)
@@ -324,7 +320,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
     async def release_schedules(
         self, scheduler_id: str, schedules: list[Schedule]
     ) -> None:
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     update_events: list[ScheduleUpdated] = []
@@ -416,7 +412,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
             .order_by(self.t_schedules.c.next_fire_time)
             .limit(1)
         )
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     result = await conn.execute(statenent)
@@ -425,7 +421,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
     async def add_job(self, job: Job) -> None:
         marshalled = job.marshal(self.serializer)
         insert = self.t_jobs.insert().values(**marshalled)
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     await conn.execute(insert)
@@ -444,14 +440,14 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
             job_ids = [job_id for job_id in ids]
             query = query.where(self.t_jobs.c.id.in_(job_ids))
 
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     result = await conn.execute(query)
                     return await self._deserialize_jobs(result)
 
     async def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     now = datetime.now(timezone.utc)
@@ -543,7 +539,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
     async def release_job(
         self, worker_id: str, task_id: str, result: JobResult
     ) -> None:
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     # Insert the job result
@@ -566,7 +562,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                     await conn.execute(delete)
 
     async def get_job_result(self, job_id: UUID) -> JobResult | None:
-        async for attempt in self._retrying:
+        async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
                     # Retrieve the result

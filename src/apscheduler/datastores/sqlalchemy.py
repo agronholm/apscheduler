@@ -225,18 +225,14 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
     engine: Engine
 
     _events: EventBroker = attrs.field(init=False, factory=LocalEventBroker)
-    _retrying: tenacity.Retrying = attrs.field(init=False)
 
     @classmethod
     def from_url(cls, url: str | URL, **options) -> SQLAlchemyDataStore:
         engine = create_engine(url)
         return cls(engine, **options)
 
-    def __attrs_post_init__(self) -> None:
-        super().__attrs_post_init__()
-
-        # Construct the Tenacity retry controller
-        self._retrying = tenacity.Retrying(
+    def _retry(self) -> tenacity.Retrying:
+        return tenacity.Retrying(
             stop=self.retry_settings.stop,
             wait=self.retry_settings.wait,
             retry=tenacity.retry_if_exception_type(OperationalError),
@@ -245,7 +241,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
         )
 
     def __enter__(self):
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 if self.start_from_scratch:
                     for table in self._metadata.sorted_tables:
@@ -281,7 +277,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
             misfire_grace_time=task.misfire_grace_time,
         )
         try:
-            for attempt in self._retrying:
+            for attempt in self._retry():
                 with attempt, self.engine.begin() as conn:
                     conn.execute(insert)
         except IntegrityError:
@@ -294,7 +290,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
                 )
                 .where(self.t_tasks.c.id == task.id)
             )
-            for attempt in self._retrying:
+            for attempt in self._retry():
                 with attempt, self.engine.begin() as conn:
                     conn.execute(update)
                     self._events.publish(TaskUpdated(task_id=task.id))
@@ -303,7 +299,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
 
     def remove_task(self, task_id: str) -> None:
         delete = self.t_tasks.delete().where(self.t_tasks.c.id == task_id)
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 result = conn.execute(delete)
                 if result.rowcount == 0:
@@ -321,7 +317,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
                 self.t_tasks.c.misfire_grace_time,
             ]
         ).where(self.t_tasks.c.id == task_id)
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 result = conn.execute(query)
                 row = result.fetch_one()
@@ -341,7 +337,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
                 self.t_tasks.c.misfire_grace_time,
             ]
         ).order_by(self.t_tasks.c.id)
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 result = conn.execute(query)
                 tasks = [
@@ -354,7 +350,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
         values = schedule.marshal(self.serializer)
         insert = self.t_schedules.insert().values(**values)
         try:
-            for attempt in self._retrying:
+            for attempt in self._retry():
                 with attempt, self.engine.begin() as conn:
                     conn.execute(insert)
         except IntegrityError:
@@ -367,7 +363,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
                     .where(self.t_schedules.c.id == schedule.id)
                     .values(**values)
                 )
-                for attempt in self._retrying:
+                for attempt in self._retry():
                     with attempt, self.engine.begin() as conn:
                         conn.execute(update)
 
@@ -382,7 +378,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
             self._events.publish(event)
 
     def remove_schedules(self, ids: Iterable[str]) -> None:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 delete = self.t_schedules.delete().where(self.t_schedules.c.id.in_(ids))
                 if self._supports_update_returning:
@@ -403,13 +399,13 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
         if ids:
             query = query.where(self.t_schedules.c.id.in_(ids))
 
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 result = conn.execute(query)
                 return self._deserialize_schedules(result)
 
     def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 now = datetime.now(timezone.utc)
                 acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
@@ -451,7 +447,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
         return schedules
 
     def release_schedules(self, scheduler_id: str, schedules: list[Schedule]) -> None:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 update_events: list[ScheduleUpdated] = []
                 finished_schedule_ids: list[str] = []
@@ -541,7 +537,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
             .order_by(self.t_schedules.c.next_fire_time)
             .limit(1)
         )
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 result = conn.execute(query)
                 return result.scalar()
@@ -549,7 +545,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
     def add_job(self, job: Job) -> None:
         marshalled = job.marshal(self.serializer)
         insert = self.t_jobs.insert().values(**marshalled)
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 conn.execute(insert)
 
@@ -567,13 +563,13 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
             job_ids = [job_id for job_id in ids]
             query = query.where(self.t_jobs.c.id.in_(job_ids))
 
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 result = conn.execute(query)
                 return self._deserialize_jobs(result)
 
     def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 now = datetime.now(timezone.utc)
                 acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
@@ -657,7 +653,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
         return acquired_jobs
 
     def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 # Insert the job result
                 marshalled = result.marshal(self.serializer)
@@ -684,7 +680,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
         )
 
     def get_job_result(self, job_id: UUID) -> JobResult | None:
-        for attempt in self._retrying:
+        for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 # Retrieve the result
                 query = self.t_job_results.select().where(
