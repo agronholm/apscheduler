@@ -37,22 +37,11 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
     engine: AsyncEngine
 
     _events: AsyncEventBroker = attrs.field(factory=LocalAsyncEventBroker)
-    _retrying: tenacity.AsyncRetrying = attrs.field(init=False)
 
     @classmethod
     def from_url(cls, url: str | URL, **options) -> AsyncSQLAlchemyDataStore:
         engine = create_async_engine(url, future=True)
         return cls(engine, **options)
-
-    def __attrs_post_init__(self) -> None:
-        super().__attrs_post_init__()
-
-        # Construct the Tenacity retry controller
-        # OSError is raised by asyncpg if it can't connect
-        self._retrying = tenacity.AsyncRetrying(
-            stop=self.retry_settings.stop, wait=self.retry_settings.wait,
-            retry=tenacity.retry_if_exception_type((InterfaceError, OSError)),
-            after=self._after_attempt, sleep=anyio.sleep, reraise=True)
 
     async def __aenter__(self):
         asynclib = sniffio.current_async_library() or '(unknown)'
@@ -83,6 +72,19 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self._events.__aexit__(exc_type, exc_val, exc_tb)
+
+    @property
+    def _retrying(self) -> tenacity.AsyncRetrying:
+        # Construct new Tenacity retry controller every time, because it's stateful
+        # OSError is raised by asyncpg if it can't connect
+        return tenacity.AsyncRetrying(
+            stop=self.retry_settings.stop,
+            wait=self.retry_settings.wait,
+            retry=tenacity.retry_if_exception_type((InterfaceError, OSError)),
+            after=self._after_attempt,
+            sleep=anyio.sleep,
+            reraise=True
+        )
 
     @property
     def events(self) -> EventSource:

@@ -350,6 +350,17 @@ class TestAsyncStores:
             assert len(acquired3) == 1
             assert acquired3[0].id == 's1'
 
+    async def test_add_jobs_concurrently(self, datastore: AsyncDataStore) -> None:
+        async with datastore:
+            async with anyio.create_task_group() as tg:
+                job_ids = []
+                for _ in range(5):
+                    job = Job(task_id='task1')
+                    job_ids.append(job.id)
+                    tg.start_soon(datastore.add_job, job)
+
+            assert len(await datastore.get_jobs(job_ids)) == 5
+
     async def test_acquire_multiple_workers(self, datastore: AsyncDataStore) -> None:
         async with datastore:
             await datastore.add_task(Task(id='task1', func=asynccontextmanager))

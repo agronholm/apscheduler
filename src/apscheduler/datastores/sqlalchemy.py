@@ -200,21 +200,11 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
     engine: Engine
 
     _events: EventBroker = attrs.field(init=False, factory=LocalEventBroker)
-    _retrying: tenacity.Retrying = attrs.field(init=False)
 
     @classmethod
     def from_url(cls, url: str | URL, **options) -> SQLAlchemyDataStore:
         engine = create_engine(url)
         return cls(engine, **options)
-
-    def __attrs_post_init__(self) -> None:
-        super().__attrs_post_init__()
-
-        # Construct the Tenacity retry controller
-        self._retrying = tenacity.Retrying(
-            stop=self.retry_settings.stop, wait=self.retry_settings.wait,
-            retry=tenacity.retry_if_exception_type(OperationalError), after=self._after_attempt,
-            reraise=True)
 
     def __enter__(self):
         for attempt in self._retrying:
@@ -243,6 +233,17 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
     @property
     def events(self) -> EventSource:
         return self._events
+
+    @property
+    def _retrying(self) -> tenacity.Retrying:
+        # Construct new Tenacity retry controller every time, because it's stateful
+        return tenacity.Retrying(
+            stop=self.retry_settings.stop,
+            wait=self.retry_settings.wait,
+            retry=tenacity.retry_if_exception_type(OperationalError),
+            after=self._after_attempt,
+            reraise=True
+        )
 
     def add_task(self, task: Task) -> None:
         insert = self.t_tasks.insert().\

@@ -65,17 +65,11 @@ class MongoDBDataStore(DataStore):
     _job_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Job)]
 
     _logger: Logger = attrs.field(init=False, factory=lambda: getLogger(__name__))
-    _retrying: Retrying = attrs.field(init=False)
     _exit_stack: ExitStack = attrs.field(init=False, factory=ExitStack)
     _events: EventBroker = attrs.field(init=False, factory=LocalEventBroker)
     _local_tasks: dict[str, Task] = attrs.field(init=False, factory=dict)
 
     def __attrs_post_init__(self) -> None:
-        # Construct the Tenacity retry controller
-        self._retrying = Retrying(stop=self.retry_settings.stop, wait=self.retry_settings.wait,
-                                  retry=tenacity.retry_if_exception_type(ConnectionFailure),
-                                  after=self._after_attempt, reraise=True)
-
         type_registry = TypeRegistry([
             CustomEncoder(timedelta, timedelta.total_seconds),
             CustomEncoder(ConflictPolicy, operator.attrgetter('name')),
@@ -98,6 +92,17 @@ class MongoDBDataStore(DataStore):
     @property
     def events(self) -> EventSource:
         return self._events
+
+    @property
+    def _retrying(self) -> Retrying:
+        # Construct new Tenacity retry controller every time, because it's stateful
+        return Retrying(
+            stop=self.retry_settings.stop,
+            wait=self.retry_settings.wait,
+            retry=tenacity.retry_if_exception_type(ConnectionFailure),
+            after=self._after_attempt,
+            reraise=True
+        )
 
     def _after_attempt(self, retry_state: tenacity.RetryCallState) -> None:
         self._logger.warning('Temporary data store error (attempt %d): %s',
