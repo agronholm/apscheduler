@@ -7,20 +7,51 @@ from datetime import datetime
 from typing import Any, ClassVar, Sequence
 
 from .expressions import (
-    WEEKDAYS, AllExpression, LastDayOfMonthExpression, MonthRangeExpression, RangeExpression,
-    WeekdayPositionExpression, WeekdayRangeExpression, get_weekday_index)
+    WEEKDAYS,
+    AllExpression,
+    LastDayOfMonthExpression,
+    MonthRangeExpression,
+    RangeExpression,
+    WeekdayPositionExpression,
+    WeekdayRangeExpression,
+    get_weekday_index,
+)
 
-MIN_VALUES = {'year': 1970, 'month': 1, 'day': 1, 'week': 1, 'day_of_week': 0, 'hour': 0,
-              'minute': 0, 'second': 0}
-MAX_VALUES = {'year': 9999, 'month': 12, 'day': 31, 'week': 53, 'day_of_week': 6, 'hour': 23,
-              'minute': 59, 'second': 59}
-DEFAULT_VALUES = {'year': '*', 'month': 1, 'day': 1, 'week': '*', 'day_of_week': '*', 'hour': 0,
-                  'minute': 0, 'second': 0}
-SEPARATOR = re.compile(' *, *')
+MIN_VALUES = {
+    "year": 1970,
+    "month": 1,
+    "day": 1,
+    "week": 1,
+    "day_of_week": 0,
+    "hour": 0,
+    "minute": 0,
+    "second": 0,
+}
+MAX_VALUES = {
+    "year": 9999,
+    "month": 12,
+    "day": 31,
+    "week": 53,
+    "day_of_week": 6,
+    "hour": 23,
+    "minute": 59,
+    "second": 59,
+}
+DEFAULT_VALUES = {
+    "year": "*",
+    "month": 1,
+    "day": 1,
+    "week": "*",
+    "day_of_week": "*",
+    "hour": 0,
+    "minute": 0,
+    "second": 0,
+}
+SEPARATOR = re.compile(" *, *")
 
 
 class BaseField:
-    __slots__ = 'name', 'expressions'
+    __slots__ = "name", "expressions"
 
     real: ClassVar[bool] = True
     compilers: ClassVar[Any] = (AllExpression, RangeExpression)
@@ -61,19 +92,22 @@ class BaseField:
                 compiled_expr = compiler(**match.groupdict())
 
                 try:
-                    compiled_expr.validate_range(self.name, MIN_VALUES[self.name],
-                                                 MAX_VALUES[self.name])
+                    compiled_expr.validate_range(
+                        self.name, MIN_VALUES[self.name], MAX_VALUES[self.name]
+                    )
                 except ValueError as exc:
-                    raise ValueError(f'Error validating expression {expr!r}: {exc}') from exc
+                    raise ValueError(
+                        f"Error validating expression {expr!r}: {exc}"
+                    ) from exc
 
                 self.expressions.append(compiled_expr)
                 return
 
-        raise ValueError(f'Unrecognized expression {expr!r} for field {self.name!r}')
+        raise ValueError(f"Unrecognized expression {expr!r} for field {self.name!r}")
 
     def __str__(self):
         expr_strings = (str(e) for e in self.expressions)
-        return ','.join(expr_strings)
+        return ",".join(expr_strings)
 
 
 class WeekField(BaseField, real=False):
@@ -83,8 +117,9 @@ class WeekField(BaseField, real=False):
         return dateval.isocalendar()[1]
 
 
-class DayOfMonthField(BaseField,
-                      extra_compilers=(WeekdayPositionExpression, LastDayOfMonthExpression)):
+class DayOfMonthField(
+    BaseField, extra_compilers=(WeekdayPositionExpression, LastDayOfMonthExpression)
+):
     __slots__ = ()
 
     def get_max(self, dateval: datetime) -> int:
@@ -107,7 +142,7 @@ class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpress
             else:
                 last = first
 
-            expr = f'{WEEKDAYS[first]}-{WEEKDAYS[last]}'
+            expr = f"{WEEKDAYS[first]}-{WEEKDAYS[last]}"
 
         # For expressions like Sun-Tue or Sat-Mon, add two expressions that together cover the
         # expected weekdays
@@ -117,8 +152,8 @@ class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpress
             first_index = get_weekday_index(groups[0])
             last_index = get_weekday_index(groups[1])
             if first_index > last_index:
-                super().append_expression(f'{WEEKDAYS[0]}-{groups[1]}')
-                super().append_expression(f'{groups[0]}-{WEEKDAYS[-1]}')
+                super().append_expression(f"{WEEKDAYS[0]}-{groups[1]}")
+                super().append_expression(f"{groups[0]}-{WEEKDAYS[-1]}")
                 return
 
         super().append_expression(expr)
