@@ -8,15 +8,15 @@ from uuid import UUID
 
 from . import abc
 
-TEnum = TypeVar('TEnum', bound=Enum)
+TEnum = TypeVar("TEnum", bound=Enum)
 
 
 def as_aware_datetime(value: datetime | str) -> datetime:
     """Convert the value from a string to a timezone aware datetime."""
     if isinstance(value, str):
         # fromisoformat() does not handle the "Z" suffix
-        if value.upper().endswith('Z'):
-            value = value[:-1] + '+00:00'
+        if value.upper().endswith("Z"):
+            value = value[:-1] + "+00:00"
 
         value = datetime.fromisoformat(value)
 
@@ -51,6 +51,7 @@ def as_enum(enum_class: type[TEnum]) -> Callable[[TEnum | str], TEnum]:
 def as_async_datastore(value: abc.DataStore | abc.AsyncDataStore) -> abc.AsyncDataStore:
     if isinstance(value, abc.DataStore):
         from apscheduler.datastores.async_adapter import AsyncDataStoreAdapter
+
         return AsyncDataStoreAdapter(value)
 
     return value

@@ -175,7 +175,7 @@ class WeekdayPositionExpression(AllExpression):
         first_day_wday, last_day = monthrange(dateval.year, dateval.month)
 
         # Calculate which day of the month is the first of the target weekdays
-        first_hit_day = self.weekday - first_day_wday
+        first_hit_day = self.weekday - first_day_wday + 1
         if first_hit_day <= 0:
             first_hit_day += 7
 

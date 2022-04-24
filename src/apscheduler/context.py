@@ -11,10 +11,12 @@ if TYPE_CHECKING:
     from .workers.sync import Worker
 
 #: The currently running (local) scheduler
-current_scheduler: ContextVar[Scheduler | AsyncScheduler | None] = ContextVar('current_scheduler',
-                                                                              default=None)
+current_scheduler: ContextVar[Scheduler | AsyncScheduler | None] = ContextVar(
+    "current_scheduler", default=None
+)
 #: The worker running the current job
-current_worker: ContextVar[Worker | AsyncWorker | None] = ContextVar('current_worker',
-                                                                     default=None)
+current_worker: ContextVar[Worker | AsyncWorker | None] = ContextVar(
+    "current_worker", default=None
+)
 #: Metadata about the current job
-job_info: ContextVar[JobInfo] = ContextVar('job_info')
+job_info: ContextVar[JobInfo] = ContextVar("job_info")

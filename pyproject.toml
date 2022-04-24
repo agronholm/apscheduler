@@ -27,11 +27,7 @@ show_missing = true
 [tool.isort]
 src_paths = ["src"]
 skip_gitignore = true
-line_length = 99
-multi_line_output = 4
-
-[tool.autopep8]
-max_line_length = 99
+profile = "black"
 
 [tool.flake8]
 max-line-length = 99
@@ -44,20 +40,13 @@ ignore_missing_imports = true
 legacy_tox_ini = """
 [tox]
 minversion = 3.7.0
-envlist = pre-commit, py37, py38, py39, py310, py311, pypy3
+envlist = py37, py38, py39, py310, py311, pypy3
 skip_missing_interpreters = true
 isolated_build = true
 
 [testenv]
-depends = pre-commit
-commands = coverage run -m pytest {posargs}
 extras = test
-
-[testenv:pre-commit]
-depends =
-deps = pre-commit
-commands = pre-commit run --all-files --show-diff-on-failure
-skip_install = true
+commands = coverage run -m pytest {posargs}
 
 [testenv:pyright]
 deps = pyright

@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 @attrs.define(eq=False)
 class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
     connection_factory: Callable[[], AsyncContextManager[Connection]]
-    channel: str = attrs.field(kw_only=True, default='apscheduler')
+    channel: str = attrs.field(kw_only=True, default="apscheduler")
     max_idle_time: float = attrs.field(kw_only=True, default=30)
 
     @classmethod
@@ -31,9 +31,11 @@ class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
 
     @classmethod
     def from_async_sqla_engine(cls, engine: AsyncEngine) -> AsyncpgEventBroker:
-        if engine.dialect.driver != 'asyncpg':
-            raise ValueError(f'The driver in the engine must be "asyncpg" (current: '
-                             f'{engine.dialect.driver})')
+        if engine.dialect.driver != "asyncpg":
+            raise ValueError(
+                f'The driver in the engine must be "asyncpg" (current: '
+                f"{engine.dialect.driver})"
+            )
 
         @asynccontextmanager
         async def connection_factory() -> AsyncGenerator[Connection, None]:
@@ -68,14 +70,16 @@ class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
                 try:
                     while True:
                         await sleep(self.max_idle_time)
-                        await conn.execute('SELECT 1')
+                        await conn.execute("SELECT 1")
                 finally:
                     await conn.remove_listener(self.channel, callback)
 
     async def publish(self, event: Event) -> None:
         notification = self.generate_notification_str(event)
         if len(notification) > 7999:
-            raise SerializationError('Serialized event object exceeds 7999 bytes in size')
+            raise SerializationError(
+                "Serialized event object exceeds 7999 bytes in size"
+            )
 
         async with self.connection_factory() as conn:
             await conn.execute("SELECT pg_notify($1, $2)", self.channel, notification)

@@ -54,7 +54,7 @@ class Serializer(metaclass=ABCMeta):
         pass
 
     def serialize_to_unicode(self, obj) -> str:
-        return b64encode(self.serialize(obj)).decode('ascii')
+        return b64encode(self.serialize(obj)).decode("ascii")
 
     @abstractmethod
     def deserialize(self, serialized: bytes):
@@ -91,10 +91,11 @@ class EventSource(metaclass=ABCMeta):
 
     @abstractmethod
     def subscribe(
-        self, callback: Callable[[Event], Any],
+        self,
+        callback: Callable[[Event], Any],
         event_types: Iterable[type[Event]] | None = None,
         *,
-        one_shot: bool = False
+        one_shot: bool = False,
     ) -> Subscription:
         """
         Subscribe to events from this event source.
@@ -367,7 +368,9 @@ class AsyncDataStore:
         """
 
     @abstractmethod
-    async def add_schedule(self, schedule: Schedule, conflict_policy: ConflictPolicy) -> None:
+    async def add_schedule(
+        self, schedule: Schedule, conflict_policy: ConflictPolicy
+    ) -> None:
         """
         Add or update the given schedule in the data store.
 
@@ -398,7 +401,9 @@ class AsyncDataStore:
         """
 
     @abstractmethod
-    async def release_schedules(self, scheduler_id: str, schedules: list[Schedule]) -> None:
+    async def release_schedules(
+        self, scheduler_id: str, schedules: list[Schedule]
+    ) -> None:
         """
         Release the claims on the given schedules and update them on the store.
 
@@ -444,7 +449,9 @@ class AsyncDataStore:
         """
 
     @abstractmethod
-    async def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
+    async def release_job(
+        self, worker_id: str, task_id: str, result: JobResult
+    ) -> None:
         """
         Release the claim on the given job and record the result.
 

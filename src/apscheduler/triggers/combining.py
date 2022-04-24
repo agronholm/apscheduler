@@ -15,19 +15,23 @@ from ..validators import as_timedelta, require_state_version
 @attrs.define
 class BaseCombiningTrigger(Trigger):
     triggers: list[Trigger]
-    _next_fire_times: list[datetime | None] = attrs.field(init=False, eq=False, factory=list)
+    _next_fire_times: list[datetime | None] = attrs.field(
+        init=False, eq=False, factory=list
+    )
 
     def __getstate__(self) -> dict[str, Any]:
         return {
-            'version': 1,
-            'triggers': [marshal_object(trigger) for trigger in self.triggers],
-            'next_fire_times': self._next_fire_times
+            "version": 1,
+            "triggers": [marshal_object(trigger) for trigger in self.triggers],
+            "next_fire_times": self._next_fire_times,
         }
 
     @abstractmethod
     def __setstate__(self, state: dict[str, Any]) -> None:
-        self.triggers = [unmarshal_object(*trigger_state) for trigger_state in state['triggers']]
-        self._next_fire_times = state['next_fire_times']
+        self.triggers = [
+            unmarshal_object(*trigger_state) for trigger_state in state["triggers"]
+        ]
+        self._next_fire_times = state["next_fire_times"]
 
 
 @attrs.define
@@ -87,19 +91,21 @@ class AndTrigger(BaseCombiningTrigger):
 
     def __getstate__(self) -> dict[str, Any]:
         state = super().__getstate__()
-        state['threshold'] = self.threshold.total_seconds()
-        state['max_iterations'] = self.max_iterations
+        state["threshold"] = self.threshold.total_seconds()
+        state["max_iterations"] = self.max_iterations
         return state
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
         super().__setstate__(state)
-        self.threshold = timedelta(seconds=state['threshold'])
-        self.max_iterations = state['max_iterations']
+        self.threshold = timedelta(seconds=state["threshold"])
+        self.max_iterations = state["max_iterations"]
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}({self.triggers}, ' \
-               f'threshold={self.threshold.total_seconds()}, max_iterations={self.max_iterations})'
+        return (
+            f"{self.__class__.__name__}({self.triggers}, "
+            f"threshold={self.threshold.total_seconds()}, max_iterations={self.max_iterations})"
+        )
 
 
 @attrs.define
@@ -120,8 +126,10 @@ class OrTrigger(BaseCombiningTrigger):
             self._next_fire_times = [t.next() for t in self.triggers]
 
         # Find out the earliest of the fire times
-        earliest_time: datetime | None = min((fire_time for fire_time in self._next_fire_times
-                                              if fire_time is not None), default=None)
+        earliest_time: datetime | None = min(
+            (fire_time for fire_time in self._next_fire_times if fire_time is not None),
+            default=None,
+        )
         if earliest_time is not None:
             # Generate new fire times for the trigger(s) that generated the earliest fire time
             for i, fire_time in enumerate(self._next_fire_times):
@@ -135,4 +143,4 @@ class OrTrigger(BaseCombiningTrigger):
         super().__setstate__(state)
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}({self.triggers})'
+        return f"{self.__class__.__name__}({self.triggers})"

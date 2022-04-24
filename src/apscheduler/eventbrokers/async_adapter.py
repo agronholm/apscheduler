@@ -26,7 +26,9 @@ class AsyncEventBrokerAdapter(LocalAsyncEventBroker):
             self._exit_stack.enter_async_context(self.portal)
 
         await to_thread.run_sync(self.original.__enter__)
-        self._exit_stack.push_async_exit(partial(to_thread.run_sync, self.original.__exit__))
+        self._exit_stack.push_async_exit(
+            partial(to_thread.run_sync, self.original.__exit__)
+        )
 
         # Relay events from the original broker to this one
         self._exit_stack.enter_context(

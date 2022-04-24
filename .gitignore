@@ -13,3 +13,4 @@ docs/_build/
 build/
 virtualenv/
 example.sqlite
+/venv/

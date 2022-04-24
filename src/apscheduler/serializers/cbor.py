@@ -16,15 +16,17 @@ class CBORSerializer(Serializer):
     load_options: dict[str, Any] = attrs.field(factory=dict)
 
     def __attrs_post_init__(self):
-        self.dump_options.setdefault('default', self._default_hook)
-        self.load_options.setdefault('tag_hook', self._tag_hook)
+        self.dump_options.setdefault("default", self._default_hook)
+        self.load_options.setdefault("tag_hook", self._tag_hook)
 
     def _default_hook(self, encoder, value):
-        if hasattr(value, '__getstate__'):
+        if hasattr(value, "__getstate__"):
             marshalled = marshal_object(value)
             encoder.encode(CBORTag(self.type_tag, marshalled))
         else:
-            raise CBOREncodeTypeError(f'cannot serialize type {value.__class__.__name__}')
+            raise CBOREncodeTypeError(
+                f"cannot serialize type {value.__class__.__name__}"
+            )
 
     def _tag_hook(self, decoder, tag: CBORTag, shareable_index: int = None):
         if tag.tag == self.type_tag:

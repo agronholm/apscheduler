@@ -39,7 +39,9 @@ class AsyncDataStoreAdapter(AsyncDataStore):
         await self._exit_stack.enter_async_context(self._events)
 
         await to_thread.run_sync(self.original.__enter__)
-        self._exit_stack.push_async_exit(partial(to_thread.run_sync, self.original.__exit__))
+        self._exit_stack.push_async_exit(
+            partial(to_thread.run_sync, self.original.__exit__)
+        )
 
         return self
 
@@ -61,17 +63,25 @@ class AsyncDataStoreAdapter(AsyncDataStore):
     async def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
         return await to_thread.run_sync(self.original.get_schedules, ids)
 
-    async def add_schedule(self, schedule: Schedule, conflict_policy: ConflictPolicy) -> None:
+    async def add_schedule(
+        self, schedule: Schedule, conflict_policy: ConflictPolicy
+    ) -> None:
         await to_thread.run_sync(self.original.add_schedule, schedule, conflict_policy)
 
     async def remove_schedules(self, ids: Iterable[str]) -> None:
         await to_thread.run_sync(self.original.remove_schedules, ids)
 
     async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
-        return await to_thread.run_sync(self.original.acquire_schedules, scheduler_id, limit)
+        return await to_thread.run_sync(
+            self.original.acquire_schedules, scheduler_id, limit
+        )
 
-    async def release_schedules(self, scheduler_id: str, schedules: list[Schedule]) -> None:
-        await to_thread.run_sync(self.original.release_schedules, scheduler_id, schedules)
+    async def release_schedules(
+        self, scheduler_id: str, schedules: list[Schedule]
+    ) -> None:
+        await to_thread.run_sync(
+            self.original.release_schedules, scheduler_id, schedules
+        )
 
     async def get_next_schedule_run_time(self) -> datetime | None:
         return await to_thread.run_sync(self.original.get_next_schedule_run_time)
@@ -85,7 +95,9 @@ class AsyncDataStoreAdapter(AsyncDataStore):
     async def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
         return await to_thread.run_sync(self.original.acquire_jobs, worker_id, limit)
 
-    async def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
+    async def release_job(
+        self, worker_id: str, task_id: str, result: JobResult
+    ) -> None:
         await to_thread.run_sync(self.original.release_job, worker_id, task_id, result)
 
     async def get_job_result(self, job_id: UUID) -> JobResult | None:

@@ -99,10 +99,10 @@ class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpress
         match = RangeExpression.value_re.match(expr)
         if match:
             groups = match.groups()
-            first = int(groups[0])
+            first = int(groups[0]) - 1
             first = 6 if first < 0 else first
             if groups[1]:
-                last = int(groups[1])
+                last = int(groups[1]) - 1
                 last = 6 if last < 0 else last
             else:
                 last = first
@@ -124,7 +124,7 @@ class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpress
         super().append_expression(expr)
 
     def get_value(self, dateval: datetime) -> int:
-        return int(dateval.strftime('%w'))
+        return dateval.weekday()
 
 
 class MonthField(BaseField, extra_compilers=(MonthRangeExpression,)):

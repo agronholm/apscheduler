@@ -25,8 +25,11 @@ from ..validators import positive_integer
 @attrs.define(eq=False)
 class Worker:
     """Runs jobs locally in a thread pool."""
+
     data_store: DataStore
-    max_concurrent_jobs: int = attrs.field(kw_only=True, validator=positive_integer, default=20)
+    max_concurrent_jobs: int = attrs.field(
+        kw_only=True, validator=positive_integer, default=20
+    )
     identity: str = attrs.field(kw_only=True, default=None)
     logger: Logger | None = attrs.field(kw_only=True, default=getLogger(__name__))
 
@@ -40,7 +43,7 @@ class Worker:
 
     def __attrs_post_init__(self) -> None:
         if not self.identity:
-            self.identity = f'{platform.node()}-{os.getpid()}-{id(self)}'
+            self.identity = f"{platform.node()}-{os.getpid()}-{id(self)}"
 
     @property
     def events(self) -> EventSource:
@@ -59,11 +62,15 @@ class Worker:
 
         # Initialize the data store and start relaying events to the worker's event broker
         self._exit_stack.enter_context(self.data_store)
-        self._exit_stack.enter_context(self.data_store.events.subscribe(self._events.publish))
+        self._exit_stack.enter_context(
+            self.data_store.events.subscribe(self._events.publish)
+        )
 
         # Wake up the worker if the data store emits a significant job event
         self._exit_stack.enter_context(
-            self.data_store.events.subscribe(lambda event: self._wakeup_event.set(), {JobAdded})
+            self.data_store.events.subscribe(
+                lambda event: self._wakeup_event.set(), {JobAdded}
+            )
         )
 
         # Start the worker and return when it has signalled readiness or raised an exception
@@ -87,8 +94,10 @@ class Worker:
 
     def run(self) -> None:
         if self._state is not RunState.starting:
-            raise RuntimeError(f'This function cannot be called while the worker is in the '
-                               f'{self._state} state')
+            raise RuntimeError(
+                f"This function cannot be called while the worker is in the "
+                f"{self._state} state"
+            )
 
         # Set the current worker
         token = current_worker.set(self)
@@ -107,15 +116,17 @@ class Worker:
                     for job in jobs:
                         task = self.data_store.get_task(job.task_id)
                         self._running_jobs.add(job.id)
-                        executor.submit(copy_context().run, self._run_job, job, task.func)
+                        executor.submit(
+                            copy_context().run, self._run_job, job, task.func
+                        )
 
                 self._wakeup_event.wait()
                 self._wakeup_event = threading.Event()
         except BaseException as exc:
-            self.logger.exception('Worker crashed')
+            self.logger.exception("Worker crashed")
             exception = exc
         else:
-            self.logger.info('Worker stopped')
+            self.logger.info("Worker stopped")
         finally:
             current_worker.reset(token)
             self._state = RunState.stopped
@@ -127,7 +138,9 @@ class Worker:
             # Check if the job started before the deadline
             start_time = datetime.now(timezone.utc)
             if job.start_deadline is not None and start_time > job.start_deadline:
-                result = JobResult(job_id=job.id, outcome=JobOutcome.missed_start_deadline)
+                result = JobResult(
+                    job_id=job.id, outcome=JobOutcome.missed_start_deadline
+                )
                 self.data_store.release_job(self.identity, job.task_id, result)
                 return
 
@@ -135,12 +148,16 @@ class Worker:
             try:
                 retval = func(*job.args, **job.kwargs)
             except BaseException as exc:
-                result = JobResult(job_id=job.id, outcome=JobOutcome.error, exception=exc)
+                result = JobResult(
+                    job_id=job.id, outcome=JobOutcome.error, exception=exc
+                )
                 self.data_store.release_job(self.identity, job.task_id, result)
                 if not isinstance(exc, Exception):
                     raise
             else:
-                result = JobResult(job_id=job.id, outcome=JobOutcome.success, return_value=retval)
+                result = JobResult(
+                    job_id=job.id, outcome=JobOutcome.success, return_value=retval
+                )
                 self.data_store.release_job(self.identity, job.task_id, result)
             finally:
                 job_info.reset(token)
