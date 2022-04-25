@@ -1,10 +1,67 @@
 [build-system]
 requires = [
-    "setuptools >= 42",
-    "wheel >= 0.29.0",
-    "setuptools_scm[toml] >= 3.4"
+    "setuptools >= 61",
+    "setuptools_scm[toml] >= 6.4"
 ]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "APScheduler"
+description = "In-process task scheduler with Cron-like capabilities"
+readme = "README.rst"
+authors = [{name = "Alex Grönholm", email = "alex.gronholm@nextday.fi"}]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+keywords = ["scheduling cron"]
+license = {text = "MIT"}
+urls = {Homepage = "https://github.com/agronholm/apscheduler"}
+requires-python = ">= 3.7"
+dependencies = [
+    "anyio ~= 3.0",
+    "attrs >= 21.3",
+    "tenacity ~= 8.0",
+    "tzlocal >= 3.0",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+asyncpg = ["asyncpg >= 0.20"]
+cbor = ["cbor2 >= 5.0"]
+mongodb = ["pymongo >= 4"]
+mqtt = ["paho-mqtt >= 1.5"]
+redis = ["redis >= 4.0"]
+sqlalchemy = ["sqlalchemy >= 1.4.22"]
+test = [
+    "asyncpg >= 0.20",
+    "cbor2 >= 5.0",
+    "coverage",
+    "freezegun",
+    "paho-mqtt >= 1.5",
+    "psycopg2",
+    "pymongo >= 4",
+    "pymysql[rsa]",
+    "pytest >= 5.0",
+    "pytest-cov",
+    "pytest-freezegun",
+    "pytest-lazy-fixture",
+    "pytest-mock",
+    "redis[hiredis] >= 4.0",
+    "sqlalchemy >= 1.4.22",
+    "trio",
+]
+doc = [
+    "sphinx",
+    "sphinx-rtd-theme",
+]
 
 [tool.setuptools_scm]
 version_scheme = "post-release"
