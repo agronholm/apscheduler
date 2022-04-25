@@ -47,7 +47,7 @@ class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
 
         return cls(connection_factory)
 
-    async def __aenter__(self) -> LocalAsyncEventBroker:
+    async def __aenter__(self) -> AsyncpgEventBroker:
         await super().__aenter__()
         await self._task_group.start(self._listen_notifications)
         self._exit_stack.callback(self._task_group.cancel_scope.cancel)
