@@ -1,5 +1,5 @@
-.. image:: https://github.com/agronholm/apscheduler/workflows/Python%20codeqa/test/badge.svg?branch=master
-  :target: https://github.com/agronholm/apscheduler/actions?query=workflow%3A%22Python+codeqa%2Ftest%22+branch%3Amaster
+.. image:: https://github.com/agronholm/apscheduler/actions/workflows/test.yml/badge.svg
+  :target: https://github.com/agronholm/apscheduler/actions/workflows/test.yml
   :alt: Build Status
 .. image:: https://coveralls.io/repos/github/agronholm/apscheduler/badge.svg?branch=master
   :target: https://coveralls.io/github/agronholm/apscheduler?branch=master
