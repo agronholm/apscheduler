@@ -430,7 +430,7 @@ def test_year_list(timezone, serializer):
     [
         (
             "* * * * *",
-            "CronTrigger(year='*', month='*', day='*', week='*', day_of_week='*',"
+            "CronTrigger(year='*', month='*', day='*', week='*', day_of_week='*', "
             "hour='*', minute='*', second='0', start_time='2020-05-19T19:53:22+02:00', "
             "timezone='Europe/Berlin')",
         ),

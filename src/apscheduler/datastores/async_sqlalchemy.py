@@ -230,8 +230,9 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                     .values(**values)
                 )
                 async for attempt in self._retry():
-                    async with attempt, self.engine.begin() as conn:
-                        await conn.execute(update)
+                    with attempt:
+                        async with self.engine.begin() as conn:
+                            await conn.execute(update)
 
                 event = ScheduleUpdated(
                     schedule_id=schedule.id, next_fire_time=schedule.next_fire_time
