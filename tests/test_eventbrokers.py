@@ -34,8 +34,19 @@ def local_async_broker() -> AsyncEventBroker:
 def redis_broker(serializer: Serializer) -> EventBroker:
     from apscheduler.eventbrokers.redis import RedisEventBroker
 
-    broker = RedisEventBroker.from_url("redis://localhost:6379")
-    broker.serializer = serializer
+    broker = RedisEventBroker.from_url(
+        "redis://localhost:6379", serializer=serializer, stop_check_interval=0.05
+    )
+    return broker
+
+
+@pytest.fixture
+async def async_redis_broker(serializer: Serializer) -> AsyncEventBroker:
+    from apscheduler.eventbrokers.async_redis import AsyncRedisEventBroker
+
+    broker = AsyncRedisEventBroker.from_url(
+        "redis://localhost:6379", serializer=serializer, stop_check_interval=0.05
+    )
     return broker
 
 
@@ -85,6 +96,11 @@ def broker(request: SubRequest) -> Generator[EventBroker, Any, None]:
         pytest.param(
             lazy_fixture("asyncpg_broker"),
             id="asyncpg",
+            marks=[pytest.mark.external_service],
+        ),
+        pytest.param(
+            lazy_fixture("async_redis_broker"),
+            id="async_redis",
             marks=[pytest.mark.external_service],
         ),
     ]

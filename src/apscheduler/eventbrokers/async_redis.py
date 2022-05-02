@@ -1,22 +1,23 @@
 from __future__ import annotations
 
-from threading import Thread
-
+import anyio
 import attrs
 import tenacity
-from redis import ConnectionError, ConnectionPool, Redis, RedisCluster
-from redis.client import PubSub
+from redis import ConnectionError
+from redis.asyncio import Redis, RedisCluster
+from redis.asyncio.client import PubSub
+from redis.asyncio.connection import ConnectionPool
 
 from .. import RetrySettings
 from .._events import Event
 from ..abc import Serializer
 from ..serializers.json import JSONSerializer
+from .async_local import LocalAsyncEventBroker
 from .base import DistributedEventBrokerMixin
-from .local import LocalEventBroker
 
 
 @attrs.define(eq=False)
-class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
+class AsyncRedisEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
     """
     An event broker that uses a Redis server to broadcast events.
 
@@ -24,23 +25,25 @@ class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
 
     .. _redis: https://pypi.org/project/redis/
 
-    :param client: a (synchronous) Redis client
+    :param client: an asynchronous Redis client
     :param serializer: the serializer used to (de)serialize events for transport
     :param channel: channel on which to send the messages
-    :param stop_check_interval: interval on which to poll for new messages (higher
+    :param retry_settings: Tenacity settings for retrying operations in case of a
+        broker connectivity problem
+    :param stop_check_interval: interval on which the channel listener should check if
+        it
         values mean slower reaction time but less CPU use)
     """
 
     client: Redis | RedisCluster
     serializer: Serializer = attrs.field(factory=JSONSerializer)
     channel: str = attrs.field(kw_only=True, default="apscheduler")
-    stop_check_interval: float = attrs.field(kw_only=True, default=1)
     retry_settings: RetrySettings = attrs.field(default=RetrySettings())
+    stop_check_interval: float = attrs.field(kw_only=True, default=1)
     _stopped: bool = attrs.field(init=False, default=True)
-    _thread: Thread = attrs.field(init=False)
 
     @classmethod
-    def from_url(cls, url: str, **kwargs) -> RedisEventBroker:
+    def from_url(cls, url: str, **kwargs) -> AsyncRedisEventBroker:
         """
         Create a new event broker from a URL.
 
@@ -53,7 +56,7 @@ class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
         client = Redis(connection_pool=pool)
         return cls(client, **kwargs)
 
-    def _retry(self) -> tenacity.Retrying:
+    def _retry(self) -> tenacity.AsyncRetrying:
         def after_attempt(retry_state: tenacity.RetryCallState) -> None:
             self._logger.warning(
                 f"{self.__class__.__name__}: connection failure "
@@ -61,40 +64,39 @@ class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
                 f"{retry_state.outcome.exception()}",
             )
 
-        return tenacity.Retrying(
+        return tenacity.AsyncRetrying(
             stop=self.retry_settings.stop,
             wait=self.retry_settings.wait,
             retry=tenacity.retry_if_exception_type(ConnectionError),
             after=after_attempt,
+            sleep=anyio.sleep,
             reraise=True,
         )
 
-    def start(self) -> None:
+    async def start(self) -> None:
+        await super().start()
         pubsub = self.client.pubsub()
-        pubsub.subscribe(self.channel)
+        try:
+            await pubsub.subscribe(self.channel)
+        except Exception:
+            await self.stop(force=True)
+            raise
+
         self._stopped = False
-        super().start()
-        self._thread = Thread(
-            target=self._listen_messages,
-            args=[pubsub],
-            daemon=True,
-            name="Redis subscriber",
+        self._task_group.start_soon(
+            self._listen_messages, pubsub, name="Redis subscriber"
         )
-        self._thread.start()
 
-    def stop(self, *, force: bool = False) -> None:
+    async def stop(self, *, force: bool = False) -> None:
         self._stopped = True
-        if not force:
-            self._thread.join(5)
+        await super().stop(force=force)
 
-        super().stop(force=force)
-
-    def _listen_messages(self, pubsub: PubSub) -> None:
+    async def _listen_messages(self, pubsub: PubSub) -> None:
         while not self._stopped:
             try:
-                for attempt in self._retry():
+                async for attempt in self._retry():
                     with attempt:
-                        msg = pubsub.get_message(
+                        msg = await pubsub.get_message(
                             ignore_subscribe_messages=True,
                             timeout=self.stop_check_interval,
                         )
@@ -102,16 +104,14 @@ class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
                 if msg and isinstance(msg["data"], bytes):
                     event = self.reconstitute_event(msg["data"])
                     if event is not None:
-                        self.publish_local(event)
+                        await self.publish_local(event)
             except Exception:
                 self._logger.exception(f"{self.__class__.__name__} listener crashed")
-                pubsub.close()
+                await pubsub.close()
                 raise
 
-        pubsub.close()
-
-    def publish(self, event: Event) -> None:
+    async def publish(self, event: Event) -> None:
         notification = self.generate_notification(event)
-        for attempt in self._retry():
+        async for attempt in self._retry():
             with attempt:
-                self.client.publish(self.channel, notification)
+                await self.client.publish(self.channel, notification)

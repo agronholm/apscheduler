@@ -57,7 +57,7 @@ test = [
     "pytest-freezegun",
     "pytest-lazy-fixture",
     "pytest-mock",
-    "redis[hiredis] >= 4.0",
+    "redis[hiredis] >= 4.4.0rc1",
     "sqlalchemy >= 1.4.22",
     "trio",
 ]

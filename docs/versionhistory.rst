@@ -4,6 +4,11 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+**UNRELEASED**
+
+- Added an async Redis event broker
+- Added automatic reconnection to the Redis event brokers (sync and async)
+
 **4.0.0a1**
 
 This was a major rewrite/redesign of most parts of the project. See the
