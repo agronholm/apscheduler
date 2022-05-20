@@ -131,7 +131,6 @@ class AsyncWorker:
         finally:
             current_worker.reset(token)
             self._state = RunState.stopped
-            self.logger.exception("Worker crashed")
             with move_on_after(3, shield=True):
                 await self._events.publish(WorkerStopped(exception=exception))
 
