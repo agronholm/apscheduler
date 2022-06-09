@@ -48,6 +48,17 @@ def as_enum(enum_class: type[TEnum]) -> Callable[[TEnum | str], TEnum]:
     return converter
 
 
+def as_async_eventbroker(
+    value: abc.EventBroker | abc.AsyncEventBroker,
+) -> abc.AsyncEventBroker:
+    if isinstance(value, abc.EventBroker):
+        from apscheduler.eventbrokers.async_adapter import AsyncEventBrokerAdapter
+
+        return AsyncEventBrokerAdapter(value)
+
+    return value
+
+
 def as_async_datastore(value: abc.DataStore | abc.AsyncDataStore) -> abc.AsyncDataStore:
     if isinstance(value, abc.DataStore):
         from apscheduler.datastores.async_adapter import AsyncDataStoreAdapter

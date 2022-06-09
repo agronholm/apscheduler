@@ -31,9 +31,8 @@ from sqlalchemy.future import Engine, create_engine
 from sqlalchemy.sql.ddl import DropTable
 from sqlalchemy.sql.elements import BindParameter, literal
 
-from ..abc import DataStore, EventBroker, EventSource, Job, Schedule, Serializer
+from ..abc import EventBroker, Job, Schedule, Serializer
 from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome
-from ..eventbrokers.local import LocalEventBroker
 from ..events import (
     Event,
     JobAcquired,
@@ -52,7 +51,7 @@ from ..exceptions import ConflictingIdError, SerializationError, TaskLookupError
 from ..marshalling import callable_to_ref
 from ..serializers.pickle import PickleSerializer
 from ..structures import JobResult, RetrySettings, Task
-from ..util import reentrant
+from .base import BaseDataStore
 
 
 class EmulatedUUID(TypeDecorator):
@@ -219,12 +218,9 @@ class _BaseSQLAlchemyDataStore:
         return jobs
 
 
-@reentrant
 @attrs.define(eq=False)
-class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
+class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, BaseDataStore):
     engine: Engine
-
-    _events: EventBroker = attrs.field(init=False, factory=LocalEventBroker)
 
     @classmethod
     def from_url(cls, url: str | URL, **options) -> SQLAlchemyDataStore:
@@ -240,7 +236,9 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
             reraise=True,
         )
 
-    def __enter__(self):
+    def start(self, event_broker: EventBroker) -> None:
+        super().start(event_broker)
+
         for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 if self.start_from_scratch:
@@ -258,16 +256,6 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
                         f"Unexpected schema version ({version}); "
                         f"only version 1 is supported by this version of APScheduler"
                     )
-
-        self._events.__enter__()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._events.__exit__(exc_type, exc_val, exc_tb)
-
-    @property
-    def events(self) -> EventSource:
-        return self._events
 
     def add_task(self, task: Task) -> None:
         insert = self.t_tasks.insert().values(

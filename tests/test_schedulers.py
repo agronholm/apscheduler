@@ -18,7 +18,6 @@ from apscheduler.events import (
     JobAdded,
     ScheduleAdded,
     ScheduleRemoved,
-    SchedulerStarted,
     SchedulerStopped,
     TaskAdded,
 )
@@ -28,6 +27,7 @@ from apscheduler.schedulers.sync import Scheduler
 from apscheduler.structures import Job, Task
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.workers.async_ import AsyncWorker
 
 if sys.version_info >= (3, 9):
     from zoneinfo import ZoneInfo
@@ -57,22 +57,17 @@ class TestAsyncScheduler:
     async def test_schedule_job(self) -> None:
         def listener(received_event: Event) -> None:
             received_events.append(received_event)
-            if len(received_events) == 5:
+            if isinstance(received_event, ScheduleRemoved):
                 event.set()
 
         received_events: list[Event] = []
         event = anyio.Event()
-        scheduler = AsyncScheduler(start_worker=False)
-        scheduler.events.subscribe(listener)
         trigger = DateTrigger(datetime.now(timezone.utc))
-        async with scheduler:
+        async with AsyncScheduler(start_worker=False) as scheduler:
+            scheduler.event_broker.subscribe(listener)
             await scheduler.add_schedule(dummy_async_job, trigger, id="foo")
             with fail_after(3):
                 await event.wait()
-
-        # The scheduler was first started
-        received_event = received_events.pop(0)
-        assert isinstance(received_event, SchedulerStarted)
 
         # Then the task was added
         received_event = received_events.pop(0)
@@ -129,7 +124,7 @@ class TestAsyncScheduler:
         async with AsyncScheduler(start_worker=False) as scheduler:
             trigger = IntervalTrigger(seconds=3, start_time=orig_start_time)
             job_added_event = anyio.Event()
-            scheduler.events.subscribe(job_added_listener, {JobAdded})
+            scheduler.event_broker.subscribe(job_added_listener, {JobAdded})
             schedule_id = await scheduler.add_schedule(
                 dummy_async_job, trigger, max_jitter=max_jitter
             )
@@ -142,7 +137,8 @@ class TestAsyncScheduler:
 
             fake_uniform.assert_called_once_with(0, expected_upper_bound)
 
-            # Check that the job was created with the proper amount of jitter in its scheduled time
+            # Check that the job was created with the proper amount of jitter in its
+            # scheduled time
             jobs = await scheduler.data_store.get_jobs({job_id})
             assert jobs[0].jitter == timedelta(seconds=jitter)
             assert jobs[0].scheduled_fire_time == orig_start_time + timedelta(
@@ -188,7 +184,7 @@ class TestAsyncScheduler:
     async def test_contextvars(self) -> None:
         def check_contextvars() -> None:
             assert current_scheduler.get() is scheduler
-            assert current_worker.get() is scheduler.worker
+            assert isinstance(current_worker.get(), AsyncWorker)
             info = job_info.get()
             assert info.task_id == "task_id"
             assert info.schedule_id == "foo"
@@ -223,23 +219,18 @@ class TestSyncScheduler:
     def test_schedule_job(self):
         def listener(received_event: Event) -> None:
             received_events.append(received_event)
-            if len(received_events) == 5:
+            if isinstance(received_event, ScheduleRemoved):
                 event.set()
 
         received_events: list[Event] = []
         event = threading.Event()
-        scheduler = Scheduler(start_worker=False)
-        scheduler.events.subscribe(listener)
         trigger = DateTrigger(datetime.now(timezone.utc))
-        with scheduler:
+        with Scheduler(start_worker=False) as scheduler:
+            scheduler.event_broker.subscribe(listener)
             scheduler.add_schedule(dummy_sync_job, trigger, id="foo")
             event.wait(3)
 
-        # The scheduler was first started
-        received_event = received_events.pop(0)
-        assert isinstance(received_event, SchedulerStarted)
-
-        # Then the task was added
+        # First, a task was added
         received_event = received_events.pop(0)
         assert isinstance(received_event, TaskAdded)
         assert received_event.task_id == "test_schedulers:dummy_sync_job"
@@ -263,9 +254,6 @@ class TestSyncScheduler:
         # Finally, the scheduler was stopped
         received_event = received_events.pop(0)
         assert isinstance(received_event, SchedulerStopped)
-
-        # There should be no more events on the list
-        assert not received_events
 
     @pytest.mark.parametrize(
         "max_jitter, expected_upper_bound",
@@ -293,7 +281,7 @@ class TestSyncScheduler:
         with Scheduler(start_worker=False) as scheduler:
             trigger = IntervalTrigger(seconds=3, start_time=orig_start_time)
             job_added_event = threading.Event()
-            scheduler.events.subscribe(job_added_listener, {JobAdded})
+            scheduler.event_broker.subscribe(job_added_listener, {JobAdded})
             schedule_id = scheduler.add_schedule(
                 dummy_async_job, trigger, max_jitter=max_jitter
             )
@@ -350,7 +338,7 @@ class TestSyncScheduler:
     def test_contextvars(self) -> None:
         def check_contextvars() -> None:
             assert current_scheduler.get() is scheduler
-            assert current_worker.get() is scheduler.worker
+            assert current_worker.get() is not None
             info = job_info.get()
             assert info.task_id == "task_id"
             assert info.schedule_id == "foo"

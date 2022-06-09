@@ -4,13 +4,12 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, AsyncContextManager, AsyncGenerator, Callable
 
 import attrs
-from anyio import TASK_STATUS_IGNORED, sleep
+from anyio import TASK_STATUS_IGNORED, CancelScope, sleep
 from asyncpg import Connection
 from asyncpg.pool import Pool
 
 from ..events import Event
 from ..exceptions import SerializationError
-from ..util import reentrant
 from .async_local import LocalAsyncEventBroker
 from .base import DistributedEventBrokerMixin
 
@@ -18,12 +17,12 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
 
-@reentrant
 @attrs.define(eq=False)
 class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
     connection_factory: Callable[[], AsyncContextManager[Connection]]
     channel: str = attrs.field(kw_only=True, default="apscheduler")
     max_idle_time: float = attrs.field(kw_only=True, default=30)
+    _listen_cancel_scope: CancelScope = attrs.field(init=False)
 
     @classmethod
     def from_asyncpg_pool(cls, pool: Pool) -> AsyncpgEventBroker:
@@ -47,11 +46,15 @@ class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
 
         return cls(connection_factory)
 
-    async def __aenter__(self) -> AsyncpgEventBroker:
-        await super().__aenter__()
-        await self._task_group.start(self._listen_notifications)
-        self._exit_stack.callback(self._task_group.cancel_scope.cancel)
-        return self
+    async def start(self) -> None:
+        await super().start()
+        self._listen_cancel_scope = await self._task_group.start(
+            self._listen_notifications
+        )
+
+    async def stop(self, *, force: bool = False) -> None:
+        self._listen_cancel_scope.cancel()
+        await super().stop(force=force)
 
     async def _listen_notifications(self, *, task_status=TASK_STATUS_IGNORED) -> None:
         def callback(connection, pid, channel: str, payload: str) -> None:
@@ -60,19 +63,20 @@ class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
                 self._task_group.start_soon(self.publish_local, event)
 
         task_started_sent = False
-        while True:
-            async with self.connection_factory() as conn:
-                await conn.add_listener(self.channel, callback)
-                if not task_started_sent:
-                    task_status.started()
-                    task_started_sent = True
+        with CancelScope() as cancel_scope:
+            while True:
+                async with self.connection_factory() as conn:
+                    await conn.add_listener(self.channel, callback)
+                    if not task_started_sent:
+                        task_status.started(cancel_scope)
+                        task_started_sent = True
 
-                try:
-                    while True:
-                        await sleep(self.max_idle_time)
-                        await conn.execute("SELECT 1")
-                finally:
-                    await conn.remove_listener(self.channel, callback)
+                    try:
+                        while True:
+                            await sleep(self.max_idle_time)
+                            await conn.execute("SELECT 1")
+                    finally:
+                        await conn.remove_listener(self.channel, callback)
 
     async def publish(self, event: Event) -> None:
         notification = self.generate_notification_str(event)

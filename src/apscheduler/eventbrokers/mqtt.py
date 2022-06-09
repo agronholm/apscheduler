@@ -11,12 +11,10 @@ from paho.mqtt.reasoncodes import ReasonCodes
 from ..abc import Serializer
 from ..events import Event
 from ..serializers.json import JSONSerializer
-from ..util import reentrant
 from .base import DistributedEventBrokerMixin
 from .local import LocalEventBroker
 
 
-@reentrant
 @attrs.define(eq=False)
 class MQTTEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
     client: Client
@@ -28,8 +26,8 @@ class MQTTEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
     publish_qos: int = attrs.field(kw_only=True, default=0)
     _ready_future: Future[None] = attrs.field(init=False)
 
-    def __enter__(self):
-        super().__enter__()
+    def start(self) -> None:
+        super().start()
         self._ready_future = Future()
         self.client.enable_logger(self._logger)
         self.client.on_connect = self._on_connect
@@ -38,11 +36,11 @@ class MQTTEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
         self.client.connect(self.host, self.port)
         self.client.loop_start()
         self._ready_future.result(10)
-        self._exit_stack.push(
-            lambda exc_type, *_: self.client.loop_stop(force=bool(exc_type))
-        )
-        self._exit_stack.callback(self.client.disconnect)
-        return self
+
+    def stop(self, *, force: bool = False) -> None:
+        self.client.disconnect()
+        self.client.loop_stop(force=force)
+        super().stop()
 
     def _on_connect(
         self,

@@ -9,12 +9,10 @@ from redis import ConnectionPool, Redis
 from ..abc import Serializer
 from ..events import Event
 from ..serializers.json import JSONSerializer
-from ..util import reentrant
 from .base import DistributedEventBrokerMixin
 from .local import LocalEventBroker
 
 
-@reentrant
 @attrs.define(eq=False)
 class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
     client: Redis
@@ -23,6 +21,7 @@ class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
     message_poll_interval: float = attrs.field(kw_only=True, default=0.05)
     _stopped: bool = attrs.field(init=False, default=True)
     _ready_future: Future[None] = attrs.field(init=False)
+    _thread: Thread = attrs.field(init=False)
 
     @classmethod
     def from_url(cls, url: str, **kwargs) -> RedisEventBroker:
@@ -30,7 +29,7 @@ class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
         client = Redis(connection_pool=pool)
         return cls(client)
 
-    def __enter__(self):
+    def start(self) -> None:
         self._stopped = False
         self._ready_future = Future()
         self._thread = Thread(
@@ -38,14 +37,14 @@ class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
         )
         self._thread.start()
         self._ready_future.result(10)
-        return super().__enter__()
+        super().start()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def stop(self, *, force: bool = False) -> None:
         self._stopped = True
-        if not exc_type:
+        if not force:
             self._thread.join(5)
 
-        super().__exit__(exc_type, exc_val, exc_tb)
+        super().stop(force=force)
 
     def _listen_messages(self) -> None:
         while not self._stopped:

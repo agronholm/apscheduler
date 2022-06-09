@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import operator
 from collections import defaultdict
-from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
 from typing import Any, Callable, ClassVar, Iterable
@@ -18,7 +17,7 @@ from pymongo import ASCENDING, DeleteOne, MongoClient, UpdateOne
 from pymongo.collection import Collection
 from pymongo.errors import ConnectionFailure, DuplicateKeyError
 
-from ..abc import DataStore, EventBroker, EventSource, Job, Schedule, Serializer
+from ..abc import EventBroker, Job, Schedule, Serializer
 from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome
 from ..eventbrokers.local import LocalEventBroker
 from ..events import (
@@ -41,7 +40,7 @@ from ..exceptions import (
 )
 from ..serializers.pickle import PickleSerializer
 from ..structures import JobResult, RetrySettings, Task
-from ..util import reentrant
+from .base import BaseDataStore
 
 
 class CustomEncoder(TypeEncoder):
@@ -62,14 +61,14 @@ def ensure_uuid_presentation(client: MongoClient) -> None:
     pass
 
 
-@reentrant
 @attrs.define(eq=False)
-class MongoDBDataStore(DataStore):
+class MongoDBDataStore(BaseDataStore):
     client: MongoClient = attrs.field(validator=instance_of(MongoClient))
     serializer: Serializer = attrs.field(factory=PickleSerializer, kw_only=True)
+    event_broker = attrs.field(factory=LocalEventBroker, kw_only=True)
     database: str = attrs.field(default="apscheduler", kw_only=True)
     lock_expiration_delay: float = attrs.field(default=30, kw_only=True)
-    retry_settings: RetrySettings = attrs.field(default=RetrySettings())
+    retry_settings: RetrySettings = attrs.field(default=RetrySettings(), kw_only=True)
     start_from_scratch: bool = attrs.field(default=False, kw_only=True)
 
     _task_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Task)]
@@ -79,8 +78,6 @@ class MongoDBDataStore(DataStore):
     _job_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Job)]
 
     _logger: Logger = attrs.field(init=False, factory=lambda: getLogger(__name__))
-    _exit_stack: ExitStack = attrs.field(init=False, factory=ExitStack)
-    _events: EventBroker = attrs.field(init=False, factory=LocalEventBroker)
     _local_tasks: dict[str, Task] = attrs.field(init=False, factory=dict)
 
     def __attrs_post_init__(self) -> None:
@@ -108,10 +105,6 @@ class MongoDBDataStore(DataStore):
         client = MongoClient(uri)
         return cls(client, **options)
 
-    @property
-    def events(self) -> EventSource:
-        return self._events
-
     def _retry(self) -> tenacity.Retrying:
         return tenacity.Retrying(
             stop=self.retry_settings.stop,
@@ -128,16 +121,15 @@ class MongoDBDataStore(DataStore):
             retry_state.outcome.exception(),
         )
 
-    def __enter__(self):
+    def start(self, event_broker: EventBroker) -> None:
+        super().start(event_broker)
+
         server_info = self.client.server_info()
         if server_info["versionArray"] < [4, 0]:
             raise RuntimeError(
                 f"MongoDB server must be at least v4.0; current version = "
                 f"{server_info['version']}"
             )
-
-        self._exit_stack.__enter__()
-        self._exit_stack.enter_context(self._events)
 
         for attempt in self._retry():
             with attempt, self.client.start_session() as session:
@@ -152,11 +144,6 @@ class MongoDBDataStore(DataStore):
                 self._jobs.create_index("created_at", session=session)
                 self._jobs.create_index("tags", session=session)
                 self._jobs_results.create_index("finished_at", session=session)
-
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
 
     def add_task(self, task: Task) -> None:
         for attempt in self._retry():

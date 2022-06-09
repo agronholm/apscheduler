@@ -108,15 +108,16 @@ class EventSource(metaclass=ABCMeta):
 
 class EventBroker(EventSource):
     """
-    Interface for objects that can be used to publish notifications to interested subscribers.
-
-    Can be used as a context manager.
+    Interface for objects that can be used to publish notifications to interested
+    subscribers.
     """
 
-    def __enter__(self):
-        return self
+    @abstractmethod
+    def start(self) -> None:
+        pass
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    @abstractmethod
+    def stop(self, *, force: bool = False) -> None:
         pass
 
     @abstractmethod
@@ -129,16 +130,14 @@ class EventBroker(EventSource):
 
 
 class AsyncEventBroker(EventSource):
-    """
-    Asynchronous version of :class:`EventBroker`.
+    """Asynchronous version of :class:`EventBroker`."""
 
-    Can be used as an asynchronous context manager.
-    """
+    @abstractmethod
+    async def start(self) -> None:
+        pass
 
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    @abstractmethod
+    async def stop(self, *, force: bool = False) -> None:
         pass
 
     @abstractmethod
@@ -151,10 +150,12 @@ class AsyncEventBroker(EventSource):
 
 
 class DataStore:
-    def __enter__(self):
-        return self
+    @abstractmethod
+    def start(self, event_broker: EventBroker) -> None:
+        pass
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    @abstractmethod
+    def stop(self, *, force: bool = False) -> None:
         pass
 
     @property
@@ -309,10 +310,12 @@ class DataStore:
 
 
 class AsyncDataStore:
-    async def __aenter__(self):
-        return self
+    @abstractmethod
+    async def start(self, event_broker: AsyncEventBroker) -> None:
+        pass
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    @abstractmethod
+    async def stop(self, *, force: bool = False) -> None:
         pass
 
     @property

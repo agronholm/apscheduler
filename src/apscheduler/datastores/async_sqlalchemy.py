@@ -17,9 +17,8 @@ from sqlalchemy.ext.asyncio.engine import AsyncEngine
 from sqlalchemy.sql.ddl import DropTable
 from sqlalchemy.sql.elements import BindParameter
 
-from ..abc import AsyncDataStore, AsyncEventBroker, EventSource, Job, Schedule
+from ..abc import AsyncEventBroker, Job, Schedule
 from ..enums import ConflictPolicy
-from ..eventbrokers.async_local import LocalAsyncEventBroker
 from ..events import (
     DataStoreEvent,
     JobAcquired,
@@ -36,16 +35,13 @@ from ..events import (
 from ..exceptions import ConflictingIdError, SerializationError, TaskLookupError
 from ..marshalling import callable_to_ref
 from ..structures import JobResult, Task
-from ..util import reentrant
+from .base import BaseAsyncDataStore
 from .sqlalchemy import _BaseSQLAlchemyDataStore
 
 
-@reentrant
 @attrs.define(eq=False)
-class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
+class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, BaseAsyncDataStore):
     engine: AsyncEngine
-
-    _events: AsyncEventBroker = attrs.field(factory=LocalAsyncEventBroker)
 
     @classmethod
     def from_url(cls, url: str | URL, **options) -> AsyncSQLAlchemyDataStore:
@@ -63,7 +59,9 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
             reraise=True,
         )
 
-    async def __aenter__(self):
+    async def start(self, event_broker: AsyncEventBroker) -> None:
+        await super().start(event_broker)
+
         asynclib = sniffio.current_async_library() or "(unknown)"
         if asynclib != "asyncio":
             raise RuntimeError(
@@ -91,16 +89,6 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                             f"Unexpected schema version ({version}); "
                             f"only version 1 is supported by this version of APScheduler"
                         )
-
-        await self._events.__aenter__()
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self._events.__aexit__(exc_type, exc_val, exc_tb)
-
-    @property
-    def events(self) -> EventSource:
-        return self._events
 
     async def _deserialize_schedules(self, result: Result) -> list[Schedule]:
         schedules: list[Schedule] = []
