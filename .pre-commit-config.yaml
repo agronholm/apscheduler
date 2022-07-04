@@ -5,7 +5,7 @@
 # * Run "pre-commit install".
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.2.0
+    rev: v4.3.0
     hooks:
       - id: check-added-large-files
       - id: check-case-conflict
@@ -20,13 +20,13 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.32.0
+    rev: v2.34.0
     hooks:
       - id: pyupgrade
         args: [ "--py37-plus" ]
 
   - repo: https://github.com/psf/black
-    rev: 22.3.0
+    rev: 22.6.0
     hooks:
       - id: black
 
