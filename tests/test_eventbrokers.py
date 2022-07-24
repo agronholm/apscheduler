@@ -55,8 +55,7 @@ async def asyncpg_broker(serializer: Serializer) -> AsyncEventBroker:
     from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
 
     pool = await create_pool("postgres://postgres:secret@localhost:5432/testdb")
-    broker = AsyncpgEventBroker.from_asyncpg_pool(pool)
-    broker.serializer = serializer
+    broker = AsyncpgEventBroker.from_asyncpg_pool(pool, serializer=serializer)
     yield broker
     await pool.close()
 

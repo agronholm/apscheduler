@@ -8,8 +8,10 @@ from anyio import TASK_STATUS_IGNORED, CancelScope, sleep
 from asyncpg import Connection
 from asyncpg.pool import Pool
 
+from ..abc import Serializer
 from ..events import Event
 from ..exceptions import SerializationError
+from ..serializers.json import JSONSerializer
 from .async_local import LocalAsyncEventBroker
 from .base import DistributedEventBrokerMixin
 
@@ -20,16 +22,19 @@ if TYPE_CHECKING:
 @attrs.define(eq=False)
 class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
     connection_factory: Callable[[], AsyncContextManager[Connection]]
+    serializer: Serializer = attrs.field(kw_only=True, factory=JSONSerializer)
     channel: str = attrs.field(kw_only=True, default="apscheduler")
     max_idle_time: float = attrs.field(kw_only=True, default=30)
     _listen_cancel_scope: CancelScope = attrs.field(init=False)
 
     @classmethod
-    def from_asyncpg_pool(cls, pool: Pool) -> AsyncpgEventBroker:
-        return cls(pool.acquire)
+    def from_asyncpg_pool(cls, pool: Pool, **kwargs) -> AsyncpgEventBroker:
+        return cls(pool.acquire, **kwargs)
 
     @classmethod
-    def from_async_sqla_engine(cls, engine: AsyncEngine) -> AsyncpgEventBroker:
+    def from_async_sqla_engine(
+        cls, engine: AsyncEngine, **kwargs
+    ) -> AsyncpgEventBroker:
         if engine.dialect.driver != "asyncpg":
             raise ValueError(
                 f'The driver in the engine must be "asyncpg" (current: '
@@ -44,7 +49,7 @@ class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
             finally:
                 conn.close()
 
-        return cls(connection_factory)
+        return cls(connection_factory, **kwargs)
 
     async def start(self) -> None:
         await super().start()
