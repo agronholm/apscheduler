@@ -4,12 +4,12 @@ from collections.abc import AsyncGenerator, Generator
 from concurrent.futures import Future
 from datetime import datetime, timezone
 from queue import Empty, Queue
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from _pytest.fixtures import SubRequest
 from _pytest.logging import LogCaptureFixture
-from anyio import create_memory_object_stream, fail_after
+from anyio import CancelScope, create_memory_object_stream, fail_after
 from pytest_lazyfixture import lazy_fixture
 
 from apscheduler.abc import AsyncEventBroker, EventBroker, Serializer
@@ -90,10 +90,16 @@ def broker(request: SubRequest) -> Generator[EventBroker, Any, None]:
         ),
     ]
 )
-async def async_broker(request: SubRequest) -> AsyncGenerator[AsyncEventBroker, Any]:
-    await request.param.start()
-    yield request.param
-    await request.param.stop()
+async def raw_async_broker(request: SubRequest) -> AsyncEventBroker:
+    return cast(AsyncEventBroker, request.param)
+
+
+async def async_broker(
+    raw_async_broker: AsyncEventBroker,
+) -> AsyncGenerator[AsyncEventBroker, Any]:
+    await raw_async_broker.start()
+    yield raw_async_broker
+    await raw_async_broker.stop()
 
 
 class TestEventBroker:
@@ -252,3 +258,15 @@ class TestAsyncEventBroker:
         received_event = await receive.receive()
         assert received_event.timestamp == timestamp
         assert "Error delivering Event" in caplog.text
+
+    async def test_cancel_start(self, raw_async_broker: AsyncEventBroker) -> None:
+        with CancelScope() as scope:
+            scope.cancel()
+            await raw_async_broker.start()
+            await raw_async_broker.stop()
+
+    async def test_cancel_stop(self, raw_async_broker: AsyncEventBroker) -> None:
+        with CancelScope() as scope:
+            await raw_async_broker.start()
+            scope.cancel()
+            await raw_async_broker.stop()

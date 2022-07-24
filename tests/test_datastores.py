@@ -10,6 +10,7 @@ from typing import Any, AsyncGenerator, cast
 import anyio
 import pytest
 from _pytest.fixtures import SubRequest
+from anyio import CancelScope
 from freezegun.api import FrozenDateTimeFactory
 from pytest_lazyfixture import lazy_fixture
 
@@ -614,13 +615,17 @@ class TestAsyncDataStores:
             ),
         ]
     )
-    async def datastore(
+    async def raw_datastore(
         self, request: SubRequest, event_broker: AsyncEventBroker
+    ) -> AsyncDataStore:
+        return cast(AsyncDataStore, request.param)
+
+    async def datastore(
+        self, raw_datastore: AsyncDataStore, event_broker: AsyncEventBroker
     ) -> AsyncGenerator[AsyncDataStore, Any]:
-        datastore = cast(AsyncDataStore, request.param)
-        await datastore.start(event_broker)
-        yield datastore
-        await datastore.stop()
+        await raw_datastore.start(event_broker)
+        yield raw_datastore
+        await raw_datastore.stop()
 
     async def test_add_replace_task(self, datastore: AsyncDataStore) -> None:
         import math
@@ -1012,3 +1017,19 @@ class TestAsyncDataStores:
         )
         acquired_jobs = await datastore.acquire_jobs("worker1", 3)
         assert [job.id for job in acquired_jobs] == [jobs[2].id]
+
+    async def test_cancel_start(
+        self, raw_datastore: AsyncDataStore, event_broker: AsyncEventBroker
+    ) -> None:
+        with CancelScope() as scope:
+            scope.cancel()
+            await raw_datastore.start(event_broker)
+            await raw_datastore.stop()
+
+    async def test_cancel_stop(
+        self, raw_datastore: AsyncDataStore, event_broker: AsyncEventBroker
+    ) -> None:
+        with CancelScope() as scope:
+            await raw_datastore.start(event_broker)
+            scope.cancel()
+            await raw_datastore.stop()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from datetime import datetime
 from typing import Iterable
 from uuid import UUID
@@ -31,12 +32,18 @@ class AsyncDataStoreAdapter(BaseAsyncDataStore):
         else:
             sync_event_broker = SyncEventBrokerAdapter(event_broker, self._portal)
 
-        await to_thread.run_sync(lambda: self.original.start(sync_event_broker))
+        try:
+            await to_thread.run_sync(lambda: self.original.start(sync_event_broker))
+        except BaseException:
+            await self._portal.__aexit__(*sys.exc_info())
+            raise
 
     async def stop(self, *, force: bool = False) -> None:
-        await to_thread.run_sync(lambda: self.original.stop(force=force))
-        await self._portal.__aexit__(None, None, None)
-        await super().stop(force=force)
+        try:
+            await to_thread.run_sync(lambda: self.original.stop(force=force))
+        finally:
+            await self._portal.__aexit__(None, None, None)
+            await super().stop(force=force)
 
     async def add_task(self, task: Task) -> None:
         await to_thread.run_sync(self.original.add_task, task)
