@@ -94,6 +94,7 @@ async def raw_async_broker(request: SubRequest) -> AsyncEventBroker:
     return cast(AsyncEventBroker, request.param)
 
 
+@pytest.fixture
 async def async_broker(
     raw_async_broker: AsyncEventBroker,
 ) -> AsyncGenerator[AsyncEventBroker, Any]:
