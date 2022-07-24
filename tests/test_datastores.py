@@ -620,6 +620,7 @@ class TestAsyncDataStores:
     ) -> AsyncDataStore:
         return cast(AsyncDataStore, request.param)
 
+    @pytest.fixture
     async def datastore(
         self, raw_datastore: AsyncDataStore, event_broker: AsyncEventBroker
     ) -> AsyncGenerator[AsyncDataStore, Any]:
