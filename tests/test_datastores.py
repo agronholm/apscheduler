@@ -35,6 +35,7 @@ from apscheduler.events import (
     TaskAdded,
     TaskUpdated,
 )
+from apscheduler.exceptions import TaskLookupError
 from apscheduler.structures import JobResult, Task
 from apscheduler.triggers.date import DateTrigger
 
@@ -574,6 +575,15 @@ class TestDataStores:
         acquired_jobs = datastore.acquire_jobs("worker1", 3)
         assert [job.id for job in acquired_jobs] == [jobs[2].id]
 
+    def test_add_get_task(self, datastore: DataStore) -> None:
+        with pytest.raises(TaskLookupError):
+            datastore.get_task("dummyid")
+
+        datastore.add_task(Task(id="dummyid", func=asynccontextmanager))
+        task = datastore.get_task("dummyid")
+        assert task.id == "dummyid"
+        assert task.func is asynccontextmanager
+
 
 @pytest.mark.anyio
 class TestAsyncDataStores:
@@ -1018,6 +1028,15 @@ class TestAsyncDataStores:
         )
         acquired_jobs = await datastore.acquire_jobs("worker1", 3)
         assert [job.id for job in acquired_jobs] == [jobs[2].id]
+
+    async def test_add_get_task(self, datastore: DataStore) -> None:
+        with pytest.raises(TaskLookupError):
+            await datastore.get_task("dummyid")
+
+        await datastore.add_task(Task(id="dummyid", func=asynccontextmanager))
+        task = await datastore.get_task("dummyid")
+        assert task.id == "dummyid"
+        assert task.func is asynccontextmanager
 
     async def test_cancel_start(
         self, raw_datastore: AsyncDataStore, event_broker: AsyncEventBroker

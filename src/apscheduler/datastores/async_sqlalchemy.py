@@ -170,12 +170,12 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, BaseAsyncDataStore):
             with attempt:
                 async with self.engine.begin() as conn:
                     result = await conn.execute(query)
-                    row = result.one()
+                    row = result.first()
 
         if row:
             return Task.unmarshal(self.serializer, row._asdict())
         else:
-            raise TaskLookupError
+            raise TaskLookupError(task_id)
 
     async def get_tasks(self) -> list[Task]:
         query = select(
@@ -551,7 +551,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, BaseAsyncDataStore):
                     query = self.t_job_results.select().where(
                         self.t_job_results.c.job_id == job_id
                     )
-                    row = (await conn.execute(query)).fetchone()
+                    row = (await conn.execute(query)).first()
 
                     # Delete the result
                     delete = self.t_job_results.delete().where(

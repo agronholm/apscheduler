@@ -308,12 +308,12 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, BaseDataStore):
         for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 result = conn.execute(query)
-                row = result.fetch_one()
+                row = result.first()
 
         if row:
             return Task.unmarshal(self.serializer, row._asdict())
         else:
-            raise TaskLookupError
+            raise TaskLookupError(task_id)
 
     def get_tasks(self) -> list[Task]:
         query = select(
@@ -668,7 +668,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, BaseDataStore):
                 query = self.t_job_results.select().where(
                     self.t_job_results.c.job_id == job_id
                 )
-                row = conn.execute(query).fetchone()
+                row = conn.execute(query).first()
 
                 # Delete the result
                 delete = self.t_job_results.delete().where(
