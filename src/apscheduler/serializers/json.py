@@ -33,8 +33,8 @@ class JSONSerializer(Serializer):
 
     def _object_hook(self, obj_state: dict[str, Any]):
         if self.magic_key in obj_state:
-            ref, *rest = obj_state[self.magic_key]
-            return unmarshal_object(ref, *rest)
+            ref, state = obj_state[self.magic_key]
+            return unmarshal_object(ref, state)
 
         return obj_state
 
