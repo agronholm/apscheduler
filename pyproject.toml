@@ -42,6 +42,7 @@ redis = ["redis >= 4.0"]
 sqlalchemy = ["sqlalchemy >= 1.4.22"]
 test = [
     "asyncpg >= 0.20",
+    "asyncmy >= 0.2.5",
     "cbor2 >= 5.0",
     "coverage",
     "freezegun",

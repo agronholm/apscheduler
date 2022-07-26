@@ -117,6 +117,21 @@ async def asyncpg_store() -> AsyncDataStore:
 
 
 @pytest.fixture
+async def asyncmy_store() -> AsyncDataStore:
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from apscheduler.datastores.async_sqlalchemy import AsyncSQLAlchemyDataStore
+
+    engine = create_async_engine(
+        "mysql+asyncmy://root:secret@localhost/testdb?charset=utf8mb4", future=True
+    )
+    try:
+        yield AsyncSQLAlchemyDataStore(engine, start_from_scratch=True)
+    finally:
+        await engine.dispose()
+
+
+@pytest.fixture
 def schedules() -> list[Schedule]:
     trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
     schedule1 = Schedule(id="s1", task_id="task1", trigger=trigger)
@@ -621,6 +636,11 @@ class TestAsyncDataStores:
             pytest.param(
                 lazy_fixture("asyncpg_store"),
                 id="asyncpg",
+                marks=[pytest.mark.external_service],
+            ),
+            pytest.param(
+                lazy_fixture("asyncmy_store"),
+                id="asyncmy",
                 marks=[pytest.mark.external_service],
             ),
         ]

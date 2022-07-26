@@ -300,7 +300,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, BaseAsyncDataStore):
                         query = self.t_schedules.select().where(
                             and_(self.t_schedules.c.acquired_by == scheduler_id)
                         )
-                        result = conn.execute(query)
+                        result = await conn.execute(query)
 
                     schedules = await self._deserialize_schedules(result)
 
