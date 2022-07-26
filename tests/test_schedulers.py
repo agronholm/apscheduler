@@ -214,6 +214,17 @@ class TestAsyncScheduler:
             else:
                 assert result.outcome is JobOutcome.success
 
+    async def test_wait_until_stopped(self) -> None:
+        async with AsyncScheduler() as scheduler:
+            trigger = DateTrigger(
+                datetime.now(timezone.utc) + timedelta(milliseconds=100)
+            )
+            await scheduler.add_schedule(scheduler.stop, trigger)
+            await scheduler.wait_until_stopped()
+
+        # This should be a no-op
+        await scheduler.wait_until_stopped()
+
 
 class TestSyncScheduler:
     def test_schedule_job(self):
@@ -365,3 +376,14 @@ class TestSyncScheduler:
                 raise result.exception
             else:
                 assert result.outcome is JobOutcome.success
+
+    def test_wait_until_stopped(self) -> None:
+        with Scheduler() as scheduler:
+            trigger = DateTrigger(
+                datetime.now(timezone.utc) + timedelta(milliseconds=100)
+            )
+            scheduler.add_schedule(scheduler.stop, trigger)
+            scheduler.wait_until_stopped()
+
+        # This should be a no-op
+        scheduler.wait_until_stopped()

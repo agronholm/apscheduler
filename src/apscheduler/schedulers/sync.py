@@ -74,14 +74,16 @@ class Scheduler:
         exc_tb: TracebackType,
     ) -> None:
         self.stop()
+        self._join_thread()
 
-    def _ensure_services_ready(self) -> None:
+    def _ensure_services_ready(self, exit_stack: ExitStack | None = None) -> None:
         """Ensure that the data store and event broker have been initialized."""
+        stack = exit_stack or self._exit_stack
         with self._lock:
             if not self._services_initialized:
                 self._services_initialized = True
                 self.event_broker.start()
-                self._exit_stack.push(
+                stack.push(
                     lambda *exc_info: self.event_broker.stop(
                         force=exc_info[0] is not None
                     )
@@ -89,12 +91,13 @@ class Scheduler:
 
                 # Initialize the data store
                 self.data_store.start(self.event_broker)
-                self._exit_stack.push(
+                stack.push(
                     lambda *exc_info: self.data_store.stop(
                         force=exc_info[0] is not None
                     )
                 )
-                atexit.register(self.stop)
+                if not exit_stack:
+                    atexit.register(self._exit_stack.close)
 
     def _schedule_added_or_modified(self, event: Event) -> None:
         event_ = cast("ScheduleAdded | ScheduleUpdated", event)
@@ -105,6 +108,11 @@ class Scheduler:
                 "Detected a %s event – waking up the scheduler", type(event).__name__
             )
             self._wakeup_event.set()
+
+    def _join_thread(self) -> None:
+        if self._thread:
+            self._thread.join()
+            self._thread = None
 
     def add_schedule(
         self,
@@ -267,6 +275,15 @@ class Scheduler:
             raise RuntimeError(f"Unknown job outcome: {result.outcome}")
 
     def start_in_background(self) -> None:
+        with self._lock:
+            if self._state is not RunState.stopped:
+                raise RuntimeError(
+                    f'Cannot start the scheduler when it is in the "{self._state}" '
+                    f"state"
+                )
+
+            self._state = RunState.starting
+
         start_future: Future[None] = Future()
         self._thread = threading.Thread(
             target=self._run, args=[start_future], daemon=True
@@ -278,39 +295,63 @@ class Scheduler:
             self._thread = None
             raise
 
+        atexit.register(self._join_thread)
         atexit.register(self.stop)
 
     def stop(self) -> None:
-        atexit.unregister(self.stop)
+        """
+        Signal the scheduler that it should stop processing schedules.
+
+        This method does not wait for the scheduler to actually stop.
+        For that, see :meth:`wait_until_stopped`.
+
+        """
         with self._lock:
             if self._state is RunState.started:
                 self._state = RunState.stopping
                 self._wakeup_event.set()
 
-            if self._thread and threading.current_thread() != self._thread:
-                self._thread.join()
-                self._thread = None
+    def wait_until_stopped(self) -> None:
+        """
+        Wait until the scheduler is in the "stopped" or "stopping" state.
 
-            self._exit_stack.close()
+        If the scheduler is already stopped or in the process of stopping, this method
+        returns immediately. Otherwise, it waits until the scheduler posts the
+        ``SchedulerStopped`` event.
+
+        """
+        with self._lock:
+            if self._state in (RunState.stopped, RunState.stopping):
+                return
+
+            event = threading.Event()
+            sub = self.event_broker.subscribe(
+                lambda ev: event.set(), {SchedulerStopped}, one_shot=True
+            )
+
+        with sub:
+            event.wait()
 
     def run_until_stopped(self) -> None:
+        with self._lock:
+            if self._state is not RunState.stopped:
+                raise RuntimeError(
+                    f'Cannot start the scheduler when it is in the "{self._state}" '
+                    f"state"
+                )
+
+            self._state = RunState.starting
+
         self._run(None)
 
     def _run(self, start_future: Future[None] | None) -> None:
-        with ExitStack() as exit_stack:
+        assert self._state is RunState.starting
+        with self._exit_stack.pop_all() as exit_stack:
             try:
-                with self._lock:
-                    if self._state is not RunState.stopped:
-                        raise RuntimeError(
-                            f'Cannot start the scheduler when it is in the "{self._state}" '
-                            f"state"
-                        )
+                self._ensure_services_ready(exit_stack)
 
-                    self._state = RunState.starting
-
-                self._ensure_services_ready()
-
-                # Wake up the scheduler if the data store emits a significant schedule event
+                # Wake up the scheduler if the data store emits a significant schedule
+                # event
                 exit_stack.enter_context(
                     self.data_store.events.subscribe(
                         self._schedule_added_or_modified,
@@ -340,6 +381,7 @@ class Scheduler:
                 if start_future:
                     start_future.set_result(None)
 
+            exception: BaseException | None = None
             try:
                 while self._state is RunState.started:
                     schedules = self.data_store.acquire_schedules(self.identity, 100)
@@ -451,16 +493,17 @@ class Scheduler:
                             "Processing more schedules on the next iteration"
                         )
             except BaseException as exc:
+                exception = exc
+                raise
+            finally:
                 self._state = RunState.stopped
-                if isinstance(exc, Exception):
+                if isinstance(exception, Exception):
                     self.logger.exception("Scheduler crashed")
-                else:
+                elif exception:
                     self.logger.info(
-                        f"Scheduler stopped due to {exc.__class__.__name__}"
+                        f"Scheduler stopped due to {exception.__class__.__name__}"
                     )
+                else:
+                    self.logger.info("Scheduler stopped")
 
-                self.event_broker.publish_local(SchedulerStopped(exception=exc))
-            else:
-                self._state = RunState.stopped
-                self.logger.info("Scheduler stopped")
-                self.event_broker.publish_local(SchedulerStopped())
+                self.event_broker.publish_local(SchedulerStopped(exception=exception))
