@@ -56,11 +56,11 @@ class DistributedEventBrokerMixin:
     _logger: Logger
 
     def generate_notification(self, event: Event) -> bytes:
-        serialized = self.serializer.serialize(attrs.asdict(event))
+        serialized = self.serializer.serialize(event.marshal(self.serializer))
         return event.__class__.__name__.encode("ascii") + b" " + serialized
 
     def generate_notification_str(self, event: Event) -> str:
-        serialized = self.serializer.serialize(attrs.asdict(event))
+        serialized = self.serializer.serialize(event.marshal(self.serializer))
         return event.__class__.__name__ + " " + b64encode(serialized).decode("ascii")
 
     def _reconstitute_event(self, event_type: str, serialized: bytes) -> Event | None:
@@ -85,7 +85,7 @@ class DistributedEventBrokerMixin:
             return None
 
         try:
-            return event_class(**kwargs)
+            return event_class.unmarshal(self.serializer, kwargs)
         except Exception:
             self._logger.exception("Error reconstituting event of type %s", event_type)
             return None

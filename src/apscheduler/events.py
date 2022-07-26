@@ -2,13 +2,22 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from functools import partial
+from typing import Any
 from uuid import UUID
 
 import attrs
 from attrs.converters import optional
 
+from . import abc
 from .converters import as_aware_datetime, as_uuid
 from .enums import JobOutcome
+
+
+def serialize(inst, field, value):
+    if isinstance(value, frozenset):
+        return list(value)
+
+    return value
 
 
 @attrs.define(kw_only=True, frozen=True)
@@ -16,6 +25,13 @@ class Event:
     timestamp: datetime = attrs.field(
         factory=partial(datetime.now, timezone.utc), converter=as_aware_datetime
     )
+
+    def marshal(self, serializer: abc.Serializer) -> dict[str, Any]:
+        return attrs.asdict(self, value_serializer=serialize)
+
+    @classmethod
+    def unmarshal(cls, serializer: abc.Serializer, marshalled: dict[str, Any]) -> Event:
+        return cls(**marshalled)
 
 
 #
