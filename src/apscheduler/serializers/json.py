@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from json import dumps, loads
 from typing import Any
+from uuid import UUID
 
 import attrs
 
@@ -21,11 +22,15 @@ class JSONSerializer(Serializer):
         self.load_options["object_hook"] = self._object_hook
 
     def _default_hook(self, obj):
-        if hasattr(obj, "__getstate__"):
+        if isinstance(obj, datetime):
+            return marshal_date(obj)
+        elif isinstance(obj, UUID):
+            return str(obj)
+        elif isinstance(obj, frozenset):
+            return list(obj)
+        elif hasattr(obj, "__getstate__"):
             cls_ref, state = marshal_object(obj)
             return {self.magic_key: [cls_ref, state]}
-        elif isinstance(obj, datetime):
-            return marshal_date(obj)
 
         raise TypeError(
             f"Object of type {obj.__class__.__name__!r} is not JSON serializable"

@@ -16,7 +16,7 @@ from apscheduler.events import Event, JobAdded
                 job_id=uuid4(),
                 task_id="task",
                 schedule_id="schedule",
-                tags=frozenset(["tag1", "tag2"]),
+                tags=["tag1", "tag2"],
             ),
             id="job_added",
         )
