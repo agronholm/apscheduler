@@ -131,10 +131,12 @@ class _BaseSQLAlchemyDataStore:
             timestamp_type = TIMESTAMP(timezone=True)
             job_id_type = postgresql.UUID(as_uuid=True)
             interval_type = postgresql.INTERVAL(precision=6)
+            tags_type = postgresql.ARRAY(Unicode)
         else:
             timestamp_type = EmulatedTimestampTZ
             job_id_type = EmulatedUUID
             interval_type = EmulatedInterval
+            tags_type = JSON
 
         metadata = MetaData()
         Table("metadata", metadata, Column("schema_version", Integer, nullable=False))
@@ -159,7 +161,7 @@ class _BaseSQLAlchemyDataStore:
             Column("coalesce", Enum(CoalescePolicy), nullable=False),
             Column("misfire_grace_time", interval_type),
             Column("max_jitter", interval_type),
-            Column("tags", JSON, nullable=False),
+            Column("tags", tags_type, nullable=False),
             Column("next_fire_time", timestamp_type, index=True),
             Column("last_fire_time", timestamp_type),
             Column("acquired_by", Unicode(500)),
@@ -176,7 +178,7 @@ class _BaseSQLAlchemyDataStore:
             Column("scheduled_fire_time", timestamp_type),
             Column("jitter", interval_type),
             Column("start_deadline", timestamp_type),
-            Column("tags", JSON, nullable=False),
+            Column("tags", tags_type, nullable=False),
             Column("created_at", timestamp_type, nullable=False),
             Column("started_at", timestamp_type),
             Column("acquired_by", Unicode(500)),

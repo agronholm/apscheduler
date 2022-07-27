@@ -26,8 +26,6 @@ class JSONSerializer(Serializer):
             return marshal_date(obj)
         elif isinstance(obj, UUID):
             return str(obj)
-        elif isinstance(obj, frozenset):
-            return list(obj)
         elif hasattr(obj, "__getstate__"):
             cls_ref, state = marshal_object(obj)
             return {self.magic_key: [cls_ref, state]}
