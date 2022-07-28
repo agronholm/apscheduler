@@ -14,6 +14,10 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 .. _AnyIO: https://github.com/agronholm/anyio
 
+**3.9.1**
+
+* Removed a leftover check for pytz ``localize()`` and ``normalize()`` methods
+
 **3.9.0**
 
 - Added support for PySide6 to the Qt scheduler
