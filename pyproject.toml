@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
 ]
 keywords = ["scheduling cron"]
 license = {text = "MIT"}
@@ -46,6 +47,7 @@ test = [
     "cbor2 >= 5.0",
     "coverage",
     "freezegun",
+    "greenlet >= 2.0.0a2; python_version >= '3.11'",
     "paho-mqtt >= 1.5",
     "psycopg2",
     "pymongo >= 4",
