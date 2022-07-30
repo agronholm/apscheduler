@@ -6,10 +6,10 @@ from typing import Any, Callable, Iterable
 
 import attrs
 
-from .. import events
+from .. import _events
+from .._events import Event
 from .._exceptions import DeserializationError
 from ..abc import EventSource, Serializer, Subscription
-from ..events import Event
 
 
 @attrs.define(eq=False, frozen=True)
@@ -75,7 +75,7 @@ class DistributedEventBrokerMixin:
             return None
 
         try:
-            event_class = getattr(events, event_type)
+            event_class = getattr(_events, event_type)
         except AttributeError:
             self._logger.error(
                 "Receive notification for a nonexistent event type: %s",

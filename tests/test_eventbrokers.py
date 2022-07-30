@@ -12,8 +12,8 @@ from _pytest.logging import LogCaptureFixture
 from anyio import CancelScope, create_memory_object_stream, fail_after
 from pytest_lazyfixture import lazy_fixture
 
+from apscheduler import Event, ScheduleAdded
 from apscheduler.abc import AsyncEventBroker, EventBroker, Serializer
-from apscheduler.events import Event, ScheduleAdded
 
 
 @pytest.fixture

@@ -10,9 +10,7 @@ from uuid import UUID
 import attrs
 
 from .._enums import ConflictPolicy
-from .._exceptions import ConflictingIdError, TaskLookupError
-from .._structures import Job, JobResult, Schedule, Task
-from ..events import (
+from .._events import (
     JobAcquired,
     JobAdded,
     JobReleased,
@@ -23,6 +21,8 @@ from ..events import (
     TaskRemoved,
     TaskUpdated,
 )
+from .._exceptions import ConflictingIdError, TaskLookupError
+from .._structures import Job, JobResult, Schedule, Task
 from .base import BaseDataStore
 
 max_datetime = datetime(MAXYEAR, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)

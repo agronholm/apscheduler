@@ -4,8 +4,8 @@ from uuid import uuid4
 
 import pytest
 
+from apscheduler import Event, JobAdded
 from apscheduler.abc import Serializer
-from apscheduler.events import Event, JobAdded
 
 
 @pytest.mark.parametrize(

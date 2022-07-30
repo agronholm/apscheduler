@@ -7,8 +7,8 @@ import attrs
 from anyio import create_task_group
 from anyio.abc import TaskGroup
 
+from .._events import Event
 from ..abc import AsyncEventBroker
-from ..events import Event
 from .base import BaseEventBroker
 
 

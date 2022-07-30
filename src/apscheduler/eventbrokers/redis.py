@@ -6,8 +6,8 @@ from threading import Thread
 import attrs
 from redis import ConnectionPool, Redis
 
+from .._events import Event
 from ..abc import Serializer
-from ..events import Event
 from ..serializers.json import JSONSerializer
 from .base import DistributedEventBrokerMixin
 from .local import LocalEventBroker

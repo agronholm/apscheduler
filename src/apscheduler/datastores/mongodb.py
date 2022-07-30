@@ -18,16 +18,7 @@ from pymongo.collection import Collection
 from pymongo.errors import ConnectionFailure, DuplicateKeyError
 
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome
-from .._exceptions import (
-    ConflictingIdError,
-    DeserializationError,
-    SerializationError,
-    TaskLookupError,
-)
-from .._structures import Job, JobResult, RetrySettings, Schedule, Task
-from ..abc import EventBroker, Serializer
-from ..eventbrokers.local import LocalEventBroker
-from ..events import (
+from .._events import (
     DataStoreEvent,
     JobAcquired,
     JobAdded,
@@ -39,6 +30,15 @@ from ..events import (
     TaskRemoved,
     TaskUpdated,
 )
+from .._exceptions import (
+    ConflictingIdError,
+    DeserializationError,
+    SerializationError,
+    TaskLookupError,
+)
+from .._structures import Job, JobResult, RetrySettings, Schedule, Task
+from ..abc import EventBroker, Serializer
+from ..eventbrokers.local import LocalEventBroker
 from ..serializers.pickle import PickleSerializer
 from .base import BaseDataStore
 

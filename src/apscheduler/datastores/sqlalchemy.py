@@ -32,10 +32,7 @@ from sqlalchemy.sql.ddl import DropTable
 from sqlalchemy.sql.elements import BindParameter, literal
 
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome
-from .._exceptions import ConflictingIdError, SerializationError, TaskLookupError
-from .._structures import Job, JobResult, RetrySettings, Schedule, Task
-from ..abc import EventBroker, Serializer
-from ..events import (
+from .._events import (
     Event,
     JobAcquired,
     JobAdded,
@@ -49,6 +46,9 @@ from ..events import (
     TaskRemoved,
     TaskUpdated,
 )
+from .._exceptions import ConflictingIdError, SerializationError, TaskLookupError
+from .._structures import Job, JobResult, RetrySettings, Schedule, Task
+from ..abc import EventBroker, Serializer
 from ..marshalling import callable_to_ref
 from ..serializers.pickle import PickleSerializer
 from .base import BaseDataStore

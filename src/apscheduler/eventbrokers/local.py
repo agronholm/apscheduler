@@ -8,8 +8,8 @@ from typing import Any, Callable, Iterable
 
 import attrs
 
+from .._events import Event
 from ..abc import EventBroker, Subscription
-from ..events import Event
 from .base import BaseEventBroker
 
 

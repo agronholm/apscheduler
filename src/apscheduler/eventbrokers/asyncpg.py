@@ -8,9 +8,9 @@ from anyio import TASK_STATUS_IGNORED, CancelScope, sleep
 from asyncpg import Connection
 from asyncpg.pool import Pool
 
+from .._events import Event
 from .._exceptions import SerializationError
 from ..abc import Serializer
-from ..events import Event
 from ..serializers.json import JSONSerializer
 from .async_local import LocalAsyncEventBroker
 from .base import DistributedEventBrokerMixin

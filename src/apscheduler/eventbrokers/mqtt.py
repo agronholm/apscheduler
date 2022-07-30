@@ -8,8 +8,8 @@ from paho.mqtt.client import Client, MQTTMessage
 from paho.mqtt.properties import Properties
 from paho.mqtt.reasoncodes import ReasonCodes
 
+from .._events import Event
 from ..abc import Serializer
-from ..events import Event
 from ..serializers.json import JSONSerializer
 from .base import DistributedEventBrokerMixin
 from .local import LocalEventBroker

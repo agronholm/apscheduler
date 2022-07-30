@@ -17,11 +17,11 @@ import attrs
 
 from .._context import current_worker, job_info
 from .._enums import JobOutcome, RunState
+from .._events import JobAdded, WorkerStarted, WorkerStopped
 from .._structures import Job, JobInfo, JobResult
 from .._validators import positive_integer
 from ..abc import DataStore, EventBroker
 from ..eventbrokers.local import LocalEventBroker
-from ..events import JobAdded, WorkerStarted, WorkerStopped
 
 
 @attrs.define(eq=False)

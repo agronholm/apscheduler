@@ -6,8 +6,8 @@ import attrs
 from anyio import to_thread
 from anyio.from_thread import BlockingPortal
 
-from apscheduler.abc import AsyncEventBroker, EventBroker, Subscription
-from apscheduler.events import Event
+from .._events import Event
+from ..abc import AsyncEventBroker, EventBroker, Subscription
 
 
 @attrs.define(eq=False)
