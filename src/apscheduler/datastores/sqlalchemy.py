@@ -33,7 +33,8 @@ from sqlalchemy.sql.elements import BindParameter, literal
 
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome
 from .._exceptions import ConflictingIdError, SerializationError, TaskLookupError
-from ..abc import EventBroker, Job, Schedule, Serializer
+from .._structures import Job, JobResult, RetrySettings, Schedule, Task
+from ..abc import EventBroker, Serializer
 from ..events import (
     Event,
     JobAcquired,
@@ -50,7 +51,6 @@ from ..events import (
 )
 from ..marshalling import callable_to_ref
 from ..serializers.pickle import PickleSerializer
-from ..structures import JobResult, RetrySettings, Task
 from .base import BaseDataStore
 
 

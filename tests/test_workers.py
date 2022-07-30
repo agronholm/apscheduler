@@ -8,8 +8,8 @@ import anyio
 import pytest
 from anyio import fail_after
 
-from apscheduler import JobOutcome
-from apscheduler.abc import Job
+from apscheduler import Job, JobOutcome
+from apscheduler._structures import Task
 from apscheduler.datastores.memory import MemoryDataStore
 from apscheduler.events import (
     Event,
@@ -19,7 +19,6 @@ from apscheduler.events import (
     TaskAdded,
     WorkerStopped,
 )
-from apscheduler.structures import Task
 from apscheduler.workers.async_ import AsyncWorker
 from apscheduler.workers.sync import Worker
 

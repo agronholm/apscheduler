@@ -10,9 +10,9 @@ from anyio import to_thread
 from anyio.from_thread import BlockingPortal
 
 from .._enums import ConflictPolicy
+from .._structures import Job, JobResult, Schedule, Task
 from ..abc import AsyncEventBroker, DataStore
 from ..eventbrokers.async_adapter import AsyncEventBrokerAdapter, SyncEventBrokerAdapter
-from ..structures import Job, JobResult, Schedule, Task
 from .base import BaseAsyncDataStore
 
 

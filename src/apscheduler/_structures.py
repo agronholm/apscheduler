@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from functools import partial
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 from uuid import UUID, uuid4
 
 import attrs
@@ -10,10 +10,12 @@ import tenacity.stop
 import tenacity.wait
 from attrs.validators import instance_of
 
-from . import abc
 from ._converters import as_enum, as_timedelta
 from ._enums import CoalescePolicy, JobOutcome
 from .marshalling import callable_from_ref, callable_to_ref
+
+if TYPE_CHECKING:
+    from .abc import Serializer, Trigger
 
 
 def serialize(inst, field, value):
@@ -33,14 +35,14 @@ class Task:
     )
     state: Any = None
 
-    def marshal(self, serializer: abc.Serializer) -> dict[str, Any]:
+    def marshal(self, serializer: Serializer) -> dict[str, Any]:
         marshalled = attrs.asdict(self, value_serializer=serialize)
         marshalled["func"] = callable_to_ref(self.func)
         marshalled["state"] = serializer.serialize(self.state) if self.state else None
         return marshalled
 
     @classmethod
-    def unmarshal(cls, serializer: abc.Serializer, marshalled: dict[str, Any]) -> Task:
+    def unmarshal(cls, serializer: Serializer, marshalled: dict[str, Any]) -> Task:
         marshalled["func"] = callable_from_ref(marshalled["func"])
         if marshalled["state"] is not None:
             marshalled["state"] = serializer.deserialize(marshalled["state"])
@@ -52,7 +54,7 @@ class Task:
 class Schedule:
     id: str
     task_id: str = attrs.field(eq=False, order=False)
-    trigger: abc.Trigger = attrs.field(eq=False, order=False)
+    trigger: Trigger = attrs.field(eq=False, order=False)
     args: tuple = attrs.field(eq=False, order=False, converter=tuple, default=())
     kwargs: dict[str, Any] = attrs.field(
         eq=False, order=False, converter=dict, default=()
@@ -77,7 +79,7 @@ class Schedule:
     acquired_by: str | None = attrs.field(eq=False, order=False, default=None)
     acquired_until: datetime | None = attrs.field(eq=False, order=False, default=None)
 
-    def marshal(self, serializer: abc.Serializer) -> dict[str, Any]:
+    def marshal(self, serializer: Serializer) -> dict[str, Any]:
         marshalled = attrs.asdict(self, value_serializer=serialize)
         marshalled["trigger"] = serializer.serialize(self.trigger)
         marshalled["args"] = serializer.serialize(self.args)
@@ -89,9 +91,7 @@ class Schedule:
         return marshalled
 
     @classmethod
-    def unmarshal(
-        cls, serializer: abc.Serializer, marshalled: dict[str, Any]
-    ) -> Schedule:
+    def unmarshal(cls, serializer: Serializer, marshalled: dict[str, Any]) -> Schedule:
         marshalled["trigger"] = serializer.deserialize(marshalled["trigger"])
         marshalled["args"] = serializer.deserialize(marshalled["args"])
         marshalled["kwargs"] = serializer.deserialize(marshalled["kwargs"])
@@ -139,7 +139,7 @@ class Job:
 
         return self.scheduled_fire_time - self.jitter
 
-    def marshal(self, serializer: abc.Serializer) -> dict[str, Any]:
+    def marshal(self, serializer: Serializer) -> dict[str, Any]:
         marshalled = attrs.asdict(self, value_serializer=serialize)
         marshalled["args"] = serializer.serialize(self.args)
         marshalled["kwargs"] = serializer.serialize(self.kwargs)
@@ -150,7 +150,7 @@ class Job:
         return marshalled
 
     @classmethod
-    def unmarshal(cls, serializer: abc.Serializer, marshalled: dict[str, Any]) -> Job:
+    def unmarshal(cls, serializer: Serializer, marshalled: dict[str, Any]) -> Job:
         marshalled["args"] = serializer.deserialize(marshalled["args"])
         marshalled["kwargs"] = serializer.deserialize(marshalled["kwargs"])
         return cls(**marshalled)
@@ -191,7 +191,7 @@ class JobResult:
     exception: BaseException | None = attrs.field(eq=False, order=False, default=None)
     return_value: Any = attrs.field(eq=False, order=False, default=None)
 
-    def marshal(self, serializer: abc.Serializer) -> dict[str, Any]:
+    def marshal(self, serializer: Serializer) -> dict[str, Any]:
         marshalled = attrs.asdict(self, value_serializer=serialize)
         if self.outcome is JobOutcome.error:
             marshalled["exception"] = serializer.serialize(self.exception)
@@ -206,9 +206,7 @@ class JobResult:
         return marshalled
 
     @classmethod
-    def unmarshal(
-        cls, serializer: abc.Serializer, marshalled: dict[str, Any]
-    ) -> JobResult:
+    def unmarshal(cls, serializer: Serializer, marshalled: dict[str, Any]) -> JobResult:
         if marshalled.get("exception"):
             marshalled["exception"] = serializer.deserialize(marshalled["exception"])
         elif marshalled.get("return_value"):

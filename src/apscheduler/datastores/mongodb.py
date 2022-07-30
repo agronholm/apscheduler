@@ -24,7 +24,8 @@ from .._exceptions import (
     SerializationError,
     TaskLookupError,
 )
-from ..abc import EventBroker, Job, Schedule, Serializer
+from .._structures import Job, JobResult, RetrySettings, Schedule, Task
+from ..abc import EventBroker, Serializer
 from ..eventbrokers.local import LocalEventBroker
 from ..events import (
     DataStoreEvent,
@@ -39,7 +40,6 @@ from ..events import (
     TaskUpdated,
 )
 from ..serializers.pickle import PickleSerializer
-from ..structures import JobResult, RetrySettings, Task
 from .base import BaseDataStore
 
 

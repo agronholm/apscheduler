@@ -22,12 +22,12 @@ from anyio.abc import CancelScope, TaskGroup
 
 from .._converters import as_async_datastore, as_async_eventbroker
 from .._enums import JobOutcome, RunState
+from .._structures import Job, JobInfo, JobResult
 from .._validators import positive_integer
-from ..abc import AsyncDataStore, AsyncEventBroker, Job
+from ..abc import AsyncDataStore, AsyncEventBroker
 from ..context import current_worker, job_info
 from ..eventbrokers.async_local import LocalAsyncEventBroker
 from ..events import JobAdded, WorkerStarted, WorkerStopped
-from ..structures import JobInfo, JobResult
 
 
 @attrs.define(eq=False)

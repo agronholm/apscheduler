@@ -22,7 +22,8 @@ from .._exceptions import (
     JobLookupError,
     ScheduleLookupError,
 )
-from ..abc import AsyncDataStore, AsyncEventBroker, Job, Schedule, Subscription, Trigger
+from .._structures import Job, JobResult, Schedule, Task
+from ..abc import AsyncDataStore, AsyncEventBroker, Subscription, Trigger
 from ..context import current_scheduler
 from ..datastores.memory import MemoryDataStore
 from ..eventbrokers.async_local import LocalAsyncEventBroker
@@ -35,7 +36,6 @@ from ..events import (
     ScheduleUpdated,
 )
 from ..marshalling import callable_to_ref
-from ..structures import JobResult, Task
 from ..workers.async_ import AsyncWorker
 
 _microsecond_delta = timedelta(microseconds=1)

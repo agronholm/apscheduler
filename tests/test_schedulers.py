@@ -11,7 +11,14 @@ import pytest
 from anyio import fail_after
 from pytest_mock import MockerFixture
 
-from apscheduler import JobLookupError, JobOutcome, ScheduleLookupError
+from apscheduler import (
+    Job,
+    JobLookupError,
+    JobOutcome,
+    Schedule,
+    ScheduleLookupError,
+    Task,
+)
 from apscheduler.context import current_scheduler, current_worker, job_info
 from apscheduler.events import (
     Event,
@@ -23,7 +30,6 @@ from apscheduler.events import (
 )
 from apscheduler.schedulers.async_ import AsyncScheduler
 from apscheduler.schedulers.sync import Scheduler
-from apscheduler.structures import Job, Schedule, Task
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.workers.async_ import AsyncWorker

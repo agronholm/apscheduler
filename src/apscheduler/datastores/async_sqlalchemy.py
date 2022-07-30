@@ -19,7 +19,8 @@ from sqlalchemy.sql.elements import BindParameter
 
 from .._enums import ConflictPolicy
 from .._exceptions import ConflictingIdError, SerializationError, TaskLookupError
-from ..abc import AsyncEventBroker, Job, Schedule
+from .._structures import Job, JobResult, Schedule, Task
+from ..abc import AsyncEventBroker
 from ..events import (
     DataStoreEvent,
     JobAcquired,
@@ -34,7 +35,6 @@ from ..events import (
     TaskUpdated,
 )
 from ..marshalling import callable_to_ref
-from ..structures import JobResult, Task
 from .base import BaseAsyncDataStore
 from .sqlalchemy import _BaseSQLAlchemyDataStore
 
