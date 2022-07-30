@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 
 import attrs
 
+from .._context import current_scheduler
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState
 from .._exceptions import (
     JobCancelled,
@@ -24,7 +25,6 @@ from .._exceptions import (
 )
 from .._structures import Job, JobResult, Schedule, Task
 from ..abc import DataStore, EventBroker, Trigger
-from ..context import current_scheduler
 from ..datastores.memory import MemoryDataStore
 from ..eventbrokers.local import LocalEventBroker
 from ..events import (

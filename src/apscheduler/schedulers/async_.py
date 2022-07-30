@@ -14,6 +14,7 @@ import attrs
 from anyio import TASK_STATUS_IGNORED, create_task_group, move_on_after
 from anyio.abc import TaskGroup, TaskStatus
 
+from .._context import current_scheduler
 from .._converters import as_async_datastore, as_async_eventbroker
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState
 from .._exceptions import (
@@ -24,7 +25,6 @@ from .._exceptions import (
 )
 from .._structures import Job, JobResult, Schedule, Task
 from ..abc import AsyncDataStore, AsyncEventBroker, Subscription, Trigger
-from ..context import current_scheduler
 from ..datastores.memory import MemoryDataStore
 from ..eventbrokers.async_local import LocalAsyncEventBroker
 from ..events import (

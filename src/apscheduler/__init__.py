@@ -21,10 +21,14 @@ __all__ = [
     "SerializationError",
     "Task",
     "TaskLookupError",
+    "current_scheduler",
+    "current_worker",
+    "job_info",
 ]
 
 from typing import Any
 
+from ._context import current_scheduler, current_worker, job_info
 from ._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState
 from ._exceptions import (
     ConflictingIdError,
