@@ -13,19 +13,6 @@ else:
 T = TypeVar("T")
 
 
-class _Undefined:
-    def __bool__(self):
-        return False
-
-    def __repr__(self):
-        return "<undefined>"
-
-
-undefined = (
-    _Undefined()
-)  #: a unique object that only signifies that no value is defined
-
-
 def timezone_repr(timezone: tzinfo) -> str:
     if isinstance(timezone, ZoneInfo):
         return timezone.key
