@@ -6,10 +6,10 @@ from typing import Any
 
 import attrs
 
+from .._validators import as_timedelta, require_state_version
 from ..abc import Trigger
 from ..exceptions import MaxIterationsReached
 from ..marshalling import marshal_object, unmarshal_object
-from ..validators import as_timedelta, require_state_version
 
 
 @attrs.define

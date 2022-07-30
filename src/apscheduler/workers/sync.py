@@ -15,13 +15,13 @@ from uuid import UUID
 
 import attrs
 
+from .._validators import positive_integer
 from ..abc import DataStore, EventBroker
 from ..context import current_worker, job_info
 from ..enums import JobOutcome, RunState
 from ..eventbrokers.local import LocalEventBroker
 from ..events import JobAdded, WorkerStarted, WorkerStopped
 from ..structures import Job, JobInfo, JobResult
-from ..validators import positive_integer
 
 
 @attrs.define(eq=False)
