@@ -28,7 +28,12 @@ from ..events import (
     SchedulerStopped,
     ScheduleUpdated,
 )
-from ..exceptions import JobCancelled, JobDeadlineMissed, JobLookupError
+from ..exceptions import (
+    JobCancelled,
+    JobDeadlineMissed,
+    JobLookupError,
+    ScheduleLookupError,
+)
 from ..marshalling import callable_to_ref
 from ..structures import Job, JobResult, Schedule, Task
 from ..workers.sync import Worker
@@ -198,7 +203,10 @@ class Scheduler:
         """
         self._ensure_services_ready()
         schedules = self.data_store.get_schedules({id})
-        return schedules[0]
+        if schedules:
+            return schedules[0]
+        else:
+            raise ScheduleLookupError(id)
 
     def remove_schedule(self, id: str) -> None:
         """

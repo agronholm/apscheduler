@@ -21,10 +21,10 @@ from apscheduler.events import (
     SchedulerStopped,
     TaskAdded,
 )
-from apscheduler.exceptions import JobLookupError
+from apscheduler.exceptions import JobLookupError, ScheduleLookupError
 from apscheduler.schedulers.async_ import AsyncScheduler
 from apscheduler.schedulers.sync import Scheduler
-from apscheduler.structures import Job, Task
+from apscheduler.structures import Job, Schedule, Task
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.workers.async_ import AsyncWorker
@@ -97,6 +97,16 @@ class TestAsyncScheduler:
 
         # There should be no more events on the list
         assert not received_events
+
+    async def test_add_get_schedule(self) -> None:
+        async with AsyncScheduler(start_worker=False) as scheduler:
+            with pytest.raises(ScheduleLookupError):
+                await scheduler.get_schedule("dummyid")
+
+            trigger = DateTrigger(datetime.now(timezone.utc))
+            await scheduler.add_schedule(dummy_async_job, trigger, id="dummyid")
+            schedule = await scheduler.get_schedule("dummyid")
+            assert isinstance(schedule, Schedule)
 
     @pytest.mark.parametrize(
         "max_jitter, expected_upper_bound",
@@ -265,6 +275,16 @@ class TestSyncScheduler:
         # Finally, the scheduler was stopped
         received_event = received_events.pop(0)
         assert isinstance(received_event, SchedulerStopped)
+
+    def test_add_get_schedule(self) -> None:
+        with Scheduler(start_worker=False) as scheduler:
+            with pytest.raises(ScheduleLookupError):
+                scheduler.get_schedule("dummyid")
+
+            trigger = DateTrigger(datetime.now(timezone.utc))
+            scheduler.add_schedule(dummy_async_job, trigger, id="dummyid")
+            schedule = scheduler.get_schedule("dummyid")
+            assert isinstance(schedule, Schedule)
 
     @pytest.mark.parametrize(
         "max_jitter, expected_upper_bound",
