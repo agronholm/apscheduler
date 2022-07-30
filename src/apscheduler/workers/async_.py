@@ -56,10 +56,6 @@ class AsyncWorker:
         if not self.identity:
             self.identity = f"{platform.node()}-{os.getpid()}-{id(self)}"
 
-    @property
-    def state(self) -> RunState:
-        return self._state
-
     async def __aenter__(self) -> AsyncWorker:
         self._task_group = create_task_group()
         await self._task_group.__aenter__()
@@ -78,7 +74,13 @@ class AsyncWorker:
         del self._task_group
         del self._wakeup_event
 
+    @property
+    def state(self) -> RunState:
+        """The current running state of the worker."""
+        return self._state
+
     async def run_until_stopped(self, *, task_status=TASK_STATUS_IGNORED) -> None:
+        """Run the worker until it is explicitly stopped."""
         if self._state is not RunState.stopped:
             raise RuntimeError(
                 f'Cannot start the worker when it is in the "{self._state}" ' f"state"
@@ -146,6 +148,12 @@ class AsyncWorker:
                     )
 
     async def stop(self, *, force: bool = False) -> None:
+        """
+        Signal the worker that it should stop running jobs.
+
+        This method does not wait for the worker to actually stop.
+
+        """
         if self._state in (RunState.starting, RunState.started):
             self._state = RunState.stopping
             event = anyio.Event()

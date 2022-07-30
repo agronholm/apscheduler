@@ -49,10 +49,6 @@ class Worker:
         if not self.identity:
             self.identity = f"{platform.node()}-{os.getpid()}-{id(self)}"
 
-    @property
-    def state(self) -> RunState:
-        return self._state
-
     def __enter__(self) -> Worker:
         self.start_in_background()
         return self
@@ -65,7 +61,19 @@ class Worker:
     ) -> None:
         self.stop()
 
+    @property
+    def state(self) -> RunState:
+        """The current running state of the worker."""
+        return self._state
+
     def start_in_background(self) -> None:
+        """
+        Launch the worker in a new thread.
+
+        This method registers an :mod:`atexit` hook to shut down the worker and wait
+        for the thread to finish.
+
+        """
         start_future: Future[None] = Future()
         self._thread = threading.Thread(
             target=copy_context().run, args=[self._run, start_future], daemon=True
@@ -80,6 +88,12 @@ class Worker:
         atexit.register(self.stop)
 
     def stop(self) -> None:
+        """
+        Signal the worker that it should stop running jobs.
+
+        This method does not wait for the worker to actually stop.
+
+        """
         atexit.unregister(self.stop)
         if self._state is RunState.started:
             self._state = RunState.stopping
@@ -90,6 +104,12 @@ class Worker:
                 self._thread = None
 
     def run_until_stopped(self) -> None:
+        """
+        Run the worker until it is explicitly stopped.
+
+        This method will only return if :meth:`stop` is called.
+
+        """
         self._run(None)
 
     def _run(self, start_future: Future[None] | None) -> None:
