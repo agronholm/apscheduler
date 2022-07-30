@@ -9,8 +9,9 @@ from uuid import UUID
 
 import attrs
 
+from .._enums import ConflictPolicy
+from .._exceptions import ConflictingIdError, TaskLookupError
 from ..abc import Job, Schedule
-from ..enums import ConflictPolicy
 from ..events import (
     JobAcquired,
     JobAdded,
@@ -22,7 +23,6 @@ from ..events import (
     TaskRemoved,
     TaskUpdated,
 )
-from ..exceptions import ConflictingIdError, TaskLookupError
 from ..structures import JobResult, Task
 from .base import BaseDataStore
 

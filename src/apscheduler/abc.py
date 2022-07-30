@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
 from uuid import UUID
 
-from .enums import ConflictPolicy
+from ._enums import ConflictPolicy
 from .structures import Job, JobResult, Schedule, Task
 
 if TYPE_CHECKING:

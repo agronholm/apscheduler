@@ -7,9 +7,9 @@ from typing import Any, Callable, Iterable
 import attrs
 
 from .. import events
+from .._exceptions import DeserializationError
 from ..abc import EventSource, Serializer, Subscription
 from ..events import Event
-from ..exceptions import DeserializationError
 
 
 @attrs.define(eq=False, frozen=True)

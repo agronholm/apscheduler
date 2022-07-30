@@ -10,7 +10,7 @@ from attrs.converters import optional
 
 from . import abc
 from ._converters import as_aware_datetime, as_uuid
-from .enums import JobOutcome
+from ._enums import JobOutcome
 
 
 def serialize(inst, field, value):

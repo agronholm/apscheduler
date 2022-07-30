@@ -8,8 +8,8 @@ import attrs
 from attrs import Attribute
 from tzlocal import get_localzone
 
+from ._exceptions import DeserializationError
 from .abc import Trigger
-from .exceptions import DeserializationError
 
 if sys.version_info >= (3, 9):
     from zoneinfo import ZoneInfo

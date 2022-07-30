@@ -8,9 +8,9 @@ import anyio
 import pytest
 from anyio import fail_after
 
+from apscheduler import JobOutcome
 from apscheduler.abc import Job
 from apscheduler.datastores.memory import MemoryDataStore
-from apscheduler.enums import JobOutcome
 from apscheduler.events import (
     Event,
     JobAcquired,

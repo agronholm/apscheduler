@@ -15,10 +15,10 @@ from uuid import UUID
 
 import attrs
 
+from .._enums import JobOutcome, RunState
 from .._validators import positive_integer
 from ..abc import DataStore, EventBroker
 from ..context import current_worker, job_info
-from ..enums import JobOutcome, RunState
 from ..eventbrokers.local import LocalEventBroker
 from ..events import JobAdded, WorkerStarted, WorkerStopped
 from ..structures import Job, JobInfo, JobResult

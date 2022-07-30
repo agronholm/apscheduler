@@ -14,6 +14,7 @@ from anyio import CancelScope
 from freezegun.api import FrozenDateTimeFactory
 from pytest_lazyfixture import lazy_fixture
 
+from apscheduler import CoalescePolicy, ConflictPolicy, JobOutcome, TaskLookupError
 from apscheduler.abc import (
     AsyncDataStore,
     AsyncEventBroker,
@@ -24,7 +25,6 @@ from apscheduler.abc import (
 )
 from apscheduler.datastores.async_adapter import AsyncDataStoreAdapter
 from apscheduler.datastores.memory import MemoryDataStore
-from apscheduler.enums import CoalescePolicy, ConflictPolicy, JobOutcome
 from apscheduler.eventbrokers.async_local import LocalAsyncEventBroker
 from apscheduler.eventbrokers.local import LocalEventBroker
 from apscheduler.events import (
@@ -35,7 +35,6 @@ from apscheduler.events import (
     TaskAdded,
     TaskUpdated,
 )
-from apscheduler.exceptions import TaskLookupError
 from apscheduler.structures import JobResult, Task
 from apscheduler.triggers.date import DateTrigger
 
