@@ -11,7 +11,7 @@ import tenacity.wait
 from attrs.validators import instance_of
 
 from . import abc
-from .converters import as_enum, as_timedelta
+from ._converters import as_enum, as_timedelta
 from .enums import CoalescePolicy, JobOutcome
 from .marshalling import callable_from_ref, callable_to_ref
 
