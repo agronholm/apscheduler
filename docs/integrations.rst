@@ -4,9 +4,9 @@ Integrating with application frameworks
 WSGI
 ----
 
-To integrate APScheduler with web frameworks using WSGI_ (Web Server Gateway Interface), you need
-to use the synchronous scheduler and start it as a side effect of importing the module that
-contains your application instance::
+To integrate APScheduler with web frameworks using WSGI_ (Web Server Gateway Interface),
+you need to use the synchronous scheduler and start it as a side effect of importing the
+module that contains your application instance::
 
     from apscheduler.schedulers.sync import Scheduler
 
@@ -25,19 +25,21 @@ contains your application instance::
     scheduler = Scheduler()
     scheduler.start_in_background()
 
-Assuming you saved this as ``example.py``, you can now start the application with uWSGI_ with:
+Assuming you saved this as ``example.py``, you can now start the application with uWSGI_
+with:
 
 .. code-block:: bash
 
     uwsgi --enable-threads --http :8080 --wsgi-file example.py
 
-The ``--enable-threads`` option is necessary because uWSGI disables threads by default which then
-prevents the scheduler from working. See the `uWSGI documentation <uWSGI-threads>`_ for more
-details.
+The ``--enable-threads`` (or ``-T``) option is necessary because uWSGI disables threads
+by default which then prevents the scheduler from working. See the
+`uWSGI documentation <uWSGI-threads>`_ for more details.
 
 .. note::
-    The :meth:`.schedulers.sync.Scheduler.start_in_background` method installs an :mod:`atexit`
-    hook that shuts down the scheduler gracefully when the worker process exits.
+    The :meth:`.schedulers.sync.Scheduler.start_in_background` method installs an
+    :mod:`atexit` hook that shuts down the scheduler gracefully when the worker process
+    exits.
 
 .. _WSGI: https://wsgi.readthedocs.io/en/latest/what.html
 .. _uWSGI: https://www.fullstackpython.com/uwsgi.html
@@ -46,9 +48,9 @@ details.
 ASGI
 ----
 
-To integrate APScheduler with web frameworks using ASGI_ (Asynchronous Server Gateway Interface),
-you need to use the asynchronous scheduler and tie its lifespan to the lifespan of the application
-by wrapping it in middleware, as follows::
+To integrate APScheduler with web frameworks using ASGI_ (Asynchronous Server Gateway
+Interface), you need to use the asynchronous scheduler and tie its lifespan to the
+lifespan of the application by wrapping it in middleware, as follows::
 
     from apscheduler.schedulers.async_ import AsyncScheduler
 

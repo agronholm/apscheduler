@@ -64,6 +64,7 @@ test = [
 doc = [
     "sphinx",
     "sphinx-rtd-theme",
+    "sphinx-tabs >= 3.3.1"
 ]
 
 [tool.setuptools_scm]
