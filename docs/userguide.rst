@@ -10,20 +10,15 @@ The preferred installation method is by using `pip <http://pypi.python.org/pypi/
 
     $ pip install apscheduler
 
-If you don't have pip installed, you can easily install it by downloading and running
-`get-pip.py <https://bootstrap.pypa.io/get-pip.py>`_.
-
-If, for some reason, pip won't work, you can manually `download the APScheduler distribution
-<https://pypi.python.org/pypi/APScheduler/>`_ from PyPI, extract and then install it::
-
-    $ python setup.py install
+If you don't have pip installed, you need to
+`install that first <https://pip.pypa.io/en/stable/installation/>`_.
 
 
 Code examples
 -------------
 
-The source distribution contains the :file:`examples` directory where you can find many working
-examples for using APScheduler in different ways. The examples can also be
+The source distribution contains the :file:`examples` directory where you can find many
+working examples for using APScheduler in different ways. The examples can also be
 `browsed online <https://github.com/agronholm/apscheduler/tree/master/examples/?at=master>`_.
 
 
