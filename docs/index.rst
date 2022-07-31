@@ -18,4 +18,4 @@ Table of Contents
   contributing
   extending
   faq
-  py-modindex
+  api
