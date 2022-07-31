@@ -25,18 +25,27 @@ class JobLookupError(LookupError):
 
 
 class JobResultNotReady(Exception):
-    """Raised by ``get_job_result()`` if the job result is not ready."""
+    """
+    Raised by :meth:`~.schedulers.sync.Scheduler.get_job_result` if the job result is
+    not ready.
+    """
 
     def __init__(self, job_id: UUID):
         super().__init__(f"No job by the id of {job_id} was found")
 
 
 class JobCancelled(Exception):
-    """Raised by ``run_job()`` if the job was cancelled."""
+    """
+    Raised by :meth:`~.schedulers.sync.Scheduler.get_job_result` if the job was
+    cancelled.
+    """
 
 
 class JobDeadlineMissed(Exception):
-    """Raised by ``run_job()`` if the job failed to start within the allotted time."""
+    """
+    Raised by :meth:`~.schedulers.sync.Scheduler.get_job_result` if the job failed to
+    start within the allotted time.
+    """
 
 
 class ConflictingIdError(KeyError):
