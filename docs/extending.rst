@@ -68,7 +68,7 @@ using synchronous or asynchronous APIs:
 
 .. tabs::
 
-   .. tab:: python Synchronous
+   .. code-tab:: python Synchronous
 
         from apscheduler.abc import DataStore, EventBroker
 
@@ -81,7 +81,7 @@ using synchronous or asynchronous APIs:
 
             # See the interface class for the rest of the abstract methods
 
-   .. tab:: python Asynchronous
+   .. code-tab:: python Asynchronous
 
         from apscheduler.abc import AsyncDataStore, AsyncEventBroker
 
