@@ -8,8 +8,8 @@ from uuid import UUID
 
 if TYPE_CHECKING:
     from ._enums import ConflictPolicy
+    from ._events import Event
     from ._structures import Job, JobResult, Schedule, Task
-    from .events import Event
 
 
 class Trigger(Iterator[datetime], metaclass=ABCMeta):
