@@ -144,9 +144,8 @@ class Scheduler:
             based ID will be assigned)
         :param args: positional arguments to be passed to the task function
         :param kwargs: keyword arguments to be passed to the task function
-        :param coalesce: if ``True``, only one job will be created when the schedule is
-            due even if multiple run times have passed since the last processing of the
-            schedule
+        :param coalesce: determines what to do when processing the schedule if multiple
+            fire times have become due for this schedule since the last processing
         :param misfire_grace_time: maximum number of seconds the scheduled job's actual
             run time is allowed to be late, compared to the scheduled run time
         :param max_jitter: maximum number of seconds to randomly add to the scheduled
