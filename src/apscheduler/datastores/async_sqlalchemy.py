@@ -41,10 +41,43 @@ from .sqlalchemy import _BaseSQLAlchemyDataStore
 
 @attrs.define(eq=False)
 class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, BaseAsyncDataStore):
+    """
+    Uses a relational database to store data.
+
+    When started, this data store creates the appropriate tables on the given database
+    if they're not already present.
+
+    Operations are retried (in accordance to ``retry_settings``) when an operation
+    raises :exc:`sqlalchemy.OperationalError`.
+
+    This store has been tested to work with PostgreSQL (asyncpg driver) and MySQL
+    (asyncmy driver).
+
+    :param engine: an asynchronous SQLAlchemy engine
+    :param schema: a database schema name to use, if not the default
+    :param serializer: the serializer used to (de)serialize tasks, schedules and jobs
+        for storage
+    :param lock_expiration_delay: maximum amount of time (in seconds) that a scheduler
+        or worker can keep a lock on a schedule or task
+    :param retry_settings: Tenacity settings for retrying operations in case of a
+        database connecitivty problem
+    :param start_from_scratch: erase all existing data during startup (useful for test
+        suites)
+    """
+
     engine: AsyncEngine
 
     @classmethod
     def from_url(cls, url: str | URL, **options) -> AsyncSQLAlchemyDataStore:
+        """
+        Create a new asynchronous SQLAlchemy data store.
+
+        :param url: an SQLAlchemy URL to pass to :func:`~sqlalchemy.create_engine`
+            (must use an async dialect like ``asyncpg`` or ``asyncmy``)
+        :param kwargs: keyword arguments to pass to the initializer of this class
+        :return: the newly created data store
+
+        """
         engine = create_async_engine(url, future=True)
         return cls(engine, **options)
 

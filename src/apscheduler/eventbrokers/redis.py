@@ -15,6 +15,20 @@ from .local import LocalEventBroker
 
 @attrs.define(eq=False)
 class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
+    """
+    An event broker that uses a Redis server to broadcast events.
+
+    Requires the redis_ library to be installed.
+
+    .. _redis: https://pypi.org/project/redis/
+
+    :param client: a (synchronous) Redis client
+    :param serializer: the serializer used to (de)serialize events for transport
+    :param channel: channel on which to send the messages
+    :param message_poll_interval: interval on which to poll for new messages (higher
+        values mean slower reaction time but less CPU use)
+    """
+
     client: Redis
     serializer: Serializer = attrs.field(factory=JSONSerializer)
     channel: str = attrs.field(kw_only=True, default="apscheduler")
@@ -25,6 +39,14 @@ class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
 
     @classmethod
     def from_url(cls, url: str, **kwargs) -> RedisEventBroker:
+        """
+        Create a new event broker from a URL.
+
+        :param url: a Redis URL (```redis://...```)
+        :param kwargs: keyword arguments to pass to the initializer of this class
+        :return: the newly created event broker
+
+        """
         pool = ConnectionPool.from_url(url, **kwargs)
         client = Redis(connection_pool=pool)
         return cls(client)

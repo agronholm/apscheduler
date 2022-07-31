@@ -17,6 +17,22 @@ from .local import LocalEventBroker
 
 @attrs.define(eq=False)
 class MQTTEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
+    """
+    An event broker that uses an MQTT (v3.1 or v5) broker to broadcast events.
+
+    Requires the paho-mqtt_ library to be installed.
+
+    .. _paho-mqtt: https://pypi.org/project/paho-mqtt/
+
+    :param client: a paho-mqtt client
+    :param serializer: the serializer used to (de)serialize events for transport
+    :param host: host name or IP address to connect to
+    :param port: TCP port number to connect to
+    :param topic: topic on which to send the messages
+    :param subscribe_qos: MQTT QoS to use for subscribing messages
+    :param publish_qos: MQTT QoS to use for publishing messages
+    """
+
     client: Client
     serializer: Serializer = attrs.field(factory=JSONSerializer)
     host: str = attrs.field(kw_only=True, default="localhost")

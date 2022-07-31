@@ -83,6 +83,15 @@ class JobState:
 
 @attrs.define(eq=False)
 class MemoryDataStore(BaseDataStore):
+    """
+    Stores scheduler data in memory, without serializing it.
+
+    Can be shared between multiple schedulers and workers within the same event loop.
+
+    :param lock_expiration_delay: maximum amount of time (in seconds) that a scheduler
+        or worker can keep a lock on a schedule or task
+    """
+
     lock_expiration_delay: float = 30
     _tasks: dict[str, TaskState] = attrs.Factory(dict)
     _schedules: list[ScheduleState] = attrs.Factory(list)

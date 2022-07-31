@@ -38,7 +38,6 @@ from .._exceptions import (
 )
 from .._structures import Job, JobResult, RetrySettings, Schedule, Task
 from ..abc import EventBroker, Serializer
-from ..eventbrokers.local import LocalEventBroker
 from ..serializers.pickle import PickleSerializer
 from .base import BaseDataStore
 
@@ -56,16 +55,31 @@ class CustomEncoder(TypeEncoder):
         return self._encoder(value)
 
 
-def ensure_uuid_presentation(client: MongoClient) -> None:
-    # if client.
-    pass
-
-
 @attrs.define(eq=False)
 class MongoDBDataStore(BaseDataStore):
+    """
+    Uses a MongoDB server to store data.
+
+    When started, this data store creates the appropriate indexes on the given database
+    if they're not already present.
+
+    Operations are retried (in accordance to ``retry_settings``) when an operation
+    raises :exc:`pymongo.errors.ConnectionFailure`.
+
+    :param client: a PyMongo client
+    :param serializer: the serializer used to (de)serialize tasks, schedules and jobs
+        for storage
+    :param database: name of the database to use
+    :param lock_expiration_delay: maximum amount of time (in seconds) that a scheduler
+        or worker can keep a lock on a schedule or task
+    :param retry_settings: Tenacity settings for retrying operations in case of a
+        database connecitivty problem
+    :param start_from_scratch: erase all existing data during startup (useful for test
+        suites)
+    """
+
     client: MongoClient = attrs.field(validator=instance_of(MongoClient))
     serializer: Serializer = attrs.field(factory=PickleSerializer, kw_only=True)
-    event_broker = attrs.field(factory=LocalEventBroker, kw_only=True)
     database: str = attrs.field(default="apscheduler", kw_only=True)
     lock_expiration_delay: float = attrs.field(default=30, kw_only=True)
     retry_settings: RetrySettings = attrs.field(default=RetrySettings(), kw_only=True)

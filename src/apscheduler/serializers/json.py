@@ -13,6 +13,19 @@ from ..marshalling import marshal_date, marshal_object, unmarshal_object
 
 @attrs.define(kw_only=True, eq=False)
 class JSONSerializer(Serializer):
+    """
+    Serializes objects using JSON.
+
+    Can serialize types not normally CBOR serializable, if they implement
+    ``__getstate__()`` and ``__setstate__()``. These objects are serialized into dicts
+    that contain the necessary information for deserialization in ``magic_key``.
+
+    :param magic_key: name of a specially handled dict key that indicates that a dict
+        contains a serialized instance of an arbitrary type
+    :param dump_options: keyword arguments passed to :func:`json.dumps`
+    :param load_options: keyword arguments passed to :func:`json.loads`
+    """
+
     magic_key: str = "_apscheduler_json"
     dump_options: dict[str, Any] = attrs.field(factory=dict)
     load_options: dict[str, Any] = attrs.field(factory=dict)

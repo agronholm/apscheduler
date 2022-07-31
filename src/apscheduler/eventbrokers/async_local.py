@@ -14,6 +14,15 @@ from .base import BaseEventBroker
 
 @attrs.define(eq=False)
 class LocalAsyncEventBroker(AsyncEventBroker, BaseEventBroker):
+    """
+    Asynchronous, local event broker.
+
+    This event broker only broadcasts within the process it runs in, and is therefore
+    not suitable for multi-node or multiprocess use cases.
+
+    Does not serialize events.
+    """
+
     _task_group: TaskGroup = attrs.field(init=False)
 
     async def start(self) -> None:

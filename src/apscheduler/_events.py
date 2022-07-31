@@ -151,12 +151,26 @@ class JobRemoved(DataStoreEvent):
 
 @attrs.define(kw_only=True, frozen=True)
 class ScheduleDeserializationFailed(DataStoreEvent):
+    """
+    Signals that the deserialization of a schedule has failed.
+
+    :ivar schedule_id: ID of the schedule that failed to deserialize
+    :ivar exception: the exception that was raised during deserialization
+    """
+
     schedule_id: str
     exception: BaseException
 
 
 @attrs.define(kw_only=True, frozen=True)
 class JobDeserializationFailed(DataStoreEvent):
+    """
+    Signals that the deserialization of a job has failed.
+
+    :ivar job_id: ID of the job that failed to deserialize
+    :ivar exception: the exception that was raised during deserialization
+    """
+
     job_id: UUID = attrs.field(converter=as_uuid)
     exception: BaseException
 

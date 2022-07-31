@@ -15,6 +15,15 @@ from .base import BaseEventBroker
 
 @attrs.define(eq=False)
 class LocalEventBroker(EventBroker, BaseEventBroker):
+    """
+    Synchronous, local event broker.
+
+    This event broker only broadcasts within the process it runs in, and is therefore
+    not suitable for multi-node or multiprocess use cases.
+
+    Does not serialize events.
+    """
+
     _executor: ThreadPoolExecutor = attrs.field(init=False)
     _exit_stack: ExitStack = attrs.field(init=False)
     _subscriptions_lock: Lock = attrs.field(init=False, factory=Lock)
