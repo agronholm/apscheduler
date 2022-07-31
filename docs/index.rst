@@ -12,6 +12,7 @@ Table of Contents
   :maxdepth: 1
 
   userguide
+  integrations
   versionhistory
   migration
   contributing
