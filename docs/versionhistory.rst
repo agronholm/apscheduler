@@ -6,12 +6,34 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
-- Added shareable data stores (can be used by multiple schedulers and workers)
-- Added support for running workers independently from schedulers
-- Added full async support via AnyIO_ (data store support varies)
-- Dropped support for Python 2.X, 3.5 and 3.6
-- Removed the Qt scheduler due to maintenance difficulties
+This was a major rewrite/redesign of most parts of the project. See the
+:doc:`migration section <migration>` section for details.
 
+- Made persistent data stores shareable between multiple processes and nodes
+- Enhanced data stores to be more resilient against temporary connectivity failures
+- Refactored executors (now called *workers*) to pull jobs from the data store so they
+  can be run independently from schedulers
+- Added full async support (:mod:`asyncio` and Trio_) via AnyIO_
+- Added type annotations to the code base
+- Added the ability to queue jobs directly without scheduling them
+- Added alternative serializers (CBOR, JSON)
+- Added the ``CalendarInterval`` trigger
+- Added the ability to access the current scheduler (under certain circumstances),
+  current worker and the currently running job via context-local variables
+- Added schedule level support for jitter
+- Made triggers stateful
+- Added threshold support for ``AndTrigger``
+- Migrated from ``pytz`` time zones to standard library ``zoneinfo`` zones
+- Allowed a wider range of tzinfo implementations to be used (though ``zoneinfo`` is
+  preferred)
+- Changed ``IntervalTrigger`` to start immediately instead of first waiting for one
+  interval
+- Changed ``CronTrigger`` to use Sunday as weekday number 0, as per the crontab standard
+- Dropped support for Python 2.X, 3.5 and 3.6
+- Dropped support for the Qt, Twisted, Tornado and Gevent schedulers
+- Dropped support for the Redis, RethinkDB and Zookeeper job stores
+
+.. _Trio: https://pypi.org/project/trio/
 .. _AnyIO: https://github.com/agronholm/anyio
 
 **3.9.1**
