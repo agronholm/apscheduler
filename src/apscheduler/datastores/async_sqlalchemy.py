@@ -17,10 +17,8 @@ from sqlalchemy.ext.asyncio.engine import AsyncEngine
 from sqlalchemy.sql.ddl import DropTable
 from sqlalchemy.sql.elements import BindParameter
 
-from ..abc import AsyncDataStore, AsyncEventBroker, EventSource, Job, Schedule
-from ..enums import ConflictPolicy
-from ..eventbrokers.async_local import LocalAsyncEventBroker
-from ..events import (
+from .._enums import ConflictPolicy
+from .._events import (
     DataStoreEvent,
     JobAcquired,
     JobAdded,
@@ -33,22 +31,53 @@ from ..events import (
     TaskRemoved,
     TaskUpdated,
 )
-from ..exceptions import ConflictingIdError, SerializationError, TaskLookupError
+from .._exceptions import ConflictingIdError, SerializationError, TaskLookupError
+from .._structures import Job, JobResult, Schedule, Task
+from ..abc import AsyncEventBroker
 from ..marshalling import callable_to_ref
-from ..structures import JobResult, Task
-from ..util import reentrant
+from .base import BaseAsyncDataStore
 from .sqlalchemy import _BaseSQLAlchemyDataStore
 
 
-@reentrant
 @attrs.define(eq=False)
-class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
-    engine: AsyncEngine
+class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, BaseAsyncDataStore):
+    """
+    Uses a relational database to store data.
 
-    _events: AsyncEventBroker = attrs.field(factory=LocalAsyncEventBroker)
+    When started, this data store creates the appropriate tables on the given database
+    if they're not already present.
+
+    Operations are retried (in accordance to ``retry_settings``) when an operation
+    raises :exc:`sqlalchemy.OperationalError`.
+
+    This store has been tested to work with PostgreSQL (asyncpg driver) and MySQL
+    (asyncmy driver).
+
+    :param engine: an asynchronous SQLAlchemy engine
+    :param schema: a database schema name to use, if not the default
+    :param serializer: the serializer used to (de)serialize tasks, schedules and jobs
+        for storage
+    :param lock_expiration_delay: maximum amount of time (in seconds) that a scheduler
+        or worker can keep a lock on a schedule or task
+    :param retry_settings: Tenacity settings for retrying operations in case of a
+        database connecitivty problem
+    :param start_from_scratch: erase all existing data during startup (useful for test
+        suites)
+    """
+
+    engine: AsyncEngine
 
     @classmethod
     def from_url(cls, url: str | URL, **options) -> AsyncSQLAlchemyDataStore:
+        """
+        Create a new asynchronous SQLAlchemy data store.
+
+        :param url: an SQLAlchemy URL to pass to :func:`~sqlalchemy.create_engine`
+            (must use an async dialect like ``asyncpg`` or ``asyncmy``)
+        :param kwargs: keyword arguments to pass to the initializer of this class
+        :return: the newly created data store
+
+        """
         engine = create_async_engine(url, future=True)
         return cls(engine, **options)
 
@@ -63,7 +92,9 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
             reraise=True,
         )
 
-    async def __aenter__(self):
+    async def start(self, event_broker: AsyncEventBroker) -> None:
+        await super().start(event_broker)
+
         asynclib = sniffio.current_async_library() or "(unknown)"
         if asynclib != "asyncio":
             raise RuntimeError(
@@ -91,16 +122,6 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                             f"Unexpected schema version ({version}); "
                             f"only version 1 is supported by this version of APScheduler"
                         )
-
-        await self._events.__aenter__()
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self._events.__aexit__(exc_type, exc_val, exc_tb)
-
-    @property
-    def events(self) -> EventSource:
-        return self._events
 
     async def _deserialize_schedules(self, result: Result) -> list[Schedule]:
         schedules: list[Schedule] = []
@@ -182,12 +203,12 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
             with attempt:
                 async with self.engine.begin() as conn:
                     result = await conn.execute(query)
-                    row = result.one()
+                    row = result.first()
 
         if row:
             return Task.unmarshal(self.serializer, row._asdict())
         else:
-            raise TaskLookupError
+            raise TaskLookupError(task_id)
 
     async def get_tasks(self) -> list[Task]:
         query = select(
@@ -230,8 +251,9 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                     .values(**values)
                 )
                 async for attempt in self._retry():
-                    async with attempt, self.engine.begin() as conn:
-                        await conn.execute(update)
+                    with attempt:
+                        async with self.engine.begin() as conn:
+                            await conn.execute(update)
 
                 event = ScheduleUpdated(
                     schedule_id=schedule.id, next_fire_time=schedule.next_fire_time
@@ -311,7 +333,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                         query = self.t_schedules.select().where(
                             and_(self.t_schedules.c.acquired_by == scheduler_id)
                         )
-                        result = conn.execute(query)
+                        result = await conn.execute(query)
 
                     schedules = await self._deserialize_schedules(result)
 
@@ -562,7 +584,7 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, AsyncDataStore):
                     query = self.t_job_results.select().where(
                         self.t_job_results.c.job_id == job_id
                     )
-                    row = (await conn.execute(query)).fetchone()
+                    row = (await conn.execute(query)).first()
 
                     # Delete the result
                     delete = self.t_job_results.delete().where(

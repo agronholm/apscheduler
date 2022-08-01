@@ -28,7 +28,12 @@ author = "Alex Grönholm"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["sphinx.ext.autodoc", "sphinx.ext.intersphinx"]
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinx_tabs.tabs",
+    "sphinx_autodoc_typehints",
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -38,6 +43,8 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
+autodoc_default_options = {"members": True, "show-inheritance": True}
+autodoc_mock_imports = ["asyncpg", "cbor2", "paho", "pymongo", "redis", "sqlalchemy"]
 
 # -- Options for HTML output -------------------------------------------------
 

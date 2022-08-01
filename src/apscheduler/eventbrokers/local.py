@@ -8,26 +8,31 @@ from typing import Any, Callable, Iterable
 
 import attrs
 
-from ..abc import Subscription
-from ..events import Event
-from ..util import reentrant
+from .._events import Event
+from ..abc import EventBroker, Subscription
 from .base import BaseEventBroker
 
 
-@reentrant
 @attrs.define(eq=False)
-class LocalEventBroker(BaseEventBroker):
+class LocalEventBroker(EventBroker, BaseEventBroker):
+    """
+    Synchronous, local event broker.
+
+    This event broker only broadcasts within the process it runs in, and is therefore
+    not suitable for multi-node or multiprocess use cases.
+
+    Does not serialize events.
+    """
+
     _executor: ThreadPoolExecutor = attrs.field(init=False)
     _exit_stack: ExitStack = attrs.field(init=False)
     _subscriptions_lock: Lock = attrs.field(init=False, factory=Lock)
 
-    def __enter__(self):
-        self._exit_stack = ExitStack()
-        self._executor = self._exit_stack.enter_context(ThreadPoolExecutor(1))
-        return self
+    def start(self) -> None:
+        self._executor = ThreadPoolExecutor(1)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
+    def stop(self, *, force: bool = False) -> None:
+        self._executor.shutdown(wait=not force)
         del self._executor
 
     def subscribe(

@@ -5,7 +5,7 @@ from datetime import date, datetime, tzinfo
 from functools import partial
 from typing import Any, Callable, overload
 
-from .exceptions import DeserializationError, SerializationError
+from ._exceptions import DeserializationError, SerializationError
 
 if sys.version_info >= (3, 9):
     from zoneinfo import ZoneInfo

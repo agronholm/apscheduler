@@ -1,39 +1,65 @@
 from __future__ import annotations
 
-from functools import partial
+from typing import Any, Callable, Iterable
 
 import attrs
 from anyio import to_thread
 from anyio.from_thread import BlockingPortal
 
-from apscheduler.abc import EventBroker
-from apscheduler.eventbrokers.async_local import LocalAsyncEventBroker
-from apscheduler.events import Event
-from apscheduler.util import reentrant
+from .._events import Event
+from ..abc import AsyncEventBroker, EventBroker, Subscription
 
 
-@reentrant
 @attrs.define(eq=False)
-class AsyncEventBrokerAdapter(LocalAsyncEventBroker):
+class AsyncEventBrokerAdapter(AsyncEventBroker):
     original: EventBroker
-    portal: BlockingPortal
 
-    async def __aenter__(self):
-        await super().__aenter__()
+    async def start(self) -> None:
+        await to_thread.run_sync(self.original.start)
 
-        if not self.portal:
-            self.portal = BlockingPortal()
-            self._exit_stack.enter_async_context(self.portal)
+    async def stop(self, *, force: bool = False) -> None:
+        await to_thread.run_sync(lambda: self.original.stop(force=force))
 
-        await to_thread.run_sync(self.original.__enter__)
-        self._exit_stack.push_async_exit(
-            partial(to_thread.run_sync, self.original.__exit__)
-        )
-
-        # Relay events from the original broker to this one
-        self._exit_stack.enter_context(
-            self.original.subscribe(partial(self.portal.call, self.publish_local))
-        )
+    async def publish_local(self, event: Event) -> None:
+        await to_thread.run_sync(self.original.publish_local, event)
 
     async def publish(self, event: Event) -> None:
         await to_thread.run_sync(self.original.publish, event)
+
+    def subscribe(
+        self,
+        callback: Callable[[Event], Any],
+        event_types: Iterable[type[Event]] | None = None,
+        *,
+        one_shot: bool = False,
+    ) -> Subscription:
+        return self.original.subscribe(callback, event_types, one_shot=one_shot)
+
+
+@attrs.define(eq=False)
+class SyncEventBrokerAdapter(EventBroker):
+    original: AsyncEventBroker
+    portal: BlockingPortal
+
+    def start(self) -> None:
+        pass
+
+    def stop(self, *, force: bool = False) -> None:
+        pass
+
+    def publish_local(self, event: Event) -> None:
+        self.portal.call(self.original.publish_local, event)
+
+    def publish(self, event: Event) -> None:
+        self.portal.call(self.original.publish, event)
+
+    def subscribe(
+        self,
+        callback: Callable[[Event], Any],
+        event_types: Iterable[type[Event]] | None = None,
+        *,
+        one_shot: bool = False,
+    ) -> Subscription:
+        return self.portal.call(
+            lambda: self.original.subscribe(callback, event_types, one_shot=one_shot)
+        )

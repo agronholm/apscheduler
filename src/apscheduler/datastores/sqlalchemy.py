@@ -31,10 +31,8 @@ from sqlalchemy.future import Engine, create_engine
 from sqlalchemy.sql.ddl import DropTable
 from sqlalchemy.sql.elements import BindParameter, literal
 
-from ..abc import DataStore, EventBroker, EventSource, Job, Schedule, Serializer
-from ..enums import CoalescePolicy, ConflictPolicy, JobOutcome
-from ..eventbrokers.local import LocalEventBroker
-from ..events import (
+from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome
+from .._events import (
     Event,
     JobAcquired,
     JobAdded,
@@ -48,11 +46,12 @@ from ..events import (
     TaskRemoved,
     TaskUpdated,
 )
-from ..exceptions import ConflictingIdError, SerializationError, TaskLookupError
+from .._exceptions import ConflictingIdError, SerializationError, TaskLookupError
+from .._structures import Job, JobResult, RetrySettings, Schedule, Task
+from ..abc import EventBroker, Serializer
 from ..marshalling import callable_to_ref
 from ..serializers.pickle import PickleSerializer
-from ..structures import JobResult, RetrySettings, Task
-from ..util import reentrant
+from .base import BaseDataStore
 
 
 class EmulatedUUID(TypeDecorator):
@@ -132,10 +131,12 @@ class _BaseSQLAlchemyDataStore:
             timestamp_type = TIMESTAMP(timezone=True)
             job_id_type = postgresql.UUID(as_uuid=True)
             interval_type = postgresql.INTERVAL(precision=6)
+            tags_type = postgresql.ARRAY(Unicode)
         else:
             timestamp_type = EmulatedTimestampTZ
             job_id_type = EmulatedUUID
             interval_type = EmulatedInterval
+            tags_type = JSON
 
         metadata = MetaData()
         Table("metadata", metadata, Column("schema_version", Integer, nullable=False))
@@ -160,7 +161,7 @@ class _BaseSQLAlchemyDataStore:
             Column("coalesce", Enum(CoalescePolicy), nullable=False),
             Column("misfire_grace_time", interval_type),
             Column("max_jitter", interval_type),
-            Column("tags", JSON, nullable=False),
+            Column("tags", tags_type, nullable=False),
             Column("next_fire_time", timestamp_type, index=True),
             Column("last_fire_time", timestamp_type),
             Column("acquired_by", Unicode(500)),
@@ -177,7 +178,7 @@ class _BaseSQLAlchemyDataStore:
             Column("scheduled_fire_time", timestamp_type),
             Column("jitter", interval_type),
             Column("start_deadline", timestamp_type),
-            Column("tags", JSON, nullable=False),
+            Column("tags", tags_type, nullable=False),
             Column("created_at", timestamp_type, nullable=False),
             Column("started_at", timestamp_type),
             Column("acquired_by", Unicode(500)),
@@ -219,17 +220,46 @@ class _BaseSQLAlchemyDataStore:
         return jobs
 
 
-@reentrant
 @attrs.define(eq=False)
-class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
+class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, BaseDataStore):
+    """
+    Uses a relational database to store data.
+
+    When started, this data store creates the appropriate tables on the given database
+    if they're not already present.
+
+    Operations are retried (in accordance to ``retry_settings``) when an operation
+    raises :exc:`sqlalchemy.OperationalError`.
+
+    This store has been tested to work with PostgreSQL (psycopg2 driver), MySQL
+    (pymysql driver) and SQLite.
+
+    :param engine: a (synchronous) SQLAlchemy engine
+    :param schema: a database schema name to use, if not the default
+    :param serializer: the serializer used to (de)serialize tasks, schedules and jobs
+        for storage
+    :param lock_expiration_delay: maximum amount of time (in seconds) that a scheduler
+        or worker can keep a lock on a schedule or task
+    :param retry_settings: Tenacity settings for retrying operations in case of a
+        database connecitivty problem
+    :param start_from_scratch: erase all existing data during startup (useful for test
+        suites)
+    """
+
     engine: Engine
 
-    _events: EventBroker = attrs.field(init=False, factory=LocalEventBroker)
-
     @classmethod
-    def from_url(cls, url: str | URL, **options) -> SQLAlchemyDataStore:
+    def from_url(cls, url: str | URL, **kwargs) -> SQLAlchemyDataStore:
+        """
+        Create a new SQLAlchemy data store.
+
+        :param url: an SQLAlchemy URL to pass to :func:`~sqlalchemy.create_engine`
+        :param kwargs: keyword arguments to pass to the initializer of this class
+        :return: the newly created data store
+
+        """
         engine = create_engine(url)
-        return cls(engine, **options)
+        return cls(engine, **kwargs)
 
     def _retry(self) -> tenacity.Retrying:
         return tenacity.Retrying(
@@ -240,7 +270,9 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
             reraise=True,
         )
 
-    def __enter__(self):
+    def start(self, event_broker: EventBroker) -> None:
+        super().start(event_broker)
+
         for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 if self.start_from_scratch:
@@ -258,16 +290,6 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
                         f"Unexpected schema version ({version}); "
                         f"only version 1 is supported by this version of APScheduler"
                     )
-
-        self._events.__enter__()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._events.__exit__(exc_type, exc_val, exc_tb)
-
-    @property
-    def events(self) -> EventSource:
-        return self._events
 
     def add_task(self, task: Task) -> None:
         insert = self.t_tasks.insert().values(
@@ -320,12 +342,12 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
         for attempt in self._retry():
             with attempt, self.engine.begin() as conn:
                 result = conn.execute(query)
-                row = result.fetch_one()
+                row = result.first()
 
         if row:
             return Task.unmarshal(self.serializer, row._asdict())
         else:
-            raise TaskLookupError
+            raise TaskLookupError(task_id)
 
     def get_tasks(self) -> list[Task]:
         query = select(
@@ -680,7 +702,7 @@ class SQLAlchemyDataStore(_BaseSQLAlchemyDataStore, DataStore):
                 query = self.t_job_results.select().where(
                     self.t_job_results.c.job_id == job_id
                 )
-                row = conn.execute(query).fetchone()
+                row = conn.execute(query).first()
 
                 # Delete the result
                 delete = self.t_job_results.delete().where(

@@ -1,35 +1,36 @@
 from __future__ import annotations
 
 from asyncio import iscoroutine
-from contextlib import AsyncExitStack
 from typing import Any, Callable
 
 import attrs
 from anyio import create_task_group
 from anyio.abc import TaskGroup
 
+from .._events import Event
 from ..abc import AsyncEventBroker
-from ..events import Event
-from ..util import reentrant
 from .base import BaseEventBroker
 
 
-@reentrant
 @attrs.define(eq=False)
 class LocalAsyncEventBroker(AsyncEventBroker, BaseEventBroker):
+    """
+    Asynchronous, local event broker.
+
+    This event broker only broadcasts within the process it runs in, and is therefore
+    not suitable for multi-node or multiprocess use cases.
+
+    Does not serialize events.
+    """
+
     _task_group: TaskGroup = attrs.field(init=False)
-    _exit_stack: AsyncExitStack = attrs.field(init=False)
 
-    async def __aenter__(self) -> LocalAsyncEventBroker:
-        self._exit_stack = AsyncExitStack()
-
+    async def start(self) -> None:
         self._task_group = create_task_group()
-        await self._exit_stack.enter_async_context(self._task_group)
+        await self._task_group.__aenter__()
 
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
+    async def stop(self, *, force: bool = False) -> None:
+        await self._task_group.__aexit__(None, None, None)
         del self._task_group
 
     async def publish(self, event: Event) -> None:

@@ -6,10 +6,10 @@ from typing import Any, Callable, Iterable
 
 import attrs
 
-from .. import events
-from ..abc import EventBroker, Serializer, Subscription
-from ..events import Event
-from ..exceptions import DeserializationError
+from .. import _events
+from .._events import Event
+from .._exceptions import DeserializationError
+from ..abc import EventSource, Serializer, Subscription
 
 
 @attrs.define(eq=False, frozen=True)
@@ -25,7 +25,7 @@ class LocalSubscription(Subscription):
 
 
 @attrs.define(eq=False)
-class BaseEventBroker(EventBroker):
+class BaseEventBroker(EventSource):
     _logger: Logger = attrs.field(init=False)
     _subscriptions: dict[object, LocalSubscription] = attrs.field(
         init=False, factory=dict
@@ -56,11 +56,11 @@ class DistributedEventBrokerMixin:
     _logger: Logger
 
     def generate_notification(self, event: Event) -> bytes:
-        serialized = self.serializer.serialize(attrs.asdict(event))
+        serialized = self.serializer.serialize(event.marshal(self.serializer))
         return event.__class__.__name__.encode("ascii") + b" " + serialized
 
     def generate_notification_str(self, event: Event) -> str:
-        serialized = self.serializer.serialize(attrs.asdict(event))
+        serialized = self.serializer.serialize(event.marshal(self.serializer))
         return event.__class__.__name__ + " " + b64encode(serialized).decode("ascii")
 
     def _reconstitute_event(self, event_type: str, serialized: bytes) -> Event | None:
@@ -70,22 +70,22 @@ class DistributedEventBrokerMixin:
             self._logger.exception(
                 "Failed to deserialize an event of type %s",
                 event_type,
-                serialized=serialized,
+                extra={"serialized": serialized},
             )
             return None
 
         try:
-            event_class = getattr(events, event_type)
+            event_class = getattr(_events, event_type)
         except AttributeError:
             self._logger.error(
                 "Receive notification for a nonexistent event type: %s",
                 event_type,
-                serialized=serialized,
+                extra={"serialized": serialized},
             )
             return None
 
         try:
-            return event_class(**kwargs)
+            return event_class.unmarshal(self.serializer, kwargs)
         except Exception:
             self._logger.exception("Error reconstituting event of type %s", event_type)
             return None
@@ -94,7 +94,9 @@ class DistributedEventBrokerMixin:
         try:
             event_type_bytes, serialized = payload.split(b" ", 1)
         except ValueError:
-            self._logger.error("Received malformatted notification", payload=payload)
+            self._logger.error(
+                "Received malformatted notification", extra={"payload": payload}
+            )
             return None
 
         event_type = event_type_bytes.decode("ascii", errors="replace")
@@ -104,7 +106,9 @@ class DistributedEventBrokerMixin:
         try:
             event_type, b64_serialized = payload.split(" ", 1)
         except ValueError:
-            self._logger.error("Received malformatted notification", payload=payload)
+            self._logger.error(
+                "Received malformatted notification", extra={"payload": payload}
+            )
             return None
 
         return self._reconstitute_event(event_type, b64decode(b64_serialized))

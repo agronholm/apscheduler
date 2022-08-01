@@ -12,9 +12,10 @@ Table of Contents
   :maxdepth: 1
 
   userguide
+  integrations
   versionhistory
   migration
   contributing
   extending
   faq
-  py-modindex
+  api

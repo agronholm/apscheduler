@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from contextlib import AsyncExitStack
+import sys
 from datetime import datetime
-from functools import partial
 from typing import Iterable
 from uuid import UUID
 
@@ -10,43 +9,41 @@ import attrs
 from anyio import to_thread
 from anyio.from_thread import BlockingPortal
 
-from ..abc import AsyncDataStore, AsyncEventBroker, DataStore, EventSource
-from ..enums import ConflictPolicy
-from ..eventbrokers.async_adapter import AsyncEventBrokerAdapter
-from ..structures import Job, JobResult, Schedule, Task
-from ..util import reentrant
+from .._enums import ConflictPolicy
+from .._structures import Job, JobResult, Schedule, Task
+from ..abc import AsyncEventBroker, DataStore
+from ..eventbrokers.async_adapter import AsyncEventBrokerAdapter, SyncEventBrokerAdapter
+from .base import BaseAsyncDataStore
 
 
-@reentrant
 @attrs.define(eq=False)
-class AsyncDataStoreAdapter(AsyncDataStore):
+class AsyncDataStoreAdapter(BaseAsyncDataStore):
     original: DataStore
     _portal: BlockingPortal = attrs.field(init=False)
-    _events: AsyncEventBroker = attrs.field(init=False)
-    _exit_stack: AsyncExitStack = attrs.field(init=False)
 
-    @property
-    def events(self) -> EventSource:
-        return self._events
-
-    async def __aenter__(self) -> AsyncDataStoreAdapter:
-        self._exit_stack = AsyncExitStack()
+    async def start(self, event_broker: AsyncEventBroker) -> None:
+        await super().start(event_broker)
 
         self._portal = BlockingPortal()
-        await self._exit_stack.enter_async_context(self._portal)
+        await self._portal.__aenter__()
 
-        self._events = AsyncEventBrokerAdapter(self.original.events, self._portal)
-        await self._exit_stack.enter_async_context(self._events)
+        if isinstance(event_broker, AsyncEventBrokerAdapter):
+            sync_event_broker = event_broker.original
+        else:
+            sync_event_broker = SyncEventBrokerAdapter(event_broker, self._portal)
 
-        await to_thread.run_sync(self.original.__enter__)
-        self._exit_stack.push_async_exit(
-            partial(to_thread.run_sync, self.original.__exit__)
-        )
+        try:
+            await to_thread.run_sync(lambda: self.original.start(sync_event_broker))
+        except BaseException:
+            await self._portal.__aexit__(*sys.exc_info())
+            raise
 
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
+    async def stop(self, *, force: bool = False) -> None:
+        try:
+            await to_thread.run_sync(lambda: self.original.stop(force=force))
+        finally:
+            await self._portal.__aexit__(None, None, None)
+            await super().stop(force=force)
 
     async def add_task(self, task: Task) -> None:
         await to_thread.run_sync(self.original.add_task, task)

@@ -7,7 +7,7 @@ from types import ModuleType
 
 import pytest
 
-from apscheduler.exceptions import SerializationError
+from apscheduler import SerializationError
 from apscheduler.marshalling import callable_from_ref, callable_to_ref
 
 

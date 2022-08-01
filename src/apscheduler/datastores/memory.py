@@ -9,10 +9,8 @@ from uuid import UUID
 
 import attrs
 
-from ..abc import DataStore, EventBroker, EventSource, Job, Schedule
-from ..enums import ConflictPolicy
-from ..eventbrokers.local import LocalEventBroker
-from ..events import (
+from .._enums import ConflictPolicy
+from .._events import (
     JobAcquired,
     JobAdded,
     JobReleased,
@@ -23,9 +21,9 @@ from ..events import (
     TaskRemoved,
     TaskUpdated,
 )
-from ..exceptions import ConflictingIdError, TaskLookupError
-from ..structures import JobResult, Task
-from ..util import reentrant
+from .._exceptions import ConflictingIdError, TaskLookupError
+from .._structures import Job, JobResult, Schedule, Task
+from .base import BaseDataStore
 
 max_datetime = datetime(MAXYEAR, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
 
@@ -83,11 +81,18 @@ class JobState:
         return hash(self.job.id)
 
 
-@reentrant
 @attrs.define(eq=False)
-class MemoryDataStore(DataStore):
+class MemoryDataStore(BaseDataStore):
+    """
+    Stores scheduler data in memory, without serializing it.
+
+    Can be shared between multiple schedulers and workers within the same event loop.
+
+    :param lock_expiration_delay: maximum amount of time (in seconds) that a scheduler
+        or worker can keep a lock on a schedule or task
+    """
+
     lock_expiration_delay: float = 30
-    _events: EventBroker = attrs.Factory(LocalEventBroker)
     _tasks: dict[str, TaskState] = attrs.Factory(dict)
     _schedules: list[ScheduleState] = attrs.Factory(list)
     _schedules_by_id: dict[str, ScheduleState] = attrs.Factory(dict)
@@ -110,17 +115,6 @@ class MemoryDataStore(DataStore):
         left_index = bisect_left(self._jobs, state)
         right_index = bisect_left(self._jobs, state)
         return self._jobs.index(state, left_index, right_index + 1)
-
-    def __enter__(self):
-        self._events.__enter__()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._events.__exit__(exc_type, exc_val, exc_tb)
-
-    @property
-    def events(self) -> EventSource:
-        return self._events
 
     def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
         return [

@@ -7,24 +7,28 @@ Why doesn't the scheduler run my jobs?
 
 This could be caused by a number of things. The two most common issues are:
 
-#. Running the scheduler inside a uWSGI worker process while threads have not been enabled (see the
-   next section for this)
-#. Running a :class:`~apscheduler.schedulers.background.BackgroundScheduler` and then letting the
-   execution reach the end of the script
+#. Running the scheduler inside a uWSGI worker process while threads have not been
+   enabled (see the next section for this)
+#. Starting a synchronous scheduler with
+   :meth:`~apscheduler.schedulers.sync.Scheduler.start_in_background` and then letting
+   the execution reach the end of the script
 
 To demonstrate the latter case, a script like this will **not work**::
 
-    from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.schedulers.sync import Scheduler
+    from apscheduler.schedulers.triggers.cron import CronTrigger
 
-    def myjob():
-        print('hello')
 
-    scheduler = BackgroundScheduler()
-    scheduler.start()
-    scheduler.add_job(myjob, 'cron', hour=0)
+    def mytask():
+        print("hello")
 
-The script above will **exit** right after calling ``add_job()`` so the scheduler will not have a
-chance to run the scheduled job.
+    scheduler = Scheduler()
+    scheduler.start_in_background()
+    scheduler.add_schedule(mytask, CronTrigger(hour=0))
+
+The script above will **exit** right after calling
+:meth:`~apscheduler.schedulers.sync.add_schedule` so the scheduler will not have a
+chance to run the scheduled task.
 
 If you're having any other issue, then enabling debug logging as instructed in the
 :ref:`troubleshooting` section should shed some light into the problem.
@@ -38,65 +42,41 @@ If you're receiving an error like the following::
    of <__main__.xxxxxxx object at xxxxxxxxxxxxx>>) could not be determined. Consider giving a textual reference (module:function
    name) instead.
 
-This means that the function you are attempting to schedule has one of the following problems:
+This means that the function you are attempting to schedule has one of the following
+problems:
 
 * It is a lambda function (e.g. ``lambda x: x + 1``)
 * It is a bound method (function tied to a particular instance of some class)
 * It is a nested function (function inside another function)
-* You are trying to schedule a function that is not tied to any actual module (such as a function
-  defined in the REPL, hence ``__main__`` as the module name)
+* You are trying to schedule a function that is not tied to any actual module (such as a
+  function defined in the REPL, hence ``__main__`` as the module name)
 
-In these cases, it is impossible for the scheduler to determine a "lookup path" to find that
-specific function instance in situations where, for example, the scheduler process is restarted,
-or a process pool worker is being sent the related job object.
+In these cases, it is impossible for the scheduler to determine a "lookup path" to find
+that specific function instance in situations where, for example, the scheduler process
+is restarted, or a process pool worker is being sent the related job object.
 
 Common workarounds for these problems include:
 
 * Converting a lambda to a regular function
-* Moving a nested function to the module level or to class level as either a class method or a
-  static method
-* In case of a bound method, passing the unbound version (``YourClass.method_name``) as the target
-  function to ``add_job()`` with the class instance as the first argument (so it gets passed as the
-  ``self`` argument)
-
-How can I use APScheduler with uWSGI?
-=====================================
-
-uWSGI employs some tricks which disable the Global Interpreter Lock and with it, the use of threads
-which are vital to the operation of APScheduler. To fix this, you need to re-enable the GIL using
-the ``--enable-threads`` switch. See the `uWSGI documentation <uWSGI-threads>`_ for more details.
-
-Also, assuming that you will run more than one worker process (as you typically would in
-production), you should also read the next section.
-
-.. _uWSGI-threads: https://uwsgi-docs.readthedocs.io/en/latest/WSGIquickstart.html#a-note-on-python-threads
-
-How do I use APScheduler in a web application?
-==============================================
-
-If you're running Django, you may want to check out django_apscheduler_. Note, however, that this
-is a third party library and APScheduler developers are not responsible for it.
-
-Likewise, there is an unofficial extension called Flask-APScheduler_ which may or may not be useful
-when running APScheduler with Flask.
-
-For Pyramid users, the pyramid_scheduler_ library may potentially be helpful.
-
-Other than that, you pretty much run APScheduler normally, usually using
-:class:`~apscheduler.schedulers.background.BackgroundScheduler`. If you're running an asynchronous
-web framework like aiohttp_, you probably want to use a different scheduler in order to take some
-advantage of the asynchronous nature of the framework.
+* Moving a nested function to the module level or to class level as either a class
+  method or a static method
+* In case of a bound method, passing the unbound version (``YourClass.method_name``) as
+  the target function to ``add_job()`` with the class instance as the first argument (so
+  it gets passed as the ``self`` argument)
 
 Is there a graphical user interface for APScheduler?
 ====================================================
 
-No graphical interface is provided by the library itself. However, there are some third party
-implementations, but APScheduler developers are not responsible for them. Here is a potentially
-incomplete list:
+No graphical interface is provided by the library itself. However, there are some third
+party implementations, but APScheduler developers are not responsible for them. Here is
+a potentially incomplete list:
 
 * django_apscheduler_
 * apschedulerweb_
 * `Nextdoor scheduler`_
+
+.. warning:: As of this writing, these third party offerings have not been updated to
+    work with APScheduler 4.
 
 .. _django_apscheduler: https://pypi.org/project/django-apscheduler/
 .. _Flask-APScheduler: https://pypi.org/project/flask-apscheduler/
