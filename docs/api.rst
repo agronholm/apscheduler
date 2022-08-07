@@ -94,7 +94,7 @@ Context variables
 
 .. autodata:: apscheduler.current_scheduler
 .. autodata:: apscheduler.current_worker
-.. autodata:: apscheduler.job_info
+.. autodata:: apscheduler.current_job
 
 Exceptions
 ----------

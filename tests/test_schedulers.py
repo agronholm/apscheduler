@@ -24,9 +24,9 @@ from apscheduler import (
     SchedulerStopped,
     Task,
     TaskAdded,
+    current_job,
     current_scheduler,
     current_worker,
-    job_info,
 )
 from apscheduler.schedulers.async_ import AsyncScheduler
 from apscheduler.schedulers.sync import Scheduler
@@ -200,7 +200,7 @@ class TestAsyncScheduler:
         def check_contextvars() -> None:
             assert current_scheduler.get() is scheduler
             assert isinstance(current_worker.get(), AsyncWorker)
-            info = job_info.get()
+            info = current_job.get()
             assert info.task_id == "task_id"
             assert info.schedule_id == "foo"
             assert info.scheduled_fire_time == scheduled_fire_time
@@ -375,7 +375,7 @@ class TestSyncScheduler:
         def check_contextvars() -> None:
             assert current_scheduler.get() is scheduler
             assert current_worker.get() is not None
-            info = job_info.get()
+            info = current_job.get()
             assert info.task_id == "task_id"
             assert info.schedule_id == "foo"
             assert info.scheduled_fire_time == scheduled_fire_time

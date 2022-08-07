@@ -15,7 +15,7 @@ from uuid import UUID
 
 import attrs
 
-from .._context import current_worker, job_info
+from .._context import current_job, current_worker
 from .._enums import JobOutcome, RunState
 from .._events import JobAdded, WorkerStarted, WorkerStopped
 from .._structures import Job, JobInfo, JobResult
@@ -206,7 +206,7 @@ class Worker:
                 self.data_store.release_job(self.identity, job.task_id, result)
                 return
 
-            token = job_info.set(JobInfo.from_job(job))
+            token = current_job.set(JobInfo.from_job(job))
             try:
                 retval = func(*job.args, **job.kwargs)
             except BaseException as exc:
@@ -222,6 +222,6 @@ class Worker:
                 )
                 self.data_store.release_job(self.identity, job.task_id, result)
             finally:
-                job_info.reset(token)
+                current_job.reset(token)
         finally:
             self._running_jobs.remove(job.id)

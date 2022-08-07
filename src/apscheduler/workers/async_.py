@@ -20,7 +20,7 @@ from anyio import (
 )
 from anyio.abc import CancelScope, TaskGroup
 
-from .._context import current_worker, job_info
+from .._context import current_job, current_worker
 from .._converters import as_async_datastore, as_async_eventbroker
 from .._enums import JobOutcome, RunState
 from .._events import JobAdded, WorkerStarted, WorkerStopped
@@ -178,7 +178,7 @@ class AsyncWorker:
                 await self.data_store.release_job(self.identity, job.task_id, result)
                 return
 
-            token = job_info.set(JobInfo.from_job(job))
+            token = current_job.set(JobInfo.from_job(job))
             try:
                 retval = func(*job.args, **job.kwargs)
                 if isawaitable(retval):
@@ -202,6 +202,6 @@ class AsyncWorker:
                 )
                 await self.data_store.release_job(self.identity, job.task_id, result)
             finally:
-                job_info.reset(token)
+                current_job.reset(token)
         finally:
             self._running_jobs.remove(job.id)

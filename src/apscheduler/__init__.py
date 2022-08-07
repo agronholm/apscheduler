@@ -43,12 +43,12 @@ __all__ = [
     "WorkerStopped",
     "current_scheduler",
     "current_worker",
-    "job_info",
+    "current_job",
 ]
 
 from typing import Any
 
-from ._context import current_scheduler, current_worker, job_info
+from ._context import current_job, current_scheduler, current_worker
 from ._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState
 from ._events import (
     DataStoreEvent,
