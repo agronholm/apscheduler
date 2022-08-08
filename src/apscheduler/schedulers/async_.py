@@ -177,6 +177,15 @@ class AsyncScheduler:
         else:
             raise ScheduleLookupError(id)
 
+    async def get_schedules(self) -> list[Schedule]:
+        """
+        Retrieve all schedules from the data store.
+
+        :return: a list of schedules, in an unspecified order
+
+        """
+        return await self.data_store.get_schedules()
+
     async def remove_schedule(self, id: str) -> None:
         """
         Remove the given schedule from the data store.

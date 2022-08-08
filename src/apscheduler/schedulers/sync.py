@@ -207,6 +207,16 @@ class Scheduler:
         else:
             raise ScheduleLookupError(id)
 
+    def get_schedules(self) -> list[Schedule]:
+        """
+        Retrieve all schedules from the data store.
+
+        :return: a list of schedules, in an unspecified order
+
+        """
+        self._ensure_services_ready()
+        return self.data_store.get_schedules()
+
     def remove_schedule(self, id: str) -> None:
         """
         Remove the given schedule from the data store.

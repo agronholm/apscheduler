@@ -113,6 +113,24 @@ class TestAsyncScheduler:
             schedule = await scheduler.get_schedule("dummyid")
             assert isinstance(schedule, Schedule)
 
+    async def test_add_get_schedules(self) -> None:
+        async with AsyncScheduler(start_worker=False) as scheduler:
+            assert await scheduler.get_schedules() == []
+
+            schedule1_id = await scheduler.add_schedule(
+                dummy_async_job, DateTrigger(datetime.now() + timedelta(1))
+            )
+            await scheduler.add_schedule(
+                dummy_async_job,
+                DateTrigger(datetime.now() + timedelta(1)),
+                id="dummyid",
+            )
+
+            schedules = await scheduler.get_schedules()
+            assert all(isinstance(schedule, Schedule) for schedule in schedules)
+            assert any(schedule.id == schedule1_id for schedule in schedules)
+            assert any(schedule.id == "dummyid" for schedule in schedules)
+
     @pytest.mark.parametrize(
         "max_jitter, expected_upper_bound",
         [pytest.param(2, 2, id="within"), pytest.param(4, 2.999999, id="exceed")],
@@ -290,6 +308,22 @@ class TestSyncScheduler:
             scheduler.add_schedule(dummy_async_job, trigger, id="dummyid")
             schedule = scheduler.get_schedule("dummyid")
             assert isinstance(schedule, Schedule)
+
+    def test_add_get_schedules(self) -> None:
+        with Scheduler(start_worker=False) as scheduler:
+            assert scheduler.get_schedules() == []
+
+            schedule1_id = scheduler.add_schedule(
+                dummy_sync_job, DateTrigger(datetime.now() + timedelta(1))
+            )
+            scheduler.add_schedule(
+                dummy_sync_job, DateTrigger(datetime.now() + timedelta(1)), id="dummyid"
+            )
+
+            schedules = scheduler.get_schedules()
+            assert all(isinstance(schedule, Schedule) for schedule in schedules)
+            assert any(schedule.id == schedule1_id for schedule in schedules)
+            assert any(schedule.id == "dummyid" for schedule in schedules)
 
     @pytest.mark.parametrize(
         "max_jitter, expected_upper_bound",
