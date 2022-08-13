@@ -22,7 +22,6 @@ from .._events import (
     DataStoreEvent,
     JobAcquired,
     JobAdded,
-    JobReleased,
     ScheduleAdded,
     ScheduleRemoved,
     ScheduleUpdated,
@@ -509,13 +508,6 @@ class MongoDBDataStore(BaseDataStore):
 
                 # Delete the job
                 self._jobs.delete_one({"_id": result.job_id}, session=session)
-
-        # Publish the event
-        self._events.publish(
-            JobReleased(
-                job_id=result.job_id, worker_id=worker_id, outcome=result.outcome
-            )
-        )
 
     def get_job_result(self, job_id: UUID) -> JobResult | None:
         for attempt in self._retry():
