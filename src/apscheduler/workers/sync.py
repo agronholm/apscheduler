@@ -15,6 +15,7 @@ from uuid import UUID
 
 import attrs
 
+from .. import JobReleased
 from .._context import current_job, current_worker
 from .._enums import JobOutcome, RunState
 from .._events import JobAdded, WorkerStarted, WorkerStopped
@@ -200,8 +201,13 @@ class Worker:
             # Check if the job started before the deadline
             start_time = datetime.now(timezone.utc)
             if job.start_deadline is not None and start_time > job.start_deadline:
-                result = JobResult(
-                    job_id=job.id, outcome=JobOutcome.missed_start_deadline
+                result = JobResult.from_job(
+                    job, JobOutcome.missed_start_deadline, finished_at=start_time
+                )
+                self.event_broker.publish(
+                    JobReleased(
+                        job_id=job.id, worker_id=self.identity, outcome=result.outcome
+                    )
                 )
                 self.data_store.release_job(self.identity, job.task_id, result)
                 return
@@ -210,17 +216,43 @@ class Worker:
             try:
                 retval = func(*job.args, **job.kwargs)
             except BaseException as exc:
-                result = JobResult(
-                    job_id=job.id, outcome=JobOutcome.error, exception=exc
+                if isinstance(exc, Exception):
+                    self.logger.exception("Job %s raised an exception", job.id)
+                else:
+                    self.logger.error(
+                        "Job %s was aborted due to %s", job.id, exc.__class__.__name__
+                    )
+
+                result = JobResult.from_job(
+                    job,
+                    JobOutcome.error,
+                    exception=exc,
                 )
-                self.data_store.release_job(self.identity, job.task_id, result)
+                self.data_store.release_job(
+                    self.identity,
+                    job.task_id,
+                    result,
+                )
+                self.event_broker.publish(
+                    JobReleased(
+                        job_id=job.id, worker_id=self.identity, outcome=result.outcome
+                    )
+                )
                 if not isinstance(exc, Exception):
                     raise
             else:
-                result = JobResult(
-                    job_id=job.id, outcome=JobOutcome.success, return_value=retval
+                self.logger.info("Job %s completed successfully", job.id)
+                result = JobResult.from_job(
+                    job,
+                    JobOutcome.success,
+                    return_value=retval,
                 )
                 self.data_store.release_job(self.identity, job.task_id, result)
+                self.event_broker.publish(
+                    JobReleased(
+                        job_id=job.id, worker_id=self.identity, outcome=result.outcome
+                    )
+                )
             finally:
                 current_job.reset(token)
         finally:

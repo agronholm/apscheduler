@@ -202,6 +202,7 @@ class AsyncScheduler:
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
         tags: Iterable[str] | None = None,
+        result_expiration_time: timedelta | float = 0,
     ) -> UUID:
         """
         Add a job to the data store.
@@ -209,7 +210,10 @@ class AsyncScheduler:
         :param func_or_task_id:
         :param args: positional arguments to call the target callable with
         :param kwargs: keyword arguments to call the target callable with
-        :param tags:
+        :param tags: strings that can be used to categorize and filter the job
+        :param result_expiration_time: the minimum time (as seconds, or timedelta) to
+            keep the result of the job available for fetching (the result won't be
+            saved at all if that time is 0)
         :return: the ID of the newly created job
 
         """
@@ -224,6 +228,7 @@ class AsyncScheduler:
             args=args or (),
             kwargs=kwargs or {},
             tags=tags or frozenset(),
+            result_expiration_time=result_expiration_time,
         )
         await self.data_store.add_job(job)
         return job.id
@@ -235,7 +240,8 @@ class AsyncScheduler:
         :param job_id: the ID of the job
         :param wait: if ``True``, wait until the job has ended (one way or another),
             ``False`` to raise an exception if the result is not yet available
-        :raises JobLookupError: if the job does not exist in the data store
+        :raises JobLookupError: if ``wait=False`` and the job result does not exist in
+            the data store
 
         """
         wait_event = anyio.Event()
@@ -253,9 +259,7 @@ class AsyncScheduler:
 
             await wait_event.wait()
 
-        result = await self.data_store.get_job_result(job_id)
-        assert isinstance(result, JobResult)
-        return result
+        return await self.data_store.get_job_result(job_id)
 
     async def run_job(
         self,
@@ -287,7 +291,11 @@ class AsyncScheduler:
         job_id: UUID | None = None
         with self.data_store.events.subscribe(listener, {JobReleased}):
             job_id = await self.add_job(
-                func_or_task_id, args=args, kwargs=kwargs, tags=tags
+                func_or_task_id,
+                args=args,
+                kwargs=kwargs,
+                tags=tags,
+                result_expiration_time=timedelta(minutes=15),
             )
             await job_complete_event.wait()
 

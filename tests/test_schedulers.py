@@ -17,6 +17,7 @@ from apscheduler import (
     JobAdded,
     JobLookupError,
     JobOutcome,
+    JobReleased,
     Schedule,
     ScheduleAdded,
     ScheduleLookupError,
@@ -181,22 +182,50 @@ class TestAsyncScheduler:
 
     async def test_get_job_result_success(self) -> None:
         async with AsyncScheduler() as scheduler:
-            job_id = await scheduler.add_job(dummy_async_job, kwargs={"delay": 0.2})
+            job_id = await scheduler.add_job(
+                dummy_async_job, kwargs={"delay": 0.2}, result_expiration_time=5
+            )
             result = await scheduler.get_job_result(job_id)
             assert result.job_id == job_id
             assert result.outcome is JobOutcome.success
             assert result.return_value == "returnvalue"
 
+    async def test_get_job_result_success_empty(self) -> None:
+        event = anyio.Event()
+        async with AsyncScheduler() as scheduler:
+            scheduler.event_broker.subscribe(
+                lambda evt: event.set(), {JobReleased}, one_shot=True
+            )
+            job_id = await scheduler.add_job(dummy_async_job)
+            with fail_after(3):
+                await event.wait()
+
+            with pytest.raises(JobLookupError):
+                await scheduler.get_job_result(job_id, wait=False)
+
     async def test_get_job_result_error(self) -> None:
         async with AsyncScheduler() as scheduler:
             job_id = await scheduler.add_job(
-                dummy_async_job, kwargs={"delay": 0.2, "fail": True}
+                dummy_async_job,
+                kwargs={"delay": 0.2, "fail": True},
+                result_expiration_time=5,
             )
             result = await scheduler.get_job_result(job_id)
             assert result.job_id == job_id
             assert result.outcome is JobOutcome.error
             assert isinstance(result.exception, RuntimeError)
             assert str(result.exception) == "failing as requested"
+
+    async def test_get_job_result_error_empty(self) -> None:
+        event = anyio.Event()
+        async with AsyncScheduler() as scheduler:
+            scheduler.event_broker.subscribe(lambda evt: event.set(), one_shot=True)
+            job_id = await scheduler.add_job(dummy_sync_job, kwargs={"fail": True})
+            with fail_after(3):
+                await event.wait()
+
+            with pytest.raises(JobLookupError):
+                await scheduler.get_job_result(job_id, wait=False)
 
     async def test_get_job_result_nowait_not_yet_ready(self) -> None:
         async with AsyncScheduler() as scheduler:
@@ -239,6 +268,7 @@ class TestAsyncScheduler:
                 jitter=timedelta(seconds=2.16),
                 start_deadline=start_deadline,
                 tags={"foo", "bar"},
+                result_expiration_time=timedelta(seconds=10),
             )
             await scheduler.data_store.add_job(job)
             result = await scheduler.get_job_result(job.id)
@@ -371,23 +401,45 @@ class TestSyncScheduler:
             )
             assert jobs[0].original_scheduled_time == orig_start_time
 
-    def test_get_job_result(self) -> None:
+    def test_get_job_result_success(self) -> None:
         with Scheduler() as scheduler:
-            job_id = scheduler.add_job(dummy_sync_job)
+            job_id = scheduler.add_job(dummy_sync_job, result_expiration_time=5)
             result = scheduler.get_job_result(job_id)
             assert result.outcome is JobOutcome.success
             assert result.return_value == "returnvalue"
 
+    def test_get_job_result_success_empty(self) -> None:
+        event = threading.Event()
+        with Scheduler() as scheduler:
+            with scheduler.event_broker.subscribe(
+                lambda evt: event.set(), {JobReleased}, one_shot=True
+            ):
+                job_id = scheduler.add_job(dummy_sync_job)
+                event.wait(3)
+
+            with pytest.raises(JobLookupError):
+                scheduler.get_job_result(job_id, wait=False)
+
     def test_get_job_result_error(self) -> None:
         with Scheduler() as scheduler:
             job_id = scheduler.add_job(
-                dummy_sync_job, kwargs={"delay": 0.2, "fail": True}
+                dummy_sync_job, kwargs={"fail": True}, result_expiration_time=5
             )
             result = scheduler.get_job_result(job_id)
             assert result.job_id == job_id
             assert result.outcome is JobOutcome.error
             assert isinstance(result.exception, RuntimeError)
             assert str(result.exception) == "failing as requested"
+
+    def test_get_job_result_error_empty(self) -> None:
+        event = threading.Event()
+        with Scheduler() as scheduler, scheduler.event_broker.subscribe(
+            lambda evt: event.set(), one_shot=True
+        ):
+            job_id = scheduler.add_job(dummy_sync_job, kwargs={"fail": True})
+            event.wait(3)
+            with pytest.raises(JobLookupError):
+                scheduler.get_job_result(job_id, wait=False)
 
     def test_get_job_result_nowait_not_yet_ready(self) -> None:
         with Scheduler() as scheduler:
@@ -428,6 +480,7 @@ class TestSyncScheduler:
                 jitter=timedelta(seconds=2.16),
                 start_deadline=start_deadline,
                 tags={"foo", "bar"},
+                result_expiration_time=timedelta(seconds=10),
             )
             scheduler.data_store.add_job(job)
             result = scheduler.get_job_result(job.id)

@@ -557,12 +557,13 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, BaseAsyncDataStore):
         async for attempt in self._retry():
             with attempt:
                 async with self.engine.begin() as conn:
-                    # Insert the job result
-                    marshalled = result.marshal(self.serializer)
-                    insert = self.t_job_results.insert().values(**marshalled)
-                    await conn.execute(insert)
+                    # Record the job result
+                    if result.expires_at > result.finished_at:
+                        marshalled = result.marshal(self.serializer)
+                        insert = self.t_job_results.insert().values(**marshalled)
+                        await conn.execute(insert)
 
-                    # Decrement the running jobs counter
+                    # Decrement the number of running jobs for this task
                     update = (
                         self.t_tasks.update()
                         .values(running_jobs=self.t_tasks.c.running_jobs - 1)

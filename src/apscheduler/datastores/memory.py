@@ -13,7 +13,6 @@ from .._enums import ConflictPolicy
 from .._events import (
     JobAcquired,
     JobAdded,
-    JobReleased,
     ScheduleAdded,
     ScheduleRemoved,
     ScheduleUpdated,
@@ -296,26 +295,20 @@ class MemoryDataStore(BaseDataStore):
         return jobs
 
     def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
-        # Delete the job
-        job_state = self._jobs_by_id.pop(result.job_id)
-        self._jobs_by_task_id[task_id].remove(job_state)
-        index = self._find_job_index(job_state)
-        del self._jobs[index]
+        # Record the job result
+        if result.expires_at > result.finished_at:
+            self._job_results[result.job_id] = result
 
         # Decrement the number of running jobs for this task
         task_state = self._tasks.get(task_id)
         if task_state is not None:
             task_state.running_jobs -= 1
 
-        # Record the result
-        self._job_results[result.job_id] = result
-
-        # Publish the event
-        self._events.publish(
-            JobReleased(
-                job_id=result.job_id, worker_id=worker_id, outcome=result.outcome
-            )
-        )
+        # Delete the job
+        job_state = self._jobs_by_id.pop(result.job_id)
+        self._jobs_by_task_id[task_id].remove(job_state)
+        index = self._find_job_index(job_state)
+        del self._jobs[index]
 
     def get_job_result(self, job_id: UUID) -> JobResult | None:
         return self._job_results.pop(job_id, None)

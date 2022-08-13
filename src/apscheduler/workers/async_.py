@@ -23,7 +23,7 @@ from anyio.abc import CancelScope, TaskGroup
 from .._context import current_job, current_worker
 from .._converters import as_async_datastore, as_async_eventbroker
 from .._enums import JobOutcome, RunState
-from .._events import JobAdded, WorkerStarted, WorkerStopped
+from .._events import JobAdded, JobReleased, WorkerStarted, WorkerStopped
 from .._structures import Job, JobInfo, JobResult
 from .._validators import positive_integer
 from ..abc import AsyncDataStore, AsyncEventBroker
@@ -172,10 +172,17 @@ class AsyncWorker:
             # Check if the job started before the deadline
             start_time = datetime.now(timezone.utc)
             if job.start_deadline is not None and start_time > job.start_deadline:
-                result = JobResult(
-                    job_id=job.id, outcome=JobOutcome.missed_start_deadline
+                result = JobResult.from_job(
+                    job,
+                    outcome=JobOutcome.missed_start_deadline,
+                    finished_at=start_time,
                 )
                 await self.data_store.release_job(self.identity, job.task_id, result)
+                await self.event_broker.publish(
+                    JobReleased(
+                        job_id=job.id, worker_id=self.identity, outcome=result.outcome
+                    )
+                )
                 return
 
             token = current_job.set(JobInfo.from_job(job))
@@ -184,23 +191,60 @@ class AsyncWorker:
                 if isawaitable(retval):
                     retval = await retval
             except get_cancelled_exc_class():
+                self.logger.info("Job %s was cancelled", job.id)
                 with CancelScope(shield=True):
-                    result = JobResult(job_id=job.id, outcome=JobOutcome.cancelled)
+                    result = JobResult.from_job(
+                        job,
+                        outcome=JobOutcome.cancelled,
+                    )
                     await self.data_store.release_job(
                         self.identity, job.task_id, result
                     )
+                    await self.event_broker.publish(
+                        JobReleased(
+                            job_id=job.id,
+                            worker_id=self.identity,
+                            outcome=result.outcome,
+                        )
+                    )
             except BaseException as exc:
-                result = JobResult(
-                    job_id=job.id, outcome=JobOutcome.error, exception=exc
+                if isinstance(exc, Exception):
+                    self.logger.exception("Job %s raised an exception", job.id)
+                else:
+                    self.logger.error(
+                        "Job %s was aborted due to %s", job.id, exc.__class__.__name__
+                    )
+
+                result = JobResult.from_job(
+                    job,
+                    JobOutcome.error,
+                    exception=exc,
                 )
-                await self.data_store.release_job(self.identity, job.task_id, result)
+                await self.data_store.release_job(
+                    self.identity,
+                    job.task_id,
+                    result,
+                )
+                await self.event_broker.publish(
+                    JobReleased(
+                        job_id=job.id, worker_id=self.identity, outcome=result.outcome
+                    )
+                )
                 if not isinstance(exc, Exception):
                     raise
             else:
-                result = JobResult(
-                    job_id=job.id, outcome=JobOutcome.success, return_value=retval
+                self.logger.info("Job %s completed successfully", job.id)
+                result = JobResult.from_job(
+                    job,
+                    JobOutcome.success,
+                    return_value=retval,
                 )
                 await self.data_store.release_job(self.identity, job.task_id, result)
+                await self.event_broker.publish(
+                    JobReleased(
+                        job_id=job.id, worker_id=self.identity, outcome=result.outcome
+                    )
+                )
             finally:
                 current_job.reset(token)
         finally:

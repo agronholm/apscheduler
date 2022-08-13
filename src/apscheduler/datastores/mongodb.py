@@ -158,6 +158,7 @@ class MongoDBDataStore(BaseDataStore):
                 self._jobs.create_index("created_at", session=session)
                 self._jobs.create_index("tags", session=session)
                 self._jobs_results.create_index("finished_at", session=session)
+                self._jobs_results.create_index("expires_at", session=session)
 
     def add_task(self, task: Task) -> None:
         for attempt in self._retry():
@@ -495,10 +496,11 @@ class MongoDBDataStore(BaseDataStore):
     def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
         for attempt in self._retry():
             with attempt, self.client.start_session() as session:
-                # Insert the job result
-                document = result.marshal(self.serializer)
-                document["_id"] = document.pop("job_id")
-                self._jobs_results.insert_one(document, session=session)
+                # Record the job result
+                if result.expires_at > result.finished_at:
+                    document = result.marshal(self.serializer)
+                    document["_id"] = document.pop("job_id")
+                    self._jobs_results.insert_one(document, session=session)
 
                 # Decrement the running jobs counter
                 self._tasks.find_one_and_update(

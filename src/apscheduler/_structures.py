@@ -158,6 +158,8 @@ class Job:
         (if the job was derived from a schedule)
     :param start_deadline: if the job is started in the worker after this time, it is
         considered to be misfired and will be aborted
+    :param result_expiration_time: minimum amount of time to keep the result available
+        for fetching in the data store
     :param tags: strings that can be used to categorize and filter the job
     :param created_at: the time at which the job was created
     :param started_at: the time at which the execution of the job was started
@@ -181,6 +183,9 @@ class Job:
         eq=False, order=False, converter=as_timedelta, factory=timedelta
     )
     start_deadline: datetime | None = attrs.field(eq=False, order=False, default=None)
+    result_expiration_time: timedelta = attrs.field(
+        eq=False, order=False, converter=as_timedelta, default=timedelta()
+    )
     tags: frozenset[str] = attrs.field(
         eq=False, order=False, converter=frozenset, default=()
     )
@@ -277,8 +282,30 @@ class JobResult:
     finished_at: datetime = attrs.field(
         eq=False, order=False, factory=partial(datetime.now, timezone.utc)
     )
+    expires_at: datetime = attrs.field(eq=False, order=False)
     exception: BaseException | None = attrs.field(eq=False, order=False, default=None)
     return_value: Any = attrs.field(eq=False, order=False, default=None)
+
+    @classmethod
+    def from_job(
+        cls,
+        job: Job,
+        outcome: JobOutcome,
+        *,
+        finished_at: datetime | None = None,
+        exception: BaseException | None = None,
+        return_value: Any = None,
+    ) -> JobResult:
+        real_finished_at = finished_at or datetime.now(timezone.utc)
+        expires_at = real_finished_at + job.result_expiration_time
+        return cls(
+            job_id=job.id,
+            outcome=outcome,
+            finished_at=real_finished_at,
+            expires_at=expires_at,
+            exception=exception,
+            return_value=return_value,
+        )
 
     def marshal(self, serializer: Serializer) -> dict[str, Any]:
         marshalled = attrs.asdict(self, value_serializer=serialize)

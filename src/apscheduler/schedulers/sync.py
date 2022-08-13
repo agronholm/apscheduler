@@ -234,6 +234,7 @@ class Scheduler:
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
         tags: Iterable[str] | None = None,
+        result_expiration_time: timedelta | float = 0,
     ) -> UUID:
         """
         Add a job to the data store.
@@ -243,6 +244,9 @@ class Scheduler:
         :param args: positional arguments to be passed to the task function
         :param kwargs: keyword arguments to be passed to the task function
         :param tags: strings that can be used to categorize and filter the job
+        :param result_expiration_time: the minimum time (as seconds, or timedelta) to
+            keep the result of the job available for fetching (the result won't be
+            saved at all if that time is 0)
         :return: the ID of the newly created job
 
         """
@@ -258,6 +262,7 @@ class Scheduler:
             args=args or (),
             kwargs=kwargs or {},
             tags=tags or frozenset(),
+            result_expiration_time=result_expiration_time,
         )
         self.data_store.add_job(job)
         return job.id
@@ -269,7 +274,8 @@ class Scheduler:
         :param job_id: the ID of the job
         :param wait: if ``True``, wait until the job has ended (one way or another),
             ``False`` to raise an exception if the result is not yet available
-        :raises JobLookupError: if the job does not exist in the data store
+        :raises JobLookupError: if ``wait=False`` and the job result does not exist in
+            the data store
 
         """
         self._ensure_services_ready()
@@ -288,9 +294,7 @@ class Scheduler:
 
             wait_event.wait()
 
-        result = self.data_store.get_job_result(job_id)
-        assert isinstance(result, JobResult)
-        return result
+        return self.data_store.get_job_result(job_id)
 
     def run_job(
         self,
@@ -322,7 +326,13 @@ class Scheduler:
 
         job_id: UUID | None = None
         with self.data_store.events.subscribe(listener, {JobReleased}):
-            job_id = self.add_job(func_or_task_id, args=args, kwargs=kwargs, tags=tags)
+            job_id = self.add_job(
+                func_or_task_id,
+                args=args,
+                kwargs=kwargs,
+                tags=tags,
+                result_expiration_time=timedelta(minutes=15),
+            )
             job_complete_event.wait()
 
         result = self.get_job_result(job_id)
