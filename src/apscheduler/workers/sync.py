@@ -205,9 +205,7 @@ class Worker:
                     job, JobOutcome.missed_start_deadline, finished_at=start_time
                 )
                 self.event_broker.publish(
-                    JobReleased(
-                        job_id=job.id, worker_id=self.identity, outcome=result.outcome
-                    )
+                    JobReleased.from_result(result, self.identity)
                 )
                 self.data_store.release_job(self.identity, job.task_id, result)
                 return
@@ -234,9 +232,7 @@ class Worker:
                     result,
                 )
                 self.event_broker.publish(
-                    JobReleased(
-                        job_id=job.id, worker_id=self.identity, outcome=result.outcome
-                    )
+                    JobReleased.from_result(result, self.identity)
                 )
                 if not isinstance(exc, Exception):
                     raise
@@ -249,9 +245,7 @@ class Worker:
                 )
                 self.data_store.release_job(self.identity, job.task_id, result)
                 self.event_broker.publish(
-                    JobReleased(
-                        job_id=job.id, worker_id=self.identity, outcome=result.outcome
-                    )
+                    JobReleased.from_result(result, self.identity)
                 )
             finally:
                 current_job.reset(token)

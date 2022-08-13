@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from functools import partial
+from traceback import format_tb
 from typing import Any
 from uuid import UUID
 
@@ -11,6 +12,8 @@ from attrs.converters import optional
 from . import abc
 from ._converters import as_aware_datetime, as_uuid
 from ._enums import JobOutcome
+from ._structures import JobResult
+from ._utils import qualified_name
 
 
 def serialize(inst, field, value):
@@ -248,8 +251,37 @@ class JobReleased(WorkerEvent):
     :param job_id: the ID of the job that was released
     :param worker_id: the ID of the worker that released the job
     :param outcome: the outcome of the job
+    :param exception_type: the fully qualified name of the exception if ``outcome`` is
+        :data:`JobOutcome.error`
+    :param exception_message: the result of ``str(exception)`` if ``outcome`` is
+        :data:`JobOutcome.error`
+    :param exception_traceback: the traceback lines from the exception if ``outcome`` is
+        :data:`JobOutcome.error`
     """
 
     job_id: UUID = attrs.field(converter=as_uuid)
     worker_id: str
     outcome: JobOutcome
+    exception_type: str | None = None
+    exception_message: str | None = None
+    exception_traceback: list[str] | None = None
+
+    @classmethod
+    def from_result(cls, result: JobResult, worker_id: str) -> JobReleased:
+        if result.exception is not None:
+            exception_type: str | None = qualified_name(result.exception.__class__)
+            exception_message: str | None = str(result.exception)
+            exception_traceback: list[str] | None = format_tb(
+                result.exception.__traceback__
+            )
+        else:
+            exception_type = exception_message = exception_traceback = None
+
+        return cls(
+            job_id=result.job_id,
+            worker_id=worker_id,
+            outcome=result.outcome,
+            exception_type=exception_type,
+            exception_message=exception_message,
+            exception_traceback=exception_traceback,
+        )

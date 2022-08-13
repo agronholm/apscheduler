@@ -22,3 +22,11 @@ def timezone_repr(timezone: tzinfo) -> str:
 
 def absolute_datetime_diff(dateval1: datetime, dateval2: datetime) -> float:
     return dateval1.timestamp() - dateval2.timestamp()
+
+
+def qualified_name(cls: type) -> str:
+    module = getattr(cls, "__module__", None)
+    if module is None or module == "builtins":
+        return cls.__qualname__
+    else:
+        return f"{module}.{cls.__qualname__}"

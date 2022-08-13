@@ -179,9 +179,7 @@ class AsyncWorker:
                 )
                 await self.data_store.release_job(self.identity, job.task_id, result)
                 await self.event_broker.publish(
-                    JobReleased(
-                        job_id=job.id, worker_id=self.identity, outcome=result.outcome
-                    )
+                    JobReleased.from_result(result, self.identity)
                 )
                 return
 
@@ -201,11 +199,7 @@ class AsyncWorker:
                         self.identity, job.task_id, result
                     )
                     await self.event_broker.publish(
-                        JobReleased(
-                            job_id=job.id,
-                            worker_id=self.identity,
-                            outcome=result.outcome,
-                        )
+                        JobReleased.from_result(result, self.identity)
                     )
             except BaseException as exc:
                 if isinstance(exc, Exception):
@@ -226,9 +220,7 @@ class AsyncWorker:
                     result,
                 )
                 await self.event_broker.publish(
-                    JobReleased(
-                        job_id=job.id, worker_id=self.identity, outcome=result.outcome
-                    )
+                    JobReleased.from_result(result, self.identity)
                 )
                 if not isinstance(exc, Exception):
                     raise
@@ -241,9 +233,7 @@ class AsyncWorker:
                 )
                 await self.data_store.release_job(self.identity, job.task_id, result)
                 await self.event_broker.publish(
-                    JobReleased(
-                        job_id=job.id, worker_id=self.identity, outcome=result.outcome
-                    )
+                    JobReleased.from_result(result, self.identity)
                 )
             finally:
                 current_job.reset(token)

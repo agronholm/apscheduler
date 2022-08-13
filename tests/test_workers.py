@@ -90,10 +90,19 @@ class TestAsyncWorker:
             # Then the job failed
             assert isinstance(received_event, JobReleased)
             assert received_event.outcome is JobOutcome.error
+            assert received_event.exception_type == "Exception"
+            assert received_event.exception_message == "failing as requested"
+            assert isinstance(received_event.exception_traceback, list)
+            assert all(
+                isinstance(line, str) for line in received_event.exception_traceback
+            )
         else:
             # Then the job finished successfully
             assert isinstance(received_event, JobReleased)
             assert received_event.outcome is JobOutcome.success
+            assert received_event.exception_type is None
+            assert received_event.exception_message is None
+            assert received_event.exception_traceback is None
 
         # Finally, the worker was stopped
         received_event = received_events.pop(0)
@@ -197,10 +206,19 @@ class TestSyncWorker:
             # Then the job failed
             assert isinstance(received_event, JobReleased)
             assert received_event.outcome is JobOutcome.error
+            assert received_event.exception_type == "Exception"
+            assert received_event.exception_message == "failing as requested"
+            assert isinstance(received_event.exception_traceback, list)
+            assert all(
+                isinstance(line, str) for line in received_event.exception_traceback
+            )
         else:
             # Then the job finished successfully
             assert isinstance(received_event, JobReleased)
             assert received_event.outcome is JobOutcome.success
+            assert received_event.exception_type is None
+            assert received_event.exception_message is None
+            assert received_event.exception_traceback is None
 
         # Finally, the worker was stopped
         received_event = received_events.pop(0)
