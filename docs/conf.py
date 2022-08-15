@@ -43,7 +43,7 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-autodoc_default_options = {"members": True, "show-inheritance": True}
+autodoc_default_options = {"members": True}
 autodoc_mock_imports = ["asyncpg", "cbor2", "paho", "pymongo", "redis", "sqlalchemy"]
 
 # -- Options for HTML output -------------------------------------------------
