@@ -92,9 +92,17 @@ Enumerated types
 Context variables
 -----------------
 
-.. autodata:: apscheduler.current_scheduler
-.. autodata:: apscheduler.current_worker
-.. autodata:: apscheduler.current_job
+See the :mod:`contextvars` module for information on how to work with context variables.
+
+.. data:: apscheduler.current_scheduler
+   :annotation: the current scheduler
+   :type: ~contextvars.ContextVar[~typing.Union[Scheduler, AsyncScheduler]]
+.. data:: apscheduler.current_worker
+   :annotation: the current scheduler
+   :type: ~contextvars.ContextVar[~typing.Union[Worker, AsyncWorker]]
+.. data:: apscheduler.current_job
+   :annotation: information on the job being currently run
+   :type: ~contextvars.ContextVar[JobInfo]
 
 Exceptions
 ----------

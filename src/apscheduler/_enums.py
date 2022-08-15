@@ -4,29 +4,39 @@ from enum import Enum, auto
 
 
 class RunState(Enum):
-    """Used to track the running state of schedulers and workers."""
+    """
+    Used to track the running state of schedulers and workers.
 
-    #: not running yet, but in the process of starting
+    Values:
+
+    * ``starting``: not running yet, but in the process of starting
+    * ``started``: running
+    * ``stopping``: still running but in the process of shutting down
+    * ``stopped``: not running
+    """
+
     starting = auto()
-    #: running
     started = auto()
-    #: still running but in the process of shutting down
     stopping = auto()
-    #: not running
     stopped = auto()
 
 
 class JobOutcome(Enum):
-    """Used to indicate how the execution of a job ended."""
+    """
+    Used to indicate how the execution of a job ended.
 
-    #: the job completed successfully
+    Values:
+
+    * ``success``: the job completed successfully
+    * ``error``: the job raised an exception
+    * ``missed_start_deadline``: the job's execution was delayed enough for it to miss
+      its deadline
+    * ``cancelled``: the job's execution was cancelled
+    """
+
     success = auto()
-    #: the job raised an exception
     error = auto()
-    #: the job's execution was delayed enough for it to miss its designated run time by
-    #: too large a margin
     missed_start_deadline = auto()
-    #: the job's execution was cancelled
     cancelled = auto()
 
 
@@ -34,24 +44,31 @@ class ConflictPolicy(Enum):
     """
     Used to indicate what to do when trying to add a schedule whose ID conflicts with an
     existing schedule.
+
+    Values:
+
+    * ``replace``: replace the existing schedule with a new one
+    * ``do_nothing``: keep the existing schedule as-is and drop the new schedule
+    * ``exception``: raise an exception if a conflict is detected
     """
 
-    #: replace the existing schedule with a new one
     replace = auto()
-    #: keep the existing schedule as-is and drop the new schedule
     do_nothing = auto()
-    #: raise an exception if a conflict is detected
     exception = auto()
 
 
 class CoalescePolicy(Enum):
     """
-    Used to indicate how to
+    Used to indicate how to queue jobs for a schedule that has accumulated multiple
+    run times since the last scheduler iteration.
+
+    Values:
+
+    * ``earliest``: run once, with the earliest fire time
+    * ``latest``: run once, with the latest fire time
+    * ``all``: submit one job for every accumulated fire time
     """
 
-    #: run once, with the earliest fire time
     earliest = auto()
-    #: run once, with the latest fire time
     latest = auto()
-    #: submit one job for every accumulated fire time
     all = auto()
