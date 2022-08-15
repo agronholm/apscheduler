@@ -63,7 +63,6 @@ test = [
 ]
 doc = [
     "sphinx",
-    "sphinx-rtd-theme",
     "sphinx-autodoc-typehints",
     "sphinx-tabs >= 3.3.1",
 ]
