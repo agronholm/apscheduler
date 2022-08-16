@@ -26,6 +26,8 @@ Workers
 Data stores
 -----------
 
+.. autoclass:: apscheduler.abc.DataStore
+.. autoclass:: apscheduler.abc.AsyncDataStore
 .. autoclass:: apscheduler.datastores.memory.MemoryDataStore
 .. autoclass:: apscheduler.datastores.sqlalchemy.SQLAlchemyDataStore
 .. autoclass:: apscheduler.datastores.async_sqlalchemy.AsyncSQLAlchemyDataStore
@@ -34,6 +36,8 @@ Data stores
 Event brokers
 -------------
 
+.. autoclass:: apscheduler.abc.EventBroker
+.. autoclass:: apscheduler.abc.AsyncEventBroker
 .. autoclass:: apscheduler.eventbrokers.local.LocalEventBroker
 .. autoclass:: apscheduler.eventbrokers.async_local.LocalAsyncEventBroker
 .. autoclass:: apscheduler.eventbrokers.asyncpg.AsyncpgEventBroker
@@ -43,6 +47,7 @@ Event brokers
 Serializers
 -----------
 
+.. autoclass:: apscheduler.abc.Serializer
 .. autoclass:: apscheduler.serializers.cbor.CBORSerializer
 .. autoclass:: apscheduler.serializers.json.JSONSerializer
 .. autoclass:: apscheduler.serializers.pickle.PickleSerializer
@@ -50,6 +55,7 @@ Serializers
 Triggers
 --------
 
+.. autoclass:: apscheduler.abc.Trigger
 .. autoclass:: apscheduler.triggers.date.DateTrigger
 .. autoclass:: apscheduler.triggers.interval.IntervalTrigger
 .. autoclass:: apscheduler.triggers.calendarinterval.CalendarIntervalTrigger

@@ -139,7 +139,7 @@ class EventBroker(EventSource):
 
 
 class AsyncEventBroker(EventSource):
-    """Asynchronous version of :class:`EventBroker`."""
+    """Asynchronous version of :class:`EventBroker`. Expected to work on asyncio."""
 
     @abstractmethod
     async def start(self) -> None:
@@ -321,6 +321,8 @@ class DataStore:
 
 
 class AsyncDataStore:
+    """Asynchronous version of :class:`DataStore`. Expected to work on asyncio."""
+
     @abstractmethod
     async def start(self, event_broker: AsyncEventBroker) -> None:
         pass
