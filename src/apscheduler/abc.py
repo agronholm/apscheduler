@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
-from base64 import b64decode, b64encode
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
 from uuid import UUID
@@ -48,21 +47,26 @@ class Trigger(Iterator[datetime], metaclass=ABCMeta):
 
 
 class Serializer(metaclass=ABCMeta):
+    """Interface for classes that implement (de)serialization."""
+
     __slots__ = ()
 
     @abstractmethod
-    def serialize(self, obj) -> bytes:
-        pass
+    def serialize(self, obj: Any) -> bytes:
+        """
+        Turn the given object into a bytestring.
 
-    def serialize_to_unicode(self, obj) -> str:
-        return b64encode(self.serialize(obj)).decode("ascii")
+        :return: a bytestring that can be later restored using :meth:`deserialize`
+        """
 
     @abstractmethod
-    def deserialize(self, serialized: bytes):
-        pass
+    def deserialize(self, serialized: bytes) -> Any:
+        """
+        Restore a previously serialized object from bytestring
 
-    def deserialize_from_unicode(self, serialized: str):
-        return self.deserialize(b64decode(serialized))
+        :param serialized: a bytestring previously received from :meth:`serialize`
+        :return: a copy of the original object
+        """
 
 
 class Subscription(metaclass=ABCMeta):

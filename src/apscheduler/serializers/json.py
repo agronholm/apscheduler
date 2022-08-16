@@ -59,9 +59,3 @@ class JSONSerializer(Serializer):
 
     def deserialize(self, serialized: bytes):
         return loads(serialized, **self.load_options)
-
-    def serialize_to_unicode(self, obj) -> str:
-        return dumps(obj, ensure_ascii=False, **self.dump_options)
-
-    def deserialize_from_unicode(self, serialized: str):
-        return loads(serialized, **self.load_options)
