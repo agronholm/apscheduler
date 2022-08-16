@@ -61,6 +61,7 @@ class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
         Create a new asyncpg event broker from an SQLAlchemy engine.
 
         :param engine: an asynchronous SQLAlchemy engine using asyncpg as the driver
+        :type engine: ~sqlalchemy.ext.asyncio.AsyncEngine
         :param kwargs: keyword arguments to pass to the initializer of this class
         :return: the newly created event broker
 
