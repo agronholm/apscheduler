@@ -458,5 +458,17 @@ a solution.
 Reporting bugs
 ==============
 
-.. include:: ../README.rst
-   :start-after: Reporting bugs
+A `bug tracker <https://github.com/agronholm/apscheduler/issues>`_ is provided by
+GitHub.
+
+Getting help
+============
+
+If you have problems or other questions, you can either:
+
+* Ask in the `apscheduler <https://gitter.im/apscheduler/Lobby>`_ room on Gitter
+* Post a question on `GitHub discussions`_, or
+* Post a question on StackOverflow_ and add the ``apscheduler`` tag
+
+.. _GitHub discussions: https://github.com/agronholm/apscheduler/discussions/categories/q-a
+.. _StackOverflow: http://stackoverflow.com/questions/tagged/apscheduler

@@ -68,27 +68,24 @@ Other notable features include:
 .. _documentation: https://apscheduler.readthedocs.io/en/master/
 
 Documentation
--------------
+=============
 
 Documentation can be found
 `here <https://apscheduler.readthedocs.io/en/master/?badge=latest>`_.
 
-
 Source
-------
+======
 
 The source can be browsed at `Github <https://github.com/agronholm/apscheduler>`_.
 
-
 Reporting bugs
---------------
+==============
 
 A `bug tracker <https://github.com/agronholm/apscheduler/issues>`_ is provided by
-Github.
-
+GitHub.
 
 Getting help
-------------
+============
 
 If you have problems or other questions, you can either:
 
