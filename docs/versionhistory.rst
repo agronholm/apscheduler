@@ -9,6 +9,10 @@ APScheduler, see the :doc:`migration section <migration>`.
 This was a major rewrite/redesign of most parts of the project. See the
 :doc:`migration section <migration>` section for details.
 
+.. warning:: The v4.0 series is provided as a **pre-release** and may change in a
+   backwards incompatible fashion without any migration pathway, so do NOT use this
+   release in production!
+
 - Made persistent data stores shareable between multiple processes and nodes
 - Enhanced data stores to be more resilient against temporary connectivity failures
 - Refactored executors (now called *workers*) to pull jobs from the data store so they

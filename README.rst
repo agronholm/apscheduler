@@ -8,6 +8,10 @@
   :target: https://apscheduler.readthedocs.io/en/master/?badge=latest
   :alt: Documentation
 
+.. warning:: The v4.0 series is provided as a **pre-release** and may change in a
+   backwards incompatible fashion without any migration pathway, so do NOT use this
+   release in production!
+
 Advanced Python Scheduler (APScheduler) is a task scheduler and task queue system for
 Python. It can be used solely as a job queuing system if you have no need for task
 scheduling. It scales both up and down, and is suitable for both trivial, single-process
