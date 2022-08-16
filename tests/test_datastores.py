@@ -323,8 +323,8 @@ class TestDataStores:
             schedules3 = datastore.acquire_schedules("dummy-id3", 1)
             assert not schedules3
 
-            # Update the schedules and check that the job store actually deletes the first
-            # one and updates the second one
+            # Update the schedules and check that the job store actually deletes the
+            # first one and updates the second one
             schedules1[0].next_fire_time = None
             schedules2[0].next_fire_time = datetime(2020, 9, 15, tzinfo=timezone.utc)
 
@@ -388,8 +388,8 @@ class TestDataStores:
         self, datastore: DataStore, schedules: list[Schedule], freezer
     ) -> None:
         """
-        Test that a scheduler can acquire schedules that were acquired by another scheduler but
-        not released within the lock timeout period.
+        Test that a scheduler can acquire schedules that were acquired by another
+        scheduler but not released within the lock timeout period.
 
         """
         datastore.add_schedule(schedules[0], ConflictPolicy.exception)
@@ -542,8 +542,8 @@ class TestDataStores:
         self, datastore: DataStore, freezer: FrozenDateTimeFactory
     ) -> None:
         """
-        Test that a worker can acquire jobs that were acquired by another scheduler but not
-        released within the lock timeout period.
+        Test that a worker can acquire jobs that were acquired by another scheduler but
+        not released within the lock timeout period.
 
         """
         datastore.add_task(Task(id="task1", func=asynccontextmanager))
@@ -574,7 +574,8 @@ class TestDataStores:
         for job in jobs:
             datastore.add_job(job)
 
-        # Check that only 2 jobs are returned from acquire_jobs() even though the limit wqas 3
+        # Check that only 2 jobs are returned from acquire_jobs() even though the limit
+        # wqas 3
         acquired_jobs = datastore.acquire_jobs("worker1", 3)
         assert [job.id for job in acquired_jobs] == [job.id for job in jobs[:2]]
 
@@ -784,8 +785,8 @@ class TestAsyncDataStores:
             schedules3 = await datastore.acquire_schedules("dummy-id3", 1)
             assert not schedules3
 
-            # Update the schedules and check that the job store actually deletes the first
-            # one and updates the second one
+            # Update the schedules and check that the job store actually deletes the
+            # first one and updates the second one
             schedules1[0].next_fire_time = None
             schedules2[0].next_fire_time = datetime(2020, 9, 15, tzinfo=timezone.utc)
 
@@ -851,8 +852,8 @@ class TestAsyncDataStores:
         self, datastore: AsyncDataStore, schedules: list[Schedule], freezer
     ) -> None:
         """
-        Test that a scheduler can acquire schedules that were acquired by another scheduler but
-        not released within the lock timeout period.
+        Test that a scheduler can acquire schedules that were acquired by another
+        scheduler but not released within the lock timeout period.
 
         """
         await datastore.add_schedule(schedules[0], ConflictPolicy.exception)
@@ -1002,8 +1003,8 @@ class TestAsyncDataStores:
         self, datastore: AsyncDataStore, freezer: FrozenDateTimeFactory
     ) -> None:
         """
-        Test that a worker can acquire jobs that were acquired by another scheduler but not
-        released within the lock timeout period.
+        Test that a worker can acquire jobs that were acquired by another scheduler but
+        not released within the lock timeout period.
 
         """
         await datastore.add_task(Task(id="task1", func=asynccontextmanager))
@@ -1036,7 +1037,8 @@ class TestAsyncDataStores:
         for job in jobs:
             await datastore.add_job(job)
 
-        # Check that only 2 jobs are returned from acquire_jobs() even though the limit wqas 3
+        # Check that only 2 jobs are returned from acquire_jobs() even though the limit
+        # wqas 3
         acquired_jobs = await datastore.acquire_jobs("worker1", 3)
         assert [job.id for job in acquired_jobs] == [job.id for job in jobs[:2]]
 

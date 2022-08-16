@@ -19,35 +19,39 @@ from ..marshalling import (
 @attrs.define(kw_only=True)
 class CalendarIntervalTrigger(Trigger):
     """
-    Runs the task on specified calendar-based intervals always at the same exact time of day.
+    Runs the task on specified calendar-based intervals always at the same exact time of
+    day.
 
-    When calculating the next date, the ``years`` and ``months`` parameters are first added to the
-    previous date while keeping the day of the month constant. This is repeated until the resulting
-    date is valid. After that, the ``weeks`` and ``days`` parameters are added to that date.
-    Finally, the date is combined with the given time (hour, minute, second) to form the final
-    datetime.
+    When calculating the next date, the ``years`` and ``months`` parameters are first
+    added to the previous date while keeping the day of the month constant. This is
+    repeated until the resulting date is valid. After that, the ``weeks`` and ``days``
+    parameters are added to that date. Finally, the date is combined with the given time
+    (hour, minute, second) to form the final datetime.
 
-    This means that if the ``days`` or ``weeks`` parameters are not used, the task will always be
-    executed on the same day of the month at the same wall clock time, assuming the date and time
-    are valid.
+    This means that if the ``days`` or ``weeks`` parameters are not used, the task will
+    always be executed on the same day of the month at the same wall clock time,
+    assuming the date and time are valid.
 
-    If the resulting datetime is invalid due to a daylight saving forward shift, the date is
-    discarded and the process moves on to the next date. If instead the datetime is ambiguous due
-    to a backward DST shift, the earlier of the two resulting datetimes is used.
+    If the resulting datetime is invalid due to a daylight saving forward shift, the
+    date is discarded and the process moves on to the next date. If instead the datetime
+    is ambiguous due to a backward DST shift, the earlier of the two resulting datetimes
+    is used.
 
-    If no previous run time is specified when requesting a new run time (like when starting for the
-    first time or resuming after being paused), ``start_date`` is used as a reference and the next
-    valid datetime equal to or later than the current time will be returned. Otherwise, the next
-    valid datetime starting from the previous run time is returned, even if it's in the past.
+    If no previous run time is specified when requesting a new run time (like when
+    starting for the first time or resuming after being paused), ``start_date`` is used
+    as a reference and the next valid datetime equal to or later than the current time
+    will be returned. Otherwise, the next valid datetime starting from the previous run
+    time is returned, even if it's in the past.
 
-    .. warning:: Be wary of setting a start date near the end of the month (29. – 31.) if you have
-        ``months`` specified in your interval, as this will skip the months where those days do not
-        exist. Likewise, setting the start date on the leap day (February 29th) and having
-        ``years`` defined may cause some years to be skipped.
+    .. warning:: Be wary of setting a start date near the end of the month (29. – 31.)
+        if you have ``months`` specified in your interval, as this will skip the months
+        when those days do not exist. Likewise, setting the start date on the leap day
+        (February 29th) and having `years`` defined may cause some years to be skipped.
 
-        Users are also discouraged from  using a time inside the target timezone's DST switching
-        period (typically around 2 am) since a date could either be skipped or repeated due to the
-        specified wall clock time either occurring twice or not at all.
+        Users are also discouraged from  using a time inside the target timezone's DST
+        switching period (typically around 2 am) since a date could either be skipped or
+        repeated due to the specified wall clock time either occurring twice or not at
+        all.
 
     :param years: number of years to wait
     :param months: number of months to wait

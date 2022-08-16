@@ -120,7 +120,8 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, BaseAsyncDataStore):
                     elif version > 1:
                         raise RuntimeError(
                             f"Unexpected schema version ({version}); "
-                            f"only version 1 is supported by this version of APScheduler"
+                            f"only version 1 is supported by this version of "
+                            f"APScheduler"
                         )
 
     async def _deserialize_schedules(self, result: Result) -> list[Schedule]:
@@ -407,7 +408,8 @@ class AsyncSQLAlchemyDataStore(_BaseSQLAlchemyDataStore, BaseAsyncDataStore):
                             )
                             update_events.append(event)
 
-                    # Remove schedules that have no next fire time or failed to serialize
+                    # Remove schedules that have no next fire time or failed to
+                    # serialize
                     if finished_schedule_ids:
                         delete = self.t_schedules.delete().where(
                             self.t_schedules.c.id.in_(finished_schedule_ids)

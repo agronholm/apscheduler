@@ -1,4 +1,7 @@
-"""Fields represent CronTrigger options which map to :class:`~datetime.datetime` fields."""
+"""
+Fields represent CronTrigger options which map to :class:`~datetime.datetime` fields.
+"""
+
 from __future__ import annotations
 
 import re
@@ -144,8 +147,8 @@ class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpress
 
             expr = f"{WEEKDAYS[first]}-{WEEKDAYS[last]}"
 
-        # For expressions like Sun-Tue or Sat-Mon, add two expressions that together cover the
-        # expected weekdays
+        # For expressions like Sun-Tue or Sat-Mon, add two expressions that together
+        # cover the expected weekdays
         match = WeekdayRangeExpression.value_re.match(expr)
         if match and match.groups()[1]:
             groups = match.groups()

@@ -13,7 +13,9 @@ if TYPE_CHECKING:
 
 
 class Trigger(Iterator[datetime], metaclass=ABCMeta):
-    """Abstract base class that defines the interface that every trigger must implement."""
+    """
+    Abstract base class that defines the interface that every trigger must implement.
+    """
 
     __slots__ = ()
 
@@ -86,7 +88,9 @@ class Subscription(metaclass=ABCMeta):
 
 
 class EventSource(metaclass=ABCMeta):
-    """Interface for objects that can deliver notifications to interested subscribers."""
+    """
+    Interface for objects that can deliver notifications to interested subscribers.
+    """
 
     @abstractmethod
     def subscribe(
@@ -99,9 +103,11 @@ class EventSource(metaclass=ABCMeta):
         """
         Subscribe to events from this event source.
 
-        :param callback: callable to be called with the event object when an event is published
+        :param callback: callable to be called with the event object when an event is
+            published
         :param event_types: an iterable of concrete Event classes to subscribe to
-        :param one_shot: if ``True``, automatically unsubscribe after the first matching event
+        :param one_shot: if ``True``, automatically unsubscribe after the first matching
+            event
         """
 
 
@@ -167,8 +173,8 @@ class DataStore:
         """
         Add the given task to the store.
 
-        If a task with the same ID already exists, it replaces the old one but does NOT affect
-        task accounting (# of running jobs).
+        If a task with the same ID already exists, it replaces the old one but does NOT
+        affect task accounting (# of running jobs).
 
         :param task: the task to be added
         """
@@ -205,7 +211,8 @@ class DataStore:
         """
         Get schedules from the data store.
 
-        :param ids: a specific set of schedule IDs to return, or ``None`` to return all schedules
+        :param ids: a specific set of schedule IDs to return, or ``None`` to return all
+            schedules
         :return: the list of matching schedules, in unspecified order
         """
 
@@ -215,8 +222,8 @@ class DataStore:
         Add or update the given schedule in the data store.
 
         :param schedule: schedule to be added
-        :param conflict_policy: policy that determines what to do if there is an existing schedule
-            with the same ID
+        :param conflict_policy: policy that determines what to do if there is an
+            existing schedule with the same ID
         """
 
     @abstractmethod
@@ -232,8 +239,8 @@ class DataStore:
         """
         Acquire unclaimed due schedules for processing.
 
-        This method claims up to the requested number of schedules for the given scheduler and
-        returns them.
+        This method claims up to the requested number of schedules for the given
+        scheduler and returns them.
 
         :param scheduler_id: unique identifier of the scheduler
         :param limit: maximum number of schedules to claim
@@ -252,8 +259,8 @@ class DataStore:
     @abstractmethod
     def get_next_schedule_run_time(self) -> datetime | None:
         """
-        Return the earliest upcoming run time of all the schedules in the store, or ``None`` if
-        there are no active schedules.
+        Return the earliest upcoming run time of all the schedules in the store, or
+        ``None`` if there are no active schedules.
         """
 
     @abstractmethod
@@ -270,7 +277,8 @@ class DataStore:
         Get the list of pending jobs.
 
         :param ids: a specific set of job IDs to return, or ``None`` to return all jobs
-        :return: the list of matching pending jobs, in the order they will be given to workers
+        :return: the list of matching pending jobs, in the order they will be given to
+            workers
         """
 
     @abstractmethod
@@ -278,8 +286,8 @@ class DataStore:
         """
         Acquire unclaimed jobs for execution.
 
-        This method claims up to the requested number of jobs for the given worker and returns
-        them.
+        This method claims up to the requested number of jobs for the given worker and
+        returns them.
 
         :param worker_id: unique identifier of the worker
         :param limit: maximum number of jobs to claim and return
@@ -327,8 +335,8 @@ class AsyncDataStore:
         """
         Add the given task to the store.
 
-        If a task with the same ID already exists, it replaces the old one but does NOT affect
-        task accounting (# of running jobs).
+        If a task with the same ID already exists, it replaces the old one but does NOT
+        affect task accounting (# of running jobs).
 
         :param task: the task to be added
         """
@@ -365,7 +373,8 @@ class AsyncDataStore:
         """
         Get schedules from the data store.
 
-        :param ids: a specific set of schedule IDs to return, or ``None`` to return all schedules
+        :param ids: a specific set of schedule IDs to return, or ``None`` to return all
+            schedules
         :return: the list of matching schedules, in unspecified order
         """
 
@@ -377,8 +386,8 @@ class AsyncDataStore:
         Add or update the given schedule in the data store.
 
         :param schedule: schedule to be added
-        :param conflict_policy: policy that determines what to do if there is an existing schedule
-            with the same ID
+        :param conflict_policy: policy that determines what to do if there is an
+            existing schedule with the same ID
         """
 
     @abstractmethod
@@ -394,8 +403,8 @@ class AsyncDataStore:
         """
         Acquire unclaimed due schedules for processing.
 
-        This method claims up to the requested number of schedules for the given scheduler and
-        returns them.
+        This method claims up to the requested number of schedules for the given
+        scheduler and returns them.
 
         :param scheduler_id: unique identifier of the scheduler
         :param limit: maximum number of schedules to claim
@@ -416,8 +425,8 @@ class AsyncDataStore:
     @abstractmethod
     async def get_next_schedule_run_time(self) -> datetime | None:
         """
-        Return the earliest upcoming run time of all the schedules in the store, or ``None`` if
-        there are no active schedules.
+        Return the earliest upcoming run time of all the schedules in the store, or
+        ``None`` if there are no active schedules.
         """
 
     @abstractmethod
@@ -434,7 +443,8 @@ class AsyncDataStore:
         Get the list of pending jobs.
 
         :param ids: a specific set of job IDs to return, or ``None`` to return all jobs
-        :return: the list of matching pending jobs, in the order they will be given to workers
+        :return: the list of matching pending jobs, in the order they will be given to
+            workers
         """
 
     @abstractmethod
@@ -442,8 +452,8 @@ class AsyncDataStore:
         """
         Acquire unclaimed jobs for execution.
 
-        This method claims up to the requested number of jobs for the given worker and returns
-        them.
+        This method claims up to the requested number of jobs for the given worker and
+        returns them.
 
         :param worker_id: unique identifier of the worker
         :param limit: maximum number of jobs to claim and return

@@ -57,8 +57,9 @@ class TestAndTrigger:
 
         assert repr(trigger) == (
             "AndTrigger([IntervalTrigger(seconds=4, "
-            "start_time='2020-05-16 14:17:30.254212+02:00'), IntervalTrigger(seconds=4, "
-            "start_time='2020-05-16 14:17:32.254212+02:00')], threshold=1.0, max_iterations=10000)"
+            "start_time='2020-05-16 14:17:30.254212+02:00'), IntervalTrigger("
+            "seconds=4, start_time='2020-05-16 14:17:32.254212+02:00')], "
+            "threshold=1.0, max_iterations=10000)"
         )
 
 

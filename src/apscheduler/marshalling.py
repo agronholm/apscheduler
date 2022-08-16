@@ -80,8 +80,9 @@ def callable_to_ref(func: Callable) -> str:
     """
     Return a reference to the given callable.
 
-    :raises SerializationError: if the given object is not callable, is a partial(), lambda or
-        local function or does not have the ``__module__`` and ``__qualname__`` attributes
+    :raises SerializationError: if the given object is not callable, is a partial(),
+        lambda or local function or does not have the ``__module__`` and
+        ``__qualname__`` attributes
 
     """
     if isinstance(func, partial):
@@ -103,8 +104,8 @@ def callable_from_ref(ref: str) -> Callable:
     """
     Return the callable pointed to by ``ref``.
 
-    :raises DeserializationError: if the reference could not be resolved or the looked up object is
-        not callable
+    :raises DeserializationError: if the reference could not be resolved or the looked
+        up object is not callable
 
     """
     if ":" not in ref:

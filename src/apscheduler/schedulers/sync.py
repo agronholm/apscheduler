@@ -487,8 +487,8 @@ class Scheduler:
                                 fire_time = calculate_next()
                             except Exception:
                                 self.logger.exception(
-                                    "Error computing next fire time for schedule %r of task %r – "
-                                    "removing schedule",
+                                    "Error computing next fire time for schedule %r of "
+                                    "task %r – removing schedule",
                                     schedule.id,
                                     schedule.task_id,
                                 )

@@ -194,8 +194,8 @@ class MemoryDataStore(BaseDataStore):
                 break
             elif state.acquired_by is not None:
                 if state.acquired_by != scheduler_id and now <= state.acquired_until:
-                    # The schedule has been acquired by another scheduler and the timeout has not
-                    # expired yet
+                    # The schedule has been acquired by another scheduler and the
+                    # timeout has not expired yet
                     continue
 
             schedules.append(state.schedule)

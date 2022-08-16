@@ -39,8 +39,8 @@ def test_end_date(timezone, serializer):
 
 def test_missing_time(timezone, serializer):
     """
-    Test that if the designated time does not exist on a day due to a forward DST shift, the day is
-    skipped entirely.
+    Test that if the designated time does not exist on a day due to a forward DST shift,
+    the day is skipped entirely.
 
     """
     trigger = CalendarIntervalTrigger(
@@ -54,8 +54,8 @@ def test_missing_time(timezone, serializer):
 
 def test_repeated_time(timezone, serializer):
     """
-    Test that if the designated time is repeated during a day due to a backward DST shift, the task
-    is executed on the earlier occurrence of that time.
+    Test that if the designated time is repeated during a day due to a backward DST
+    shift, the task is executed on the earlier occurrence of that time.
 
     """
     trigger = CalendarIntervalTrigger(

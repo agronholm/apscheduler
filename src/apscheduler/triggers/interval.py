@@ -15,10 +15,11 @@ class IntervalTrigger(Trigger):
     """
     Triggers on specified intervals.
 
-    The first trigger time is on ``start_time`` which is the  moment the trigger was created unless
-    specifically overridden. If ``end_time`` is specified, the last trigger time will be at or
-    before that time. If no ``end_time`` has been given, the trigger will produce new trigger times
-    as long as the resulting datetimes are valid datetimes in Python.
+    The first trigger time is on ``start_time`` which is the  moment the trigger was
+    created unless specifically overridden. If ``end_time`` is specified, the last
+    trigger time will be at or before that time. If no ``end_time`` has been given, the
+    trigger will produce new trigger times as long as the resulting datetimes are valid
+    datetimes in Python.
 
     :param weeks: number of weeks to wait
     :param days: number of days to wait
@@ -26,7 +27,8 @@ class IntervalTrigger(Trigger):
     :param minutes: number of minutes to wait
     :param seconds: number of seconds to wait
     :param microseconds: number of microseconds to wait
-    :param start_time: first trigger date/time (defaults to current date/time if omitted)
+    :param start_time: first trigger date/time (defaults to current date/time if
+        omitted)
     :param end_time: latest possible date/time to trigger on
     """
 

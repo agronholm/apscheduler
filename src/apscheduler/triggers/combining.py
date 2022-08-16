@@ -37,21 +37,23 @@ class BaseCombiningTrigger(Trigger):
 @attrs.define
 class AndTrigger(BaseCombiningTrigger):
     """
-    Fires on times produced by the enclosed triggers whenever the fire times are within the given
-    threshold.
+    Fires on times produced by the enclosed triggers whenever the fire times are within
+    the given threshold.
 
-    If the produced fire times are not within the given threshold of each other, the trigger(s)
-    that produced the earliest fire time will be asked for their next fire time and the iteration
-    is restarted. If instead all of the triggers agree on a fire time, all the triggers are asked
-    for their next fire times and the earliest of the previously produced fire times will be
-    returned.
+    If the produced fire times are not within the given threshold of each other, the
+    trigger(s) that produced the earliest fire time will be asked for their next fire
+    time and the iteration is restarted. If instead all the triggers agree on a fire
+    time, all the triggers are asked for their next fire times and the earliest of the
+    previously produced fire times will be returned.
 
     This trigger will be finished when any of the enclosed trigger has finished.
 
     :param triggers: triggers to combine
-    :param threshold: maximum time difference between the next fire times of the triggers in order
-        for the earliest of them to be returned from :meth:`next` (in seconds, or as timedelta)
-    :param max_iterations: maximum number of iterations of fire time calculations before giving up
+    :param threshold: maximum time difference between the next fire times of the
+        triggers in order for the earliest of them to be returned from :meth:`next` (in
+        seconds, or as timedelta)
+    :param max_iterations: maximum number of iterations of fire time calculations before
+        giving up
     """
 
     threshold: timedelta = attrs.field(converter=as_timedelta, default=1)
@@ -104,7 +106,8 @@ class AndTrigger(BaseCombiningTrigger):
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}({self.triggers}, "
-            f"threshold={self.threshold.total_seconds()}, max_iterations={self.max_iterations})"
+            f"threshold={self.threshold.total_seconds()}, "
+            f"max_iterations={self.max_iterations})"
         )
 
 
@@ -114,8 +117,8 @@ class OrTrigger(BaseCombiningTrigger):
     Fires on every fire time of every trigger in chronological order.
     If two or more triggers produce the same fire time, it will only be used once.
 
-    This trigger will be finished when none of the enclosed triggers can produce any new fire
-    times.
+    This trigger will be finished when none of the enclosed triggers can produce any new
+    fire times.
 
     :param triggers: triggers to combine
     """
@@ -131,7 +134,8 @@ class OrTrigger(BaseCombiningTrigger):
             default=None,
         )
         if earliest_time is not None:
-            # Generate new fire times for the trigger(s) that generated the earliest fire time
+            # Generate new fire times for the trigger(s) that generated the earliest
+            # fire time
             for i, fire_time in enumerate(self._next_fire_times):
                 if fire_time == earliest_time:
                     self._next_fire_times[i] = self.triggers[i].next()

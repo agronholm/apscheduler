@@ -200,7 +200,8 @@ class WeekdayPositionExpression(AllExpression):
             raise ValueError(f"Invalid weekday name {weekday_name!r}") from None
 
     def get_next_value(self, dateval: datetime, field) -> int | None:
-        # Figure out the weekday of the month's first day and the number of days in that month
+        # Figure out the weekday of the month's first day and the number of days in that
+        # month
         first_day_wday, last_day = monthrange(dateval.year, dateval.month)
 
         # Calculate which day of the month is the first of the target weekdays

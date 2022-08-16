@@ -28,18 +28,20 @@ from .fields import (
 @attrs.define(kw_only=True)
 class CronTrigger(Trigger):
     """
-    Triggers when current time matches all specified time constraints, similarly to how the UNIX
-    cron scheduler works.
+    Triggers when current time matches all specified time constraints, similarly to how
+    the UNIX cron scheduler works.
 
     :param year: 4-digit year
     :param month: month (1-12)
     :param day: day of the (1-31)
     :param week: ISO week (1-53)
-    :param day_of_week: number or name of weekday (0-7 or sun,mon,tue,wed,thu,fri,sat,sun)
+    :param day_of_week: number or name of weekday (0-7 or sun,mon,tue,wed,thu,fri,sat,
+        sun)
     :param hour: hour (0-23)
     :param minute: minute (0-59)
     :param second: second (0-59)
-    :param start_time: earliest possible date/time to trigger on (defaults to current time)
+    :param start_time: earliest possible date/time to trigger on (defaults to current
+        time)
     :param end_time: latest possible date/time to trigger on
     :param timezone: time zone to use for the date/time calculations
         (defaults to the local timezone)
@@ -109,7 +111,8 @@ class CronTrigger(Trigger):
         """
         Create a :class:`~CronTrigger` from a standard crontab expression.
 
-        See https://en.wikipedia.org/wiki/Cron for more information on the format accepted here.
+        See https://en.wikipedia.org/wiki/Cron for more information on the format
+        accepted here.
 
         :param expr: minute, hour, day of month, month, day of week
         :param timezone: time zone to use for the date/time calculations
@@ -133,11 +136,11 @@ class CronTrigger(Trigger):
         self, dateval: datetime, fieldnum: int
     ) -> tuple[datetime, int]:
         """
-        Increments the designated field and resets all less significant fields to their minimum
-        values.
+        Increments the designated field and resets all less significant fields to their
+        minimum values.
 
-        :return: a tuple containing the new date, and the number of the field that was actually
-            incremented
+        :return: a tuple containing the new date, and the number of the field that was
+            actually incremented
         """
 
         values = {}

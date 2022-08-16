@@ -393,7 +393,8 @@ class TestSyncScheduler:
 
             fake_uniform.assert_called_once_with(0, expected_upper_bound)
 
-            # Check that the job was created with the proper amount of jitter in its scheduled time
+            # Check that the job was created with the proper amount of jitter in its
+            # scheduled time
             jobs = scheduler.data_store.get_jobs({job_id})
             assert jobs[0].jitter == timedelta(seconds=jitter)
             assert jobs[0].scheduled_fire_time == orig_start_time + timedelta(
