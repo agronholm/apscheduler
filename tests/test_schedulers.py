@@ -109,7 +109,7 @@ class TestAsyncScheduler:
             with pytest.raises(ScheduleLookupError):
                 await scheduler.get_schedule("dummyid")
 
-            trigger = DateTrigger(datetime.now(timezone.utc))
+            trigger = DateTrigger(datetime.now(timezone.utc) + timedelta(1))
             await scheduler.add_schedule(dummy_async_job, trigger, id="dummyid")
             schedule = await scheduler.get_schedule("dummyid")
             assert isinstance(schedule, Schedule)
