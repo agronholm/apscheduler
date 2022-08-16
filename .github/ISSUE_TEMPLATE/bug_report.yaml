@@ -1,0 +1,53 @@
+name: Bug Report
+description: File a bug report
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        If you observed a crash in the library, or saw unexpected behavior in it, report
+        your findings here. If you're not reasonably sure that it's not the intended
+        behavior, you should ask through one of the support venues listed on the
+        previous page.
+  - type: checkboxes
+    attributes:
+      label: Things to check first
+      options:
+        - label: >
+            I have checked that my issue does not already have a solution in the
+            [FAQ](https://apscheduler.readthedocs.io/en/master/faq.html)
+          required: true
+        - label: >
+            I have searched the existing issues and didn't find my bug already reported
+            there
+          required: true
+        - label: >
+            I have checked that my bug is still present in the latest release
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What version of APScheduler were you running?
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: >
+        Unless you are reporting a crash, tell us what you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: mwe
+    attributes:
+      label: How can we reproduce the bug?
+      description: >
+        In order to investigate the bug, we need to be able to reproduce it on our own.
+        Please create a
+        [minimum workable example](https://stackoverflow.com/help/minimal-reproducible-example)
+        that demonstrates the problem. List any third party libraries required for this,
+        but avoid using them unless absolutely necessary.
+    validations:
+      required: true
