@@ -10,7 +10,7 @@ import attrs
 from attrs.converters import optional
 
 from . import abc
-from ._converters import as_aware_datetime, as_uuid
+from ._converters import as_aware_datetime, as_enum, as_uuid
 from ._enums import JobOutcome
 from ._structures import JobResult
 from ._utils import qualified_name
@@ -19,6 +19,8 @@ from ._utils import qualified_name
 def serialize(inst, field, value):
     if isinstance(value, frozenset):
         return list(value)
+    elif isinstance(value, JobOutcome):
+        return value.name
 
     return value
 
@@ -261,7 +263,7 @@ class JobReleased(WorkerEvent):
 
     job_id: UUID = attrs.field(converter=as_uuid)
     worker_id: str
-    outcome: JobOutcome
+    outcome: JobOutcome = attrs.field(converter=as_enum(JobOutcome))
     exception_type: str | None = None
     exception_message: str | None = None
     exception_traceback: list[str] | None = None
@@ -285,3 +287,7 @@ class JobReleased(WorkerEvent):
             exception_message=exception_message,
             exception_traceback=exception_traceback,
         )
+
+    def marshal(self, serializer: abc.Serializer) -> dict[str, Any]:
+        marshalled = super().marshal(serializer)
+        return marshalled
