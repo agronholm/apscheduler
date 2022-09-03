@@ -130,10 +130,14 @@ class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
 
     async def start(self) -> None:
         await super().start()
-        self._send = cast(
-            MemoryObjectSendStream[str],
-            await self._task_group.start(self._listen_notifications),
-        )
+        try:
+            self._send = cast(
+                MemoryObjectSendStream[str],
+                await self._task_group.start(self._listen_notifications),
+            )
+        except BaseException:
+            await super().stop(force=True)
+            raise
 
     async def stop(self, *, force: bool = False) -> None:
         self._send.close()

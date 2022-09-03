@@ -80,7 +80,7 @@ class AsyncRedisEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
         pubsub = self.client.pubsub()
         try:
             await pubsub.subscribe(self.channel)
-        except Exception:
+        except BaseException:
             await self.stop(force=True)
             raise
 
