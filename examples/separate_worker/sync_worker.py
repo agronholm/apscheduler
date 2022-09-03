@@ -13,14 +13,22 @@ console on a one-second interval.
 
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy.future import create_engine
 
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.eventbrokers.redis import RedisEventBroker
 from apscheduler.workers.sync import Worker
 
+logging.basicConfig(level=logging.INFO)
 engine = create_engine("postgresql+psycopg2://postgres:secret@localhost/testdb")
 data_store = SQLAlchemyDataStore(engine)
 event_broker = RedisEventBroker.from_url("redis://localhost")
+
+# Uncomment the next two lines to use the MQTT event broker instead
+# from apscheduler.eventbrokers.mqtt import MQTTEventBroker
+# event_broker = MQTTEventBroker()
+
 worker = Worker(data_store, event_broker)
 worker.run_until_stopped()

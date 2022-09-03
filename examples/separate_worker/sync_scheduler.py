@@ -13,6 +13,8 @@ on a one-second interval.
 
 from __future__ import annotations
 
+import logging
+
 from example_tasks import tick
 from sqlalchemy.future import create_engine
 
@@ -21,9 +23,15 @@ from apscheduler.eventbrokers.redis import RedisEventBroker
 from apscheduler.schedulers.sync import Scheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
+logging.basicConfig(level=logging.INFO)
 engine = create_engine("postgresql+psycopg2://postgres:secret@localhost/testdb")
 data_store = SQLAlchemyDataStore(engine)
 event_broker = RedisEventBroker.from_url("redis://localhost")
+
+# Uncomment the next two lines to use the MQTT event broker instead
+# from apscheduler.eventbrokers.mqtt import MQTTEventBroker
+# event_broker = MQTTEventBroker()
+
 with Scheduler(data_store, event_broker, start_worker=False) as scheduler:
     scheduler.add_schedule(tick, IntervalTrigger(seconds=1), id="tick")
     scheduler.wait_until_stopped()
