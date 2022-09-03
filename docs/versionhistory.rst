@@ -14,6 +14,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   connection options instead of directly using the engine
 - Simplified the MQTT event broker by providing a default ``client`` instance if omitted
 - Fixed ``CancelledError`` being reported as a crash on Python 3.7
+- Fixed JSON/CBOR serialization of ``JobReleased`` events
 
 **4.0.0a1**
 
