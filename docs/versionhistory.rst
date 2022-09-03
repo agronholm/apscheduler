@@ -12,6 +12,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Replaced ``from_asyncpg_pool()`` with ``from_dsn()`` in the asyncpg event broker
 - Changed ``from_async_sqla_engine()`` in asyncpg event broker to only copy the
   connection options instead of directly using the engine
+- Simplified the MQTT event broker by providing a default ``client`` instance if omitted
 
 **4.0.0a1**
 
