@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import platform
+from asyncio import CancelledError
 from contextlib import AsyncExitStack
 from datetime import datetime, timezone
 from inspect import isawaitable
@@ -136,12 +137,21 @@ class AsyncWorker:
             except get_cancelled_exc_class():
                 pass
             except BaseException as exc:
-                self.logger.exception("Worker crashed")
                 exception = exc
-            else:
-                self.logger.info("Worker stopped")
+                raise
             finally:
                 self._state = RunState.stopped
+
+                # CancelledError is a subclass of Exception in Python 3.7
+                if not exception or isinstance(exception, CancelledError):
+                    self.logger.info("Worker stopped")
+                elif isinstance(exception, Exception):
+                    self.logger.exception("Worker crashed")
+                elif exception:
+                    self.logger.info(
+                        f"Worker stopped due to {exception.__class__.__name__}"
+                    )
+
                 with move_on_after(3, shield=True):
                     await self.event_broker.publish_local(
                         WorkerStopped(exception=exception)

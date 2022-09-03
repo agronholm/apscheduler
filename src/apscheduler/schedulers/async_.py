@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import platform
 import random
+from asyncio import CancelledError
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
@@ -500,14 +501,16 @@ class AsyncScheduler:
                 raise
             finally:
                 self._state = RunState.stopped
-                if isinstance(exception, Exception):
+
+                # CancelledError is a subclass of Exception in Python 3.7
+                if not exception or isinstance(exception, CancelledError):
+                    self.logger.info("Scheduler stopped")
+                elif isinstance(exception, Exception):
                     self.logger.exception("Scheduler crashed")
                 elif exception:
                     self.logger.info(
                         f"Scheduler stopped due to {exception.__class__.__name__}"
                     )
-                else:
-                    self.logger.info("Scheduler stopped")
 
                 with move_on_after(3, shield=True):
                     await self.event_broker.publish_local(

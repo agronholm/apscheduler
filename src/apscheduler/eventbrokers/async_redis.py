@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from asyncio import CancelledError
+
 import anyio
 import attrs
 import tenacity
@@ -105,8 +107,13 @@ class AsyncRedisEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
                     event = self.reconstitute_event(msg["data"])
                     if event is not None:
                         await self.publish_local(event)
-            except Exception:
-                self._logger.exception(f"{self.__class__.__name__} listener crashed")
+            except Exception as exc:
+                # CancelledError is a subclass of Exception in Python 3.7
+                if not isinstance(exc, CancelledError):
+                    self._logger.exception(
+                        f"{self.__class__.__name__} listener crashed"
+                    )
+
                 await pubsub.close()
                 raise
 

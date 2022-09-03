@@ -167,6 +167,7 @@ class Worker:
                 if start_future:
                     start_future.set_result(None)
 
+            exception: BaseException | None = None
             try:
                 while self._state is RunState.started:
                     available_slots = self.max_concurrent_jobs - len(self._running_jobs)
@@ -184,17 +185,20 @@ class Worker:
                     self._wakeup_event.wait()
                     self._wakeup_event = threading.Event()
             except BaseException as exc:
+                exception = exc
+                raise
+            finally:
                 self._state = RunState.stopped
-                if isinstance(exc, Exception):
+                if not exception:
+                    self.logger.info("Worker stopped")
+                elif isinstance(exception, Exception):
                     self.logger.exception("Worker crashed")
-                else:
-                    self.logger.info(f"Worker stopped due to {exc.__class__.__name__}")
+                elif exception:
+                    self.logger.info(
+                        f"Worker stopped due to {exception.__class__.__name__}"
+                    )
 
-                self.event_broker.publish_local(WorkerStopped(exception=exc))
-            else:
-                self._state = RunState.stopped
-                self.logger.info("Worker stopped")
-                self.event_broker.publish_local(WorkerStopped())
+                self.event_broker.publish_local(WorkerStopped(exception=exception))
 
     def _run_job(self, job: Job, func: Callable) -> None:
         try:
