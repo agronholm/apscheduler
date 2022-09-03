@@ -27,8 +27,9 @@ class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
     :param client: a (synchronous) Redis client
     :param serializer: the serializer used to (de)serialize events for transport
     :param channel: channel on which to send the messages
-    :param stop_check_interval: interval on which to poll for new messages (higher
-        values mean slower reaction time but less CPU use)
+    :param stop_check_interval: interval (in seconds) on which the channel listener
+        should check if it should stop (higher values mean slower reaction time but less
+        CPU use)
     """
 
     client: Redis | RedisCluster

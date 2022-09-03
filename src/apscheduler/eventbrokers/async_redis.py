@@ -32,9 +32,9 @@ class AsyncRedisEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
     :param channel: channel on which to send the messages
     :param retry_settings: Tenacity settings for retrying operations in case of a
         broker connectivity problem
-    :param stop_check_interval: interval on which the channel listener should check if
-        it
-        values mean slower reaction time but less CPU use)
+    :param stop_check_interval: interval (in seconds) on which the channel listener
+        should check if it should stop (higher values mean slower reaction time but less
+        CPU use)
     """
 
     client: Redis | RedisCluster
