@@ -8,6 +8,10 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - Added an async Redis event broker
 - Added automatic reconnection to the Redis event brokers (sync and async)
+- Added automatic reconnection to the asyncpg event broker
+- Replaced ``from_asyncpg_pool()`` with ``from_dsn()`` in the asyncpg event broker
+- Changed ``from_async_sqla_engine()`` in asyncpg event broker to only copy the
+  connection options instead of directly using the engine
 
 **4.0.0a1**
 

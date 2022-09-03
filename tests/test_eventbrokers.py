@@ -61,14 +61,12 @@ def mqtt_broker(serializer: Serializer) -> EventBroker:
 
 @pytest.fixture
 async def asyncpg_broker(serializer: Serializer) -> AsyncEventBroker:
-    from asyncpg import create_pool
-
     from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
 
-    pool = await create_pool("postgres://postgres:secret@localhost:5432/testdb")
-    broker = AsyncpgEventBroker.from_asyncpg_pool(pool, serializer=serializer)
+    broker = AsyncpgEventBroker.from_dsn(
+        "postgres://postgres:secret@localhost:5432/testdb", serializer=serializer
+    )
     yield broker
-    await pool.close()
 
 
 @pytest.fixture(
