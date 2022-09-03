@@ -64,6 +64,7 @@ async def scheduler_middleware(scope, receive, send):
         event_broker = AsyncpgEventBroker.from_async_sqla_engine(engine)
         async with AsyncScheduler(data_store, event_broker) as scheduler:
             await scheduler.add_schedule(tick, IntervalTrigger(seconds=1), id="tick")
+            await scheduler.start_in_background()
             await original_app(scope, receive, send)
     else:
         await original_app(scope, receive, send)

@@ -20,4 +20,4 @@ def tick():
 
 with Scheduler() as scheduler:
     scheduler.add_schedule(tick, IntervalTrigger(seconds=1))
-    scheduler.wait_until_stopped()
+    scheduler.run_until_stopped()

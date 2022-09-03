@@ -34,4 +34,4 @@ event_broker = RedisEventBroker.from_url("redis://localhost")
 
 with Scheduler(data_store, event_broker, start_worker=False) as scheduler:
     scheduler.add_schedule(tick, IntervalTrigger(seconds=1), id="tick")
-    scheduler.wait_until_stopped()
+    scheduler.run_until_stopped()

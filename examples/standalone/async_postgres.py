@@ -32,7 +32,7 @@ async def main():
     data_store = AsyncSQLAlchemyDataStore(engine)
     async with AsyncScheduler(data_store) as scheduler:
         await scheduler.add_schedule(tick, IntervalTrigger(seconds=1), id="tick")
-        await scheduler.wait_until_stopped()
+        await scheduler.run_until_stopped()
 
 
 run(main())

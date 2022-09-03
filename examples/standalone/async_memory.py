@@ -22,7 +22,7 @@ def tick():
 async def main():
     async with AsyncScheduler() as scheduler:
         await scheduler.add_schedule(tick, IntervalTrigger(seconds=1))
-        await scheduler.wait_until_stopped()
+        await scheduler.run_until_stopped()
 
 
 run(main())

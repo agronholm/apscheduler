@@ -40,7 +40,7 @@ async def main():
         data_store, event_broker, start_worker=False
     ) as scheduler:
         await scheduler.add_schedule(tick, IntervalTrigger(seconds=1), id="tick")
-        await scheduler.wait_until_stopped()
+        await scheduler.run_until_stopped()
 
 
 logging.basicConfig(level=logging.INFO)

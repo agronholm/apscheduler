@@ -45,6 +45,7 @@ class SchedulerMiddleware:
                 await self.scheduler.add_schedule(
                     tick, IntervalTrigger(seconds=1), id="tick"
                 )
+                await self.scheduler.start_in_background()
                 await self.app(scope, receive, send)
         else:
             await self.app(scope, receive, send)

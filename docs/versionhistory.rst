@@ -6,6 +6,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- **BREAKING** Changed the scheduler API to always require a call to either
+  ``run_until_stopped()`` or ``start_in_background()`` to start the scheduler (using it
+  as a context manager is no longer enough)
 - Added an async Redis event broker
 - Added automatic reconnection to the Redis event brokers (sync and async)
 - Added automatic reconnection to the asyncpg event broker

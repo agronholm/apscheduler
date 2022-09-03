@@ -3,10 +3,12 @@ from __future__ import annotations
 import os
 import platform
 import random
+import sys
 from asyncio import CancelledError
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger, getLogger
+from types import TracebackType
 from typing import Any, Callable, Iterable, Mapping, cast
 from uuid import UUID, uuid4
 
@@ -39,6 +41,11 @@ from ..eventbrokers.async_local import LocalAsyncEventBroker
 from ..marshalling import callable_to_ref
 from ..workers.async_ import AsyncWorker
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 _microsecond_delta = timedelta(microseconds=1)
 _zero_timedelta = timedelta()
 
@@ -59,6 +66,8 @@ class AsyncScheduler:
 
     _state: RunState = attrs.field(init=False, default=RunState.stopped)
     _task_group: TaskGroup | None = attrs.field(init=False, default=None)
+    _exit_stack: AsyncExitStack | None = attrs.field(init=False, default=None)
+    _services_initialized: bool = attrs.field(init=False, default=False)
     _wakeup_event: anyio.Event = attrs.field(init=False)
     _wakeup_deadline: datetime | None = attrs.field(init=False, default=None)
     _schedule_added_subscription: Subscription = attrs.field(init=False)
@@ -67,16 +76,42 @@ class AsyncScheduler:
         if not self.identity:
             self.identity = f"{platform.node()}-{os.getpid()}-{id(self)}"
 
-    async def __aenter__(self):
-        self._task_group = create_task_group()
-        await self._task_group.__aenter__()
-        await self._task_group.start(self._run)
+    async def __aenter__(self: Self) -> Self:
+        self._exit_stack = AsyncExitStack()
+        await self._exit_stack.__aenter__()
+        await self._ensure_services_ready(self._exit_stack)
+        self._task_group = await self._exit_stack.enter_async_context(
+            create_task_group()
+        )
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException],
+        exc_val: BaseException,
+        exc_tb: TracebackType,
+    ) -> None:
         await self.stop()
-        await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
+        await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
         self._task_group = None
+
+    async def _ensure_services_ready(self, exit_stack: AsyncExitStack) -> None:
+        """Ensure that the data store and event broker have been initialized."""
+        if not self._services_initialized:
+            self._services_initialized = True
+            exit_stack.callback(setattr, self, "_services_initialized", False)
+
+            # Initialize the event broker
+            await self.event_broker.start()
+            exit_stack.push_async_exit(
+                lambda *exc_info: self.event_broker.stop(force=exc_info[0] is not None)
+            )
+
+            # Initialize the data store
+            await self.data_store.start(self.event_broker)
+            exit_stack.push_async_exit(
+                lambda *exc_info: self.data_store.stop(force=exc_info[0] is not None)
+            )
 
     def _schedule_added_or_modified(self, event: Event) -> None:
         event_ = cast("ScheduleAdded | ScheduleUpdated", event)
@@ -342,7 +377,18 @@ class AsyncScheduler:
         ):
             await event.wait()
 
-    async def _run(self, *, task_status: TaskStatus = TASK_STATUS_IGNORED) -> None:
+    async def start_in_background(self) -> None:
+        if self._task_group is None:
+            raise RuntimeError(
+                "The scheduler must be used as an async context manager (async with "
+                "...) in order to be startable in the background"
+            )
+
+        await self._task_group.start(self.run_until_stopped)
+
+    async def run_until_stopped(
+        self, *, task_status: TaskStatus = TASK_STATUS_IGNORED
+    ) -> None:
         if self._state is not RunState.stopped:
             raise RuntimeError(
                 f'Cannot start the scheduler when it is in the "{self._state}" '
@@ -352,18 +398,7 @@ class AsyncScheduler:
         self._state = RunState.starting
         async with AsyncExitStack() as exit_stack:
             self._wakeup_event = anyio.Event()
-
-            # Initialize the event broker
-            await self.event_broker.start()
-            exit_stack.push_async_exit(
-                lambda *exc_info: self.event_broker.stop(force=exc_info[0] is not None)
-            )
-
-            # Initialize the data store
-            await self.data_store.start(self.event_broker)
-            exit_stack.push_async_exit(
-                lambda *exc_info: self.data_store.stop(force=exc_info[0] is not None)
-            )
+            await self._ensure_services_ready(exit_stack)
 
             # Wake up the scheduler if the data store emits a significant schedule event
             exit_stack.enter_context(

@@ -22,6 +22,7 @@ from apscheduler import (
     ScheduleAdded,
     ScheduleLookupError,
     ScheduleRemoved,
+    SchedulerStarted,
     SchedulerStopped,
     Task,
     TaskAdded,
@@ -72,6 +73,7 @@ class TestAsyncScheduler:
         async with AsyncScheduler(start_worker=False) as scheduler:
             scheduler.event_broker.subscribe(listener)
             await scheduler.add_schedule(dummy_async_job, trigger, id="foo")
+            await scheduler.start_in_background()
             with fail_after(3):
                 await event.wait()
 
@@ -85,6 +87,10 @@ class TestAsyncScheduler:
         assert isinstance(received_event, ScheduleAdded)
         assert received_event.schedule_id == "foo"
         # assert received_event.task_id == 'task_id'
+
+        # Then the scheduler was started
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, SchedulerStarted)
 
         # Then that schedule was processed and a job was added for it
         received_event = received_events.pop(0)
@@ -166,6 +172,7 @@ class TestAsyncScheduler:
             assert schedule.max_jitter == timedelta(seconds=max_jitter)
 
             # Wait for the job to be added
+            await scheduler.start_in_background()
             with fail_after(3):
                 await job_added_event.wait()
 
@@ -185,7 +192,10 @@ class TestAsyncScheduler:
             job_id = await scheduler.add_job(
                 dummy_async_job, kwargs={"delay": 0.2}, result_expiration_time=5
             )
-            result = await scheduler.get_job_result(job_id)
+            await scheduler.start_in_background()
+            with fail_after(3):
+                result = await scheduler.get_job_result(job_id)
+
             assert result.job_id == job_id
             assert result.outcome is JobOutcome.success
             assert result.return_value == "returnvalue"
@@ -197,6 +207,7 @@ class TestAsyncScheduler:
                 lambda evt: event.set(), {JobReleased}, one_shot=True
             )
             job_id = await scheduler.add_job(dummy_async_job)
+            await scheduler.start_in_background()
             with fail_after(3):
                 await event.wait()
 
@@ -210,7 +221,10 @@ class TestAsyncScheduler:
                 kwargs={"delay": 0.2, "fail": True},
                 result_expiration_time=5,
             )
-            result = await scheduler.get_job_result(job_id)
+            await scheduler.start_in_background()
+            with fail_after(3):
+                result = await scheduler.get_job_result(job_id)
+
             assert result.job_id == job_id
             assert result.outcome is JobOutcome.error
             assert isinstance(result.exception, RuntimeError)
@@ -221,6 +235,7 @@ class TestAsyncScheduler:
         async with AsyncScheduler() as scheduler:
             scheduler.event_broker.subscribe(lambda evt: event.set(), one_shot=True)
             job_id = await scheduler.add_job(dummy_sync_job, kwargs={"fail": True})
+            await scheduler.start_in_background()
             with fail_after(3):
                 await event.wait()
 
@@ -231,15 +246,18 @@ class TestAsyncScheduler:
         async with AsyncScheduler() as scheduler:
             job_id = await scheduler.add_job(dummy_async_job, kwargs={"delay": 0.2})
             with pytest.raises(JobLookupError):
-                await scheduler.get_job_result(job_id, wait=False)
+                with fail_after(3):
+                    await scheduler.get_job_result(job_id, wait=False)
 
     async def test_run_job_success(self) -> None:
         async with AsyncScheduler() as scheduler:
+            await scheduler.start_in_background()
             return_value = await scheduler.run_job(dummy_async_job)
             assert return_value == "returnvalue"
 
     async def test_run_job_failure(self) -> None:
         async with AsyncScheduler() as scheduler:
+            await scheduler.start_in_background()
             with pytest.raises(RuntimeError, match="failing as requested"):
                 await scheduler.run_job(dummy_async_job, kwargs={"fail": True})
 
@@ -271,7 +289,10 @@ class TestAsyncScheduler:
                 result_expiration_time=timedelta(seconds=10),
             )
             await scheduler.data_store.add_job(job)
-            result = await scheduler.get_job_result(job.id)
+            await scheduler.start_in_background()
+            with fail_after(3):
+                result = await scheduler.get_job_result(job.id)
+
             if result.outcome is JobOutcome.error:
                 raise result.exception
             else:
@@ -302,6 +323,7 @@ class TestSyncScheduler:
         with Scheduler(start_worker=False) as scheduler:
             scheduler.event_broker.subscribe(listener)
             scheduler.add_schedule(dummy_sync_job, trigger, id="foo")
+            scheduler.start_in_background()
             event.wait(3)
 
         # First, a task was added
@@ -313,6 +335,10 @@ class TestSyncScheduler:
         received_event = received_events.pop(0)
         assert isinstance(received_event, ScheduleAdded)
         assert received_event.schedule_id == "foo"
+
+        # Then the scheduler was started
+        received_event = received_events.pop(0)
+        assert isinstance(received_event, SchedulerStarted)
 
         # Then that schedule was processed and a job was added for it
         received_event = received_events.pop(0)
@@ -389,6 +415,7 @@ class TestSyncScheduler:
             assert schedule.max_jitter == timedelta(seconds=max_jitter)
 
             # Wait for the job to be added
+            scheduler.start_in_background()
             job_added_event.wait(3)
 
             fake_uniform.assert_called_once_with(0, expected_upper_bound)
@@ -405,6 +432,7 @@ class TestSyncScheduler:
     def test_get_job_result_success(self) -> None:
         with Scheduler() as scheduler:
             job_id = scheduler.add_job(dummy_sync_job, result_expiration_time=5)
+            scheduler.start_in_background()
             result = scheduler.get_job_result(job_id)
             assert result.outcome is JobOutcome.success
             assert result.return_value == "returnvalue"
@@ -416,6 +444,7 @@ class TestSyncScheduler:
                 lambda evt: event.set(), {JobReleased}, one_shot=True
             ):
                 job_id = scheduler.add_job(dummy_sync_job)
+                scheduler.start_in_background()
                 event.wait(3)
 
             with pytest.raises(JobLookupError):
@@ -426,6 +455,7 @@ class TestSyncScheduler:
             job_id = scheduler.add_job(
                 dummy_sync_job, kwargs={"fail": True}, result_expiration_time=5
             )
+            scheduler.start_in_background()
             result = scheduler.get_job_result(job_id)
             assert result.job_id == job_id
             assert result.outcome is JobOutcome.error
@@ -438,6 +468,7 @@ class TestSyncScheduler:
             lambda evt: event.set(), one_shot=True
         ):
             job_id = scheduler.add_job(dummy_sync_job, kwargs={"fail": True})
+            scheduler.start_in_background()
             event.wait(3)
             with pytest.raises(JobLookupError):
                 scheduler.get_job_result(job_id, wait=False)
@@ -445,16 +476,19 @@ class TestSyncScheduler:
     def test_get_job_result_nowait_not_yet_ready(self) -> None:
         with Scheduler() as scheduler:
             job_id = scheduler.add_job(dummy_sync_job, kwargs={"delay": 0.2})
+            scheduler.start_in_background()
             with pytest.raises(JobLookupError):
                 scheduler.get_job_result(job_id, wait=False)
 
     def test_run_job_success(self) -> None:
         with Scheduler() as scheduler:
+            scheduler.start_in_background()
             return_value = scheduler.run_job(dummy_sync_job)
             assert return_value == "returnvalue"
 
     def test_run_job_failure(self) -> None:
         with Scheduler() as scheduler:
+            scheduler.start_in_background()
             with pytest.raises(RuntimeError, match="failing as requested"):
                 scheduler.run_job(dummy_sync_job, kwargs={"fail": True})
 
@@ -484,6 +518,7 @@ class TestSyncScheduler:
                 result_expiration_time=timedelta(seconds=10),
             )
             scheduler.data_store.add_job(job)
+            scheduler.start_in_background()
             result = scheduler.get_job_result(job.id)
             if result.outcome is JobOutcome.error:
                 raise result.exception
@@ -496,6 +531,7 @@ class TestSyncScheduler:
                 datetime.now(timezone.utc) + timedelta(milliseconds=100)
             )
             scheduler.add_schedule(scheduler.stop, trigger)
+            scheduler.start_in_background()
             scheduler.wait_until_stopped()
 
         # This should be a no-op
