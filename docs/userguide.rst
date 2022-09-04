@@ -83,11 +83,11 @@ Running the scheduler
 =====================
 
 The scheduler can run either in the foreground, blocking on a call to
-:meth:`~apscheduler.schedulers.sync.Scheduler.run_until_complete`, or in the background
+:meth:`~apscheduler.schedulers.sync.Scheduler.run_until_stopped`, or in the background
 where it does its work while letting the rest of the program run.
 
 If the only intent of your program is to run scheduled tasks, then you should start the
-scheduler with :meth:`~apscheduler.schedulers.sync.Scheduler.run_until_complete`. But if
+scheduler with :meth:`~apscheduler.schedulers.sync.Scheduler.run_until_stopped`. But if
 you need to do other things too, then you should call
 :meth:`~apscheduler.schedulers.sync.Scheduler.start_in_background` before running the
 rest of the program.
