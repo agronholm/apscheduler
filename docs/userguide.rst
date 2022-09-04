@@ -79,6 +79,88 @@ An *event broker* delivers published events to all interested parties. It facili
 the cooperation between schedulers and workers by notifying them of new or updated
 schedules or jobs.
 
+Running the scheduler
+=====================
+
+The scheduler can run either in the foreground, blocking on a call to
+:meth:`~apscheduler.schedulers.sync.Scheduler.run_until_complete`, or in the background
+where it does its work while letting the rest of the program run.
+
+If the only intent of your program is to run scheduled tasks, then you should start the
+scheduler with :meth:`~apscheduler.schedulers.sync.Scheduler.run_until_complete`. But if
+you need to do other things too, then you should call
+:meth:`~apscheduler.schedulers.sync.Scheduler.start_in_background` before running the
+rest of the program.
+
+The scheduler can be used as a context manager. This initializes the underlying data
+store and event broker, allowing you to use the scheduler for manipulating tasks and
+schedules prior to actually starting it. Exiting the context manager will shut down
+the scheduler and its underlying services. This mode of operation is mandatory for the
+asynchronous scheduler when running it in the background, but it is preferred for the
+synchronous scheduler too.
+
+As a special consideration (for use with WSGI_ based web frameworks), the synchronous
+scheduler can be run in the background without being used as a context manager. In this
+scenario, the scheduler adds an :mod:`atexit` hook that will perform an orderly shutdown
+of the scheduler before the process terminates.
+
+.. _WSGI: https://wsgi.readthedocs.io/en/latest/what.html
+
+.. warning:: If you start the scheduler in the background and let the script finish
+   execution, the scheduler will automatically shut down as well.
+
+.. tabs::
+
+   .. code-tab:: python Synchronous (run in foreground)
+
+      from apscheduler.schedulers.sync import Scheduler
+
+      scheduler = Scheduler()
+      # Add schedules, configure tasks here
+      scheduler.run_until_stopped()
+
+   .. code-tab:: python Synchronous (background thread; preferred method)
+
+      from apscheduler.schedulers.sync import Scheduler
+
+      with Scheduler() as scheduler:
+          # Add schedules, configure tasks here
+          scheduler.start_in_background()
+
+   .. code-tab:: python Synchronous (background thread; WSGI alternative)
+
+      from apscheduler.schedulers.sync import Scheduler
+
+      scheduler = Scheduler()
+      # Add schedules, configure tasks here
+      scheduler.start_in_background()
+
+   .. code-tab:: python Asynchronous (run in foreground)
+
+      import asyncio
+
+      from apscheduler.schedulers.async_ import AsyncScheduler
+
+      async def main():
+          async with AsyncScheduler() as scheduler:
+              # Add schedules, configure tasks here
+              await scheduler.run_until_stopped()
+
+     asyncio.run(main())
+
+   .. code-tab:: python Asynchronous (background task)
+
+      import asyncio
+
+      from apscheduler.schedulers.async_ import AsyncScheduler
+
+      async def main():
+          async with AsyncScheduler() as scheduler:
+              # Add schedules, configure tasks here
+              await scheduler.start_in_background()
+
+     asyncio.run(main())
+
 Scheduling tasks
 ================
 
