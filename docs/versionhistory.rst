@@ -9,10 +9,11 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** Changed the scheduler API to always require a call to either
   ``run_until_stopped()`` or ``start_in_background()`` to start the scheduler (using it
   as a context manager is no longer enough)
+- **BREAKING** Replaced ``from_asyncpg_pool()`` with ``from_dsn()`` in the asyncpg event
+  broker
 - Added an async Redis event broker
 - Added automatic reconnection to the Redis event brokers (sync and async)
 - Added automatic reconnection to the asyncpg event broker
-- Replaced ``from_asyncpg_pool()`` with ``from_dsn()`` in the asyncpg event broker
 - Changed ``from_async_sqla_engine()`` in asyncpg event broker to only copy the
   connection options instead of directly using the engine
 - Simplified the MQTT event broker by providing a default ``client`` instance if omitted
