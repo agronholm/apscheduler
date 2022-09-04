@@ -18,15 +18,18 @@ from apscheduler import (
     CoalescePolicy,
     ConflictPolicy,
     Event,
+    Job,
     JobOutcome,
+    JobResult,
+    Schedule,
     ScheduleAdded,
     ScheduleRemoved,
     ScheduleUpdated,
+    Task,
     TaskAdded,
     TaskLookupError,
     TaskUpdated,
 )
-from apscheduler._structures import Job, JobResult, Schedule, Task
 from apscheduler.abc import AsyncDataStore, AsyncEventBroker, DataStore, EventBroker
 from apscheduler.datastores.async_adapter import AsyncDataStoreAdapter
 from apscheduler.datastores.memory import MemoryDataStore

@@ -15,10 +15,10 @@ from apscheduler import (
     JobAdded,
     JobOutcome,
     JobReleased,
+    Task,
     TaskAdded,
     WorkerStopped,
 )
-from apscheduler._structures import Task
 from apscheduler.datastores.memory import MemoryDataStore
 from apscheduler.workers.async_ import AsyncWorker
 from apscheduler.workers.sync import Worker
