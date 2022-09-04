@@ -145,12 +145,24 @@ class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
         self._logger.info("Stopped event broker")
 
     async def _listen_notifications(self, *, task_status=TASK_STATUS_IGNORED) -> None:
-        def callback(
+        conn: Connection
+
+        def listen_callback(
             connection: Connection, pid: int, channel: str, payload: str
         ) -> None:
             event = self.reconstitute_event_str(payload)
             if event is not None:
                 self._task_group.start_soon(self.publish_local, event)
+
+        async def close_connection() -> None:
+            if not conn.is_closed():
+                with move_on_after(3, shield=True):
+                    await conn.close()
+
+        async def unsubscribe() -> None:
+            if not conn.is_closed():
+                with move_on_after(3, shield=True):
+                    await conn.remove_listener(self.channel, listen_callback)
 
         task_started_sent = False
         send, receive = create_memory_object_stream(100, str)
@@ -160,13 +172,11 @@ class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
                     with attempt:
                         conn = await self.connection_factory()
 
-                exit_stack.push_async_callback(conn.close)
+                exit_stack.push_async_callback(close_connection)
                 self._logger.info("Connection established")
                 try:
-                    await conn.add_listener(self.channel, callback)
-                    exit_stack.push_async_callback(
-                        conn.remove_listener, self.channel, callback
-                    )
+                    await conn.add_listener(self.channel, listen_callback)
+                    exit_stack.push_async_callback(unsubscribe)
                     if not task_started_sent:
                         task_status.started(send)
                         task_started_sent = True
