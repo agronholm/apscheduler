@@ -4,7 +4,7 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
-**UNRELEASED**
+**4.0.0a2**
 
 - **BREAKING** Changed the scheduler API to always require a call to either
   ``run_until_stopped()`` or ``start_in_background()`` to start the scheduler (using it
