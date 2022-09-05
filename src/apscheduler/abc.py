@@ -158,7 +158,7 @@ class AsyncEventBroker(EventSource):
         """Publish an event, but only to local subscribers."""
 
 
-class DataStore:
+class DataStore(metaclass=ABCMeta):
     @abstractmethod
     def start(self, event_broker: EventBroker) -> None:
         pass
@@ -320,7 +320,7 @@ class DataStore:
         """
 
 
-class AsyncDataStore:
+class AsyncDataStore(metaclass=ABCMeta):
     """Asynchronous version of :class:`DataStore`. Expected to work on asyncio."""
 
     @abstractmethod
