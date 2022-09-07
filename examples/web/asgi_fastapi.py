@@ -58,7 +58,7 @@ async def root(request: Request) -> Response:
 engine = create_async_engine("postgresql+asyncpg://postgres:secret@localhost/testdb")
 data_store = AsyncSQLAlchemyDataStore(engine)
 event_broker = AsyncpgEventBroker.from_async_sqla_engine(engine)
-scheduler = AsyncScheduler()
+scheduler = AsyncScheduler(data_store, event_broker)
 middleware = [Middleware(SchedulerMiddleware, scheduler=scheduler)]
 app = FastAPI(middleware=middleware)
 app.add_api_route("/", root)

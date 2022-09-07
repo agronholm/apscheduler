@@ -1,7 +1,7 @@
 """
 Example demonstrating use with WSGI (raw WSGI application, no framework).
 
-Requires the "postgresql" service to be running.
+Requires the "postgresql" and "redis" services to be running.
 To install prerequisites: pip install sqlalchemy psycopg2 uwsgi
 To run: uwsgi -T --http :8000 --wsgi-file wsgi_noframework.py
 
@@ -16,6 +16,7 @@ from datetime import datetime
 from sqlalchemy.future import create_engine
 
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
+from apscheduler.eventbrokers.redis import RedisEventBroker
 from apscheduler.schedulers.sync import Scheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -36,6 +37,7 @@ def application(environ, start_response):
 
 engine = create_engine("postgresql+psycopg2://postgres:secret@localhost/testdb")
 data_store = SQLAlchemyDataStore(engine)
-scheduler = Scheduler(data_store)
+event_broker = RedisEventBroker.from_url("redis://localhost")
+scheduler = Scheduler(data_store, event_broker)
 scheduler.add_schedule(tick, IntervalTrigger(seconds=1), id="tick")
 scheduler.start_in_background()

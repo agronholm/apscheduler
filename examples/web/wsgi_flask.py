@@ -1,7 +1,7 @@
 """
 Example demonstrating use with WSGI (raw WSGI application, no framework).
 
-Requires the "postgresql" service to be running.
+Requires the "postgresql" and "redis" services to be running.
 To install prerequisites: pip install sqlalchemy psycopg2 flask uwsgi
 To run: uwsgi -T --http :8000 --wsgi-file wsgi_flask.py
 
