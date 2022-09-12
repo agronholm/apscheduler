@@ -81,7 +81,7 @@ def psycopg2_store() -> DataStore:
 
     engine = create_engine("postgresql+psycopg2://postgres:secret@localhost/testdb")
     try:
-        yield SQLAlchemyDataStore(engine, start_from_scratch=True)
+        yield SQLAlchemyDataStore(engine, schema="alter", start_from_scratch=True)
     finally:
         engine.dispose()
 

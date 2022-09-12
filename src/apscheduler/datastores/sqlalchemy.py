@@ -100,12 +100,13 @@ class _BaseSQLAlchemyDataStore:
 
     def __attrs_post_init__(self) -> None:
         # Generate the table definitions
+        prefix = f"{self.schema}." if self.schema else ""
         self._metadata = self.get_table_definitions()
-        self.t_metadata = self._metadata.tables["metadata"]
-        self.t_tasks = self._metadata.tables["tasks"]
-        self.t_schedules = self._metadata.tables["schedules"]
-        self.t_jobs = self._metadata.tables["jobs"]
-        self.t_job_results = self._metadata.tables["job_results"]
+        self.t_metadata = self._metadata.tables[prefix + "metadata"]
+        self.t_tasks = self._metadata.tables[prefix + "tasks"]
+        self.t_schedules = self._metadata.tables[prefix + "schedules"]
+        self.t_jobs = self._metadata.tables[prefix + "jobs"]
+        self.t_job_results = self._metadata.tables[prefix + "job_results"]
 
         # Find out if the dialect supports UPDATE...RETURNING
         update = self.t_jobs.update().returning(self.t_jobs.c.id)
@@ -137,7 +138,7 @@ class _BaseSQLAlchemyDataStore:
             interval_type = EmulatedInterval
             tags_type = JSON
 
-        metadata = MetaData()
+        metadata = MetaData(schema=self.schema)
         Table("metadata", metadata, Column("schema_version", Integer, nullable=False))
         Table(
             "tasks",

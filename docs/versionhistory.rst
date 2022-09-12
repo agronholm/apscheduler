@@ -4,6 +4,10 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+**UNRELEASED**
+
+- Fixed the ``schema`` parameter in ``SQLAlchemyDataStore`` not being applied
+
 **4.0.0a2**
 
 - **BREAKING** Changed the scheduler API to always require a call to either
