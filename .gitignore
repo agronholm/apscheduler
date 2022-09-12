@@ -3,6 +3,7 @@
 .idea/
 .coverage
 .cache/
+.mypy_cache
 .pytest_cache/
 .tox/
 .eggs/
@@ -12,4 +13,5 @@ dist/
 docs/_build/
 build/
 virtualenv/
+venv*/
 example.sqlite
