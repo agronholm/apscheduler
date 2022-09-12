@@ -7,9 +7,6 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 import attrs
-import tenacity.stop
-import tenacity.wait
-from attrs.validators import instance_of
 
 from ._converters import as_enum, as_timedelta
 from ._enums import CoalescePolicy, JobOutcome
@@ -43,6 +40,7 @@ class Task:
 
     id: str
     func: Callable = attrs.field(eq=False, order=False)
+    executor: str = attrs.field(eq=False)
     max_running_jobs: int | None = attrs.field(eq=False, order=False, default=None)
     misfire_grace_time: timedelta | None = attrs.field(
         eq=False, order=False, default=None
@@ -339,22 +337,3 @@ class JobResult:
             )
 
         return cls(**marshalled)
-
-
-@attrs.define(kw_only=True, frozen=True)
-class RetrySettings:
-    """
-    Settings for retrying an operation with Tenacity.
-
-    :param stop: defines when to stop trying
-    :param wait: defines how long to wait between attempts
-    """
-
-    stop: tenacity.stop.stop_base = attrs.field(
-        validator=instance_of(tenacity.stop.stop_base),
-        default=tenacity.stop_after_delay(60),
-    )
-    wait: tenacity.wait.wait_base = attrs.field(
-        validator=instance_of(tenacity.wait.wait_base),
-        default=tenacity.wait_exponential(min=0.5, max=20),
-    )

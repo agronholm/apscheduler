@@ -6,6 +6,30 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- **BREAKING** Workers can no longer be run independently. Instead, you can run a
+  scheduler that only starts a worker but does not process schedules by passing
+  ``process_schedules=False`` to the scheduler
+- **BREAKING** The synchronous interfaces for event brokers and data stores have been
+  removed. Synchronous libraries can still be used to implement these services through
+  the use of ``anyio.to_thread.run_sync()``.
+- **BREAKING** The ``current_worker`` context variable has been removed
+- **BREAKING** The ``current_scheduler`` context variable is now specified to only
+  contain the currently running instance of a **synchronous** scheduler
+  (``apscheduler.schedulers.sync.Scheduler``). The asynchronous scheduler instance can
+  be fetched from the new ``current_async_scheduler`` context variable, and will always
+  be available when a scheduler is running in the current context, while
+  ``current_scheduler`` is only available when the synchronous wrapper is being run.
+- **BREAKING** Changed the initialization of data stores and event brokers to use a
+  single ``start()`` method that accepts an ``AsyncExitStack`` (and, depending on the
+  interface, other arguments too)
+- **BREAKING** Added a concept of "job executors". This determines how the task function
+  is executed once picked up by a worker. Several data structures and scheduler methods
+  have a new field/parameter for this, ``job_executor``. This addition requires database
+  schema changes too.
+- Added the ability to run jobs in worker processes, courtesy of the ``processpool``
+  executor
+- The synchronous scheduler now runs an asyncio event loop in a thread, acting as a
+  façade for ``AsyncScheduler`
 - Fixed the ``schema`` parameter in ``SQLAlchemyDataStore`` not being applied
 
 **4.0.0a2**

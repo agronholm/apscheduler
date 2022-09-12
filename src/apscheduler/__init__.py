@@ -41,14 +41,14 @@ __all__ = [
     "WorkerEvent",
     "WorkerStarted",
     "WorkerStopped",
+    "current_async_scheduler",
     "current_scheduler",
-    "current_worker",
     "current_job",
 ]
 
 from typing import Any
 
-from ._context import current_job, current_scheduler, current_worker
+from ._context import current_async_scheduler, current_job, current_scheduler
 from ._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState
 from ._events import (
     DataStoreEvent,
@@ -84,7 +84,8 @@ from ._exceptions import (
     SerializationError,
     TaskLookupError,
 )
-from ._structures import Job, JobInfo, JobResult, RetrySettings, Schedule, Task
+from ._retry import RetrySettings
+from ._structures import Job, JobInfo, JobResult, Schedule, Task
 
 # Re-export imports, so they look like they live directly in this package
 value: Any
