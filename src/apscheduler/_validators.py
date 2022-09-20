@@ -4,7 +4,6 @@ import sys
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any
 
-import attrs
 from attrs import Attribute
 from tzlocal import get_localzone
 
@@ -179,8 +178,3 @@ def require_state_version(
         raise DeserializationError(
             'Missing "version" key in the serialized state'
         ) from exc
-
-
-def positive_integer(inst, field: attrs.Attribute, value) -> None:
-    if value <= 0:
-        raise ValueError(f"{field} must be a positive integer")

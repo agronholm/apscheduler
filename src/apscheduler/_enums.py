@@ -3,6 +3,22 @@ from __future__ import annotations
 from enum import Enum, auto
 
 
+class SchedulerRole(Enum):
+    """
+    Specifies what the scheduler should be doing when it's running.
+
+    Values:
+
+    * ``scheduler``: processes due schedules, but won't run jobs
+    * ``worker``: runs due jobs, but won't process schedules
+    * ``both``: processes schedules and runs due jobs
+    """
+
+    scheduler = auto()
+    worker = auto()
+    both = auto()
+
+
 class RunState(Enum):
     """
     Used to track the running state of schedulers and workers.

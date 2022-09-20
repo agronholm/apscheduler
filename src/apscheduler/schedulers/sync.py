@@ -17,7 +17,7 @@ from anyio import start_blocking_portal
 from anyio.from_thread import BlockingPortal
 
 from .. import Event, current_scheduler
-from .._enums import CoalescePolicy, ConflictPolicy, RunState
+from .._enums import CoalescePolicy, ConflictPolicy, RunState, SchedulerRole
 from .._structures import JobResult, Schedule
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
 from .async_ import AsyncScheduler
@@ -37,8 +37,7 @@ class Scheduler:
         event_broker: EventBroker | None = None,
         *,
         identity: str | None = None,
-        process_schedules: bool = True,
-        start_worker: bool = True,
+        role: SchedulerRole = SchedulerRole.both,
         job_executors: Mapping[str, JobExecutor] | None = None,
         default_job_executor: str | None = None,
         logger: Logger | None = None,
@@ -54,8 +53,7 @@ class Scheduler:
 
         self._async_scheduler = AsyncScheduler(
             identity=identity,
-            process_schedules=process_schedules,
-            process_jobs=start_worker,
+            role=role,
             job_executors=job_executors,
             default_job_executor=default_job_executor,
             logger=logger or logging.getLogger(__name__),
@@ -78,12 +76,8 @@ class Scheduler:
         return self._async_scheduler.identity
 
     @property
-    def process_schedules(self) -> bool:
-        return self._async_scheduler.process_schedules
-
-    @property
-    def start_worker(self) -> bool:
-        return self._async_scheduler.process_jobs
+    def role(self) -> SchedulerRole:
+        return self._async_scheduler.role
 
     @property
     def job_executors(self) -> MutableMapping[str, JobExecutor]:

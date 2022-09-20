@@ -206,34 +206,8 @@ class SchedulerStopped(SchedulerEvent):
     exception: BaseException | None = None
 
 
-#
-# Worker events
-#
-
-
 @attrs.define(kw_only=True, frozen=True)
-class WorkerEvent(Event):
-    """Base class for events originating from a worker."""
-
-
-@attrs.define(kw_only=True, frozen=True)
-class WorkerStarted(WorkerEvent):
-    """Signals that a worker has started."""
-
-
-@attrs.define(kw_only=True, frozen=True)
-class WorkerStopped(WorkerEvent):
-    """
-    Signals that a worker has stopped.
-
-    :ivar exception: the exception that caused the worker to stop, if any
-    """
-
-    exception: BaseException | None = None
-
-
-@attrs.define(kw_only=True, frozen=True)
-class JobAcquired(WorkerEvent):
+class JobAcquired(SchedulerEvent):
     """
     Signals that a worker has acquired a job for processing.
 
@@ -246,7 +220,7 @@ class JobAcquired(WorkerEvent):
 
 
 @attrs.define(kw_only=True, frozen=True)
-class JobReleased(WorkerEvent):
+class JobReleased(SchedulerEvent):
     """
     Signals that a worker has finished processing of a job.
 

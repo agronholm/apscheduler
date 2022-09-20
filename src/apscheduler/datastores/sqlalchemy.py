@@ -33,6 +33,7 @@ from sqlalchemy.engine import URL, Dialect, Result
 from sqlalchemy.exc import CompileError, IntegrityError, InterfaceError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 from sqlalchemy.future import Connection, Engine
+from sqlalchemy.sql import ClauseElement, Executable
 from sqlalchemy.sql.ddl import DropTable
 from sqlalchemy.sql.elements import BindParameter, literal
 
@@ -197,7 +198,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     async def _execute(
         self,
         conn: Connection | AsyncConnection,
-        statement,
+        statement: ClauseElement | Executable,
         parameters: Sequence | None = None,
     ):
         if isinstance(conn, AsyncConnection):

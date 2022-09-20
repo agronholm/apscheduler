@@ -31,6 +31,7 @@ __all__ = [
     "ScheduleRemoved",
     "ScheduleDeserializationFailed",
     "SchedulerEvent",
+    "SchedulerRole",
     "SchedulerStarted",
     "SchedulerStopped",
     "Task",
@@ -38,9 +39,6 @@ __all__ = [
     "TaskLookupError",
     "TaskUpdated",
     "TaskRemoved",
-    "WorkerEvent",
-    "WorkerStarted",
-    "WorkerStopped",
     "current_async_scheduler",
     "current_scheduler",
     "current_job",
@@ -49,7 +47,7 @@ __all__ = [
 from typing import Any
 
 from ._context import current_async_scheduler, current_job, current_scheduler
-from ._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState
+from ._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState, SchedulerRole
 from ._events import (
     DataStoreEvent,
     Event,
@@ -68,9 +66,6 @@ from ._events import (
     TaskAdded,
     TaskRemoved,
     TaskUpdated,
-    WorkerEvent,
-    WorkerStarted,
-    WorkerStopped,
 )
 from ._exceptions import (
     ConflictingIdError,

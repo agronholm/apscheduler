@@ -6,9 +6,11 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
-- **BREAKING** Workers can no longer be run independently. Instead, you can run a
-  scheduler that only starts a worker but does not process schedules by passing
-  ``process_schedules=False`` to the scheduler
+- **BREAKING** Workers were merged into schedulers. As the ``Worker`` and
+  ``AsyncWorker`` classes have been removed, you now need to pass
+  ``role=SchedulerRole.scheduler`` to the scheduler to prevent it from processing due
+  jobs. The worker event classes (``WorkerEvent``, ``WorkerStarted``, ``WorkerStopped``)
+  have also been removed.
 - **BREAKING** The synchronous interfaces for event brokers and data stores have been
   removed. Synchronous libraries can still be used to implement these services through
   the use of ``anyio.to_thread.run_sync()``.

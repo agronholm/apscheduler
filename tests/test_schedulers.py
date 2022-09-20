@@ -30,6 +30,7 @@ from apscheduler import (
     current_job,
     current_scheduler,
 )
+from apscheduler._enums import SchedulerRole
 from apscheduler.schedulers.async_ import AsyncScheduler
 from apscheduler.schedulers.sync import Scheduler
 from apscheduler.triggers.date import DateTrigger
@@ -62,6 +63,7 @@ def dummy_sync_job(delay: float = 0, fail: bool = False) -> str:
 class TestAsyncScheduler:
     async def test_schedule_job(self) -> None:
         def listener(received_event: Event) -> None:
+            print(received_event)
             received_events.append(received_event)
             if isinstance(received_event, ScheduleRemoved):
                 event.set()
@@ -69,7 +71,7 @@ class TestAsyncScheduler:
         received_events: list[Event] = []
         event = anyio.Event()
         trigger = DateTrigger(datetime.now(timezone.utc))
-        async with AsyncScheduler(process_jobs=False) as scheduler:
+        async with AsyncScheduler(role=SchedulerRole.scheduler) as scheduler:
             scheduler.event_broker.subscribe(listener)
             await scheduler.add_schedule(dummy_async_job, trigger, id="foo")
             await scheduler.start_in_background()
@@ -110,7 +112,7 @@ class TestAsyncScheduler:
         assert not received_events
 
     async def test_add_get_schedule(self) -> None:
-        async with AsyncScheduler(process_jobs=False) as scheduler:
+        async with AsyncScheduler(role=SchedulerRole.scheduler) as scheduler:
             with pytest.raises(ScheduleLookupError):
                 await scheduler.get_schedule("dummyid")
 
@@ -120,7 +122,7 @@ class TestAsyncScheduler:
             assert isinstance(schedule, Schedule)
 
     async def test_add_get_schedules(self) -> None:
-        async with AsyncScheduler(process_jobs=False) as scheduler:
+        async with AsyncScheduler(role=SchedulerRole.scheduler) as scheduler:
             assert await scheduler.get_schedules() == []
 
             schedule1_id = await scheduler.add_schedule(
@@ -160,7 +162,7 @@ class TestAsyncScheduler:
         orig_start_time = datetime.now(timezone) - timedelta(seconds=1)
         fake_uniform = mocker.patch("random.uniform")
         fake_uniform.configure_mock(side_effect=lambda a, b: jitter)
-        async with AsyncScheduler(process_jobs=False) as scheduler:
+        async with AsyncScheduler(role=SchedulerRole.scheduler) as scheduler:
             trigger = IntervalTrigger(seconds=3, start_time=orig_start_time)
             job_added_event = anyio.Event()
             scheduler.event_broker.subscribe(job_added_listener, {JobAdded})
@@ -315,7 +317,7 @@ class TestSyncScheduler:
         received_events: list[Event] = []
         event = threading.Event()
         trigger = DateTrigger(datetime.now(timezone.utc))
-        with Scheduler(start_worker=False) as scheduler:
+        with Scheduler(role=SchedulerRole.scheduler) as scheduler:
             scheduler.event_broker.subscribe(listener)
             scheduler.add_schedule(dummy_sync_job, trigger, id="foo")
             scheduler.start_in_background()
@@ -351,17 +353,17 @@ class TestSyncScheduler:
         assert isinstance(received_event, SchedulerStopped)
 
     def test_add_get_schedule(self) -> None:
-        with Scheduler(start_worker=False) as scheduler:
+        with Scheduler(role=SchedulerRole.scheduler) as scheduler:
             with pytest.raises(ScheduleLookupError):
                 scheduler.get_schedule("dummyid")
 
             trigger = DateTrigger(datetime.now(timezone.utc))
-            scheduler.add_schedule(dummy_async_job, trigger, id="dummyid")
+            scheduler.add_schedule(dummy_sync_job, trigger, id="dummyid")
             schedule = scheduler.get_schedule("dummyid")
             assert isinstance(schedule, Schedule)
 
     def test_add_get_schedules(self) -> None:
-        with Scheduler(start_worker=False) as scheduler:
+        with Scheduler(role=SchedulerRole.scheduler) as scheduler:
             assert scheduler.get_schedules() == []
 
             schedule1_id = scheduler.add_schedule(
@@ -399,12 +401,12 @@ class TestSyncScheduler:
         orig_start_time = datetime.now(timezone) - timedelta(seconds=1)
         fake_uniform = mocker.patch("random.uniform")
         fake_uniform.configure_mock(side_effect=lambda a, b: jitter)
-        with Scheduler(start_worker=False) as scheduler:
+        with Scheduler(role=SchedulerRole.scheduler) as scheduler:
             trigger = IntervalTrigger(seconds=3, start_time=orig_start_time)
             job_added_event = threading.Event()
             scheduler.event_broker.subscribe(job_added_listener, {JobAdded})
             schedule_id = scheduler.add_schedule(
-                dummy_async_job, trigger, max_jitter=max_jitter
+                dummy_sync_job, trigger, max_jitter=max_jitter
             )
             schedule = scheduler.get_schedule(schedule_id)
             assert schedule.max_jitter == timedelta(seconds=max_jitter)
