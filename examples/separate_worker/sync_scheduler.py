@@ -18,6 +18,7 @@ import logging
 from example_tasks import tick
 from sqlalchemy.future import create_engine
 
+from apscheduler import SchedulerRole
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.eventbrokers.redis import RedisEventBroker
 from apscheduler.schedulers.sync import Scheduler
@@ -32,6 +33,6 @@ event_broker = RedisEventBroker.from_url("redis://localhost")
 # from apscheduler.eventbrokers.mqtt import MQTTEventBroker
 # event_broker = MQTTEventBroker()
 
-with Scheduler(data_store, event_broker, start_worker=False) as scheduler:
+with Scheduler(data_store, event_broker, role=SchedulerRole.scheduler) as scheduler:
     scheduler.add_schedule(tick, IntervalTrigger(seconds=1), id="tick")
     scheduler.run_until_stopped()

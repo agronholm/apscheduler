@@ -21,7 +21,7 @@ from starlette.responses import PlainTextResponse, Response
 from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from apscheduler.datastores.async_sqlalchemy import AsyncSQLAlchemyDataStore
+from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
 from apscheduler.schedulers.async_ import AsyncScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -57,7 +57,7 @@ async def root(request: Request) -> Response:
 
 
 engine = create_async_engine("postgresql+asyncpg://postgres:secret@localhost/testdb")
-data_store = AsyncSQLAlchemyDataStore(engine)
+data_store = SQLAlchemyDataStore(engine)
 event_broker = AsyncpgEventBroker.from_async_sqla_engine(engine)
 scheduler = AsyncScheduler(data_store, event_broker)
 routes = [Route("/", root)]

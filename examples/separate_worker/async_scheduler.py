@@ -19,6 +19,7 @@ import logging
 from example_tasks import tick
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from apscheduler import SchedulerRole
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
 from apscheduler.schedulers.async_ import AsyncScheduler
@@ -37,7 +38,7 @@ async def main():
     # event_broker = RedisEventBroker.from_url("redis://localhost")
 
     async with AsyncScheduler(
-        data_store, event_broker, process_jobs=False
+        data_store, event_broker, role=SchedulerRole.scheduler
     ) as scheduler:
         await scheduler.add_schedule(tick, IntervalTrigger(seconds=1), id="tick")
         await scheduler.run_until_stopped()

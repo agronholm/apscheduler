@@ -17,6 +17,7 @@ import logging
 
 from sqlalchemy.future import create_engine
 
+from apscheduler import SchedulerRole
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.eventbrokers.redis import RedisEventBroker
 from apscheduler.schedulers.sync import Scheduler
@@ -30,5 +31,5 @@ event_broker = RedisEventBroker.from_url("redis://localhost")
 # from apscheduler.eventbrokers.mqtt import MQTTEventBroker
 # event_broker = MQTTEventBroker()
 
-with Scheduler(data_store, event_broker, process_schedules=False) as scheduler:
+with Scheduler(data_store, event_broker, role=SchedulerRole.worker) as scheduler:
     scheduler.run_until_stopped()

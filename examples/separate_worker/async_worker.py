@@ -18,6 +18,7 @@ import logging
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from apscheduler import SchedulerRole
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
 from apscheduler.schedulers.async_ import AsyncScheduler
@@ -34,7 +35,7 @@ async def main():
     # from apscheduler.eventbrokers.redis import RedisEventBroker
     # event_broker = RedisEventBroker.from_url("redis://localhost")
 
-    scheduler = AsyncScheduler(data_store, event_broker, process_schedules=False)
+    scheduler = AsyncScheduler(data_store, event_broker, role=SchedulerRole.worker)
     await scheduler.run_until_stopped()
 
 
