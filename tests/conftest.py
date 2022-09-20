@@ -157,7 +157,7 @@ def psycopg2_store() -> DataStore:
 
 
 @pytest.fixture
-def mysql_store() -> DataStore:
+def pymysql_store() -> DataStore:
     from sqlalchemy.future import create_engine
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
@@ -209,6 +209,16 @@ async def asyncmy_store() -> DataStore:
         pytest.param(
             lazy_fixture("asyncmy_store"),
             id="asyncmy",
+            marks=[pytest.mark.external_service],
+        ),
+        pytest.param(
+            lazy_fixture("psycopg2_store"),
+            id="psycopg2",
+            marks=[pytest.mark.external_service],
+        ),
+        pytest.param(
+            lazy_fixture("pymysql_store"),
+            id="pymysql",
             marks=[pytest.mark.external_service],
         ),
         pytest.param(
