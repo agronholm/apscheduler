@@ -141,13 +141,17 @@ def sqlite_store() -> DataStore:
 
 @pytest.fixture
 def psycopg2_store() -> DataStore:
+    from sqlalchemy import text
     from sqlalchemy.future import create_engine
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 
     engine = create_engine("postgresql+psycopg2://postgres:secret@localhost/testdb")
     try:
-        yield SQLAlchemyDataStore(engine, schema="alter", start_from_scratch=True)
+        with engine.begin() as conn:
+            conn.execute(text("CREATE SCHEMA IF NOT EXISTS psycopg2"))
+
+        yield SQLAlchemyDataStore(engine, schema="psycopg2", start_from_scratch=True)
     finally:
         engine.dispose()
 
