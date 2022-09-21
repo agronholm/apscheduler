@@ -544,7 +544,7 @@ class AsyncScheduler:
         wakeup_event = anyio.Event()
         wakeup_deadline: datetime | None = None
 
-        async def schedule_added_or_modified(self, event: Event) -> None:
+        async def schedule_added_or_modified(event: Event) -> None:
             event_ = cast("ScheduleAdded | ScheduleUpdated", event)
             if not wakeup_deadline or (
                 event_.next_fire_time and event_.next_fire_time < wakeup_deadline
