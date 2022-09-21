@@ -1,14 +1,12 @@
 """
-Example demonstrating the separation of scheduler and worker.
-This script runs the scheduler part. You need to be running both this and the worker
-script simultaneously in order for the scheduled task to be run.
+This is an example demonstrating the use of the scheduler as only an interface to the
+scheduling system. This script adds or updates a single schedule and then exits. To see
+the schedule acted on, you need to run the corresponding worker script (either
+async_worker.py or sync_worker.py).
 
-Requires the "postgresql" service to be running.
+This script requires the "postgresql" service to be running.
 To install prerequisites: pip install sqlalchemy asyncpg
 To run: python async_scheduler.py
-
-When run together with async_worker.py, it should print a line on the console
-on a one-second interval.
 """
 
 from __future__ import annotations
@@ -19,7 +17,6 @@ import logging
 from example_tasks import tick
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from apscheduler import SchedulerRole
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
 from apscheduler.schedulers.async_ import AsyncScheduler
@@ -37,11 +34,9 @@ async def main():
     # from apscheduler.eventbrokers.redis import RedisEventBroker
     # event_broker = RedisEventBroker.from_url("redis://localhost")
 
-    async with AsyncScheduler(
-        data_store, event_broker, role=SchedulerRole.scheduler
-    ) as scheduler:
+    async with AsyncScheduler(data_store, event_broker) as scheduler:
         await scheduler.add_schedule(tick, IntervalTrigger(seconds=1), id="tick")
-        await scheduler.run_until_stopped()
+        # Note: we don't actually start the scheduler here!
 
 
 logging.basicConfig(level=logging.INFO)

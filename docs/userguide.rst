@@ -27,25 +27,25 @@ Introduction
 
 The core concept of APScheduler is to give the user the ability to queue Python code to
 be executed, either as soon as possible, later at a given time, or on a recurring
-schedule. To make this happen, APScheduler has two types of components: *schedulers* and
-*workers*.
+schedule.
 
-A scheduler is the user-facing interface of the system. When running, it asks its
-associated *data store* for *schedules* due to be run. For each such schedule, it then
-uses the schedule's associated *trigger* to calculate run times up to the present. For
-each run time, the scheduler creates a *job* in the data store, containing the
-designated run time and the identifier of the schedule it was derived from.
+The *scheduler* is the user-facing interface of the system. When it's running, it does
+two things concurrently. The first is processing *schedules*. From its  *data store*,
+it fetches *schedules* due to be run. For each such schedule, it then uses the
+schedule's *trigger* to calculate run times up to the present. For each run time, the
+scheduler creates a *job* in the data store, containing the designated run time and the
+identifier of the schedule it was derived from.
 
-A worker asks the data store for jobs, and then starts running those jobs. If the data
-store signals that it has new jobs, the worker will try to acquire those jobs if it is
-capable of accommodating more jobs. When a worker completes a job, it will then also ask
-the data store for as many more jobs as it can handle.
+The second role of the scheduler is running jobs. The scheduler asks the data store for
+jobs, and then starts running those jobs. If the data store signals that it has new
+jobs, the scheduler will try to acquire those jobs if it is capable of accommodating
+more. When a scheduler completes a job, it will then also ask the data store for as many
+more jobs as it can handle.
 
-By default, each scheduler starts an internal worker to simplify use, but in more
-complex use cases you may wish to run them in separate processes, or even on separate
-nodes. For this, you'll need both a persistent data store and an *event broker*, shared
-by both the scheduler(s) and worker(s). For more information, see the section below on
-running schedulers and workers separately.
+By default, schedulers operate in both of these roles, but can be configured to only
+process schedules or run jobs if deemed necessary. It may even be desirable to use the
+scheduler only as an interface to an external data store while leaving schedule and job
+processing to other scheduler instances running elsewhere.
 
 Basic concepts / glossary
 =========================
@@ -68,12 +68,6 @@ when a scheduler processes it, or it can be directly created by the user if they
 directly request a task to be run.
 
 A *data store* is used to store *schedules* and *jobs*, and to keep track of tasks.
-
-A *scheduler* fetches schedules due for their next runs from its associated data store
-and then creates new jobs accordingly.
-
-A *worker* fetches jobs from its data store, runs them and pushes the results back to
-the data store.
 
 An *event broker* delivers published events to all interested parties. It facilitates
 the cooperation between schedulers and workers by notifying them of new or updated
@@ -291,11 +285,11 @@ Controlling how much a job can be started late
 ----------------------------------------------
 
 Some tasks are time sensitive, and should not be run at all if it fails to be started on
-time (like, for example, if the worker(s) were down while they were supposed to be
+time (like, for example, if the scheduler(s) were down while they were supposed to be
 running the scheduled jobs). You can control this time limit with the
 ``misfire_grace_time`` option passed to
-:meth:`~apscheduler.schedulers.sync.Scheduler.add_schedule`. A worker that acquires the
-job then checks if the current time is later than the deadline
+:meth:`~apscheduler.schedulers.sync.Scheduler.add_schedule`. A scheduler that acquires
+the job then checks if the current time is later than the deadline
 (run time + misfire grace time) and if it is, it skips the execution of the job and
 releases it with the outcome of :data:`~apscheduler.JobOutcome.`
 
@@ -334,11 +328,10 @@ affects the newly queued job.
 Context variables
 =================
 
-Schedulers and workers provide certain `context variables`_ available to the tasks being
-run:
+Schedulers provide certain `context variables`_ available to the tasks being run:
 
-* The current scheduler: :data:`~apscheduler.current_scheduler`
-* The current worker: :data:`~apscheduler.current_worker`
+* The current (synchronous) scheduler: :data:`~apscheduler.current_scheduler`
+* The current asynchronous scheduler: :data:`~apscheduler.current_async_scheduler`
 * Information about the job being currently run: :data:`~apscheduler.current_job`
 
 Here's an example::
@@ -359,9 +352,9 @@ Here's an example::
 Subscribing to events
 =====================
 
-Schedulers and workers have the ability to notify listeners when some event occurs in
-the scheduler system. Examples of such events would be schedulers or workers starting up
-or shutting down, or schedules or jobs being created or removed from the data store.
+Schedulers have the ability to notify listeners when some event occurs in the scheduler
+system. Examples of such events would be schedulers or workers starting up or shutting
+down, or schedules or jobs being created or removed from the data store.
 
 To listen to events, you need a callable that takes a single positional argument which
 is the event object. Then, you need to decide which events you're interested in:
@@ -375,7 +368,7 @@ is the event object. Then, you need to decide which events you're interested in:
         def listener(event: Event) -> None:
             print(f"Received {event.__class__.__name__}")
 
-        scheduler.events.subscribe(listener, {JobAcquired, JobReleased})
+        scheduler.subscribe(listener, {JobAcquired, JobReleased})
 
     .. code-tab:: python Asynchronous
 
@@ -384,7 +377,7 @@ is the event object. Then, you need to decide which events you're interested in:
         async def listener(event: Event) -> None:
             print(f"Received {event.__class__.__name__}")
 
-        scheduler.events.subscribe(listener, {JobAcquired, JobReleased})
+        scheduler.subscribe(listener, {JobAcquired, JobReleased})
 
 This example subscribes to the :class:`~apscheduler.JobAcquired` and
 :class:`~apscheduler.JobAcquired` event types. The callback will receive an event of
@@ -456,65 +449,33 @@ Using multiple schedulers
 There are several situations in which you would want to run several schedulers against
 the same data store at once:
 
-* Running a server application (usually a web app) with multiple workers
+* Running a server application (usually a web app) with multiple worker processes
 * You need fault tolerance (scheduling will continue even if a node or process running
   a scheduler goes down)
 
-When you have multiple schedulers (or workers; see the next section) running at once,
-they need to be able to coordinate their efforts so that the schedules don't get
-processed more than once and the schedulers know when to wake up even if another
-scheduler added the next due schedule to the data store. To this end, a shared
-*event broker* must be configured.
+When you have multiple schedulers running at once, they need to be able to coordinate
+their efforts so that the schedules don't get processed more than once and the
+schedulers know when to wake up even if another scheduler added the next due schedule to
+the data store. To this end, a shared *event broker* must be configured.
 
 .. seealso:: You can find practical examples of data store sharing in the
     :file:`examples/web` directory.
 
-Running schedulers and workers separately
------------------------------------------
+Using a scheduler without running it
+------------------------------------
 
-Some deployment scenarios may warrant running workers separately from the schedulers.
-For example, if you want to set up a scalable worker pool, you can run just the workers
-in that pool and the schedulers elsewhere without the internal workers. To prevent the
-scheduler from starting an internal worker, you need to pass it the
-``start_worker=False`` option.
+Some deployment scenarios may warrant the use of a scheduler for only interfacing with
+an external data store, for things like configuring tasks, adding schedules or queuing
+jobs. One such practical use case is a web application that needs to run heavy
+computations elsewhere so they don't cause performance issues with the web application
+itself.
 
-Starting a worker without a scheduler looks very similar to the procedure to start a
-scheduler:
+You can then run one or more schedulers against the same data store and event broker
+elsewhere where they don't disturb the web application. These schedulers will do all the
+heavy lifting like processing schedules and running jobs.
 
-.. tabs::
-
-    .. code-tab: python Synchronous
-
-        from apscheduler.workers.sync import Worker
-
-
-        data_store = ...
-        event_broker = ...
-        worker = Worker(data_store, event_broker)
-        worker.run_until_stopped()
-
-    .. code-tab: python asyncio
-
-        import asyncio
-
-        from apscheduler.workers.async_ import AsyncWorker
-
-
-        async def main():
-            data_store = ...
-            event_broker = ...
-            async with AsyncWorker(data_store, event_broker) as worker:
-                await worker.wait_until_stopped()
-
-        asyncio.run(main())
-
-There is one significant matter to take into consideration if you do this. The scheduler
-object, usually available from :data:`~apscheduler.current_scheduler`, will not be set
-since there is no scheduler running in the current thread/task.
-
-.. seealso:: A practical example of separate schedulers and workers can be found in the
+.. seealso:: A practical example of this separation of concerns can be found in the
     :file:`examples/separate_worker` directory.
-
 
 .. _troubleshooting:
 
