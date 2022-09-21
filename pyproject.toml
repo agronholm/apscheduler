@@ -41,16 +41,19 @@ cbor = ["cbor2 >= 5.0"]
 mongodb = ["pymongo >= 4"]
 mqtt = ["paho-mqtt >= 1.5"]
 redis = ["redis >= 4.0"]
-sqlalchemy = ["sqlalchemy >= 1.4.22"]
+sqlalchemy = [
+    "sqlalchemy >= 1.4.22",
+    "greenlet >= 2.0.0a2; python_version >= '3.11'"
+]
 test = [
-    "asyncpg >= 0.20",
-    "asyncmy >= 0.2.5",
-    "cbor2 >= 5.0",
+    "APScheduler[cbor,mongodb,mqtt,redis,sqlalchemy]",
+    "APScheduler[asyncpg]; python_implementation == 'CPython'",
+    "asyncmy >= 0.2.5; python_implementation == 'CPython'",
     "coverage",
     "freezegun",
-    "greenlet >= 2.0.0a2; python_version >= '3.11'",
     "paho-mqtt >= 1.5",
-    "psycopg2",
+    "psycopg2; python_implementation == 'CPython'",
+    "psycopg2cffi; python_implementation != 'CPython'",
     "pymongo >= 4",
     "pymysql[rsa]",
     "pytest >= 5.0",
@@ -109,6 +112,9 @@ isolated_build = true
 [testenv]
 extras = test
 commands = coverage run -m pytest {posargs}
+
+[testenv:pypy3]
+commands = pytest {posargs}
 
 [testenv:pyright]
 deps = pyright

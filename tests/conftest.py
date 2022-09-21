@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import platform
 import sys
 from contextlib import AsyncExitStack
 from tempfile import TemporaryDirectory
@@ -71,6 +72,7 @@ def mqtt_broker(serializer: Serializer) -> EventBroker:
 
 @pytest.fixture
 async def asyncpg_broker(serializer: Serializer) -> EventBroker:
+    pytest.importorskip("asyncpg", reason="asyncpg is not installed")
     from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
 
     broker = AsyncpgEventBroker.from_dsn(
@@ -146,7 +148,12 @@ def psycopg2_store() -> DataStore:
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 
-    engine = create_engine("postgresql+psycopg2://postgres:secret@localhost/testdb")
+    if platform.python_implementation() == "CPython":
+        dialect = "psycopg2"
+    else:
+        dialect = "psycopg2cffi"
+
+    engine = create_engine(f"postgresql+{dialect}://postgres:secret@localhost/testdb")
     try:
         with engine.begin() as conn:
             conn.execute(text("CREATE SCHEMA IF NOT EXISTS psycopg2"))
@@ -171,6 +178,7 @@ def pymysql_store() -> DataStore:
 
 @pytest.fixture
 async def asyncpg_store() -> DataStore:
+    pytest.importorskip("asyncpg", reason="asyncpg is not installed")
     from sqlalchemy.ext.asyncio import create_async_engine
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
@@ -186,6 +194,7 @@ async def asyncpg_store() -> DataStore:
 
 @pytest.fixture
 async def asyncmy_store() -> DataStore:
+    pytest.importorskip("asyncmy", reason="asyncmy is not installed")
     from sqlalchemy.ext.asyncio import create_async_engine
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
