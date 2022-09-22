@@ -19,10 +19,6 @@ The concept of a *job* has been split into :class:`Task`, :class:`Schedule` and
 :class:`Job`. See the documentation of each class (and read the tutorial) to understand
 their roles.
 
-**Executors** have been replaced by *workers*. Workers were designed to be able to run
-independently from schedulers. Workers now *pull* jobs from the data store instead of
-the scheduler pushing jobs directly to them.
-
 **Data stores**, previously called *job stores*, have been redesigned to work with
 multiple running schedulers and workers, both for purposes of scalability and fault
 tolerance. Many data store implementations were dropped because they were either too
