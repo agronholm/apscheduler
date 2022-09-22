@@ -84,6 +84,14 @@ class Scheduler:
         return self._async_scheduler.job_executors
 
     @property
+    def default_job_executor(self) -> str:
+        return self._async_scheduler.default_job_executor
+
+    @default_job_executor.setter
+    def default_job_executor(self, value: str) -> None:
+        self._async_scheduler.default_job_executor = value
+
+    @property
     def state(self) -> RunState:
         """The current running state of the scheduler."""
         return self._async_scheduler.state
