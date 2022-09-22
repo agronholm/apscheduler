@@ -32,6 +32,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Added support for Python 3.12
 - Added the ability to run jobs in worker processes, courtesy of the ``processpool``
   executor
+- Added the ability to run jobs in the Qt event loop via the ``qt`` executor
 - The synchronous scheduler now runs an asyncio event loop in a thread, acting as a
   façade for ``AsyncScheduler``
 - Fixed the ``schema`` parameter in ``SQLAlchemyDataStore`` not being applied
