@@ -76,7 +76,6 @@ class MongoDBDataStore(BaseExternalDataStore):
     ]
     _job_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Job)]
 
-    _local_tasks: dict[str, Task] = attrs.field(init=False, factory=dict)
     _temporary_failure_exceptions = (ConnectionFailure,)
 
     def __attrs_post_init__(self) -> None:
@@ -142,7 +141,6 @@ class MongoDBDataStore(BaseExternalDataStore):
                     upsert=True,
                 )
 
-        self._local_tasks[task.id] = task
         if previous:
             await self._event_broker.publish(TaskUpdated(task_id=task.id))
         else:
@@ -154,27 +152,21 @@ class MongoDBDataStore(BaseExternalDataStore):
                 if not self._tasks.find_one_and_delete({"_id": task_id}):
                     raise TaskLookupError(task_id)
 
-        del self._local_tasks[task_id]
         await self._event_broker.publish(TaskRemoved(task_id=task_id))
 
     async def get_task(self, task_id: str) -> Task:
-        try:
-            return self._local_tasks[task_id]
-        except KeyError:
-            for attempt in self._retry():
-                with attempt:
-                    document = self._tasks.find_one(
-                        {"_id": task_id}, projection=self._task_attrs
-                    )
+        for attempt in self._retry():
+            with attempt:
+                document = self._tasks.find_one(
+                    {"_id": task_id}, projection=self._task_attrs
+                )
 
-            if not document:
-                raise TaskLookupError(task_id)
+        if not document:
+            raise TaskLookupError(task_id)
 
-            document["id"] = document.pop("id")
-            task = self._local_tasks[task_id] = Task.unmarshal(
-                self.serializer, document
-            )
-            return task
+        document["id"] = document.pop("_id")
+        task = Task.unmarshal(self.serializer, document)
+        return task
 
     async def get_tasks(self) -> list[Task]:
         for attempt in self._retry():
