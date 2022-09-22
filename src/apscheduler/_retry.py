@@ -44,7 +44,7 @@ class RetryMixin:
     retry_settings: RetrySettings = attrs.field(default=RetrySettings())
 
     @property
-    def _temporary_failure_exceptions(self) -> tuple[type[Exception]]:
+    def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:
         """
         Tuple of exception classes which indicate that the operation should be retried.
 

@@ -76,7 +76,9 @@ class MongoDBDataStore(BaseExternalDataStore):
     ]
     _job_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Job)]
 
-    _temporary_failure_exceptions = (ConnectionFailure,)
+    @property
+    def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:
+        return (ConnectionFailure,)
 
     def __attrs_post_init__(self) -> None:
         type_registry = TypeRegistry(

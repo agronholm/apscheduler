@@ -206,6 +206,14 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         else:
             return await to_thread.run_sync(conn.execute, statement, parameters)
 
+    @property
+    def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:
+        # SQlite does not use the network, so it doesn't have "temporary" failures
+        if self.engine.dialect == "sqlite":
+            return ()
+
+        return InterfaceError, OSError
+
     def get_table_definitions(self) -> MetaData:
         if self.engine.dialect.name == "postgresql":
             from sqlalchemy.dialects import postgresql
