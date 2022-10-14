@@ -174,7 +174,7 @@ def run_expression(expression, expected, start_time, serializer):
                 '2021-03-28T09:00:00+02:00',
                 '2021-03-28T10:00:00+02:00'
             ],
-            datetime(2021, 3, 28)
+            (2021, 3, 28)
         ),
         (
             '0 0 0/1 ? * * *',
@@ -190,7 +190,7 @@ def run_expression(expression, expected, start_time, serializer):
                 '2021-10-31T09:00:00+01:00',
                 '2021-10-31T10:00:00+01:00'
             ],
-            datetime(2021, 10, 31)
+            (2021, 10, 31)
         ),
         (
             [
@@ -214,7 +214,7 @@ def run_expression(expression, expected, start_time, serializer):
                 '2021-09-27T00:00:00+02:00',
                 '2021-09-28T00:00:00+02:00'
             ],
-            datetime(2021, 9, 18)
+            (2021, 9, 18)
         ),
         (
             '0 0 0 ? * 3/1 *',
@@ -230,7 +230,7 @@ def run_expression(expression, expected, start_time, serializer):
                 '2021-10-01T00:00:00+02:00',
                 '2021-10-02T00:00:00+02:00'
             ],
-            datetime(2021, 9, 18)
+            (2021, 9, 18)
         ),
         (
             '0 0 0 ? * 1/7 *',
@@ -246,7 +246,7 @@ def run_expression(expression, expected, start_time, serializer):
                 '2021-11-14T00:00:00+01:00',
                 '2021-11-21T00:00:00+01:00'
             ],
-            datetime(2021, 9, 18)
+            (2021, 9, 18)
         ),
         (
             [
@@ -268,7 +268,7 @@ def run_expression(expression, expected, start_time, serializer):
                 '2021-10-18T00:00:00+02:00',
                 '2021-10-19T00:00:00+02:00'
             ],
-            datetime(2021, 9, 18)
+            (2021, 9, 18)
         ),
         (
             [
@@ -288,7 +288,7 @@ def run_expression(expression, expected, start_time, serializer):
                 '2021-10-18T00:00:00+02:00',
                 '2021-10-20T00:00:00+02:00'
             ],
-            datetime(2021, 9, 18)
+            (2021, 9, 18)
         ),
         (
             [
@@ -307,7 +307,7 @@ def run_expression(expression, expected, start_time, serializer):
                 '2021-10-03T00:00:00+02:00',
                 '2021-10-05T00:00:00+02:00'
             ],
-            datetime(2021, 9, 18)
+            (2021, 9, 18)
         ),
         (
                 [
@@ -326,7 +326,7 @@ def run_expression(expression, expected, start_time, serializer):
                     '2021-10-08T00:00:00+02:00',
                     '2021-10-11T00:00:00+02:00'
                 ],
-                datetime(2021, 9, 18)
+                (2021, 9, 18)
         ),
         (
                 [
@@ -347,7 +347,7 @@ def run_expression(expression, expected, start_time, serializer):
                     '2022-06-06T00:00:00+02:00',
                     '2022-07-04T00:00:00+02:00'
                 ],
-                datetime(2021, 9, 18)
+                (2021, 9, 18)
         ),
         (
                 [
@@ -368,7 +368,7 @@ def run_expression(expression, expected, start_time, serializer):
                     '2022-05-26T00:00:00+02:00',
                     '2022-06-30T00:00:00+02:00'
                 ],
-                datetime(2021, 9, 18)
+                (2021, 9, 18)
         ),
         (
             [
@@ -389,7 +389,7 @@ def run_expression(expression, expected, start_time, serializer):
                 '2022-06-08T00:00:00+02:00',
                 '2022-07-13T00:00:00+02:00'
             ],
-            datetime(2021, 9, 18)
+            (2021, 9, 18)
         ),
         (
                 [
@@ -410,7 +410,7 @@ def run_expression(expression, expected, start_time, serializer):
                     '2021-10-18T00:00:00+02:00',
                     '2021-10-20T00:00:00+02:00'
                 ],
-                datetime(2021, 9, 18)
+                (2021, 9, 18)
         )
     ],
     ids=[
@@ -440,8 +440,9 @@ def run_expression(expression, expected, start_time, serializer):
 def test_crontab_trigger_1(expression, expected, start_time, serializer, timezone):
     
     if start_time == 'default':
-        start_time = datetime(2021, 9, 19)
-    start_time = start_time.astimezone(timezone)
+        start_time = datetime(2021, 9, 19, tzinfo=timezone)
+    else:
+        start_time = datetime(*start_time, tzinfo=timezone)
     
     run_expression(
         expression=expression,
@@ -524,3 +525,10 @@ def test_trigger_exception(expression, expected):
     for key, val in expected:
         
         assert getattr(exc, key) == val
+
+
+if __name__ == "__main__":
+
+    import pytest
+
+    pytest.main([__file__, "-s"])

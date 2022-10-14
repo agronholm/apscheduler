@@ -1,5 +1,6 @@
-from tzlocal import get_localzone
 from datetime import datetime
+
+from tzlocal import get_localzone_name
 
 from .field import (
     EXPRESSION_ORDER,
@@ -13,7 +14,7 @@ from .utils.utils import str_lower_strip, ceil_date, fix_daylight_saving_time_sh
 from .utils.constant import MICROSECOND_TIMEDELTA
 
 from ...marshalling import unmarshal_timezone, unmarshal_date, marshal_date, marshal_timezone
-from ...validators import as_timezone, as_date
+from ..._validators import as_timezone, as_aware_datetime, ZoneInfo
 
 
 class CronTabTrigger(object):
@@ -33,16 +34,14 @@ class CronTabTrigger(object):
             end_date=None,
             timezone=None
     ):
-        
-        super(CronTabTrigger, self).__init__()
-        
+
         self.expression = None
         self.expression_map = self._split_expression(expression)
         
-        self.timezone = as_timezone(timezone)
-        self.start_date = as_date(start_date) or datetime.now()
-        self.end_date = as_date(end_date)
-        self.last_date = as_date(last_date)
+        self.timezone = as_timezone(timezone or get_localzone_name())
+        self.start_date = as_aware_datetime(start_date) or datetime.now(tz=self.timezone)
+        self.end_date = as_aware_datetime(end_date)
+        self.last_date = as_aware_datetime(last_date)
 
         self.fields = []
 
@@ -115,8 +114,9 @@ class CronTabTrigger(object):
                 return None
             self.last_date = next_date
             return next_date
-        
-    def _diffed_date(self, last_date, next_date):
+
+    @staticmethod
+    def _diffed_date(last_date, next_date):
     
         """
         daylight saving time problem fix
@@ -328,7 +328,7 @@ class CronTabTrigger(object):
     
         for key, val in state.items():
             if key == 'timezone':
-                val = unmarshal_timezone(val) if val else get_localzone()
+                val = unmarshal_timezone(val) if val else ZoneInfo(get_localzone_name())
             elif key.endswith('date'):
                 val = unmarshal_date(val)
             setattr(self, key, val)

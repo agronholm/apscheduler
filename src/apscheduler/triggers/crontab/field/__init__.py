@@ -63,5 +63,4 @@ def set_index():
         kls.PRETTY_NAME = name.replace("_", " ").title()
         
 
-      
 set_index()
