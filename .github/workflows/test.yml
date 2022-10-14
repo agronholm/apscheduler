@@ -1,0 +1,47 @@
+name: test suite
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test-linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7", "3.10", "3.11-dev", "pypy-3.9"]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Start external services
+      run: docker compose up -d
+    - name: Install the project and its dependencies
+      run: pip install -e .[test]
+    - name: Test with pytest
+      run: pytest
+
+  test-others:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+        python-version: ["3.7", "3.9", "3.10"]
+        exclude:
+        - os: windows-latest
+          python-version: "3.10"  # won't compile psycopg2
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install the project and its dependencies
+      run: pip install -e .[test]
+    - name: Test with pytest
+      run: pytest -m "not external_service"

@@ -1,0 +1,47 @@
+from __future__ import annotations
+
+from contextlib import AsyncExitStack
+from logging import Logger, getLogger
+
+import attrs
+
+from .._retry import RetryMixin
+from ..abc import DataStore, EventBroker, Serializer
+from ..serializers.pickle import PickleSerializer
+
+
+@attrs.define(kw_only=True)
+class BaseDataStore(DataStore):
+    """
+    Base class for data stores.
+
+    :param lock_expiration_delay: maximum amount of time (in seconds) that a scheduler
+        or worker can keep a lock on a schedule or task
+    """
+
+    lock_expiration_delay: float = 30
+    _event_broker: EventBroker = attrs.field(init=False)
+    _logger: Logger = attrs.field(init=False)
+
+    async def start(
+        self, exit_stack: AsyncExitStack, event_broker: EventBroker
+    ) -> None:
+        self._event_broker = event_broker
+
+    def __attrs_post_init__(self):
+        self._logger = getLogger(self.__class__.__name__)
+
+
+@attrs.define(kw_only=True)
+class BaseExternalDataStore(BaseDataStore, RetryMixin):
+    """
+    Base class for data stores using an external service such as a database.
+
+    :param serializer: the serializer used to (de)serialize tasks, schedules and jobs
+        for storage
+    :param start_from_scratch: erase all existing data during startup (useful for test
+        suites)
+    """
+
+    serializer: Serializer = attrs.field(factory=PickleSerializer)
+    start_from_scratch: bool = attrs.field(default=False)

@@ -3,470 +3,487 @@ User guide
 ##########
 
 
-Installing APScheduler
-----------------------
+Installation
+============
 
 The preferred installation method is by using `pip <http://pypi.python.org/pypi/pip/>`_::
 
     $ pip install apscheduler
 
-If you don't have pip installed, you can easily install it by downloading and running
-`get-pip.py <https://bootstrap.pypa.io/get-pip.py>`_.
-
-If, for some reason, pip won't work, you can manually `download the APScheduler distribution
-<https://pypi.python.org/pypi/APScheduler/>`_ from PyPI, extract and then install it::
-
-    $ python setup.py install
+If you don't have pip installed, you need to
+`install that first <https://pip.pypa.io/en/stable/installation/>`_.
 
 
 Code examples
--------------
+=============
 
-The source distribution contains the :file:`examples` directory where you can find many working
-examples for using APScheduler in different ways. The examples can also be
+The source distribution contains the :file:`examples` directory where you can find many
+working examples for using APScheduler in different ways. The examples can also be
 `browsed online <https://github.com/agronholm/apscheduler/tree/master/examples/?at=master>`_.
 
 
-Basic concepts
---------------
-
-APScheduler has four kinds of components:
-
-* triggers
-* job stores
-* executors
-* schedulers
-
-*Triggers* contain the scheduling logic. Each job has its own trigger which determines when the job
-should be run next. Beyond their initial configuration, triggers are completely stateless.
-
-*Job stores* house the scheduled jobs. The default job store simply keeps the jobs in memory, but
-others store them in various kinds of databases. A job's data is serialized when it is saved to a
-persistent job store, and deserialized when it's loaded back from it. Job stores (other than the
-default one) don't keep the job data in memory, but act as middlemen for saving, loading, updating
-and searching jobs in the backend. Job stores must never be shared between schedulers.
-
-*Executors* are what handle the running of the jobs. They do this typically by submitting the
-designated callable in a job to a thread or process pool. When the job is done, the executor
-notifies the scheduler which then emits an appropriate event.
-
-*Schedulers* are what bind the rest together. You typically have only one scheduler running in your
-application. The application developer doesn't normally deal with the job stores, executors or
-triggers directly. Instead, the scheduler provides the proper interface to handle all those.
-Configuring the job stores and executors is done through the scheduler, as is adding, modifying and
-removing jobs.
-
-
-Choosing the right scheduler, job store(s), executor(s) and trigger(s)
-----------------------------------------------------------------------
-
-Your choice of scheduler depends mostly on your programming environment and what you'll be using
-APScheduler for. Here's a quick guide for choosing a scheduler:
-
-* :class:`~apscheduler.schedulers.blocking.BlockingScheduler`:
-  use when the scheduler is the only thing running in your process
-* :class:`~apscheduler.schedulers.background.BackgroundScheduler`:
-  use when you're not using any of the frameworks below, and want the scheduler to run in the
-  background inside your application
-* :class:`~apscheduler.schedulers.asyncio.AsyncIOScheduler`:
-  use if your application uses the asyncio module
-* :class:`~apscheduler.schedulers.gevent.GeventScheduler`:
-  use if your application uses gevent
-* :class:`~apscheduler.schedulers.tornado.TornadoScheduler`:
-  use if you're building a Tornado application
-* :class:`~apscheduler.schedulers.twisted.TwistedScheduler`:
-  use if you're building a Twisted application
-* :class:`~apscheduler.schedulers.qt.QtScheduler`:
-  use if you're building a Qt application
-
-Simple enough, yes?
-
-To pick the appropriate job store, you need to determine whether you need job persistence or not.
-If you always recreate your jobs at the start of your application, then you can probably go with
-the default (:class:`~apscheduler.jobstores.memory.MemoryJobStore`). But if you need your jobs to
-persist over scheduler restarts or application crashes, then your choice usually boils down to what
-tools are used in your programming environment. If, however, you are in the position to choose
-freely, then :class:`~apscheduler.jobstores.sqlalchemy.SQLAlchemyJobStore` on a
-`PostgreSQL <http://www.postgresql.org/>`_ backend is the recommended choice due to its strong data
-integrity protection.
-
-Likewise, the choice of executors is usually made for you if you use one of the frameworks above.
-Otherwise, the default :class:`~apscheduler.executors.pool.ThreadPoolExecutor` should be good
-enough for most purposes. If your workload involves CPU intensive operations, you should consider
-using :class:`~apscheduler.executors.pool.ProcessPoolExecutor` instead to make use of multiple CPU
-cores. You could even use both at once, adding the process pool executor as a secondary executor.
-
-When you schedule a job, you need to choose a *trigger* for it. The trigger determines the logic by
-which the dates/times are calculated when the job will be run. APScheduler comes with three
-built-in trigger types:
-
-* :mod:`~apscheduler.triggers.date`:
-  use when you want to run the job just once at a certain point of time
-* :mod:`~apscheduler.triggers.interval`:
-  use when you want to run the job at fixed intervals of time
-* :mod:`~apscheduler.triggers.cron`:
-  use when you want to run the job periodically at certain time(s) of day
-* :mod:`~apscheduler.triggers.calendarinterval`:
-  use when you want to run the job on calendar-based intervals, at a specific time of day
-
-It is also possible to combine multiple triggers into one which fires either on times agreed on by
-all the participating triggers, or when any of the triggers would fire. For more information, see
-the documentation for :mod:`combining triggers <apscheduler.triggers.combining>`.
-
-You can find the plugin names of each job store, executor and trigger type on their respective API
-documentation pages.
-
-
-.. _scheduler-config:
-
-Configuring the scheduler
--------------------------
-
-APScheduler provides many different ways to configure the scheduler. You can use a configuration
-dictionary or you can pass in the options as keyword arguments. You can also instantiate the
-scheduler first, add jobs and configure the scheduler afterwards. This way you get maximum
-flexibility for any environment.
-
-The full list of scheduler level configuration options can be found on the API reference of the
-:class:`~apscheduler.schedulers.base.BaseScheduler` class. Scheduler subclasses may also have
-additional options which are documented on their respective API references. Configuration options
-for individual job stores and executors can likewise be found on their API reference pages.
-
-Let's say you want to run BackgroundScheduler in your application with the default job store and
-the default executor::
-
-    from apscheduler.schedulers.background import BackgroundScheduler
-
-
-    scheduler = BackgroundScheduler()
-
-    # Initialize the rest of the application here, or before the scheduler initialization
-
-This will get you a BackgroundScheduler with a MemoryJobStore named "default" and a
-ThreadPoolExecutor named "default" with a default maximum thread count of 10.
-
-Now, suppose you want more. You want to have *two* job stores using *two* executors and you also
-want to tweak the default values for new jobs and set a different timezone.
-The following three examples are completely equivalent, and will get you:
-
-* a MongoDBJobStore named "mongo"
-* an SQLAlchemyJobStore named "default" (using SQLite)
-* a ThreadPoolExecutor named "default", with a worker count of 20
-* a ProcessPoolExecutor named "processpool", with a worker count of 5
-* UTC as the scheduler's timezone
-* coalescing turned off for new jobs by default
-* a default maximum instance limit of 3 for new jobs
-
-Method 1::
+Introduction
+============
 
-    from pytz import utc
+The core concept of APScheduler is to give the user the ability to queue Python code to
+be executed, either as soon as possible, later at a given time, or on a recurring
+schedule.
 
-    from apscheduler.schedulers.background import BackgroundScheduler
-    from apscheduler.jobstores.mongodb import MongoDBJobStore
-    from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-    from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
+The *scheduler* is the user-facing interface of the system. When it's running, it does
+two things concurrently. The first is processing *schedules*. From its  *data store*,
+it fetches *schedules* due to be run. For each such schedule, it then uses the
+schedule's *trigger* to calculate run times up to the present. For each run time, the
+scheduler creates a *job* in the data store, containing the designated run time and the
+identifier of the schedule it was derived from.
 
+The second role of the scheduler is running jobs. The scheduler asks the data store for
+jobs, and then starts running those jobs. If the data store signals that it has new
+jobs, the scheduler will try to acquire those jobs if it is capable of accommodating
+more. When a scheduler completes a job, it will then also ask the data store for as many
+more jobs as it can handle.
 
-    jobstores = {
-        'mongo': MongoDBJobStore(),
-        'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')
-    }
-    executors = {
-        'default': ThreadPoolExecutor(20),
-        'processpool': ProcessPoolExecutor(5)
-    }
-    job_defaults = {
-        'coalesce': False,
-        'max_instances': 3
-    }
-    scheduler = BackgroundScheduler(jobstores=jobstores, executors=executors, job_defaults=job_defaults, timezone=utc)
+By default, schedulers operate in both of these roles, but can be configured to only
+process schedules or run jobs if deemed necessary. It may even be desirable to use the
+scheduler only as an interface to an external data store while leaving schedule and job
+processing to other scheduler instances running elsewhere.
 
-Method 2::
+Basic concepts / glossary
+=========================
 
-    from apscheduler.schedulers.background import BackgroundScheduler
+These are the basic components and concepts of APScheduler whixh will be referenced
+later in this guide.
 
+A *task* encapsulates a Python function and a number of configuration parameters. They
+are often implicitly defined as a side effect of the user creating a new schedule
+against a function, but can also be explicitly defined beforehand (**TODO**: implement
+this!).
 
-    # The "apscheduler." prefix is hard coded
-    scheduler = BackgroundScheduler({
-        'apscheduler.jobstores.mongo': {
-             'type': 'mongodb'
-        },
-        'apscheduler.jobstores.default': {
-            'type': 'sqlalchemy',
-            'url': 'sqlite:///jobs.sqlite'
-        },
-        'apscheduler.executors.default': {
-            'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
-            'max_workers': '20'
-        },
-        'apscheduler.executors.processpool': {
-            'type': 'processpool',
-            'max_workers': '5'
-        },
-        'apscheduler.job_defaults.coalesce': 'false',
-        'apscheduler.job_defaults.max_instances': '3',
-        'apscheduler.timezone': 'UTC',
-    })
+A *trigger* contains the logic and state used to calculate when a scheduled task should
+be run.
 
-Method 3::
+A *schedule* combines a task with a trigger, plus a number of configuration parameters.
 
-    from pytz import utc
+A *job* is request for a task to be run. It can be created automatically from a schedule
+when a scheduler processes it, or it can be directly created by the user if they
+directly request a task to be run.
 
-    from apscheduler.schedulers.background import BackgroundScheduler
-    from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-    from apscheduler.executors.pool import ProcessPoolExecutor
+A *data store* is used to store *schedules* and *jobs*, and to keep track of tasks.
 
+An *event broker* delivers published events to all interested parties. It facilitates
+the cooperation between schedulers and workers by notifying them of new or updated
+schedules or jobs.
 
-    jobstores = {
-        'mongo': {'type': 'mongodb'},
-        'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')
-    }
-    executors = {
-        'default': {'type': 'threadpool', 'max_workers': 20},
-        'processpool': ProcessPoolExecutor(max_workers=5)
-    }
-    job_defaults = {
-        'coalesce': False,
-        'max_instances': 3
-    }
-    scheduler = BackgroundScheduler()
+Running the scheduler
+=====================
 
-    # .. do something else here, maybe add jobs etc.
+The scheduler can run either in the foreground, blocking on a call to
+:meth:`~apscheduler.schedulers.sync.Scheduler.run_until_stopped`, or in the background
+where it does its work while letting the rest of the program run.
 
-    scheduler.configure(jobstores=jobstores, executors=executors, job_defaults=job_defaults, timezone=utc)
+If the only intent of your program is to run scheduled tasks, then you should start the
+scheduler with :meth:`~apscheduler.schedulers.sync.Scheduler.run_until_stopped`. But if
+you need to do other things too, then you should call
+:meth:`~apscheduler.schedulers.sync.Scheduler.start_in_background` before running the
+rest of the program.
 
+The scheduler can be used as a context manager. This initializes the underlying data
+store and event broker, allowing you to use the scheduler for manipulating tasks and
+schedules prior to actually starting it. Exiting the context manager will shut down
+the scheduler and its underlying services. This mode of operation is mandatory for the
+asynchronous scheduler when running it in the background, but it is preferred for the
+synchronous scheduler too.
 
-Starting the scheduler
-----------------------
+As a special consideration (for use with WSGI_ based web frameworks), the synchronous
+scheduler can be run in the background without being used as a context manager. In this
+scenario, the scheduler adds an :mod:`atexit` hook that will perform an orderly shutdown
+of the scheduler before the process terminates.
 
-Starting the scheduler is done by simply calling
-:meth:`~apscheduler.schedulers.base.BaseScheduler.start` on the scheduler. For schedulers other
-than :class:`~apscheduler.schedulers.blocking.BlockingScheduler`, this call will return immediately and
-you can continue the initialization process of your application, possibly adding jobs to the
-scheduler.
+.. _WSGI: https://wsgi.readthedocs.io/en/latest/what.html
 
-For BlockingScheduler, you will only want to call
-:meth:`~apscheduler.schedulers.base.BaseScheduler.start` after you're done with any initialization
-steps.
+.. warning:: If you start the scheduler in the background and let the script finish
+   execution, the scheduler will automatically shut down as well.
 
-.. note:: After the scheduler has been started, you can no longer alter its settings.
+.. tabs::
 
+   .. code-tab:: python Synchronous (run in foreground)
 
-Adding jobs
------------
+      from apscheduler.schedulers.sync import Scheduler
 
-There are two ways to add jobs to a scheduler:
+      scheduler = Scheduler()
+      # Add schedules, configure tasks here
+      scheduler.run_until_stopped()
 
-#. by calling :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job`
-#. by decorating a function with :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job`
+   .. code-tab:: python Synchronous (background thread; preferred method)
 
-The first way is the most common way to do it. The second way is mostly a convenience to declare
-jobs that don't change during the application's run time. The
-:meth:`~apscheduler.schedulers.base.BaseScheduler.add_job` method returns a
-:class:`apscheduler.job.Job` instance that you can use to modify or remove the job later.
+      from apscheduler.schedulers.sync import Scheduler
 
-You can schedule jobs on the scheduler **at any time**. If the scheduler is not yet running when
-the job is added, the job will be scheduled *tentatively* and its first run time will only be
-computed when the scheduler starts.
+      with Scheduler() as scheduler:
+          # Add schedules, configure tasks here
+          scheduler.start_in_background()
 
-It is important to note that if you use an executor or job store that serializes the job, it will
-add a couple requirements on your job:
+   .. code-tab:: python Synchronous (background thread; WSGI alternative)
 
-#. The target callable must be globally accessible
-#. Any arguments to the callable must be serializable
+      from apscheduler.schedulers.sync import Scheduler
 
-Of the builtin job stores, only MemoryJobStore doesn't serialize jobs.
-Of the builtin executors, only ProcessPoolExecutor will serialize jobs.
+      scheduler = Scheduler()
+      # Add schedules, configure tasks here
+      scheduler.start_in_background()
 
-.. important:: If you schedule jobs in a persistent job store during your application's
-   initialization, you **MUST** define an explicit ID for the job and use ``replace_existing=True``
-   or you will get a new copy of the job every time your application restarts!
+   .. code-tab:: python Asynchronous (run in foreground)
 
-.. tip:: To run a job immediately, omit ``trigger`` argument when adding the job.
+      import asyncio
 
+      from apscheduler.schedulers.async_ import AsyncScheduler
 
-Removing jobs
--------------
+      async def main():
+          async with AsyncScheduler() as scheduler:
+              # Add schedules, configure tasks here
+              await scheduler.run_until_stopped()
 
-When you remove a job from the scheduler, it is removed from its associated job store and will not
-be executed anymore. There are two ways to make this happen:
+     asyncio.run(main())
 
-#. by calling :meth:`~apscheduler.schedulers.base.BaseScheduler.remove_job` with the job's ID and
-   job store alias
-#. by calling :meth:`~apscheduler.job.Job.remove` on the Job instance you got from
-   :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job`
+   .. code-tab:: python Asynchronous (background task)
 
-The latter method is probably more convenient, but it requires that you store somewhere the
-:class:`~apscheduler.job.Job` instance you received when adding the job. For jobs scheduled via the
-:meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job`, the first way is the only way.
+      import asyncio
 
-If the job's schedule ends (i.e. its trigger doesn't produce any further run times), it is
-automatically removed.
+      from apscheduler.schedulers.async_ import AsyncScheduler
 
-Example::
+      async def main():
+          async with AsyncScheduler() as scheduler:
+              # Add schedules, configure tasks here
+              await scheduler.start_in_background()
 
-    job = scheduler.add_job(myfunc, 'interval', minutes=2)
-    job.remove()
+     asyncio.run(main())
 
-Same, using an explicit job ID::
+Scheduling tasks
+================
 
-    scheduler.add_job(myfunc, 'interval', minutes=2, id='my_job_id')
-    scheduler.remove_job('my_job_id')
+To create a schedule for running a task, you need, at the minimum:
 
+* A *callable* to be run
+* A *trigger*
 
-Pausing and resuming jobs
--------------------------
+.. note:: Scheduling lambdas or nested functions is currently not possible. This will be
+    fixed before the final release.
 
-You can easily pause and resume jobs through either the :class:`~apscheduler.job.Job` instance or
-the scheduler itself. When a job is paused, its next run time is cleared and no further run times
-will be calculated for it until the job is resumed. To pause a job, use either method:
+The callable can be a function or method, lambda or even an instance of a class that
+contains the ``__call__()`` method. With the default (memory based) data store, any
+callable can be used as a task callable. Persistent data stores (more on those below)
+place some restrictions on the kinds of callables can be used because they cannot store
+the callable directly but instead need to be able to locate it with a *reference*.
 
-* :meth:`apscheduler.job.Job.pause`
-* :meth:`apscheduler.schedulers.base.BaseScheduler.pause_job`
+The trigger determines the scheduling logic for your schedule. In other words, it is
+used to calculate the datetimes on which the task will be run. APScheduler comes with a
+number of built-in trigger classes:
 
-To resume:
+* :class:`~apscheduler.triggers.date.DateTrigger`:
+  use when you want to run the task just once at a certain point of time
+* :class:`~apscheduler.triggers.interval.IntervalTrigger`:
+  use when you want to run the task at fixed intervals of time
+* :class:`~apscheduler.triggers.cron.CronTrigger`:
+  use when you want to run the task periodically at certain time(s) of day
+* :class:`~apscheduler.triggers.calendarinterval.CalendarIntervalTrigger`:
+  use when you want to run the task on calendar-based intervals, at a specific time of
+  day
 
-* :meth:`apscheduler.job.Job.resume`
-* :meth:`apscheduler.schedulers.base.BaseScheduler.resume_job`
-
-
-Getting a list of scheduled jobs
---------------------------------
-
-To get a machine processable list of the scheduled jobs, you can use the
-:meth:`~apscheduler.schedulers.base.BaseScheduler.get_jobs` method. It will return a list of
-:class:`~apscheduler.job.Job` instances. If you're only interested in the jobs contained in a
-particular job store, then give a job store alias as the second argument.
-
-As a convenience, you can use the :meth:`~apscheduler.schedulers.base.BaseScheduler.print_jobs`
-method which will print out a formatted list of jobs, their triggers and next run times.
-
-
-Modifying jobs
---------------
-
-You can modify any job attributes by calling either :meth:`apscheduler.job.Job.modify` or
-:meth:`~apscheduler.schedulers.base.BaseScheduler.modify_job`. You can modify any Job attributes
-except for ``id``.
-
-Example::
-
-    job.modify(max_instances=6, name='Alternate name')
-
-If you want to reschedule the job -- that is, change its trigger, you can use either
-:meth:`apscheduler.job.Job.reschedule` or
-:meth:`~apscheduler.schedulers.base.BaseScheduler.reschedule_job`.
-These methods construct a new trigger for the job and recalculate its next run time based on the
-new trigger.
-
-Example::
-
-    scheduler.reschedule_job('my_job_id', trigger='cron', minute='*/5')
-
-
-Shutting down the scheduler
+Combining multiple triggers
 ---------------------------
 
-To shut down the scheduler::
+Occasionally, you may find yourself in a situation where your scheduling needs are too
+complex to be handled with any of the built-in triggers directly.
 
-    scheduler.shutdown()
+One examples of such a need would be when you want the task to run at 10:00 from Monday
+to Friday, but also at 11:00 from Saturday to Sunday.
+A single :class:`~apscheduler.triggers.cron.CronTrigger` would not be able to handle
+this case, but an :class:`~apscheduler.triggers.combining.OrTrigger` containing two cron
+triggers can::
 
-By default, the scheduler shuts down its job stores and executors and waits until all currently
-executing jobs are finished. If you don't want to wait, you can do::
+    from apscheduler.triggers.combining import OrTrigger
+    from apscheduler.triggers.cron import CronTrigger
 
-    scheduler.shutdown(wait=False)
+    trigger = OrTrigger(
+        CronTrigger(day_of_week="mon-fri", hour=10),
+        CronTrigger(day_of_week="sat-sun", hour=11),
+    )
 
-This will still shut down the job stores and executors but does not wait for any running
-tasks to complete.
+On the first run, :class:`~apscheduler.triggers.combining.OrTrigger` generates the next
+run times from both cron triggers and saves them internally. It then returns the
+earliest one. On the next run, it generates a new run time from the trigger that
+produced the earliest run time on the previous run, and then again returns the earliest
+of the two run times. This goes on until all the triggers have been exhausted, if ever.
 
+Another example would be a case where you want the task to be run every 2 months at
+10:00, but not on weekends (Saturday or Sunday)::
 
-Pausing/resuming job processing
--------------------------------
+    from apscheduler.triggers.calendarinterval import CalendarIntervalTrigger
+    from apscheduler.triggers.combining import AndTrigger
+    from apscheduler.triggers.cron import CronTrigger
 
-It is possible to pause the processing of scheduled jobs::
+    trigger = AndTrigger(
+        CalendarIntervalTrigger(months=2, hour=10),
+        CronTrigger(day_of_week="mon-fri", hour=10),
+    )
 
-    scheduler.pause()
+On the first run, :class:`~apscheduler.triggers.combining.AndTrigger` generates the next
+run times from both the
+:class:`~apscheduler.triggers.calendarinterval.CalendarIntervalTrigger` and
+:class:`~apscheduler.triggers.cron.CronTrigger`. If the run times coincide, it will
+return that run time. Otherwise, it will calculate a new run time from the trigger that
+produced the earliest run time. It will keep doing this until a match is found, one of
+the triggers has been exhausted or the maximum number of iterations (1000 by default) is
+reached.
 
-This will cause the scheduler to not wake up until processing is resumed::
+If this trigger is created on 2022-06-07 at 09:00:00, its first run times would be:
 
-    scheduler.resume()
+* 2022-06-07 10:00:00
+* 2022-10-07 10:00:00
+* 2022-12-07 10:00:00
 
-It is also possible to start the scheduler in paused state, that is, without the first wakeup
-call::
+Notably, 2022-08-07 is skipped because it falls on a Sunday.
 
-    scheduler.start(paused=True)
+Running tasks without scheduling
+--------------------------------
 
-This is useful when you need to prune unwanted jobs before they have a chance to run.
+In some cases, you want to run tasks directly, without involving schedules:
 
+* You're only interested in using the scheduler system as a job queue
+* You're interested in the job's return value
+
+To queue a job and wait for its completion and get the result, the easiest way is to
+use :meth:`~apscheduler.schedulers.sync.Scheduler.run_job`. If you prefer to just launch
+a job and not wait for its result, use
+:meth:`~apscheduler.schedulers.sync.Scheduler.add_job` instead. If you want to get the
+results later, you can then call
+:meth:`~apscheduler.schedulers.sync.Scheduler.get_job_result` with the job ID you got
+from :meth:`~apscheduler.schedulers.sync.Scheduler.add_job`.
+
+Removing schedules
+------------------
+
+To remove a previously added schedule, call
+:meth:`~apscheduler.schedulers.sync.Scheduler.remove_schedule`. Pass the identifier of
+the schedule you want to remove as an argument. This is the ID you got from
+:meth:`~apscheduler.schedulers.sync.Scheduler.add_schedule`.
+
+Note that removing a schedule does not cancel any jobs derived from it, but does prevent
+further jobs from being created from that schedule.
 
 Limiting the number of concurrently executing instances of a job
 ----------------------------------------------------------------
 
-By default, only one instance of each job is allowed to be run at the same time.
-This means that if the job is about to be run but the previous run hasn't finished yet, then the
-latest run is considered a misfire. It is possible to set the maximum number of instances for a
-particular job that the scheduler will let run concurrently, by using the ``max_instances`` keyword
-argument when adding the job.
+It is possible to control the maximum number of concurrently running jobs for a
+particular task. By default, only one job is allowed to be run for every task.
+This means that if the job is about to be run but there is another job for the same task
+still running, the later job is terminated with the outcome of
+:data:`~apscheduler.JobOutcome.missed_start_deadline`.
 
+To allow more jobs to be concurrently running for a task, pass the desired maximum
+number as the ``max_instances`` keyword argument to
+:meth:`~apscheduler.schedulers.sync.Scheduler.add_schedule`.~
 
-.. _missed-job-executions:
+Controlling how much a job can be started late
+----------------------------------------------
 
-Missed job executions and coalescing
-------------------------------------
+Some tasks are time sensitive, and should not be run at all if it fails to be started on
+time (like, for example, if the scheduler(s) were down while they were supposed to be
+running the scheduled jobs). You can control this time limit with the
+``misfire_grace_time`` option passed to
+:meth:`~apscheduler.schedulers.sync.Scheduler.add_schedule`. A scheduler that acquires
+the job then checks if the current time is later than the deadline
+(run time + misfire grace time) and if it is, it skips the execution of the job and
+releases it with the outcome of :data:`~apscheduler.JobOutcome.`
 
-Sometimes the scheduler may be unable to execute a scheduled job at the time it was scheduled to
-run. The most common case is when a job is scheduled in a persistent job store and the scheduler
-is shut down and restarted after the job was supposed to execute. When this happens, the job is
-considered to have "misfired". The scheduler will then check each missed execution time against the
-job's ``misfire_grace_time`` option (which can be set on per-job basis or globally in the
-scheduler) to see if the execution should still be triggered. This can lead into the job being
-executed several times in succession.
+Controlling how jobs are queued from schedules
+----------------------------------------------
 
-If this behavior is undesirable for your particular use case, it is possible to use `coalescing` to
-roll all these missed executions into one. In other words, if coalescing is enabled for the job and
-the scheduler sees one or more queued executions for the job, it will only trigger it once. No
-misfire events will be sent for the "bypassed" runs.
+In most cases, when a scheduler processes a schedule, it queues a new job using the
+run time currently marked for the schedule. Then it updates the next run time using the
+schedule's trigger and releases the schedule back to the data store. But sometimes a
+situation occurs where the schedule did not get processed often or quickly enough, and
+one or more  next run times produced by the trigger are actually in the past.
 
-.. note::
-    If the execution of a job is delayed due to no threads or processes being available in the
-    pool, the executor may skip it due to it being run too late (compared to its originally
-    designated run time). If this is likely to happen in your application, you may want to either
-    increase the number of threads/processes in the executor, or adjust the ``misfire_grace_time``
-    setting to a higher value.
+In a situation like that, the scheduler needs to decide what to do: to queue a job for
+every run time produced, or to *coalesce* them all into a single job, effectively just
+kicking off a single job. To control this, pass the ``coalesce`` argument to
+:meth:`~apscheduler.schedulers.sync.Scheduler.add_schedule`.
 
+The possible values are:
+
+* :data:`~apscheduler.CoalescePolicy.latest`: queue exactly one job, using the
+  **latest** run time as the designated run time
+* :data:`~apscheduler.CoalescePolicy.earliest`: queue exactly one job, using the
+  **earliest** run time as the designated run time
+* :data:`~apscheduler.CoalescePolicy.all`: queue one job for **each** of the calculated
+  run times
+
+The biggest difference between the first two options is how the designated run time, and
+by extension, the starting deadline is for the job is selected. With the first option,
+the job is less likely to be skipped due to being started late since the latest of all
+the collected run times is used for the deadline calculation.
+
+As explained in the previous section, the starting
+deadline is *misfire grace time*
+affects the newly queued job.
+
+Context variables
+=================
+
+Schedulers provide certain `context variables`_ available to the tasks being run:
+
+* The current (synchronous) scheduler: :data:`~apscheduler.current_scheduler`
+* The current asynchronous scheduler: :data:`~apscheduler.current_async_scheduler`
+* Information about the job being currently run: :data:`~apscheduler.current_job`
+
+Here's an example::
+
+    from apscheduler import current_job
+
+    def my_task_function():
+        job_info = current_job.get().id
+        print(
+            f"This is job {job_info.id} and was spawned from schedule "
+            f"{job_info.schedule_id}"
+        )
+
+.. _context variables: :mod:`contextvars`
 
 .. _scheduler-events:
 
-Scheduler events
-----------------
+Subscribing to events
+=====================
 
-It is possible to attach event listeners to the scheduler. Scheduler events are fired on certain
-occasions, and may carry additional information in them concerning the details of that particular
-event. It is possible to listen to only particular types of events by giving the appropriate
-``mask`` argument to :meth:`~apscheduler.schedulers.base.BaseScheduler.add_listener`, OR'ing the
-different constants together. The listener callable is called with one argument, the event object.
+Schedulers have the ability to notify listeners when some event occurs in the scheduler
+system. Examples of such events would be schedulers or workers starting up or shutting
+down, or schedules or jobs being created or removed from the data store.
 
-See the documentation for the :mod:`~apscheduler.events` module for specifics on the available
-events and their attributes.
+To listen to events, you need a callable that takes a single positional argument which
+is the event object. Then, you need to decide which events you're interested in:
 
-Example::
+.. tabs::
 
-    def my_listener(event):
-        if event.exception:
-            print('The job crashed :(')
-        else:
-            print('The job worked :)')
+    .. code-tab:: python Synchronous
 
-    scheduler.add_listener(my_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
+        from apscheduler import Event, JobAcquired, JobReleased
 
+        def listener(event: Event) -> None:
+            print(f"Received {event.__class__.__name__}")
+
+        scheduler.subscribe(listener, {JobAcquired, JobReleased})
+
+    .. code-tab:: python Asynchronous
+
+        from apscheduler import Event, JobAcquired, JobReleased
+
+        async def listener(event: Event) -> None:
+            print(f"Received {event.__class__.__name__}")
+
+        scheduler.subscribe(listener, {JobAcquired, JobReleased})
+
+This example subscribes to the :class:`~apscheduler.JobAcquired` and
+:class:`~apscheduler.JobAcquired` event types. The callback will receive an event of
+either type, and prints the name of the class of the received event.
+
+Asynchronous schedulers and workers support both synchronous and asynchronous callbacks,
+but their synchronous counterparts only support synchronous callbacks.
+
+When **distributed** event brokers (that is, other than the default one) are being used,
+events other than the ones relating to the life cycles of schedulers and workers, will
+be sent to all schedulers and workers connected to that event broker.
+
+Deployment
+==========
+
+Using persistent data stores
+----------------------------
+
+The default data store, :class:`~apscheduler.datastores.memory.MemoryDataStore`, stores
+data only in memory so all the schedules and jobs that were added to it will be erased
+if the process crashes.
+
+When you need your schedules and jobs to survive the application shutting down, you need
+to use a *persistent data store*. Such data stores do have additional considerations,
+compared to the memory data store:
+
+* The task callable cannot be a lambda or a nested function
+* Task arguments must be *serializable*
+* You must either trust the data store, or use an alternate *serializer*
+* A *conflict policy* and an *explicit identifier* must be defined for schedules that
+  are added at application startup
+
+These requirements warrant some explanation. The first point means that since persisting
+data means saving it externally, either in a file or sending to a database server, all
+the objects involved are converted to bytestrings. This process is called
+*serialization*. By default, this is done using :mod:`pickle`, which guarantees the best
+compatibility but is notorious for being vulnerable to simple injection attacks. This
+brings us to the second point. If you cannot be sure that nobody can maliciously alter
+the externally stored serialized data, it would be best to use another serializer. The
+built-in alternatives are:
+
+* :class:`~apscheduler.serializers.cbor.CBORSerializer`
+* :class:`~apscheduler.serializers.json.JSONSerializer`
+
+The former requires the cbor2_ library, but supports a wider variety of types natively.
+The latter has no dependencies but has very limited support for different types.
+
+The third point relates to situations where you're essentially adding the same schedule
+to the data store over and over again. If you don't specify a static identifier for
+the schedules added at the start of the application, you will end up with an increasing
+number of redundant schedules doing the same thing, which is probably not what you want.
+To that end, you will need to come up with some identifying name which will ensure that
+the same schedule will not be added over and over again (as data stores are required to
+enforce the uniqueness of schedule identifiers). You'll also need to decide what to do
+if the schedule already exists in the data store (that is, when the application is
+started the second time) by passing the ``conflict_policy`` argument. Usually you want
+the :data:`~apscheduler.ConflictPolicy.replace` option, which replaces the existing
+schedule with the new one.
+
+.. seealso:: You can find practical examples of persistent data stores in the
+    :file:`examples/standalone` directory (``async_postgres.py`` and
+    ``async_mysql.py``).
+
+.. _cbor2: https://pypi.org/project/cbor2/
+
+Using multiple schedulers
+-------------------------
+
+There are several situations in which you would want to run several schedulers against
+the same data store at once:
+
+* Running a server application (usually a web app) with multiple worker processes
+* You need fault tolerance (scheduling will continue even if a node or process running
+  a scheduler goes down)
+
+When you have multiple schedulers running at once, they need to be able to coordinate
+their efforts so that the schedules don't get processed more than once and the
+schedulers know when to wake up even if another scheduler added the next due schedule to
+the data store. To this end, a shared *event broker* must be configured.
+
+.. seealso:: You can find practical examples of data store sharing in the
+    :file:`examples/web` directory.
+
+Using a scheduler without running it
+------------------------------------
+
+Some deployment scenarios may warrant the use of a scheduler for only interfacing with
+an external data store, for things like configuring tasks, adding schedules or queuing
+jobs. One such practical use case is a web application that needs to run heavy
+computations elsewhere so they don't cause performance issues with the web application
+itself.
+
+You can then run one or more schedulers against the same data store and event broker
+elsewhere where they don't disturb the web application. These schedulers will do all the
+heavy lifting like processing schedules and running jobs.
+
+.. seealso:: A practical example of this separation of concerns can be found in the
+    :file:`examples/separate_worker` directory.
 
 .. _troubleshooting:
 
 Troubleshooting
----------------
+===============
 
-If the scheduler isn't working as expected, it will be helpful to increase the logging level of the
-``apscheduler`` logger to the ``DEBUG`` level.
+If something isn't working as expected, it will be helpful to increase the logging level
+of the ``apscheduler`` logger to the ``DEBUG`` level.
 
 If you do not yet have logging enabled in the first place, you can do this::
 
@@ -475,13 +492,26 @@ If you do not yet have logging enabled in the first place, you can do this::
     logging.basicConfig()
     logging.getLogger('apscheduler').setLevel(logging.DEBUG)
 
-This should provide lots of useful information about what's going on inside the scheduler.
+This should provide lots of useful information about what's going on inside the
+scheduler and/or worker.
 
-Also make sure that you check the :doc:`faq` section to see if your problem already has a solution.
+Also make sure that you check the :doc:`faq` section to see if your problem already has
+a solution.
 
 Reporting bugs
---------------
+==============
 
-.. include:: ../README.rst
-   :start-after: Reporting bugs
-                 --------------
+A `bug tracker <https://github.com/agronholm/apscheduler/issues>`_ is provided by
+GitHub.
+
+Getting help
+============
+
+If you have problems or other questions, you can either:
+
+* Ask in the `apscheduler <https://gitter.im/apscheduler/Lobby>`_ room on Gitter
+* Post a question on `GitHub discussions`_, or
+* Post a question on StackOverflow_ and add the ``apscheduler`` tag
+
+.. _GitHub discussions: https://github.com/agronholm/apscheduler/discussions/categories/q-a
+.. _StackOverflow: http://stackoverflow.com/questions/tagged/apscheduler

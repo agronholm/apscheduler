@@ -1,4 +1,3 @@
-version: "2"
 services:
   postgresql:
     image: postgres
@@ -21,14 +20,12 @@ services:
     ports:
       - 127.0.0.1:27017:27017
 
-  mosquitto:
-    image: eclipse-mosquitto:2
-    volumes:
-      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+  emqx:
+    image: emqx/emqx:5.0.7
     ports:
       - 127.0.0.1:1883:1883
 
   redis:
-    image: redis:6
+    image: redis:7
     ports:
       - 127.0.0.1:6379:6379

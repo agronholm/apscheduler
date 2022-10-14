@@ -1,79 +1,109 @@
 from __future__ import annotations
 
-from concurrent.futures import Future
-from threading import Thread
-from typing import Optional
+from asyncio import CancelledError
+from contextlib import AsyncExitStack
 
-import attr
-from redis import ConnectionPool, Redis
+import anyio
+import attrs
+import tenacity
+from redis import ConnectionError
+from redis.asyncio import Redis, RedisCluster
+from redis.asyncio.client import PubSub
+from redis.asyncio.connection import ConnectionPool
 
-from ..abc import Serializer
-from ..events import Event
-from ..serializers.json import JSONSerializer
-from ..util import reentrant
-from .base import DistributedEventBrokerMixin
-from .local import LocalEventBroker
+from .._events import Event
+from .base import BaseExternalEventBroker
 
 
-@reentrant
-@attr.define(eq=False)
-class RedisEventBroker(LocalEventBroker, DistributedEventBrokerMixin):
-    client: Redis
-    serializer: Serializer = attr.field(factory=JSONSerializer)
-    channel: str = attr.field(kw_only=True, default='apscheduler')
-    message_poll_interval: float = attr.field(kw_only=True, default=0.05)
-    _stopped: bool = attr.field(init=False, default=True)
-    _ready_future: Future[None] = attr.field(init=False)
+@attrs.define(eq=False)
+class RedisEventBroker(BaseExternalEventBroker):
+    """
+    An event broker that uses a Redis server to broadcast events.
+
+    Requires the redis_ library to be installed.
+
+    .. _redis: https://pypi.org/project/redis/
+
+    :param client: an asynchronous Redis client
+    :param channel: channel on which to send the messages
+    :param stop_check_interval: interval (in seconds) on which the channel listener
+        should check if it should stop (higher values mean slower reaction time but less
+        CPU use)
+    """
+
+    client: Redis | RedisCluster
+    channel: str = attrs.field(kw_only=True, default="apscheduler")
+    stop_check_interval: float = attrs.field(kw_only=True, default=1)
+    _stopped: bool = attrs.field(init=False, default=True)
 
     @classmethod
-    def from_url(cls, url: str, db: Optional[str] = None, decode_components: bool = False,
-                 **kwargs) -> RedisEventBroker:
-        pool = ConnectionPool.from_url(url, db, decode_components, **kwargs)
+    def from_url(cls, url: str, **kwargs) -> RedisEventBroker:
+        """
+        Create a new event broker from a URL.
+
+        :param url: a Redis URL (```redis://...```)
+        :param kwargs: keyword arguments to pass to the initializer of this class
+        :return: the newly created event broker
+
+        """
+        pool = ConnectionPool.from_url(url)
         client = Redis(connection_pool=pool)
-        return cls(client)
+        return cls(client, **kwargs)
 
-    def __enter__(self):
+    def _retry(self) -> tenacity.AsyncRetrying:
+        def after_attempt(retry_state: tenacity.RetryCallState) -> None:
+            self._logger.warning(
+                f"{self.__class__.__name__}: connection failure "
+                f"(attempt {retry_state.attempt_number}): "
+                f"{retry_state.outcome.exception()}",
+            )
+
+        return tenacity.AsyncRetrying(
+            stop=self.retry_settings.stop,
+            wait=self.retry_settings.wait,
+            retry=tenacity.retry_if_exception_type(ConnectionError),
+            after=after_attempt,
+            sleep=anyio.sleep,
+            reraise=True,
+        )
+
+    async def start(self, exit_stack: AsyncExitStack) -> None:
+        await super().start(exit_stack)
+        pubsub = self.client.pubsub()
+        await pubsub.subscribe(self.channel)
+
         self._stopped = False
-        self._ready_future = Future()
-        self._thread = Thread(target=self._listen_messages, daemon=True, name='Redis subscriber')
-        self._thread.start()
-        self._ready_future.result(10)
-        return super().__enter__()
+        exit_stack.callback(setattr, self, "_stopped", True)
+        self._task_group.start_soon(
+            self._listen_messages, pubsub, name="Redis subscriber"
+        )
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._stopped = True
-        if not exc_type:
-            self._thread.join(5)
-
-        super().__exit__(exc_type, exc_val, exc_tb)
-
-    def _listen_messages(self) -> None:
+    async def _listen_messages(self, pubsub: PubSub) -> None:
         while not self._stopped:
             try:
-                pubsub = self.client.pubsub()
-                pubsub.subscribe(self.channel)
-            except BaseException as exc:
-                if not self._ready_future.done():
-                    self._ready_future.set_exception(exc)
+                async for attempt in self._retry():
+                    with attempt:
+                        msg = await pubsub.get_message(
+                            ignore_subscribe_messages=True,
+                            timeout=self.stop_check_interval,
+                        )
 
+                if msg and isinstance(msg["data"], bytes):
+                    event = self.reconstitute_event(msg["data"])
+                    if event is not None:
+                        await self.publish_local(event)
+            except Exception as exc:
+                # CancelledError is a subclass of Exception in Python 3.7
+                if not isinstance(exc, CancelledError):
+                    self._logger.exception(
+                        f"{self.__class__.__name__} listener crashed"
+                    )
+
+                await pubsub.close()
                 raise
-            else:
-                if not self._ready_future.done():
-                    self._ready_future.set_result(None)
 
-            try:
-                while not self._stopped:
-                    msg = pubsub.get_message(timeout=self.message_poll_interval)
-                    if msg and isinstance(msg['data'], bytes):
-                        event = self.reconstitute_event(msg['data'])
-                        if event is not None:
-                            self.publish_local(event)
-            except BaseException:
-                self._logger.exception('Subscriber crashed')
-                raise
-            finally:
-                pubsub.close()
-
-    def publish(self, event: Event) -> None:
+    async def publish(self, event: Event) -> None:
         notification = self.generate_notification(event)
-        self.client.publish(self.channel, notification)
+        async for attempt in self._retry():
+            with attempt:
+                await self.client.publish(self.channel, notification)

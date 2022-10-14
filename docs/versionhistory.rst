@@ -6,13 +6,106 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
-- Added shareable data stores (can be used by multiple schedulers and workers)
-- Added support for running workers independently from schedulers
-- Added full async support via AnyIO_ (data store support varies)
-- Dropped support for Python 2.X, 3.5 and 3.6
-- Removed the Qt scheduler due to maintenance difficulties
+- **BREAKING** Workers were merged into schedulers. As the ``Worker`` and
+  ``AsyncWorker`` classes have been removed, you now need to pass
+  ``role=SchedulerRole.scheduler`` to the scheduler to prevent it from processing due
+  jobs. The worker event classes (``WorkerEvent``, ``WorkerStarted``, ``WorkerStopped``)
+  have also been removed.
+- **BREAKING** The synchronous interfaces for event brokers and data stores have been
+  removed. Synchronous libraries can still be used to implement these services through
+  the use of ``anyio.to_thread.run_sync()``.
+- **BREAKING** The ``current_worker`` context variable has been removed
+- **BREAKING** The ``current_scheduler`` context variable is now specified to only
+  contain the currently running instance of a **synchronous** scheduler
+  (``apscheduler.schedulers.sync.Scheduler``). The asynchronous scheduler instance can
+  be fetched from the new ``current_async_scheduler`` context variable, and will always
+  be available when a scheduler is running in the current context, while
+  ``current_scheduler`` is only available when the synchronous wrapper is being run.
+- **BREAKING** Changed the initialization of data stores and event brokers to use a
+  single ``start()`` method that accepts an ``AsyncExitStack`` (and, depending on the
+  interface, other arguments too)
+- **BREAKING** Added a concept of "job executors". This determines how the task function
+  is executed once picked up by a worker. Several data structures and scheduler methods
+  have a new field/parameter for this, ``job_executor``. This addition requires database
+  schema changes too.
+- Added the ability to run jobs in worker processes, courtesy of the ``processpool``
+  executor
+- The synchronous scheduler now runs an asyncio event loop in a thread, acting as a
+  façade for ``AsyncScheduler`
+- Fixed the ``schema`` parameter in ``SQLAlchemyDataStore`` not being applied
 
+**4.0.0a2**
+
+- **BREAKING** Changed the scheduler API to always require a call to either
+  ``run_until_stopped()`` or ``start_in_background()`` to start the scheduler (using it
+  as a context manager is no longer enough)
+- **BREAKING** Replaced ``from_asyncpg_pool()`` with ``from_dsn()`` in the asyncpg event
+  broker
+- Added an async Redis event broker
+- Added automatic reconnection to the Redis event brokers (sync and async)
+- Added automatic reconnection to the asyncpg event broker
+- Changed ``from_async_sqla_engine()`` in asyncpg event broker to only copy the
+  connection options instead of directly using the engine
+- Simplified the MQTT event broker by providing a default ``client`` instance if omitted
+- Fixed ``CancelledError`` being reported as a crash on Python 3.7
+- Fixed JSON/CBOR serialization of ``JobReleased`` events
+
+**4.0.0a1**
+
+This was a major rewrite/redesign of most parts of the project. See the
+:doc:`migration section <migration>` section for details.
+
+.. warning:: The v4.0 series is provided as a **pre-release** and may change in a
+   backwards incompatible fashion without any migration pathway, so do NOT use this
+   release in production!
+
+- Made persistent data stores shareable between multiple processes and nodes
+- Enhanced data stores to be more resilient against temporary connectivity failures
+- Refactored executors (now called *workers*) to pull jobs from the data store so they
+  can be run independently from schedulers
+- Added full async support (:mod:`asyncio` and Trio_) via AnyIO_
+- Added type annotations to the code base
+- Added the ability to queue jobs directly without scheduling them
+- Added alternative serializers (CBOR, JSON)
+- Added the ``CalendarInterval`` trigger
+- Added the ability to access the current scheduler (under certain circumstances),
+  current worker and the currently running job via context-local variables
+- Added schedule level support for jitter
+- Made triggers stateful
+- Added threshold support for ``AndTrigger``
+- Migrated from ``pytz`` time zones to standard library ``zoneinfo`` zones
+- Allowed a wider range of tzinfo implementations to be used (though ``zoneinfo`` is
+  preferred)
+- Changed ``IntervalTrigger`` to start immediately instead of first waiting for one
+  interval
+- Changed ``CronTrigger`` to use Sunday as weekday number 0, as per the crontab standard
+- Dropped support for Python 2.X, 3.5 and 3.6
+- Dropped support for the Qt, Twisted, Tornado and Gevent schedulers
+- Dropped support for the Redis, RethinkDB and Zookeeper job stores
+
+.. _Trio: https://pypi.org/project/trio/
 .. _AnyIO: https://github.com/agronholm/anyio
+
+**3.9.1**
+
+* Removed a leftover check for pytz ``localize()`` and ``normalize()`` methods
+
+**3.9.0**
+
+- Added support for PySide6 to the Qt scheduler
+- No longer enforce pytz time zones (support for others is experimental in the 3.x series)
+- Fixed compatibility with PyMongo 4
+- Fixed pytz deprecation warnings
+- Fixed RuntimeError when shutting down the scheduler from a scheduled job
+
+**3.8.1**
+
+- Allowed the use of tzlocal v4.0+ in addition to v2.*
+
+**3.8.0**
+
+- Allowed passing through keyword arguments to the underlying stdlib executors in the
+  thread/process pool executors (PR by Albert Xu)
 
 **3.7.0**
 

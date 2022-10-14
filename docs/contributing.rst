@@ -1,69 +1,97 @@
-###########################
 Contributing to APScheduler
-###########################
+===========================
 
-If you wish to add a feature or fix a bug in APScheduler, you need to follow certain procedures and
-rules to get your changes accepted. This is to maintain the high quality of the code base.
+.. highlight:: bash
 
+If you wish to contribute a fix or feature to APScheduler, please follow the following
+guidelines.
 
-Contribution Process
-====================
+When you make a pull request against the main APScheduler codebase, Github runs the test
+suite against your modified code. Before making a pull request, you should ensure that
+the modified code passes tests and code quality checks locally.
 
-1. Fork the project on Github
-2. Clone the fork to your local machine
-3. Make the changes to the project
-4. Run the test suite with tox (if you changed any code)
-5. Repeat steps 3-4 until the test suite passes
-6. Commit if you haven't already
-7. Push the changes to your Github fork
-8. Make a pull request on Github
+Running the test suite
+----------------------
 
-There is no need to update the change log -- this will be done prior to the next release at the
-latest. Should the test suite fail even before your changes (which should be rare), make sure
-you're at least not adding to the failures.
+The test suite has dependencies on several external services, such as database servers.
+To make this easy for the developer, a `docker compose`_ configuration is provided.
+To use it, you need Docker_ (or a suitable replacement). On Linux, unless you're using
+Docker Desktop, you may need to also install the compose (v2) plugin (named
+``docker-compose-plugin``, or similar) separately.
 
+Once you have the necessary tools installed, you can start the services with this
+command::
 
-Development Dependencies
-========================
+    docker compose up -d
 
-To fully run the test suite, you will need at least:
+You can run the test suite two ways: either with tox_, or by running pytest_ directly.
 
- * A MongoDB server
- * A Redis server
- * A Zookeeper server
+To run tox_ against all supported (of those present on your system) Python versions::
 
-For other dependencies, it's best to look in tox.ini and install what is appropriate for the Python
-version you're using.
+    tox
 
+Tox will handle the installation of dependencies in separate virtual environments.
 
-Code Style
-==========
+To pass arguments to the underlying pytest_ command, you can add them after ``--``, like
+this::
 
-This project uses PEP 8 rules with its maximum allowed column limit of 99 characters.
-This limit applies to all text files (source code, tests, documentation).
-In particular, remember to group the imports correctly (standard library imports first, third party
-libs second, project libraries third, conditional imports last). The PEP 8 checker does not check
-for this. If in doubt, just follow the surrounding code style as closely as possible.
+    tox -- -k somekeyword
 
+To use pytest directly, you can set up a virtual environment and install the project in
+development mode along with its test dependencies (virtualenv activation demonstrated
+for Linux and macOS; on Windows you need ``venv\Scripts\activate`` instead)::
 
-Testing
-=======
+    python -m venv venv
+    source venv/bin/activate
+    pip install -e .[test]
 
-Running the test suite is done using the tox_ utility. This will test the code base against all
-supported Python versions and performs some code quality checks using flake8_ as well.
+Now you can just run pytest_::
 
-Some tests require the presence of external services (in practice, database servers). To help with
-that, there is a docker-compose_ configuration included. Running ``docker-compose up -d`` will
-start all the necessary services for the tests to work.
+    pytest
 
-Any nontrivial code changes must be accompanied with the appropriate tests. The tests should not
-only maintain the coverage, but should test any new functionality or bug fixes reasonably well.
-If you're fixing a bug, first make sure you have a test which fails against the unpatched codebase
-and succeeds against the fixed version. Naturally, the test suite has to pass on every Python
-version. If setting up all the required Python interpreters seems like too much trouble, make sure
-that it at least passes on the lowest supported versions of both Python 2 and 3. The full test
-suite is always run against each pull request, but it's a good idea to run the tests locally first.
+Building the documentation
+--------------------------
 
-.. _tox: https://tox.readthedocs.io/
-.. _flake8: http://flake8.pycqa.org/
-.. _docker-compose: https://docs.docker.com/compose/
+To build the documentation, run ``tox -e docs``. This will place the documentation in
+``build/sphinx/html`` where you can open ``index.html`` to view the formatted
+documentation.
+
+APScheduler uses ReadTheDocs_ to automatically build the documentation so the above
+procedure is only necessary if you are modifying the documentation and wish to check the
+results before committing.
+
+APScheduler uses pre-commit_ to perform several code style/quality checks. It is
+recommended to activate pre-commit_ on your local clone of the repository (using
+``pre-commit install``) to ensure that your changes will pass the same checks on GitHub.
+
+Making a pull request on Github
+-------------------------------
+
+To get your changes merged to the main codebase, you need a Github account.
+
+#. Fork the repository (if you don't have your own fork of it yet) by navigating to the
+   `main APScheduler repository`_ and clicking on "Fork" near the top right corner.
+#. Clone the forked repository to your local machine with
+   ``git clone git@github.com/yourusername/apscheduler``.
+#. Create a branch for your pull request, like ``git checkout -b myfixname``
+#. Make the desired changes to the code base.
+#. Commit your changes locally. If your changes close an existing issue, add the text
+   ``Fixes #XXX.`` or ``Closes #XXX.`` to the commit message (where XXX is the issue
+   number).
+#. Push the changeset(s) to your forked repository (``git push``)
+#. Navigate to Pull requests page on the original repository (not your fork) and click
+   "New pull request"
+#. Click on the text "compare across forks".
+#. Select your own fork as the head repository and then select the correct branch name.
+#. Click on "Create pull request".
+
+If you have trouble, consult the `pull request making guide`_ on opensource.com.
+
+.. _Docker: https://docs.docker.com/desktop/#download-and-install
+.. _docker compose: https://docs.docker.com/compose/
+.. _tox: https://tox.readthedocs.io/en/latest/install.html
+.. _pre-commit: https://pre-commit.com/#installation
+.. _pytest: https://pypi.org/project/pytest/
+.. _ReadTheDocs: https://readthedocs.org/
+.. _main APScheduler repository: https://github.com/agronholm/apscheduler
+.. _pull request making guide: https://opensource.com/article/19/7/create-pull-request-github
