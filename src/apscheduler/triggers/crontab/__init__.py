@@ -6,5 +6,7 @@
 # https://bzenkosergey.github.io/ng-cron/react/#/
 
 
+from __future__ import annotations
+
 from .trigger import CronTabTrigger
 from .utils.exception import CronParserError

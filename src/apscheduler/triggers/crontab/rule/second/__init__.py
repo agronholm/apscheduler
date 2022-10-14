@@ -1,8 +1,6 @@
+from __future__ import annotations
+
 from .all import CronSecondAllRule
 from .range import CronSecondRangeRule
 
-
-SECOND_RULES = (
-    CronSecondAllRule,
-    CronSecondRangeRule
-)
+SECOND_RULES = (CronSecondAllRule, CronSecondRangeRule)
