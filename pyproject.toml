@@ -58,7 +58,7 @@ test = [
     "pymysql[rsa]",
     "pytest >= 5.0",
     "pytest-cov",
-    "pytest-freezegun",
+    "pytest-freezer",
     "pytest-lazy-fixture",
     "pytest-mock",
     "redis[hiredis] >= 4.4.0rc1",
