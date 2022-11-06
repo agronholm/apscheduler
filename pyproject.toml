@@ -41,10 +41,7 @@ cbor = ["cbor2 >= 5.0"]
 mongodb = ["pymongo >= 4"]
 mqtt = ["paho-mqtt >= 1.5"]
 redis = ["redis >= 4.0"]
-sqlalchemy = [
-    "sqlalchemy >= 1.4.22",
-    "greenlet >= 2.0.0a2; python_version >= '3.11'"
-]
+sqlalchemy = ["sqlalchemy >= 1.4.22"]
 test = [
     "APScheduler[cbor,mongodb,mqtt,redis,sqlalchemy]",
     "APScheduler[asyncpg]; python_implementation == 'CPython'",
