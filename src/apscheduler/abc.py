@@ -309,7 +309,7 @@ class DataStore(metaclass=ABCMeta):
 
 
 class JobExecutor(metaclass=ABCMeta):
-    async def start(self, exit_stack: AsyncExitStack) -> None:
+    async def start(self, exit_stack: AsyncExitStack) -> None:  # noqa: B027
         """
         Start the job executor.
 
