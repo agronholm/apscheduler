@@ -177,7 +177,7 @@ def pymysql_store() -> DataStore:
 
 
 @pytest.fixture
-async def asyncpg_store() -> DataStore:
+async def sqlalchemy_store() -> DataStore:
     pytest.importorskip("asyncpg", reason="asyncpg is not installed")
     from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -208,11 +208,27 @@ async def asyncmy_store() -> DataStore:
         await engine.dispose()
 
 
+@pytest.fixture
+async def asyncpg_store() -> DataStore:
+    pytest.importorskip("asyncpg", reason="asyncpg is not installed")
+
+    from apscheduler.datastores.asyncpg import AsyncPgDataStore
+
+    dsn = "postgres://postgres:secret@localhost/testdb"
+    try:
+        datastore = await AsyncPgDataStore.from_dsn(
+            dsn, schema="asyncpg", start_from_scratch=True
+        )
+        yield datastore
+    finally:
+        await datastore.pool.close()
+
+
 @pytest.fixture(
     params=[
         pytest.param(
-            lazy_fixture("asyncpg_store"),
-            id="asyncpg",
+            lazy_fixture("sqlalchemy_store"),
+            id="sqlalchemy",
             marks=[pytest.mark.external_service],
         ),
         pytest.param(
@@ -233,6 +249,11 @@ async def asyncmy_store() -> DataStore:
         pytest.param(
             lazy_fixture("mongodb_store"),
             id="mongodb",
+            marks=[pytest.mark.external_service],
+        ),
+        pytest.param(
+            lazy_fixture("asyncpg_store"),
+            id="asyncpg",
             marks=[pytest.mark.external_service],
         ),
     ]
