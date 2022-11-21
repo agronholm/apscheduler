@@ -255,7 +255,8 @@ a job and not wait for its result, use
 :meth:`~apscheduler.schedulers.sync.Scheduler.add_job` instead. If you want to get the
 results later, you can then call
 :meth:`~apscheduler.schedulers.sync.Scheduler.get_job_result` with the job ID you got
-from :meth:`~apscheduler.schedulers.sync.Scheduler.add_job`.
+from :meth:`~apscheduler.schedulers.sync.Scheduler.add_job` (note that you'll need to specify the result_expiration_time kwarg in add_jobs or the result won't be saved).
+
 
 Removing schedules
 ------------------
