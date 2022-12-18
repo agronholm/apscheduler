@@ -50,7 +50,7 @@ processing to other scheduler instances running elsewhere.
 Basic concepts / glossary
 =========================
 
-These are the basic components and concepts of APScheduler whixh will be referenced
+These are the basic components and concepts of APScheduler which will be referenced
 later in this guide.
 
 A *task* encapsulates a Python function and a number of configuration parameters. They
@@ -300,7 +300,7 @@ In most cases, when a scheduler processes a schedule, it queues a new job using 
 run time currently marked for the schedule. Then it updates the next run time using the
 schedule's trigger and releases the schedule back to the data store. But sometimes a
 situation occurs where the schedule did not get processed often or quickly enough, and
-one or more  next run times produced by the trigger are actually in the past.
+one or more next run times produced by the trigger are actually in the past.
 
 In a situation like that, the scheduler needs to decide what to do: to queue a job for
 every run time produced, or to *coalesce* them all into a single job, effectively just
@@ -317,7 +317,7 @@ The possible values are:
   run times
 
 The biggest difference between the first two options is how the designated run time, and
-by extension, the starting deadline is for the job is selected. With the first option,
+by extension, the starting deadline for the job is selected. With the first option,
 the job is less likely to be skipped due to being started late since the latest of all
 the collected run times is used for the deadline calculation.
 
