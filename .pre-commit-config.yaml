@@ -31,13 +31,13 @@ repos:
       - id: black
 
   - repo: https://github.com/pycqa/isort
-    rev: 5.10.1
+    rev: v5.11.3
     hooks:
       - id: isort
         args: [ "-a", "from __future__ import annotations" ]
 
   - repo: https://github.com/csachs/pyproject-flake8
-    rev: v6.0.0
+    rev: v6.0.0.post1
     hooks:
       - id: pyproject-flake8
         additional_dependencies: [ flake8-bugbear ]
