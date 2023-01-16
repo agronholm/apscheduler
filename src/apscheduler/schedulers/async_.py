@@ -225,6 +225,7 @@ class AsyncScheduler:
         coalesce: CoalescePolicy = CoalescePolicy.latest,
         misfire_grace_time: float | timedelta | None = None,
         max_jitter: float | timedelta | None = None,
+        max_running_jobs: int | None = None,
         tags: Iterable[str] | None = None,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
     ) -> str:
@@ -245,6 +246,8 @@ class AsyncScheduler:
             run time is allowed to be late, compared to the scheduled run time
         :param max_jitter: maximum number of seconds to randomly add to the scheduled
             time for each job created from this schedule
+        :param max_running_jobs: maximum number of instances of the task that are
+            allowed to run concurrently
         :param tags: strings that can be used to categorize and filter the schedule and
             its derivative jobs
         :param conflict_policy: determines what to do if a schedule with the same ID
@@ -265,6 +268,7 @@ class AsyncScheduler:
                 id=callable_to_ref(func_or_task_id),
                 func=func_or_task_id,
                 executor=job_executor or self.default_job_executor,
+                max_running_jobs=max_running_jobs,
             )
             await self.data_store.add_task(task)
         else:
