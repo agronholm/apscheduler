@@ -391,14 +391,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
     async def get_task(self, task_id: str) -> Task:
         query = select(
-            [
                 self.t_tasks.c.id,
                 self.t_tasks.c.func,
                 self.t_tasks.c.executor,
                 self.t_tasks.c.max_running_jobs,
                 self.t_tasks.c.state,
                 self.t_tasks.c.misfire_grace_time,
-            ]
         ).where(self.t_tasks.c.id == task_id)
         async for attempt in self._retry():
             with attempt:
@@ -413,14 +411,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
     async def get_tasks(self) -> list[Task]:
         query = select(
-            [
                 self.t_tasks.c.id,
                 self.t_tasks.c.func,
                 self.t_tasks.c.executor,
                 self.t_tasks.c.max_running_jobs,
                 self.t_tasks.c.state,
                 self.t_tasks.c.misfire_grace_time,
-            ]
         ).order_by(self.t_tasks.c.id)
         async for attempt in self._retry():
             with attempt:
@@ -521,7 +517,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         .with_for_update(skip_locked=True)
                         .cte()
                     )
-                    subselect = select([schedules_cte.c.id])
+                    subselect = select(schedules_cte.c.id)
                     update = (
                         self.t_schedules.update()
                         .where(self.t_schedules.c.id.in_(subselect))
@@ -694,11 +690,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
                     # Retrieve the limits
                     query = select(
-                        [
                             self.t_tasks.c.id,
                             self.t_tasks.c.max_running_jobs
                             - self.t_tasks.c.running_jobs,
-                        ]
                     ).where(
                         self.t_tasks.c.max_running_jobs.isnot(None),
                         self.t_tasks.c.id.in_(task_ids),
