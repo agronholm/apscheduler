@@ -12,9 +12,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: 3.x
     - name: Install dependencies
@@ -22,7 +22,6 @@ jobs:
     - name: Create packages
       run: python -m build -s -w .
     - name: Upload packages
-      uses: pypa/gh-action-pypi-publish@v1.1.0
+      uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        user: __token__
         password: ${{ secrets.pypi_password }}
