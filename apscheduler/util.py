@@ -2,6 +2,7 @@
 
 from __future__ import division
 
+from asyncio import iscoroutinefunction
 from datetime import date, datetime, time, timedelta, tzinfo
 from calendar import timegm
 from functools import partial
@@ -21,15 +22,6 @@ try:
     from threading import TIMEOUT_MAX
 except ImportError:
     TIMEOUT_MAX = 4294967  # Maximum value accepted by Event.wait() on Windows
-
-try:
-    from asyncio import iscoroutinefunction
-except ImportError:
-    try:
-        from trollius import iscoroutinefunction
-    except ImportError:
-        def iscoroutinefunction(func):
-            return False
 
 __all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
            'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'get_callable_name',

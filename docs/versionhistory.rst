@@ -4,10 +4,11 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
-3.9.2
------
+3.10.0
+------
 
 * Fixed compatibility with SQLAlchemy 2.0 and bumped minimum supported version to 1.4
+* Dropped support for Python versions older than 3.6
 
 
 3.9.1

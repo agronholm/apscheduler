@@ -1,4 +1,3 @@
-# coding: utf-8
 import os.path
 
 from setuptools import setup, find_packages
@@ -24,19 +23,18 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10'
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11'
     ],
     keywords='scheduling cron',
     license='MIT',
     packages=find_packages(exclude=['tests']),
-    python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <4',
+    python_requires='>=3.6',
     setup_requires=[
         'setuptools_scm'
     ],
@@ -47,9 +45,6 @@ setup(
         'tzlocal >= 2.0, != 3.*'
     ],
     extras_require={
-        ':python_version == "2.7"': ['futures'],
-        ':python_version < "3.5"': ['funcsigs'],
-        'asyncio:python_version == "2.7"': ['trollius'],
         'gevent': ['gevent'],
         'mongodb': ['pymongo >= 3.0'],
         'redis': ['redis >= 3.0'],
@@ -60,12 +55,10 @@ setup(
         'zookeeper': ['kazoo'],
         'testing': [
             'pytest',
+            'pytest_asyncio',
             'pytest-cov',
             'pytest-tornado5'
         ],
-        'testing:python_version == "2.7"': ['mock'],
-        'testing:python_version == "3.4"': ['pytest_asyncio < 0.6'],
-        'testing:python_version >= "3.5"': ['pytest_asyncio'],
         'doc': [
             'sphinx',
             'sphinx-rtd-theme',

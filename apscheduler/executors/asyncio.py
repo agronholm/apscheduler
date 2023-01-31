@@ -3,12 +3,8 @@ from __future__ import absolute_import
 import sys
 
 from apscheduler.executors.base import BaseExecutor, run_job
+from apscheduler.executors.base_py3 import run_coroutine_job
 from apscheduler.util import iscoroutinefunction_partial
-
-try:
-    from apscheduler.executors.base_py3 import run_coroutine_job
-except ImportError:
-    run_coroutine_job = None
 
 
 class AsyncIOExecutor(BaseExecutor):
@@ -46,11 +42,8 @@ class AsyncIOExecutor(BaseExecutor):
                 self._run_job_success(job.id, events)
 
         if iscoroutinefunction_partial(job.func):
-            if run_coroutine_job is not None:
-                coro = run_coroutine_job(job, job._jobstore_alias, run_times, self._logger.name)
-                f = self._eventloop.create_task(coro)
-            else:
-                raise Exception('Executing coroutine based jobs is not supported with Trollius')
+            coro = run_coroutine_job(job, job._jobstore_alias, run_times, self._logger.name)
+            f = self._eventloop.create_task(coro)
         else:
             f = self._eventloop.run_in_executor(None, run_job, job, job._jobstore_alias, run_times,
                                                 self._logger.name)

@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.6", "3.9"]
+        python-version: ["3.6", "3.11"]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
