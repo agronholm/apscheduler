@@ -33,6 +33,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 - The synchronous scheduler now runs an asyncio event loop in a thread, acting as a
   façade for ``AsyncScheduler`
 - Fixed the ``schema`` parameter in ``SQLAlchemyDataStore`` not being applied
+- Fixed SQLalchemy 2.0 compatibility
 
 **4.0.0a2**
 
