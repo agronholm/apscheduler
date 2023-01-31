@@ -54,7 +54,7 @@ setup(
         'mongodb': ['pymongo >= 3.0'],
         'redis': ['redis >= 3.0'],
         'rethinkdb': ['rethinkdb >= 2.4.0'],
-        'sqlalchemy': ['sqlalchemy >= 0.8'],
+        'sqlalchemy': ['sqlalchemy >= 1.4'],
         'tornado': ['tornado >= 4.3'],
         'twisted': ['twisted'],
         'zookeeper': ['kazoo'],
