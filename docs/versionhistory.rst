@@ -4,6 +4,13 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.10.1
+------
+
+* Fixed ``TypeError: arguments did not match any overloaded call:`` in QtScheduler due
+  to ``wait_time`` being float and not an integer which QT needs it to be
+
+
 3.10.0
 ------
 
