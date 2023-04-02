@@ -321,8 +321,10 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         # Find out if the dialect supports UPDATE...RETURNING
         async for attempt in self._retry():
             with attempt:
-                update = self.t_metadata.update().values(schema_version=1).returning(
-                    self.t_metadata.c.schema_version
+                update = (
+                    self.t_metadata.update()
+                    .values(schema_version=1)
+                    .returning(self.t_metadata.c.schema_version)
                 )
                 async with self._begin_transaction() as conn:
                     try:
