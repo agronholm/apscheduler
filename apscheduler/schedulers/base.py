@@ -30,6 +30,11 @@ try:
 except ImportError:
     from collections import MutableMapping
 
+try:
+    from importlib.metadata import entry_points
+except ModuleNotFoundError:
+    from importlib_metadata import entry_points
+
 #: constant indicating a scheduler's stopped state
 STATE_STOPPED = 0
 #: constant indicating a scheduler's running state (started and processing jobs)
@@ -61,25 +66,15 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     .. seealso:: :ref:`scheduler-config`
     """
-    if sys.version_info >= (3, 10):
-        from importlib.metadata import entry_points
-
-        _trigger_plugins = {ep.name: ep for ep in entry_points(group='apscheduler.triggers')}
-        _executor_plugins = {ep.name: ep for ep in entry_points(group='apscheduler.executors')}
-        _jobstore_plugins = {ep.name: ep for ep in entry_points(group='apscheduler.jobstores')}
-
-    elif sys.version_info >= (3, 8):
-        from importlib.metadata import entry_points
-
+    # The `group=...` API is only available in the backport, used in <=3.7, and in std>=3.10.
+    if (3, 8) <= sys.version_info <= (3, 9):
         _trigger_plugins = {ep.name: ep for ep in entry_points()['apscheduler.triggers']}
         _executor_plugins = {ep.name: ep for ep in entry_points()['apscheduler.executors']}
         _jobstore_plugins = {ep.name: ep for ep in entry_points()['apscheduler.jobstores']}
     else:
-        from pkg_resources import iter_entry_points
-
-        _trigger_plugins = {ep.name: ep for ep in iter_entry_points('apscheduler.triggers')}
-        _executor_plugins = {ep.name: ep for ep in iter_entry_points('apscheduler.executors')}
-        _jobstore_plugins = {ep.name: ep for ep in iter_entry_points('apscheduler.jobstores')}
+        _trigger_plugins = {ep.name: ep for ep in entry_points(group='apscheduler.triggers')}
+        _executor_plugins = {ep.name: ep for ep in entry_points(group='apscheduler.executors')}
+        _jobstore_plugins = {ep.name: ep for ep in entry_points(group='apscheduler.jobstores')}
 
     _trigger_classes = {}
     _executor_classes = {}

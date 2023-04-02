@@ -1,26 +1,15 @@
 import sys
-
-
-fallback_release = '3.5.0'
 if sys.version_info >= (3, 8):
-    from importlib.metadata import version, PackageNotFoundError
-
-    try:
-        release = version('APScheduler').split('-')[0]
-    except PackageNotFoundError:
-        release = fallback_release
-
-    del version, PackageNotFoundError
+    import importlib.metadata as importlib_metadata
 else:
-    from pkg_resources import get_distribution, DistributionNotFound
+    import importlib_metadata
 
-    try:
-        release = get_distribution('APScheduler').version.split('-')[0]
-    except DistributionNotFound:
-        release = fallback_release
 
-    del get_distribution, DistributionNotFound
+try:
+    release = importlib_metadata.version('APScheduler').split('-')[0]
+except importlib_metadata.PackageNotFoundError:
+    release = '3.5.0'
 
 version_info = tuple(int(x) if x.isdigit() else x for x in release.split('.'))
 version = __version__ = '.'.join(str(x) for x in version_info[:3])
-del sys, fallback_release
+del sys, importlib_metadata

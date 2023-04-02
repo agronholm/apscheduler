@@ -42,7 +42,8 @@ setup(
         'setuptools >= 0.7',
         'six >= 1.4.0',
         'pytz',
-        'tzlocal >= 2.0, != 3.*'
+        'tzlocal >= 2.0, != 3.*',
+        'importlib-metadata >= 3.6.0; python_version < "3.8"',
     ],
     extras_require={
         'gevent': ['gevent'],
