@@ -7,7 +7,6 @@ from logging import getLogger
 import warnings
 import sys
 
-from pkg_resources import iter_entry_points
 from tzlocal import get_localzone
 import six
 
@@ -30,6 +29,11 @@ try:
     from collections.abc import MutableMapping
 except ImportError:
     from collections import MutableMapping
+
+try:
+    from importlib.metadata import entry_points
+except ModuleNotFoundError:
+    from importlib_metadata import entry_points
 
 #: constant indicating a scheduler's stopped state
 STATE_STOPPED = 0
@@ -62,12 +66,18 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     .. seealso:: :ref:`scheduler-config`
     """
+    # The `group=...` API is only available in the backport, used in <=3.7, and in std>=3.10.
+    if (3, 8) <= sys.version_info <= (3, 9):
+        _trigger_plugins = {ep.name: ep for ep in entry_points()['apscheduler.triggers']}
+        _executor_plugins = {ep.name: ep for ep in entry_points()['apscheduler.executors']}
+        _jobstore_plugins = {ep.name: ep for ep in entry_points()['apscheduler.jobstores']}
+    else:
+        _trigger_plugins = {ep.name: ep for ep in entry_points(group='apscheduler.triggers')}
+        _executor_plugins = {ep.name: ep for ep in entry_points(group='apscheduler.executors')}
+        _jobstore_plugins = {ep.name: ep for ep in entry_points(group='apscheduler.jobstores')}
 
-    _trigger_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.triggers'))
     _trigger_classes = {}
-    _executor_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.executors'))
     _executor_classes = {}
-    _jobstore_plugins = dict((ep.name, ep) for ep in iter_entry_points('apscheduler.jobstores'))
     _jobstore_classes = {}
 
     #
