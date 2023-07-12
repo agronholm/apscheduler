@@ -1029,6 +1029,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             wait_seconds = None
             self._logger.debug('No jobs; waiting until a job is added')
         else:
+            now = datetime.now(self.timezone)
             wait_seconds = min(max(timedelta_seconds(next_wakeup_time - now), 0), TIMEOUT_MAX)
             self._logger.debug('Next wakeup is due at %s (in %f seconds)', next_wakeup_time,
                                wait_seconds)
