@@ -21,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 keywords = ["scheduling cron"]
 license = {text = "MIT"}
@@ -101,10 +102,9 @@ ignore_missing_imports = true
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-minversion = 3.7.0
-envlist = py37, py38, py39, py310, py311, pypy3
+envlist = py37, py38, py39, py310, py311, py312, pypy3
 skip_missing_interpreters = true
-isolated_build = true
+minversion = 4.0
 
 [testenv]
 extras = test
