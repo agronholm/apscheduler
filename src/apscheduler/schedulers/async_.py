@@ -201,7 +201,7 @@ class AsyncScheduler:
         :param event_types: an event class or an iterable event classes to subscribe to
 
         """
-        received_event: Event
+        received_event: Event | None = None
 
         def receive_event(ev: Event) -> None:
             nonlocal received_event
@@ -532,7 +532,7 @@ class AsyncScheduler:
                     self.logger.exception("Scheduler crashed")
                 elif exception:
                     self.logger.info(
-                        f"Scheduler stopped due to {exception.__class__.__name__}"
+                        "Scheduler stopped due to %s", exception.__class__.__name__
                     )
 
                 with move_on_after(3, shield=True):

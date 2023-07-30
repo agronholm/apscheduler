@@ -87,13 +87,20 @@ source = ["apscheduler"]
 [tool.coverage.report]
 show_missing = true
 
-[tool.isort]
-src_paths = ["src"]
-skip_gitignore = true
-profile = "black"
+[tool.ruff]
+select = [
+    "E", "F", "W",  # default Flake8
+    "G",            # flake8-logging-format
+    "I",            # isort
+    "ISC",          # flake8-implicit-str-concat
+    "PGH",          # pygrep-hooks
+    "RUF100",       # unused noqa (yesqa)
+    "UP",           # pyupgrade
+]
+src = ["src"]
 
-[tool.flake8]
-max-line-length = 88
+[tool.ruff.isort]
+"required-imports" = ["from __future__ import annotations"]
 
 [tool.mypy]
 python_version = "3.10"

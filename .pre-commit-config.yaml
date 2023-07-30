@@ -19,41 +19,18 @@ repos:
         args: [ "--fix=lf" ]
       - id: trailing-whitespace
 
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.9.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.0.280
     hooks:
-      - id: pyupgrade
-        args: [ "--py37-plus" ]
+      - id: ruff
+        args: [--fix, --show-fixes]
 
   - repo: https://github.com/psf/black
-    rev: 23.3.0
+    rev: 23.7.0
     hooks:
       - id: black
-
-  - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
-    hooks:
-      - id: isort
-        args: [ "-a", "from __future__ import annotations" ]
-
-  - repo: https://github.com/csachs/pyproject-flake8
-    rev: v6.0.0.post1
-    hooks:
-      - id: pyproject-flake8
-        additional_dependencies: [ flake8-bugbear ]
 
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.5
     hooks:
       - id: codespell
-
-  - repo: https://github.com/pre-commit/pygrep-hooks
-    rev: v1.10.0
-    hooks:
-      - id: python-check-blanket-noqa
-      - id: python-check-blanket-type-ignore
-      - id: python-no-eval
-      - id: python-use-type-annotations
-      - id: rst-backticks
-      - id: rst-directive-colons
-      - id: rst-inline-touching-normal

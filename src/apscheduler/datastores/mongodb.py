@@ -311,7 +311,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                     serialized_trigger = self.serializer.serialize(schedule.trigger)
                 except SerializationError:
                     self._logger.exception(
-                        "Error serializing schedule %r – " "removing from data store",
+                        "Error serializing schedule %r – removing from data store",
                         schedule.id,
                     )
                     requests.append(DeleteOne(filters))
