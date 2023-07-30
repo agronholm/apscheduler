@@ -135,7 +135,7 @@ class AsyncpgEventBroker(BaseExternalEventBroker):
                     await conn.remove_listener(self.channel, listen_callback)
 
         task_started_sent = False
-        send, receive = create_memory_object_stream(100, str)
+        send, receive = create_memory_object_stream[str](100)
         while True:
             async with AsyncExitStack() as exit_stack:
                 async for attempt in self._retry():

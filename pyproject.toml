@@ -27,7 +27,7 @@ license = {text = "MIT"}
 urls = {Homepage = "https://github.com/agronholm/apscheduler"}
 requires-python = ">= 3.8"
 dependencies = [
-    "anyio ~= 3.6",
+    "anyio >= 4.0.0rc1",
     "attrs >= 21.3",
     "tenacity ~= 8.0",
     "tzlocal >= 3.0",
@@ -40,8 +40,11 @@ asyncpg = ["asyncpg >= 0.20"]
 cbor = ["cbor2 >= 5.0"]
 mongodb = ["pymongo >= 4"]
 mqtt = ["paho-mqtt >= 1.5"]
-redis = ["redis >= 4.0"]
-sqlalchemy = ["sqlalchemy >= 1.4.22"]
+redis = ["redis >= 4.4.0"]
+sqlalchemy = [
+    "sqlalchemy >= 2.0.19",
+    "greenlet >= 3.0.0a1; python_version >= '3.12'",
+]
 test = [
     "APScheduler[cbor,mongodb,mqtt,redis,sqlalchemy]",
     "APScheduler[asyncpg]; python_implementation == 'CPython'",
@@ -53,13 +56,11 @@ test = [
     "psycopg2cffi; python_implementation != 'CPython'",
     "pymongo >= 4",
     "pymysql[rsa]",
-    "pytest >= 5.0",
+    "pytest >= 7.4.0",
     "pytest-cov",
     "pytest-freezer",
     "pytest-lazy-fixture",
     "pytest-mock",
-    "redis[hiredis] >= 4.4.0rc1",
-    "sqlalchemy >= 1.4.22",
     "trio",
 ]
 doc = [

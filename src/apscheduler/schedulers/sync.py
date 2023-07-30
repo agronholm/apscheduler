@@ -13,8 +13,7 @@ from types import TracebackType
 from typing import Any, Callable, Iterable, Mapping
 from uuid import UUID
 
-from anyio import start_blocking_portal
-from anyio.from_thread import BlockingPortal
+from anyio.from_thread import BlockingPortal, start_blocking_portal
 
 from .. import Event, current_scheduler
 from .._enums import CoalescePolicy, ConflictPolicy, RunState, SchedulerRole
