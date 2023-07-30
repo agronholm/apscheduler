@@ -19,6 +19,8 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         allow-prereleases: true
+        cache: pip
+        cache-dependency-path: pyproject.toml
     - name: Start external services
       run: docker compose up -d
     - name: Install the project and its dependencies
@@ -43,6 +45,8 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         allow-prereleases: true
+        cache: pip
+        cache-dependency-path: pyproject.toml
     - name: Install the project and its dependencies
       run: pip install -e .[test]
     - name: Test with pytest
