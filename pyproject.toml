@@ -16,7 +16,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -26,7 +25,7 @@ classifiers = [
 keywords = ["scheduling cron"]
 license = {text = "MIT"}
 urls = {Homepage = "https://github.com/agronholm/apscheduler"}
-requires-python = ">= 3.7"
+requires-python = ">= 3.8"
 dependencies = [
     "anyio ~= 3.6",
     "attrs >= 21.3",
@@ -102,7 +101,7 @@ ignore_missing_imports = true
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py37, py38, py39, py310, py311, py312, pypy3
+envlist = py38, py39, py310, py311, py312, pypy3
 skip_missing_interpreters = true
 minversion = 4.0
 
