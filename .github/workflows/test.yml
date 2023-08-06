@@ -66,7 +66,9 @@ jobs:
 
   coveralls:
     name: Finish Coveralls
-    needs: test
+    needs:
+      - test-linux
+      - test-others
     runs-on: ubuntu-latest
     steps:
     - name: Finished
