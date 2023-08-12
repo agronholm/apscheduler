@@ -66,8 +66,8 @@ DST. When switching from standard time to daylight saving time, clocks are moved
 forward, depending on the time zone. Likewise, when switching back to standard time, clocks are moved one hour or half
 an hour backward. This will cause some time periods to either not exist at all, or be repeated. If your schedule would
 have the job executed on either one of these periods, it may execute more often or less often than expected.
-This is not a bug. If you wish to avoid this, either use a timezone that does not observe DST, for instance UTC.
-Alternatively, just find out about the DST switch times and avoid them in your scheduling.
+This is not a bug. If you wish to avoid this, either use a timezone that does not observe DST, e.g. UTC, or find out
+about the DST-switch times and avoid using them in your scheduling.
 
 For example, the following schedule may be problematic::
 
