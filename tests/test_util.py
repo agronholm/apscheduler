@@ -1,4 +1,3 @@
-# coding: utf-8
 import platform
 import sys
 from datetime import date, datetime, timedelta, tzinfo
@@ -8,17 +7,15 @@ from unittest.mock import Mock
 
 import pytest
 import pytz
-import six
 
 from apscheduler.util import (
     asbool, asint, astimezone, check_callable_args,
     convert_to_datetime, datetime_ceil,
     datetime_repr, datetime_to_utc_timestamp,
     get_callable_name, iscoroutinefunction_partial, maybe_ref, obj_to_ref,
-    ref_to_obj, repr_escape, timedelta_seconds,
+    ref_to_obj, timedelta_seconds,
     utc_timestamp_to_datetime,
 )
-from tests.conftest import maxpython, minpython
 
 
 class DummyClass(object):
@@ -267,15 +264,6 @@ def test_maybe_ref(input, expected):
     assert maybe_ref(input) == expected
 
 
-@pytest.mark.parametrize('input,expected', [
-    (b'T\xc3\xa9st'.decode('utf-8'), 'T\\xe9st' if six.PY2 else 'Tést'),
-    (1, 1)
-], ids=['string', 'int'])
-@maxpython(3)
-def test_repr_escape_py2(input, expected):
-    assert repr_escape(input) == expected
-
-
 class TestCheckCallableArgs(object):
     def test_invalid_callable_args(self):
         """
@@ -321,7 +309,6 @@ class TestCheckCallableArgs(object):
         """Tests that a function where signature() fails is accepted."""
         check_callable_args(object().__setattr__, ('blah', 1), {})
 
-    @minpython(3, 4)
     @pytest.mark.skipif(platform.python_implementation() == 'PyPy',
                         reason='PyPy does not expose signatures of builtins')
     def test_positional_only_args(self):
@@ -335,7 +322,6 @@ class TestCheckCallableArgs(object):
         assert str(exc.value) == ('The following arguments cannot be given as keyword arguments: '
                                   'value')
 
-    @minpython(3)
     def test_unfulfilled_kwargs(self):
         """
         Tests that attempting to schedule a job where not all keyword-only arguments are fulfilled

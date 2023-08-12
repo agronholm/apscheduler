@@ -15,7 +15,6 @@ from apscheduler.executors.pool import ProcessPoolExecutor
 from apscheduler.job import Job
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import BaseScheduler
-from tests.conftest import minpython
 
 try:
     from unittest.mock import Mock, MagicMock, patch
@@ -151,7 +150,6 @@ def test_run_job_memory_leak():
     assert len(foos) == 0
 
 
-@minpython(3, 3)
 def test_broken_pool():
     def listener(evt):
         pid[0] = evt.retval
