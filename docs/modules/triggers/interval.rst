@@ -54,7 +54,7 @@ You can use ``start_date`` and ``end_date`` to limit the total time in which the
 
 The :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job` decorator works nicely too::
 
-    
+
     @sched.scheduled_job('interval', id='my_job_id', hours=2)
     def job_function():
         print("Hello World")
@@ -64,5 +64,5 @@ The ``jitter`` option enables you to add a random component to the execution tim
 multiple servers and don't want them to run a job at the exact same moment or if you want to prevent multiple jobs
 with similar options from always running concurrently::
 
-    # Run the `job_function` every hour with an extra-delay picked randomly in a [-120,+120] seconds window.
+    # Run the `job_function` every hour with an extra delay picked randomly between 0 and 120 seconds.
     sched.add_job(job_function, 'interval', hours=1, jitter=120)
