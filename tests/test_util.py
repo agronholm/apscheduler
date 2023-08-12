@@ -10,12 +10,14 @@ import pytz
 import six
 
 from apscheduler.job import Job
-from apscheduler.util import (asbool, asint, astimezone, check_callable_args,
-                              convert_to_datetime, datetime_ceil,
-                              datetime_repr, datetime_to_utc_timestamp,
-                              get_callable_name, maybe_ref, obj_to_ref,
-                              ref_to_obj, repr_escape, timedelta_seconds,
-                              utc_timestamp_to_datetime)
+from apscheduler.util import (
+    asbool, asint, astimezone, check_callable_args,
+    convert_to_datetime, datetime_ceil,
+    datetime_repr, datetime_to_utc_timestamp,
+    get_callable_name, iscoroutinefunction_partial, maybe_ref, obj_to_ref,
+    ref_to_obj, repr_escape, timedelta_seconds,
+    utc_timestamp_to_datetime,
+)
 from tests.conftest import maxpython, minpython
 
 try:
@@ -362,3 +364,22 @@ class TestCheckCallableArgs(object):
             func()
 
         check_callable_args(wrapper, (1,), {})
+
+
+class TestIsCoroutineFunctionPartial:
+    @staticmethod
+    def not_a_coro(x):
+        pass
+
+    @staticmethod
+    async def a_coro(x):
+        pass
+
+    def test_non_coro(self):
+        assert not iscoroutinefunction_partial(self.not_a_coro)
+
+    def test_coro(self):
+        assert iscoroutinefunction_partial(self.a_coro)
+
+    def test_coro_partial(self):
+        assert iscoroutinefunction_partial(partial(self.a_coro, 1))
