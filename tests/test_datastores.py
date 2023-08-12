@@ -43,6 +43,8 @@ def schedules() -> list[Schedule]:
 
     trigger = DateTrigger(datetime(2020, 9, 15, tzinfo=timezone.utc))
     schedule3 = Schedule(id="s3", task_id="task1", trigger=trigger)
+    schedule3.next_fire_time = trigger.next()
+
     return [schedule1, schedule2, schedule3]
 
 
@@ -123,11 +125,12 @@ async def test_replace_schedules(
         for schedule in schedules:
             await datastore.add_schedule(schedule, ConflictPolicy.exception)
 
-        next_fire_time = schedules[2].trigger.next()
+        trigger = DateTrigger(datetime(2020, 9, 16, tzinfo=timezone.utc))
+        next_fire_time = trigger.next()
         schedule = Schedule(
             id="s3",
             task_id="foo",
-            trigger=schedules[2].trigger,
+            trigger=trigger,
             args=(),
             kwargs={},
             coalesce=CoalescePolicy.earliest,
@@ -148,7 +151,7 @@ async def test_replace_schedules(
 
     received_event = events.pop(0)
     assert received_event.schedule_id == "s3"
-    assert received_event.next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
+    assert received_event.next_fire_time == datetime(2020, 9, 16, tzinfo=timezone.utc)
     assert not events
 
 
@@ -505,3 +508,14 @@ async def test_cancel_stop(raw_datastore: DataStore, local_broker: EventBroker) 
         async with AsyncExitStack() as exit_stack:
             await raw_datastore.start(exit_stack, local_broker)
             scope.cancel()
+
+
+async def test_next_schedule_run_time(datastore: DataStore, schedules: list[Schedule]):
+    next_schedule_run_time = await datastore.get_next_schedule_run_time()
+    assert next_schedule_run_time is None
+
+    for schedule in schedules:
+        await datastore.add_schedule(schedule, ConflictPolicy.exception)
+
+    next_schedule_run_time = await datastore.get_next_schedule_run_time()
+    assert next_schedule_run_time == datetime(2020, 9, 13, tzinfo=timezone.utc)

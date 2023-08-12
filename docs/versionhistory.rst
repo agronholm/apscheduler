@@ -28,11 +28,14 @@ APScheduler, see the :doc:`migration section <migration>`.
   is executed once picked up by a worker. Several data structures and scheduler methods
   have a new field/parameter for this, ``job_executor``. This addition requires database
   schema changes too.
+- Dropped support for Python 3.7
+- Added support for Python 3.12
 - Added the ability to run jobs in worker processes, courtesy of the ``processpool``
   executor
 - The synchronous scheduler now runs an asyncio event loop in a thread, acting as a
-  façade for ``AsyncScheduler`
+  façade for ``AsyncScheduler``
 - Fixed the ``schema`` parameter in ``SQLAlchemyDataStore`` not being applied
+- Fixed SQLalchemy 2.0 compatibility
 
 **4.0.0a2**
 

@@ -65,7 +65,7 @@ class MQTTEventBroker(BaseExternalEventBroker):
         rc: ReasonCodes | int,
         properties: Properties | None = None,
     ) -> None:
-        self._logger.info(f"{self.__class__.__name__}: Connected")
+        self._logger.info("%s: Connected", self.__class__.__name__)
         try:
             client.subscribe(self.topic, qos=self.subscribe_qos)
         except Exception as exc:
@@ -74,7 +74,7 @@ class MQTTEventBroker(BaseExternalEventBroker):
 
     def _on_connect_fail(self, client: Client, userdata: Any) -> None:
         exc = sys.exc_info()[1]
-        self._logger.error(f"{self.__class__.__name__}: Connection failed ({exc})")
+        self._logger.error("%s: Connection failed (%s)", self.__class__.__name__, exc)
 
     def _on_disconnect(
         self,
@@ -83,12 +83,12 @@ class MQTTEventBroker(BaseExternalEventBroker):
         rc: ReasonCodes | int,
         properties: Properties | None = None,
     ) -> None:
-        self._logger.error(f"{self.__class__.__name__}: Disconnected (code: {rc})")
+        self._logger.error("%s: Disconnected (code: %s)", self.__class__.__name__, rc)
 
     def _on_subscribe(
         self, client: Client, userdata: Any, mid: int, granted_qos: list[int]
     ) -> None:
-        self._logger.info(f"{self.__class__.__name__}: Subscribed")
+        self._logger.info("%s: Subscribed", self.__class__.__name__)
         self._ready_future.set_result(None)
 
     def _on_message(self, client: Client, userdata: Any, msg: MQTTMessage) -> None:
