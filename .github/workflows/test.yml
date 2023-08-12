@@ -32,6 +32,7 @@ jobs:
     - name: Upload Coverage
       uses: coverallsapp/github-action@v2
       with:
+        parallel: true
         file: coverage.xml
 
   test-others:
@@ -62,6 +63,7 @@ jobs:
     - name: Upload Coverage
       uses: coverallsapp/github-action@v2
       with:
+        parallel: true
         file: coverage.xml
 
   coveralls:
