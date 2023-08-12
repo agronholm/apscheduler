@@ -4,6 +4,15 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+UNRELEASED
+----------
+
+* Ensured consistent support for both PySide and PyQt (v6 to v2) on QtScheduler
+* Replaced uses of the deprecated ``pkg_resources`` module with ``importlib.metadata``
+* Fixed scheduling class methods like ``B.methodname`` where the ``B`` class inherits
+  from class ``A`` and ``methodname`` is a class method of class ``A``
+
+
 3.10.1
 ------
 

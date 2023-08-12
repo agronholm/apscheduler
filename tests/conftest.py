@@ -1,22 +1,13 @@
-# coding: utf-8
 from datetime import datetime
 import sys
 
 import pytest
 import pytz
+from unittest.mock import Mock
 
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
-
-try:
-    from unittest.mock import Mock
-except ImportError:
-    from mock import Mock
-
-
-def pytest_ignore_collect(path, config):
-    return path.basename.endswith('_py35.py') and sys.version_info < (3, 5)
 
 
 def minpython(*version):

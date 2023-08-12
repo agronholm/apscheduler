@@ -4,24 +4,21 @@ import sys
 from datetime import date, datetime, timedelta, tzinfo
 from functools import partial, wraps
 from types import ModuleType
+from unittest.mock import Mock
 
 import pytest
 import pytz
 import six
 
-from apscheduler.job import Job
-from apscheduler.util import (asbool, asint, astimezone, check_callable_args,
-                              convert_to_datetime, datetime_ceil,
-                              datetime_repr, datetime_to_utc_timestamp,
-                              get_callable_name, maybe_ref, obj_to_ref,
-                              ref_to_obj, repr_escape, timedelta_seconds,
-                              utc_timestamp_to_datetime)
+from apscheduler.util import (
+    asbool, asint, astimezone, check_callable_args,
+    convert_to_datetime, datetime_ceil,
+    datetime_repr, datetime_to_utc_timestamp,
+    get_callable_name, iscoroutinefunction_partial, maybe_ref, obj_to_ref,
+    ref_to_obj, repr_escape, timedelta_seconds,
+    utc_timestamp_to_datetime,
+)
 from tests.conftest import maxpython, minpython
-
-try:
-    from unittest.mock import Mock
-except ImportError:
-    from mock import Mock
 
 
 class DummyClass(object):
@@ -45,7 +42,7 @@ class DummyClass(object):
             pass
 
 
-class InheritedDummyClass(Job):
+class InheritedDummyClass(DummyClass):
     pass
 
 
@@ -182,15 +179,16 @@ def test_datetime_repr(input, expected):
 class TestGetCallableName(object):
     @pytest.mark.parametrize('input,expected', [
         (asint, 'asint'),
-        (DummyClass.staticmeth, 'DummyClass.staticmeth' if
-         hasattr(DummyClass, '__qualname__') else 'staticmeth'),
+        (DummyClass.staticmeth, 'DummyClass.staticmeth'),
         (DummyClass.classmeth, 'DummyClass.classmeth'),
-        (DummyClass.meth, 'meth' if sys.version_info[:2] == (3, 2) else 'DummyClass.meth'),
+        (DummyClass.meth, 'DummyClass.meth'),
         (DummyClass().meth, 'DummyClass.meth'),
         (DummyClass, 'DummyClass'),
-        (DummyClass(), 'DummyClass')
+        (DummyClass(), 'DummyClass'),
+        (InheritedDummyClass.classmeth, "InheritedDummyClass.classmeth"),
+        (DummyClass.InnerDummyClass.innerclassmeth, "DummyClass.InnerDummyClass.innerclassmeth")
     ], ids=['function', 'static method', 'class method', 'unbounded method', 'bounded method',
-            'class', 'instance'])
+            'class', 'instance', "class method in inherited", "inner class method"])
     def test_inputs(self, input, expected):
         assert get_callable_name(input) == expected
 
@@ -362,3 +360,22 @@ class TestCheckCallableArgs(object):
             func()
 
         check_callable_args(wrapper, (1,), {})
+
+
+class TestIsCoroutineFunctionPartial:
+    @staticmethod
+    def not_a_coro(x):
+        pass
+
+    @staticmethod
+    async def a_coro(x):
+        pass
+
+    def test_non_coro(self):
+        assert not iscoroutinefunction_partial(self.not_a_coro)
+
+    def test_coro(self):
+        assert iscoroutinefunction_partial(self.a_coro)
+
+    def test_coro_partial(self):
+        assert iscoroutinefunction_partial(partial(self.a_coro, 1))

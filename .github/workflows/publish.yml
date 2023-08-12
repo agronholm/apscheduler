@@ -4,13 +4,14 @@ on:
   push:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
-      - "[0-9]+.[0-9]+.[0-9].post[0-9]+"
-      - "[0-9]+.[0-9]+.[0-9][a-b][0-9]+"
-      - "[0-9]+.[0-9]+.[0-9]rc[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+.post[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+[a-b][0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
+    environment: release
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python
@@ -20,8 +21,21 @@ jobs:
     - name: Install dependencies
       run: pip install build
     - name: Create packages
-      run: python -m build -s -w .
+      run: python -m build
+    - name: Archive packages
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist
+        path: dist
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+    - name: Retrieve packages
+      uses: actions/download-artifact@v3
     - name: Upload packages
       uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.pypi_password }}
