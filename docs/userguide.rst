@@ -420,7 +420,7 @@ job's ``misfire_grace_time`` option (which can be set on per-job basis or global
 scheduler) to see if the execution should still be triggered. This can lead into the job being
 executed several times in succession.
 
-If this behavior is undesirable for your particular use case, it is possible to use `coalescing` to
+If this behavior is undesirable for your particular use case, it is possible to use ``coalescing`` to
 roll all these missed executions into one. In other words, if coalescing is enabled for the job and
 the scheduler sees one or more queued executions for the job, it will only trigger it once. No
 misfire events will be sent for the "bypassed" runs.
