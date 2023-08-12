@@ -12,6 +12,8 @@ UNRELEASED
   (PR by Ran Benita)
 * Fixed scheduling class methods like ``B.methodname`` where the ``B`` class inherits
   from class ``A`` and ``methodname`` is a class method of class ``A``
+* Fixed scheduler sleeping for too long (and thus jobs missing their scheduled run
+  times) if its wakeup cycle takes too much time (fix by kbasten)
 
 
 3.10.1
