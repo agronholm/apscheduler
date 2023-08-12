@@ -4,6 +4,12 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+UNRELEASED
+----------
+
+* Ensured consistent support for both PySide and PyQt (v6 to v2) on QtScheduler
+
+
 3.10.1
 ------
 

@@ -6,22 +6,24 @@ intervals.
 from datetime import datetime
 import signal
 import sys
+from importlib import import_module
+from itertools import product
 
 from apscheduler.schedulers.qt import QtScheduler
 
-try:
-    from PyQt5.QtWidgets import QApplication, QLabel
-except ImportError:
+for version, pkgname in product(range(6, 1, -1), ("PySide", "PyQt")):
     try:
-        from PyQt4.QtGui import QApplication, QLabel
+        qtwidgets = import_module(pkgname + str(version) + ".QtWidgets")
     except ImportError:
-        try:
-            from PySide6.QtWidgets import QApplication, QLabel
-        except ImportError:
-            try:
-                from PySide2.QtWidgets import QApplication, QLabel
-            except ImportError:
-                from PySide.QtGui import QApplication, QLabel
+        pass
+    else:
+        QApplication = qtwidgets.QApplication
+        QLabel = qtwidgets.QLabel
+        break
+else:
+    raise ImportError(
+        "Could not import the QtWidgets module from either PySide or PyQt"
+    )
 
 
 def tick():
@@ -44,4 +46,4 @@ if __name__ == '__main__':
     scheduler.start()
 
     # Execution will block here until the user closes the windows or Ctrl+C is pressed.
-    app.exec_()
+    app.exec()
