@@ -10,7 +10,6 @@ import pytest
 import pytz
 import six
 
-from apscheduler.job import Job
 from apscheduler.util import (
     asbool, asint, astimezone, check_callable_args,
     convert_to_datetime, datetime_ceil,
@@ -43,7 +42,7 @@ class DummyClass(object):
             pass
 
 
-class InheritedDummyClass(Job):
+class InheritedDummyClass(DummyClass):
     pass
 
 
@@ -180,15 +179,16 @@ def test_datetime_repr(input, expected):
 class TestGetCallableName(object):
     @pytest.mark.parametrize('input,expected', [
         (asint, 'asint'),
-        (DummyClass.staticmeth, 'DummyClass.staticmeth' if
-         hasattr(DummyClass, '__qualname__') else 'staticmeth'),
+        (DummyClass.staticmeth, 'DummyClass.staticmeth'),
         (DummyClass.classmeth, 'DummyClass.classmeth'),
-        (DummyClass.meth, 'meth' if sys.version_info[:2] == (3, 2) else 'DummyClass.meth'),
+        (DummyClass.meth, 'DummyClass.meth'),
         (DummyClass().meth, 'DummyClass.meth'),
         (DummyClass, 'DummyClass'),
-        (DummyClass(), 'DummyClass')
+        (DummyClass(), 'DummyClass'),
+        (InheritedDummyClass.classmeth, "InheritedDummyClass.classmeth"),
+        (DummyClass.InnerDummyClass.innerclassmeth, "DummyClass.InnerDummyClass.innerclassmeth")
     ], ids=['function', 'static method', 'class method', 'unbounded method', 'bounded method',
-            'class', 'instance'])
+            'class', 'instance', "class method in inherited", "inner class method"])
     def test_inputs(self, input, expected):
         assert get_callable_name(input) == expected
 

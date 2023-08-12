@@ -8,6 +8,8 @@ UNRELEASED
 ----------
 
 * Ensured consistent support for both PySide and PyQt (v6 to v2) on QtScheduler
+* Fixed scheduling class methods like ``B.methodname`` where the ``B`` class inherits
+  from class ``A`` and ``methodname`` is a class method of class ``A``
 
 
 3.10.1
