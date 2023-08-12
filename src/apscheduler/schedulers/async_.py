@@ -61,7 +61,7 @@ _microsecond_delta = timedelta(microseconds=1)
 _zero_timedelta = timedelta()
 
 
-@attrs.define(eq=False, kw_only=True)
+@attrs.define(eq=False)
 class AsyncScheduler:
     """
     An asynchronous (AnyIO based) scheduler implementation.
@@ -74,17 +74,21 @@ class AsyncScheduler:
     """
 
     data_store: DataStore = attrs.field(
-        kw_only=False, validator=instance_of(DataStore), factory=MemoryDataStore
+        validator=instance_of(DataStore), factory=MemoryDataStore
     )
     event_broker: EventBroker = attrs.field(
-        kw_only=False, validator=instance_of(EventBroker), factory=LocalEventBroker
+        validator=instance_of(EventBroker), factory=LocalEventBroker
     )
-    identity: str = attrs.field(default=None)
-    role: SchedulerRole = attrs.field(default=SchedulerRole.both)
-    max_concurrent_jobs: int = attrs.field(validator=non_negative_number, default=100)
-    job_executors: MutableMapping[str, JobExecutor] | None = attrs.field(default=None)
-    default_job_executor: str | None = attrs.field(default=None)
-    logger: Logger | None = attrs.field(default=getLogger(__name__))
+    identity: str = attrs.field(kw_only=True, default=None)
+    role: SchedulerRole = attrs.field(kw_only=True, default=SchedulerRole.both)
+    max_concurrent_jobs: int = attrs.field(
+        kw_only=True, validator=non_negative_number, default=100
+    )
+    job_executors: MutableMapping[str, JobExecutor] | None = attrs.field(
+        kw_only=True, default=None
+    )
+    default_job_executor: str | None = attrs.field(kw_only=True, default=None)
+    logger: Logger | None = attrs.field(kw_only=True, default=getLogger(__name__))
 
     _state: RunState = attrs.field(init=False, default=RunState.stopped)
     _services_task_group: TaskGroup | None = attrs.field(init=False, default=None)
