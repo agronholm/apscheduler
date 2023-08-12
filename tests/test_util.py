@@ -4,6 +4,7 @@ import sys
 from datetime import date, datetime, timedelta, tzinfo
 from functools import partial, wraps
 from types import ModuleType
+from unittest.mock import Mock
 
 import pytest
 import pytz
@@ -19,11 +20,6 @@ from apscheduler.util import (
     utc_timestamp_to_datetime,
 )
 from tests.conftest import maxpython, minpython
-
-try:
-    from unittest.mock import Mock
-except ImportError:
-    from mock import Mock
 
 
 class DummyClass(object):
