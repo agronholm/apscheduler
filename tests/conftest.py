@@ -1,5 +1,4 @@
 from datetime import datetime
-import sys
 
 import pytest
 import pytz

@@ -184,10 +184,11 @@ class TestGetCallableName(object):
         (DummyClass().meth, 'DummyClass.meth'),
         (DummyClass, 'DummyClass'),
         (DummyClass(), 'DummyClass'),
-        (InheritedDummyClass.classmeth, "InheritedDummyClass.classmeth"),
-        (DummyClass.InnerDummyClass.innerclassmeth, "DummyClass.InnerDummyClass.innerclassmeth"),
+        (InheritedDummyClass.classmeth, 'InheritedDummyClass.classmeth'),
+        (DummyClass.InnerDummyClass.innerclassmeth, 'DummyClass.InnerDummyClass.innerclassmeth'),
     ], ids=['function', 'builtin', 'static method', 'class method', 'unbounded method',
-            'bounded method', 'class', 'instance', "class method in inherited", "inner class method"])
+            'bounded method', 'class', 'instance', 'class method in inherited',
+            'inner class method'])
     def test_inputs(self, input, expected):
         assert get_callable_name(input) == expected
 
