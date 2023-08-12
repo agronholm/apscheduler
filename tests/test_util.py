@@ -1,3 +1,4 @@
+import os
 import platform
 import sys
 from datetime import date, datetime, timedelta, tzinfo
@@ -176,6 +177,7 @@ def test_datetime_repr(input, expected):
 class TestGetCallableName(object):
     @pytest.mark.parametrize('input,expected', [
         (asint, 'asint'),
+        (os.getpid, "getpid"),
         (DummyClass.staticmeth, 'DummyClass.staticmeth'),
         (DummyClass.classmeth, 'DummyClass.classmeth'),
         (DummyClass.meth, 'DummyClass.meth'),
@@ -183,9 +185,9 @@ class TestGetCallableName(object):
         (DummyClass, 'DummyClass'),
         (DummyClass(), 'DummyClass'),
         (InheritedDummyClass.classmeth, "InheritedDummyClass.classmeth"),
-        (DummyClass.InnerDummyClass.innerclassmeth, "DummyClass.InnerDummyClass.innerclassmeth")
-    ], ids=['function', 'static method', 'class method', 'unbounded method', 'bounded method',
-            'class', 'instance', "class method in inherited", "inner class method"])
+        (DummyClass.InnerDummyClass.innerclassmeth, "DummyClass.InnerDummyClass.innerclassmeth"),
+    ], ids=['function', 'builtin', 'static method', 'class method', 'unbounded method',
+            'bounded method', 'class', 'instance', "class method in inherited", "inner class method"])
     def test_inputs(self, input, expected):
         assert get_callable_name(input) == expected
 
