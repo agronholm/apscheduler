@@ -6,7 +6,7 @@ from asyncio import iscoroutinefunction
 from datetime import date, datetime, time, timedelta, tzinfo
 from calendar import timegm
 from functools import partial
-from inspect import isclass, isfunction, ismethod
+from inspect import isbuiltin, isclass, isfunction, ismethod
 import re
 import sys
 
@@ -218,7 +218,7 @@ def get_callable_name(func):
         self = func.__self__
         cls = self if isclass(self) else type(self)
         return f"{cls.__qualname__}.{func.__name__}"
-    elif isclass(func) or isfunction(func):
+    elif isclass(func) or isfunction(func) or isbuiltin(func):
         return func.__qualname__
     elif hasattr(func, '__call__') and callable(func.__call__):
         # instance of a class with a __call__ method

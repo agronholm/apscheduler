@@ -1,5 +1,4 @@
 from datetime import datetime
-import sys
 
 import pytest
 import pytz
@@ -8,26 +7,6 @@ from unittest.mock import Mock
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
-
-
-def minpython(*version):
-    version_str = '.'.join([str(num) for num in version])
-
-    def outer(func):
-        dec = pytest.mark.skipif(sys.version_info < version,
-                                 reason='Requires Python >= %s' % version_str)
-        return dec(func)
-    return outer
-
-
-def maxpython(*version):
-    version_str = '.'.join([str(num) for num in version])
-
-    def outer(func):
-        dec = pytest.mark.skipif(sys.version_info >= version,
-                                 reason='Requires Python < %s' % version_str)
-        return dec(func)
-    return outer
 
 
 @pytest.fixture
