@@ -323,7 +323,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             with attempt:
                 update = (
                     self.t_metadata.update()
-                    .values(schema_version=1)
+                    .values(schema_version=self.t_metadata.c.schema_version)
                     .returning(self.t_metadata.c.schema_version)
                 )
                 async with self._begin_transaction() as conn:
