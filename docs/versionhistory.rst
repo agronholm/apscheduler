@@ -4,6 +4,12 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.10.3
+------
+
+- Fixed ``TypeError`` related to entry point iteration on Python 3.9
+  (PR by CrypticDriver)
+
 3.10.2
 ------
 
