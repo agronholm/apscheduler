@@ -261,13 +261,14 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt, self.client.start_session() as session:
                 schedules: list[Schedule] = []
+                now = datetime.now(timezone.utc)
                 cursor = (
                     self._schedules.find(
                         {
-                            "next_fire_time": {"$ne": None},
+                            "next_fire_time": {"$lte": now},
                             "$or": [
                                 {"acquired_until": {"$exists": False}},
-                                {"acquired_until": {"$lt": datetime.now(timezone.utc)}},
+                                {"acquired_until": {"$lt": now}},
                             ],
                         },
                         session=session,
@@ -282,9 +283,7 @@ class MongoDBDataStore(BaseExternalDataStore):
 
                 if schedules:
                     now = datetime.now(timezone.utc)
-                    acquired_until = datetime.fromtimestamp(
-                        now.timestamp() + self.lock_expiration_delay, now.tzinfo
-                    )
+                    acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
                     filters = {"_id": {"$in": [schedule.id for schedule in schedules]}}
                     update = {
                         "$set": {
@@ -311,7 +310,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                     serialized_trigger = self.serializer.serialize(schedule.trigger)
                 except SerializationError:
                     self._logger.exception(
-                        "Error serializing schedule %r – " "removing from data store",
+                        "Error serializing schedule %r – removing from data store",
                         schedule.id,
                     )
                     requests.append(DeleteOne(filters))
@@ -354,13 +353,13 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 document = self._schedules.find_one(
-                    {"next_run_time": {"$ne": None}},
-                    projection=["next_run_time"],
-                    sort=[("next_run_time", ASCENDING)],
+                    {"next_fire_time": {"$ne": None}},
+                    projection=["next_fire_time"],
+                    sort=[("next_fire_time", ASCENDING)],
                 )
 
         if document:
-            return document["next_run_time"]
+            return document["next_fire_time"]
         else:
             return None
 

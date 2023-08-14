@@ -53,9 +53,10 @@ class RedisEventBroker(BaseExternalEventBroker):
     def _retry(self) -> tenacity.AsyncRetrying:
         def after_attempt(retry_state: tenacity.RetryCallState) -> None:
             self._logger.warning(
-                f"{self.__class__.__name__}: connection failure "
-                f"(attempt {retry_state.attempt_number}): "
-                f"{retry_state.outcome.exception()}",
+                "%s: connection failure (attempt %d): %s",
+                self.__class__.__name__,
+                retry_state.attempt_number,
+                retry_state.outcome.exception(),
             )
 
         return tenacity.AsyncRetrying(
@@ -96,7 +97,7 @@ class RedisEventBroker(BaseExternalEventBroker):
                 # CancelledError is a subclass of Exception in Python 3.7
                 if not isinstance(exc, CancelledError):
                     self._logger.exception(
-                        f"{self.__class__.__name__} listener crashed"
+                        "%s listener crashed", self.__class__.__name__
                     )
 
                 await pubsub.close()

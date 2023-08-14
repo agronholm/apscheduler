@@ -13,8 +13,7 @@ from types import TracebackType
 from typing import Any, Callable, Iterable, Mapping
 from uuid import UUID
 
-from anyio import start_blocking_portal
-from anyio.from_thread import BlockingPortal
+from anyio.from_thread import BlockingPortal, start_blocking_portal
 
 from .. import Event, current_scheduler
 from .._enums import CoalescePolicy, ConflictPolicy, RunState, SchedulerRole
@@ -165,6 +164,7 @@ class Scheduler:
         coalesce: CoalescePolicy = CoalescePolicy.latest,
         misfire_grace_time: float | timedelta | None = None,
         max_jitter: float | timedelta | None = None,
+        max_running_jobs: int | None = None,
         tags: Iterable[str] | None = None,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
     ) -> str:
@@ -181,6 +181,7 @@ class Scheduler:
                 coalesce=coalesce,
                 misfire_grace_time=misfire_grace_time,
                 max_jitter=max_jitter,
+                max_running_jobs=max_running_jobs,
                 tags=tags,
                 conflict_policy=conflict_policy,
             )

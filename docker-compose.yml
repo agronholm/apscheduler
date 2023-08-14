@@ -21,7 +21,7 @@ services:
       - 127.0.0.1:27017:27017
 
   emqx:
-    image: emqx/emqx:5.0.7
+    image: emqx/emqx:5.1.3
     ports:
       - 127.0.0.1:1883:1883
 

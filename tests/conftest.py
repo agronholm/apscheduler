@@ -179,9 +179,27 @@ def pymysql_store() -> DataStore:
 @pytest.fixture
 async def asyncpg_store() -> DataStore:
     pytest.importorskip("asyncpg", reason="asyncpg is not installed")
+    from asyncpg import compat
     from sqlalchemy.ext.asyncio import create_async_engine
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
+
+    # Workaround for AnyIO 4.0.0rc1 compatibility
+    async def patched_wait_for(fut, timeout):
+        import asyncio
+
+        if timeout is None:
+            return await fut
+        fut = asyncio.ensure_future(fut)
+        try:
+            return await asyncio.wait_for(fut, timeout)
+        except asyncio.CancelledError:
+            if fut.done() and not fut.cancelled():
+                return fut.result()
+            else:
+                raise
+
+    compat.wait_for = patched_wait_for
 
     engine = create_async_engine(
         "postgresql+asyncpg://postgres:secret@localhost/testdb", future=True

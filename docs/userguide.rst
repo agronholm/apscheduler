@@ -278,7 +278,7 @@ still running, the later job is terminated with the outcome of
 :data:`~apscheduler.JobOutcome.missed_start_deadline`.
 
 To allow more jobs to be concurrently running for a task, pass the desired maximum
-number as the ``max_instances`` keyword argument to
+number as the ``max_running_jobs`` keyword argument to
 :meth:`~apscheduler.schedulers.sync.Scheduler.add_schedule`.~
 
 Controlling how much a job can be started late

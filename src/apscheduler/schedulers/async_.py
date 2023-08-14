@@ -61,7 +61,7 @@ _microsecond_delta = timedelta(microseconds=1)
 _zero_timedelta = timedelta()
 
 
-@attrs.define(eq=False, kw_only=True)
+@attrs.define(eq=False)
 class AsyncScheduler:
     """
     An asynchronous (AnyIO based) scheduler implementation.
@@ -74,17 +74,21 @@ class AsyncScheduler:
     """
 
     data_store: DataStore = attrs.field(
-        kw_only=False, validator=instance_of(DataStore), factory=MemoryDataStore
+        validator=instance_of(DataStore), factory=MemoryDataStore
     )
     event_broker: EventBroker = attrs.field(
-        kw_only=False, validator=instance_of(EventBroker), factory=LocalEventBroker
+        validator=instance_of(EventBroker), factory=LocalEventBroker
     )
-    identity: str = attrs.field(default=None)
-    role: SchedulerRole = attrs.field(default=SchedulerRole.both)
-    max_concurrent_jobs: int = attrs.field(validator=non_negative_number, default=100)
-    job_executors: MutableMapping[str, JobExecutor] | None = attrs.field(default=None)
-    default_job_executor: str | None = attrs.field(default=None)
-    logger: Logger | None = attrs.field(default=getLogger(__name__))
+    identity: str = attrs.field(kw_only=True, default=None)
+    role: SchedulerRole = attrs.field(kw_only=True, default=SchedulerRole.both)
+    max_concurrent_jobs: int = attrs.field(
+        kw_only=True, validator=non_negative_number, default=100
+    )
+    job_executors: MutableMapping[str, JobExecutor] | None = attrs.field(
+        kw_only=True, default=None
+    )
+    default_job_executor: str | None = attrs.field(kw_only=True, default=None)
+    logger: Logger | None = attrs.field(kw_only=True, default=getLogger(__name__))
 
     _state: RunState = attrs.field(init=False, default=RunState.stopped)
     _services_task_group: TaskGroup | None = attrs.field(init=False, default=None)
@@ -201,7 +205,7 @@ class AsyncScheduler:
         :param event_types: an event class or an iterable event classes to subscribe to
 
         """
-        received_event: Event
+        received_event: Event | None = None
 
         def receive_event(ev: Event) -> None:
             nonlocal received_event
@@ -225,6 +229,7 @@ class AsyncScheduler:
         coalesce: CoalescePolicy = CoalescePolicy.latest,
         misfire_grace_time: float | timedelta | None = None,
         max_jitter: float | timedelta | None = None,
+        max_running_jobs: int | None = None,
         tags: Iterable[str] | None = None,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
     ) -> str:
@@ -245,6 +250,8 @@ class AsyncScheduler:
             run time is allowed to be late, compared to the scheduled run time
         :param max_jitter: maximum number of seconds to randomly add to the scheduled
             time for each job created from this schedule
+        :param max_running_jobs: maximum number of instances of the task that are
+            allowed to run concurrently
         :param tags: strings that can be used to categorize and filter the schedule and
             its derivative jobs
         :param conflict_policy: determines what to do if a schedule with the same ID
@@ -265,6 +272,7 @@ class AsyncScheduler:
                 id=callable_to_ref(func_or_task_id),
                 func=func_or_task_id,
                 executor=job_executor or self.default_job_executor,
+                max_running_jobs=max_running_jobs,
             )
             await self.data_store.add_task(task)
         else:
@@ -532,7 +540,7 @@ class AsyncScheduler:
                     self.logger.exception("Scheduler crashed")
                 elif exception:
                     self.logger.info(
-                        f"Scheduler stopped due to {exception.__class__.__name__}"
+                        "Scheduler stopped due to %s", exception.__class__.__name__
                     )
 
                 with move_on_after(3, shield=True):

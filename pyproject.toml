@@ -16,18 +16,18 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 keywords = ["scheduling cron"]
 license = {text = "MIT"}
 urls = {Homepage = "https://github.com/agronholm/apscheduler"}
-requires-python = ">= 3.7"
+requires-python = ">= 3.8"
 dependencies = [
-    "anyio ~= 3.6",
+    "anyio >= 4.0.0rc1",
     "attrs >= 21.3",
     "tenacity ~= 8.0",
     "tzlocal >= 3.0",
@@ -40,26 +40,27 @@ asyncpg = ["asyncpg >= 0.20"]
 cbor = ["cbor2 >= 5.0"]
 mongodb = ["pymongo >= 4"]
 mqtt = ["paho-mqtt >= 1.5"]
-redis = ["redis >= 4.0"]
-sqlalchemy = ["sqlalchemy >= 1.4.22"]
+redis = ["redis >= 4.4.0"]
+sqlalchemy = [
+    "sqlalchemy >= 2.0.19",
+    "greenlet >= 3.0.0a1; python_version >= '3.12'",
+]
 test = [
     "APScheduler[cbor,mongodb,mqtt,redis,sqlalchemy]",
-    "APScheduler[asyncpg]; python_implementation == 'CPython'",
+    "APScheduler[asyncpg]; python_implementation == 'CPython' and python_version < '3.12'",
     "asyncmy >= 0.2.5; python_implementation == 'CPython'",
-    "coverage",
+    "coverage >= 7",
     "freezegun",
     "paho-mqtt >= 1.5",
     "psycopg2; python_implementation == 'CPython'",
     "psycopg2cffi; python_implementation != 'CPython'",
     "pymongo >= 4",
     "pymysql[rsa]",
-    "pytest >= 5.0",
+    "pytest >= 7.4.0",
     "pytest-cov",
     "pytest-freezer",
     "pytest-lazy-fixture",
     "pytest-mock",
-    "redis[hiredis] >= 4.4.0rc1",
-    "sqlalchemy >= 1.4.22",
     "trio",
 ]
 doc = [
@@ -86,13 +87,20 @@ source = ["apscheduler"]
 [tool.coverage.report]
 show_missing = true
 
-[tool.isort]
-src_paths = ["src"]
-skip_gitignore = true
-profile = "black"
+[tool.ruff]
+select = [
+    "E", "F", "W",  # default Flake8
+    "G",            # flake8-logging-format
+    "I",            # isort
+    "ISC",          # flake8-implicit-str-concat
+    "PGH",          # pygrep-hooks
+    "RUF100",       # unused noqa (yesqa)
+    "UP",           # pyupgrade
+]
+src = ["src"]
 
-[tool.flake8]
-max-line-length = 88
+[tool.ruff.isort]
+"required-imports" = ["from __future__ import annotations"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -101,10 +109,9 @@ ignore_missing_imports = true
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-minversion = 3.7.0
-envlist = py37, py38, py39, py310, py311, pypy3
+envlist = py38, py39, py310, py311, py312, pypy3
 skip_missing_interpreters = true
-isolated_build = true
+minversion = 4.0
 
 [testenv]
 extras = test

@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7", "3.11", "pypy-3.9"]
+        python-version: ["3.8", "3.12", "pypy-3.10"]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -18,22 +18,32 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
+        cache: pip
+        cache-dependency-path: pyproject.toml
     - name: Start external services
       run: docker compose up -d
     - name: Install the project and its dependencies
       run: pip install -e .[test]
     - name: Test with pytest
-      run: pytest
+      run: |
+        coverage run -m pytest
+        coverage xml
+    - name: Upload Coverage
+      uses: coverallsapp/github-action@v2
+      with:
+        parallel: true
+        file: coverage.xml
 
   test-others:
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest]
-        python-version: ["3.7", "3.11"]
+        python-version: ["3.8", "3.12"]
         exclude:
         - os: windows-latest
-          python-version: "3.11"  # won't compile psycopg2
+          python-version: "3.12"  # won't compile psycopg2
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
@@ -41,7 +51,29 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
+        cache: pip
+        cache-dependency-path: pyproject.toml
     - name: Install the project and its dependencies
       run: pip install -e .[test]
     - name: Test with pytest
-      run: pytest -m "not external_service"
+      run: |
+        coverage run -m pytest -m "not external_service"
+        coverage xml
+    - name: Upload Coverage
+      uses: coverallsapp/github-action@v2
+      with:
+        parallel: true
+        file: coverage.xml
+
+  coveralls:
+    name: Finish Coveralls
+    needs:
+      - test-linux
+      - test-others
+    runs-on: ubuntu-latest
+    steps:
+    - name: Finished
+      uses: coverallsapp/github-action@v2
+      with:
+        parallel-finished: true

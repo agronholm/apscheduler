@@ -153,7 +153,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         return cls(engine, **options)
 
     def _retry(self) -> tenacity.AsyncRetrying:
-        def after_attempt(self, retry_state: tenacity.RetryCallState) -> None:
+        def after_attempt(retry_state: tenacity.RetryCallState) -> None:
             self._logger.warning(
                 "Temporary data store error (attempt %d): %s",
                 retry_state.attempt_number,
