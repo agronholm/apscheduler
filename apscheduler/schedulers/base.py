@@ -67,7 +67,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
     .. seealso:: :ref:`scheduler-config`
     """
     # The `group=...` API is only available in the backport, used in <=3.7, and in std>=3.10.
-    if (3, 8) <= sys.version_info <= (3, 9):
+    if (3, 8) <= sys.version_info < (3, 10):
         _trigger_plugins = {ep.name: ep for ep in entry_points()['apscheduler.triggers']}
         _executor_plugins = {ep.name: ep for ep in entry_points()['apscheduler.executors']}
         _jobstore_plugins = {ep.name: ep for ep in entry_points()['apscheduler.jobstores']}
