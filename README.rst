@@ -36,6 +36,7 @@ like. Supported backends for storing jobs include:
 * `Redis <http://redis.io/>`_
 * `RethinkDB <https://www.rethinkdb.com/>`_
 * `ZooKeeper <https://zookeeper.apache.org/>`_
+* `Etcd <https://etcd.io/>_` 
 
 APScheduler also integrates with several common Python frameworks, like:
 

@@ -90,16 +90,26 @@ def zookeeperjobstore():
     store.shutdown()
 
 
+@pytest.fixture
+def etcdjobstore():
+    etcd = pytest.importorskip('apscheduler.jobstores.etcd')
+    store = etcd.EtcdJobStore(path='/apscheduler_unittest')
+    store.start(None, 'etcd')
+    yield store
+    store.remove_all_jobs()
+    store.shutdown()
+
+
 @pytest.fixture(params=['memjobstore', 'sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore',
-                        'rethinkdbjobstore', 'zookeeperjobstore'],
-                ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper'])
+                        'rethinkdbjobstore', 'zookeeperjobstore', 'etcdjobstore'],
+                ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper', 'etcd'])
 def jobstore(request):
     return request.getfixturevalue(request.param)
 
 
 @pytest.fixture(params=['sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore',
-                        'rethinkdbjobstore', 'zookeeperjobstore'],
-                ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper'])
+                        'rethinkdbjobstore', 'zookeeperjobstore', 'etcdjobstore'],
+                ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper', 'etcd'])
 def persistent_jobstore(request):
     return request.getfixturevalue(request.param)
 
@@ -327,6 +337,11 @@ def test_repr_zookeeperjobstore(zookeeperjobstore):
     assert repr(zookeeperjobstore).startswith(class_sig)
 
 
+def test_repr_etcdjobstore(etcdjobstore):
+    class_sig = "<EtcdJobStore (client=<etcd3.client"
+    assert repr(etcdjobstore).startswith(class_sig)
+
+
 def test_memstore_close(memjobstore, create_add_job):
     create_add_job(memjobstore, dummy_job, datetime(2016, 5, 3))
     memjobstore.shutdown()
@@ -406,3 +421,22 @@ def test_zookeeper_null_path():
     zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
     exc = pytest.raises(ValueError, zookeeper.ZooKeeperJobStore, path='')
     assert '"path"' in str(exc.value)
+
+
+def test_etcd_null_path():
+    etcd = pytest.importorskip('apscheduler.jobstores.etcd')
+    exc = pytest.raises(ValueError, etcd.EtcdJobStore, path='')
+    assert '"path"' in str(exc.value)
+
+
+def test_etcd_client_ref():
+    global etcd_client
+    etcd = pytest.importorskip('apscheduler.jobstores.etcd')
+    etcd_client = etcd.Etcd3Client()
+    try:
+        etcdjobstore = etcd.EtcdJobStore(client='%s:etcd_client' % __name__)
+        etcdjobstore.start(None, 'etcd')
+        etcdjobstore.shutdown()
+    finally:
+        etcd_client.close()
+        del etcd_client
