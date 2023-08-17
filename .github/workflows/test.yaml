@@ -23,6 +23,6 @@ jobs:
     - name: Start external services
       run: docker-compose up -d
     - name: Install the project and its dependencies
-      run: pip install -e .[testing,asyncio,gevent,mongodb,redis,rethinkdb,sqlalchemy,tornado,twisted,zookeeper,etcd3]
+      run: pip install -e .[testing,asyncio,gevent,mongodb,redis,rethinkdb,sqlalchemy,tornado,twisted,zookeeper,etcd]
     - name: Test with pytest
       run: pytest
