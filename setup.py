@@ -52,7 +52,7 @@ setup(
         'tornado': ['tornado >= 4.3'],
         'twisted': ['twisted'],
         'zookeeper': ['kazoo'],
-        'etcd': ['etcd3'],
+        'etcd': ['etcd3', 'protobuf==3.20.0'],
         'testing': [
             'pytest',
             'pytest_asyncio',
