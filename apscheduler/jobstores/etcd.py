@@ -155,7 +155,7 @@ class EtcdJobStore(BaseJobStore):
                 failed_job_ids.append(failed_id)
                 self._logger.exception('Unable to restore job "%s" -- removing it', failed_id)
 
-        if failed_job_ids: 
+        if failed_job_ids:
             for failed_id in failed_job_ids:
                 self.remove_job(failed_id)
         paused_sort_key = datetime(9999, 12, 31, tzinfo=utc)
