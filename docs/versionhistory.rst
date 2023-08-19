@@ -4,11 +4,19 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+3.10.4
+------
+
+- Fixed incorrect module name being generated for references to class methods via a
+  subclass where the subclass does not override the method
+
+
 3.10.3
 ------
 
 - Fixed ``TypeError`` related to entry point iteration on Python 3.9
   (PR by CrypticDriver)
+
 
 3.10.2
 ------

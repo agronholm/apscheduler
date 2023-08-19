@@ -247,16 +247,10 @@ def obj_to_ref(obj):
         raise ValueError('Cannot create a reference to a nested function')
 
     if ismethod(obj):
-        if hasattr(obj, 'im_self') and obj.im_self:
-            # bound method
-            module = obj.im_self.__module__
-        elif hasattr(obj, 'im_class') and obj.im_class:
-            # unbound method
-            module = obj.im_class.__module__
-        else:
-            module = obj.__module__
+        module = obj.__self__.__module__
     else:
         module = obj.__module__
+
     return '%s:%s' % (module, name)
 
 
