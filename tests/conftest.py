@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import platform
 import sys
 from contextlib import AsyncExitStack
 from tempfile import TemporaryDirectory
@@ -129,7 +128,7 @@ def mongodb_store() -> DataStore:
 
 @pytest.fixture
 def sqlite_store() -> DataStore:
-    from sqlalchemy.future import create_engine
+    from sqlalchemy import create_engine
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 
@@ -142,30 +141,47 @@ def sqlite_store() -> DataStore:
 
 
 @pytest.fixture
-def psycopg2_store() -> DataStore:
+async def psycopg_async_store() -> DataStore:
     from sqlalchemy import text
-    from sqlalchemy.future import create_engine
+    from sqlalchemy.ext.asyncio import create_async_engine
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 
-    if platform.python_implementation() == "CPython":
-        dialect = "psycopg2"
-    else:
-        dialect = "psycopg2cffi"
+    engine = create_async_engine(
+        "postgresql+psycopg://postgres:secret@localhost/testdb"
+    )
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("CREATE SCHEMA IF NOT EXISTS psycopg_async"))
 
-    engine = create_engine(f"postgresql+{dialect}://postgres:secret@localhost/testdb")
+        yield SQLAlchemyDataStore(
+            engine, schema="psycopg_async", start_from_scratch=True
+        )
+    finally:
+        await engine.dispose()
+
+
+@pytest.fixture
+def psycopg_sync_store() -> DataStore:
+    from sqlalchemy import create_engine, text
+
+    from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
+
+    engine = create_engine("postgresql+psycopg://postgres:secret@localhost/testdb")
     try:
         with engine.begin() as conn:
-            conn.execute(text("CREATE SCHEMA IF NOT EXISTS psycopg2"))
+            conn.execute(text("CREATE SCHEMA IF NOT EXISTS psycopg_sync"))
 
-        yield SQLAlchemyDataStore(engine, schema="psycopg2", start_from_scratch=True)
+        yield SQLAlchemyDataStore(
+            engine, schema="psycopg_sync", start_from_scratch=True
+        )
     finally:
         engine.dispose()
 
 
 @pytest.fixture
 def pymysql_store() -> DataStore:
-    from sqlalchemy.future import create_engine
+    from sqlalchemy import create_engine
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 
@@ -174,6 +190,20 @@ def pymysql_store() -> DataStore:
         yield SQLAlchemyDataStore(engine, start_from_scratch=True)
     finally:
         engine.dispose()
+
+
+@pytest.fixture
+async def aiosqlite_store() -> DataStore:
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
+
+    with TemporaryDirectory("sqlite_") as tempdir:
+        engine = create_async_engine(f"sqlite+aiosqlite:///{tempdir}/test.db")
+        try:
+            yield SQLAlchemyDataStore(engine)
+        finally:
+            await engine.dispose()
 
 
 @pytest.fixture
@@ -229,6 +259,10 @@ async def asyncmy_store() -> DataStore:
 @pytest.fixture(
     params=[
         pytest.param(
+            lazy_fixture("aiosqlite_store"),
+            id="aiosqlite",
+        ),
+        pytest.param(
             lazy_fixture("asyncpg_store"),
             id="asyncpg",
             marks=[pytest.mark.external_service],
@@ -239,8 +273,13 @@ async def asyncmy_store() -> DataStore:
             marks=[pytest.mark.external_service],
         ),
         pytest.param(
-            lazy_fixture("psycopg2_store"),
-            id="psycopg2",
+            lazy_fixture("psycopg_async_store"),
+            id="psycopg_async",
+            marks=[pytest.mark.external_service],
+        ),
+        pytest.param(
+            lazy_fixture("psycopg_sync_store"),
+            id="psycopg_sync",
             marks=[pytest.mark.external_service],
         ),
         pytest.param(

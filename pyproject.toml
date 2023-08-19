@@ -47,13 +47,13 @@ sqlalchemy = [
 ]
 test = [
     "APScheduler[cbor,mongodb,mqtt,redis,sqlalchemy]",
-    "APScheduler[asyncpg]; python_implementation == 'CPython' and python_version < '3.12'",
+    "asyncpg >= 0.20; python_implementation == 'CPython' and python_version < '3.12'",
+    "aiosqlite >= 0.19",
     "asyncmy >= 0.2.5; python_implementation == 'CPython'",
     "coverage >= 7",
     "freezegun",
     "paho-mqtt >= 1.5",
-    "psycopg2; python_implementation == 'CPython'",
-    "psycopg2cffi; python_implementation != 'CPython'",
+    "psycopg",
     "pymongo >= 4",
     "pymysql[rsa]",
     "pytest >= 7.4.0",
