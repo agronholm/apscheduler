@@ -4,6 +4,13 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+UNRELEASED
+----------
+
+- Fixed incorrect module name being generated for references to class methods via a
+  subclass where the subclass does not override the method
+
+
 3.10.3
 ------
 

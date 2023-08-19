@@ -197,6 +197,11 @@ class TestGetCallableName(object):
 
 
 class TestObjToRef(object):
+    class InnerInheritedDummy(DummyClass):
+        pass
+
+    InnerInheritedDummy.__module__ = "foo"
+
     @pytest.mark.parametrize('obj, error', [
         (partial(DummyClass.meth), 'Cannot create a reference to a partial()'),
         (lambda: None, 'Cannot create a reference to a lambda')
@@ -234,6 +239,11 @@ class TestObjToRef(object):
             'timedelta'])
     def test_valid_refs(self, input, expected):
         assert obj_to_ref(input) == expected
+
+    def test_inherited_classmethod(self):
+        assert obj_to_ref(TestObjToRef.InnerInheritedDummy.classmeth) == (
+            "foo:TestObjToRef.InnerInheritedDummy.classmeth"
+        )
 
 
 class TestRefToObj(object):
