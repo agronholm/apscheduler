@@ -115,6 +115,7 @@ minversion = 4.0
 
 [testenv]
 extras = test
+package = editable
 commands = coverage run -m pytest {posargs}
 
 [testenv:pypy3]
@@ -123,7 +124,6 @@ commands = pytest {posargs}
 [testenv:pyright]
 deps = pyright
 commands = pyright --verifytypes apscheduler
-usedevelop = true
 
 [testenv:docs]
 extras = doc
