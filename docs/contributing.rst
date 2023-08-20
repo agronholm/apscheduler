@@ -31,6 +31,7 @@ To fully run the test suite, you will need at least:
  * A MongoDB server
  * A Redis server
  * A Zookeeper server
+ * An Etcd server
 
 For other dependencies, it's best to look in tox.ini and install what is appropriate for the Python
 version you're using.

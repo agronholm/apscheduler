@@ -1,7 +1,6 @@
 import os.path
 
-from setuptools import setup, find_packages
-
+from setuptools import find_packages, setup
 
 here = os.path.dirname(__file__)
 readme_path = os.path.join(here, 'README.rst')
@@ -53,6 +52,7 @@ setup(
         'tornado': ['tornado >= 4.3'],
         'twisted': ['twisted'],
         'zookeeper': ['kazoo'],
+        'etcd': ['etcd3', 'protobuf <= 3.21.0'],
         'testing': [
             'pytest',
             'pytest_asyncio',
@@ -88,7 +88,8 @@ setup(
             'mongodb = apscheduler.jobstores.mongodb:MongoDBJobStore [mongodb]',
             'rethinkdb = apscheduler.jobstores.rethinkdb:RethinkDBJobStore [rethinkdb]',
             'redis = apscheduler.jobstores.redis:RedisJobStore [redis]',
-            'zookeeper = apscheduler.jobstores.zookeeper:ZooKeeperJobStore [zookeeper]'
+            'zookeeper = apscheduler.jobstores.zookeeper:ZooKeeperJobStore [zookeeper]',
+            'etcd = apscheduler.jobstores.etcd:EtcdJobStore [etcd]'
         ]
     }
 )

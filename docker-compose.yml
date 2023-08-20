@@ -19,3 +19,10 @@ services:
     image: zookeeper
     ports:
       - 127.0.0.1:2181:2181
+
+  etcd:
+    image: docker.io/bitnami/etcd:3.5
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+    ports:
+      - 127.0.0.1:2379:2379

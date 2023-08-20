@@ -21,4 +21,5 @@ python:
           - tornado
           - twisted
           - zookeeper
+          - etcd3
           - doc
