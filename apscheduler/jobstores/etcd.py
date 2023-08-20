@@ -33,6 +33,7 @@ class EtcdJobStore(BaseJobStore):
     :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the
         highest available
     """
+
     def __init__(self, path='/apscheduler', client=None, close_connection_on_exit=False,
                  pickle_protocol=pickle.DEFAULT_PROTOCOL, **connect_args):
         super(EtcdJobStore, self).__init__()
