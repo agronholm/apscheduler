@@ -1,22 +1,18 @@
+import pickle
 from datetime import datetime
 
 from pytz import utc
-
-try:
-    import cPickle as pickle
-except ImportError:  # pragma: nocover
-    import pickle
-
-try:
-    from etcd3 import Etcd3Client
-except ImportError:  # pragma: nocover
-    raise ImportError('EtcdJobStore requires etcd3 be installed')
 
 from apscheduler.job import Job
 from apscheduler.jobstores.base import (BaseJobStore, ConflictingIdError,
                                         JobLookupError)
 from apscheduler.util import (datetime_to_utc_timestamp, maybe_ref,
                               utc_timestamp_to_datetime)
+
+try:
+    from etcd3 import Etcd3Client
+except ImportError:  # pragma: nocover
+    raise ImportError('EtcdJobStore requires etcd3 be installed')
 
 
 class EtcdJobStore(BaseJobStore):
