@@ -4,12 +4,13 @@
 .coverage
 .cache/
 .pytest_cache/
+.ruff_cache/
 .tox/
 .eggs/
 *.egg-info/
 *.pyc
 dist/
-docs/_build/
 build/
 virtualenv/
+venv*/
 example.sqlite
