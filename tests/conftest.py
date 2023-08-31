@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Generator
 from contextlib import AsyncExitStack
 from tempfile import TemporaryDirectory
 from typing import Any, AsyncGenerator, cast
@@ -51,11 +52,14 @@ def local_broker() -> EventBroker:
 
 @pytest.fixture
 async def redis_broker(serializer: Serializer) -> EventBroker:
+    from redis.asyncio import Redis
+
     from apscheduler.eventbrokers.redis import RedisEventBroker
 
     broker = RedisEventBroker.from_url(
         "redis://localhost:6379", serializer=serializer, stop_check_interval=0.05
     )
+    assert isinstance(broker.client, Redis)
     await broker.client.flushdb()
     return broker
 
@@ -112,12 +116,12 @@ async def event_broker(
 
 
 @pytest.fixture
-def memory_store() -> DataStore:
+def memory_store() -> Generator[DataStore, None, None]:
     yield MemoryDataStore()
 
 
 @pytest.fixture
-def mongodb_store() -> DataStore:
+def mongodb_store() -> Generator[DataStore, None, None]:
     from pymongo import MongoClient
 
     from apscheduler.datastores.mongodb import MongoDBDataStore
@@ -127,7 +131,7 @@ def mongodb_store() -> DataStore:
 
 
 @pytest.fixture
-def sqlite_store() -> DataStore:
+def sqlite_store() -> Generator[DataStore, None, None]:
     from sqlalchemy import create_engine
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
@@ -141,7 +145,7 @@ def sqlite_store() -> DataStore:
 
 
 @pytest.fixture
-async def psycopg_async_store() -> DataStore:
+async def psycopg_async_store() -> AsyncGenerator[DataStore, None]:
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -162,7 +166,7 @@ async def psycopg_async_store() -> DataStore:
 
 
 @pytest.fixture
-def psycopg_sync_store() -> DataStore:
+def psycopg_sync_store() -> Generator[DataStore, None, None]:
     from sqlalchemy import create_engine, text
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
@@ -180,7 +184,7 @@ def psycopg_sync_store() -> DataStore:
 
 
 @pytest.fixture
-def pymysql_store() -> DataStore:
+def pymysql_store() -> Generator[DataStore, None, None]:
     from sqlalchemy import create_engine
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
@@ -193,7 +197,7 @@ def pymysql_store() -> DataStore:
 
 
 @pytest.fixture
-async def aiosqlite_store() -> DataStore:
+async def aiosqlite_store() -> AsyncGenerator[DataStore, None]:
     from sqlalchemy.ext.asyncio import create_async_engine
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
@@ -207,7 +211,7 @@ async def aiosqlite_store() -> DataStore:
 
 
 @pytest.fixture
-async def asyncpg_store() -> DataStore:
+async def asyncpg_store() -> AsyncGenerator[DataStore, None]:
     pytest.importorskip("asyncpg", reason="asyncpg is not installed")
     from asyncpg import compat
     from sqlalchemy.ext.asyncio import create_async_engine
@@ -241,7 +245,7 @@ async def asyncpg_store() -> DataStore:
 
 
 @pytest.fixture
-async def asyncmy_store() -> DataStore:
+async def asyncmy_store() -> AsyncGenerator[DataStore, None]:
     pytest.importorskip("asyncmy", reason="asyncmy is not installed")
     from sqlalchemy.ext.asyncio import create_async_engine
 

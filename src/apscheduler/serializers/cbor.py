@@ -39,7 +39,7 @@ class CBORSerializer(Serializer):
                 f"cannot serialize type {value.__class__.__name__}"
             )
 
-    def _tag_hook(self, decoder, tag: CBORTag, shareable_index: int = None):
+    def _tag_hook(self, decoder, tag: CBORTag, shareable_index: int | None = None):
         if tag.tag == self.type_tag:
             cls_ref, state = tag.value
             return unmarshal_object(cls_ref, state)

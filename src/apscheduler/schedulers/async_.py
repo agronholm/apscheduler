@@ -88,7 +88,7 @@ class AsyncScheduler:
         kw_only=True, default=None
     )
     default_job_executor: str | None = attrs.field(kw_only=True, default=None)
-    logger: Logger | None = attrs.field(kw_only=True, default=getLogger(__name__))
+    logger: Logger = attrs.field(kw_only=True, default=getLogger(__name__))
 
     _state: RunState = attrs.field(init=False, default=RunState.stopped)
     _services_task_group: TaskGroup | None = attrs.field(init=False, default=None)

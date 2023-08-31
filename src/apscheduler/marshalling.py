@@ -20,7 +20,7 @@ def marshal_object(obj) -> tuple[str, Any]:
     )
 
 
-def unmarshal_object(ref: str, state):
+def unmarshal_object(ref: str, state: Any) -> Any:
     cls = callable_from_ref(ref)
     instance = cls.__new__(cls)
     instance.__setstate__(state)
