@@ -10,6 +10,7 @@ on:
 
 jobs:
   build:
+    name: Build the source tarball and the wheel
     runs-on: ubuntu-latest
     environment: release
     steps:
@@ -29,6 +30,7 @@ jobs:
         path: dist
 
   publish:
+    name: Publish build artifacts to the PyPI
     needs: build
     runs-on: ubuntu-latest
     environment: release
@@ -39,3 +41,19 @@ jobs:
       uses: actions/download-artifact@v3
     - name: Upload packages
       uses: pypa/gh-action-pypi-publish@release/v1
+
+  release:
+    name: Create a GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v3
+    - id: changelog
+      uses: agronholm/release-notes@v1
+      with:
+        path: docs/versionhistory.rst
+    - uses: ncipollo/release-action@v1
+      with:
+        body: ${{ steps.changelog.outputs.changelog }}
