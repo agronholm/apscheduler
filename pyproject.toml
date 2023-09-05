@@ -24,7 +24,6 @@ classifiers = [
 ]
 keywords = ["scheduling cron"]
 license = {text = "MIT"}
-urls = {Homepage = "https://github.com/agronholm/apscheduler"}
 requires-python = ">= 3.8"
 dependencies = [
     "anyio >= 4.0.0",
@@ -34,6 +33,12 @@ dependencies = [
     "typing_extensions >= 4.0; python_version < '3.11'"
 ]
 dynamic = ["version"]
+
+[project.urls]
+Documentation = "https://apscheduler.readthedocs.io/en/master/"
+Changelog = "https://apscheduler.readthedocs.io/en/master/versionhistory.html"
+"Source code" = "https://github.com/agronholm/apscheduler"
+"Issue tracker" = "https://github.com/agronholm/apscheduler/issues"
 
 [project.optional-dependencies]
 asyncpg = ["asyncpg >= 0.20"]
