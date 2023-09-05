@@ -58,7 +58,6 @@ test = [
     "pymysql[rsa]",
     "PySide6 >= 6.3; python_implementation == 'CPython' and python_version < '3.12'",
     "pytest >= 7.4.0",
-    "pytest-cov",
     "pytest-freezer",
     "pytest-lazy-fixture",
     "pytest-mock",
