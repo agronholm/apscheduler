@@ -56,7 +56,7 @@ test = [
     "psycopg",
     "pymongo >= 4",
     "pymysql[rsa]",
-    "PySide6 >= 6.3; python_version < '3.12'",
+    "PySide6 >= 6.3; python_implementation == 'CPython' and python_version < '3.12'",
     "pytest >= 7.4.0",
     "pytest-cov",
     "pytest-freezer",
