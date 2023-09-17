@@ -2,21 +2,20 @@
 Extending APScheduler
 #####################
 
-This document is meant to explain how to develop your custom triggers and data stores.
+.. py:currentmodule:: apscheduler
 
+This document is meant to explain how to develop your custom triggers and data stores.
 
 Custom triggers
 ---------------
 
-.. py:currentmodule:: apscheduler.triggers
-
 The built-in triggers cover the needs of the majority of all users, particularly so when
-combined using :class:`~.combining.AndTrigger` and :class:`~.combining.OrTrigger`.
-However, some users may need specialized scheduling logic. This can be accomplished by
-creating your own custom trigger class.
+combined using :class:`~triggers.combining.AndTrigger` and
+:class:`~triggers.combining.OrTrigger`. However, some users may need specialized
+scheduling logic. This can be accomplished by creating your own custom trigger class.
 
 To implement your scheduling logic, create a new class that inherits from the
-:class:`~..abc.Trigger` interface class::
+:class:`~abc.Trigger` interface class::
 
     from __future__ import annotations
 
@@ -34,70 +33,135 @@ To implement your scheduling logic, create a new class that inherits from the
 
 Requirements and constraints for trigger classes:
 
-* :meth:`~..abc.Trigger.next` must always either return a timezone aware
-  :class:`datetime` object or :data:`None` if a new run time cannot be calculated
-* :meth:`~..abc.Trigger.next` must never return the same :class:`~datetime.datetime`
+* :meth:`~abc.Trigger.next` must always either return a timezone aware
+  :class:`~datetime.datetime` object or :data:`None` if a new run time cannot be
+  calculated
+* :meth:`~abc.Trigger.next` must never return the same :class:`~datetime.datetime`
   twice and never one that is earlier than the previously returned one
-* :meth:`~..abc.Trigger.__setstate__` must accept the return value of
-  :meth:`~..abc.Trigger.__getstate__` and restore the trigger to the functionally same
+* :meth:`~abc.Trigger.__setstate__` must accept the return value of
+  :meth:`~abc.Trigger.__getstate__` and restore the trigger to the functionally same
   state as the original
 
-Triggers are stateful objects. The :meth:`~..abc.Trigger.next` method is where you
+Triggers are stateful objects. The :meth:`~abc.Trigger.next` method is where you
 determine the next run time based on the current state of the trigger. The trigger's
 internal state needs to be updated before returning to ensure that the trigger won't
 return the same datetime on the next call. The trigger code does **not** need to be
 thread-safe.
 
+Custom job executors
+--------------------
+
+.. py:currentmodule:: apscheduler
+
+If you need the ability to use third party frameworks or services to handle the
+actual execution of jobs, you will need a custom job executor.
+
+A job executor needs to inherit from :class:`~abc.JobExecutor`. This interface contains
+one abstract method you're required to implement: :meth:`~abc.JobExecutor.run_job`.
+This method is called with two arguments:
+
+#. ``func``: the callable you're supposed to call
+#. ``job``: the :class:`Job` instance
+
+The :meth:`~abc.JobExecutor.run_job` implementation needs to call ``func`` with the
+positional and keyword arguments attached to the job (``job.args`` and ``job.kwargs``,
+respectively). The return value of the callable must be returned from the method.
+
+Here's an example of a simple job executor that runs a (synchronous) callable in a
+thread::
+
+    from contextlib import AsyncExitStack
+    from functools import partial
+
+    from anyio import to_thread
+    from apscheduler import Job
+    from apscheduler.abc import JobExecutor
+
+    class ThreadJobExecutor(JobExecutor):
+        async def run_job(self, func: Callable[..., Any], job: Job) -> Any:
+            wrapped = partial(func, *job.args, **job.kwargs)
+            return await to_thread.run_sync(wrapped)
+
+If you need to initialize some underlying services, you can override the
+:meth:`~abc.JobExecutor.start` method. For example, the executor above could be improved
+to take a maximum number of threads and create an AnyIO
+:class:`~anyio.CapacityLimiter`::
+
+    from contextlib import AsyncExitStack
+    from functools import partial
+
+    from anyio import CapacityLimiter, to_thread
+    from apscheduler import Job
+    from apscheduler.abc import JobExecutor
+
+    class ThreadJobExecutor(JobExecutor):
+        _limiter: CapacityLimiter
+
+        def __init__(self, max_threads: int):
+            self.max_threads = max_threads
+
+        async def start(self, exit_stack: AsyncExitStack) -> None:
+            self._limiter = CapacityLimiter(self.max_workers)
+
+        async def run_job(self, func: Callable[..., Any], job: Job) -> Any:
+            wrapped = partial(func, *job.args, **job.kwargs)
+            return await to_thread.run_sync(wrapped, limiter=self._limiter)
 
 Custom data stores
 ------------------
 
 If you want to make use of some external service to store the scheduler data, and it's
 not covered by a built-in data store implementation, you may want to create a custom
-data store class. It should be noted that custom data stores are substantially harder to
-implement than custom triggers.
+data store class.
 
-Data store classes have the following design requirements:
+A data store implementation needs to inherit from :class:`~abc.DataStore` and implement
+several abstract methods:
 
-* Must publish the appropriate events to an event broker
-* Code must be thread safe (synchronous API) or task safe (asynchronous API)
+* :meth:`~abc.DataStore.start`
+* :meth:`~abc.DataStore.add_task`
+* :meth:`~abc.DataStore.remove_task`
+* :meth:`~abc.DataStore.get_task`
+* :meth:`~abc.DataStore.get_tasks`
+* :meth:`~abc.DataStore.add_schedule`
+* :meth:`~abc.DataStore.remove_schedules`
+* :meth:`~abc.DataStore.get_schedules`
+* :meth:`~abc.DataStore.acquire_schedules`
+* :meth:`~abc.DataStore.release_schedules`
+* :meth:`~abc.DataStore.get_next_schedule_run_time`
+* :meth:`~abc.DataStore.add_job`
+* :meth:`~abc.DataStore.get_jobs`
+* :meth:`~abc.DataStore.acquire_jobs`
+* :meth:`~abc.DataStore.release_job`
+* :meth:`~abc.DataStore.get_job_result`
 
-The data store class needs to inherit from either :class:`~..abc.DataStore` or
-:class:`~..abc.AsyncDataStore`, depending on whether you want to implement the store
-using synchronous or asynchronous APIs:
+The :meth:`~abc.DataStore.start` method is where your implementation can perform any
+initialization, including starting any background tasks. This method is called with two
+arguments:
 
-.. tabs::
+#. ``exit_stack``: an :class:`~contextlib.AsyncExitStack` object that can be used to
+   work with context managers
+#. ``event_broker``: the event broker that the store should be using to send events to
+   other components of the system (including other schedulers)
 
-   .. code-tab:: python Synchronous
+The data store class needs to inherit from :class:`~abc.DataStore`::
 
-        from apscheduler.abc import DataStore, EventBroker
+    from contextlib import AsyncExitStack
 
-        class MyCustomDataStore(Datastore):
-            def start(self, event_broker: EventBroker) -> None:
-                ...  # Save the event broker in a member attribute and initialize the store
+    from apscheduler.abc import DataStore, EventBroker
 
-            def stop(self, *, force: bool = False) -> None:
-                ...  # Shut down the store
+    class MyCustomDataStore(DataStore):
+        _event_broker: EventBroker
 
-            # See the interface class for the rest of the abstract methods
+        async def start(self, exit_stack: AsyncExitStack, event_broker: EventBroker) -> None:
+            # Save the event broker in a member attribute and initialize the store
+            self._event_broker = event_broker
 
-   .. code-tab:: python Asynchronous
-
-        from apscheduler.abc import AsyncDataStore, AsyncEventBroker
-
-        class MyCustomDataStore(AsyncDatastore):
-            async def start(self, event_broker: AsyncEventBroker) -> None:
-                ...  # Save the event broker in a member attribute and initialize the store
-
-            async def stop(self, *, force: bool = False) -> None:
-                ...  # Shut down the store
-
-            # See the interface class for the rest of the abstract methods
+        # See the interface class for the rest of the abstract methods
 
 Handling temporary failures
 +++++++++++++++++++++++++++
 
-If you plan to make the data store implementation public, it is strongly recommended
+If you plan to make your data store implementation public, it is strongly recommended
 that you make an effort to ensure that the implementation can tolerate the loss of
 connectivity to the backing store. The Tenacity_ library is used for this purpose by the
 built-in stores to retry operations in case of a disconnection. If you use it to retry

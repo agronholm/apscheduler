@@ -53,12 +53,9 @@ autodoc_mock_imports = ["asyncpg", "cbor2", "paho", "pymongo", "redis", "sqlalch
 #
 html_theme = "nature"
 
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
-
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/", None),
-    "sqlalchemy": ("https://docs.sqlalchemy.org/en/latest/", None),
+    "python": ("https://docs.python.org/3/", None),
+    "sqlalchemy": ("https://docs.sqlalchemy.org/en/20/", None),
+    "anyio": ("https://anyio.readthedocs.io/en/latest/", None),
+    "cbor2": ("https://cbor2.readthedocs.io/en/latest/", None),
 }
