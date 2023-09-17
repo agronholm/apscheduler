@@ -17,17 +17,19 @@ Schedulers
 .. autoclass:: apscheduler.schedulers.sync.Scheduler
 .. autoclass:: apscheduler.schedulers.async_.AsyncScheduler
 
-Workers
--------
+Job executors
+-------------
 
-.. autoclass:: apscheduler.workers.sync.Worker
-.. autoclass:: apscheduler.workers.async_.AsyncWorker
+.. autoclass:: apscheduler.abc.JobExecutor
+.. autoclass:: apscheduler.executors.async_.AsyncJobExecutor
+.. autoclass:: apscheduler.executors.subprocess.ProcessPoolJobExecutor
+.. autoclass:: apscheduler.executors.qt.QtJobExecutor
+.. autoclass:: apscheduler.executors.thread.ThreadPoolJobExecutor
 
 Data stores
 -----------
 
 .. autoclass:: apscheduler.abc.DataStore
-.. autoclass:: apscheduler.abc.AsyncDataStore
 .. autoclass:: apscheduler.datastores.memory.MemoryDataStore
 .. autoclass:: apscheduler.datastores.sqlalchemy.SQLAlchemyDataStore
 .. autoclass:: apscheduler.datastores.async_sqlalchemy.AsyncSQLAlchemyDataStore
@@ -37,9 +39,7 @@ Event brokers
 -------------
 
 .. autoclass:: apscheduler.abc.EventBroker
-.. autoclass:: apscheduler.abc.AsyncEventBroker
 .. autoclass:: apscheduler.eventbrokers.local.LocalEventBroker
-.. autoclass:: apscheduler.eventbrokers.async_local.LocalAsyncEventBroker
 .. autoclass:: apscheduler.eventbrokers.asyncpg.AsyncpgEventBroker
 .. autoclass:: apscheduler.eventbrokers.mqtt.MQTTEventBroker
 .. autoclass:: apscheduler.eventbrokers.redis.RedisEventBroker
@@ -81,9 +81,6 @@ Events
 .. autoclass:: apscheduler.SchedulerEvent
 .. autoclass:: apscheduler.SchedulerStarted
 .. autoclass:: apscheduler.SchedulerStopped
-.. autoclass:: apscheduler.WorkerEvent
-.. autoclass:: apscheduler.WorkerStarted
-.. autoclass:: apscheduler.WorkerStopped
 .. autoclass:: apscheduler.JobAcquired
 .. autoclass:: apscheduler.JobReleased
 
@@ -103,9 +100,6 @@ See the :mod:`contextvars` module for information on how to work with context va
 .. data:: apscheduler.current_scheduler
    :annotation: the current scheduler
    :type: ~contextvars.ContextVar[~typing.Union[Scheduler, AsyncScheduler]]
-.. data:: apscheduler.current_worker
-   :annotation: the current scheduler
-   :type: ~contextvars.ContextVar[~typing.Union[Worker, AsyncWorker]]
 .. data:: apscheduler.current_job
    :annotation: information on the job being currently run
    :type: ~contextvars.ContextVar[JobInfo]
