@@ -56,6 +56,8 @@ Triggers
 --------
 
 .. autoclass:: apscheduler.abc.Trigger
+   :special-members: __getstate__, __setstate__
+
 .. autoclass:: apscheduler.triggers.date.DateTrigger
 .. autoclass:: apscheduler.triggers.interval.IntervalTrigger
 .. autoclass:: apscheduler.triggers.calendarinterval.CalendarIntervalTrigger
