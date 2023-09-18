@@ -259,6 +259,15 @@ class Scheduler:
         :raises RuntimeError: if the scheduler is not in the ``stopped`` state
 
         """
+        # Check if we're running under uWSGI with threads disabled
+        uwsgi_module = sys.modules.get("uwsgi")
+        if not getattr(uwsgi_module, "has_threads", True):
+            raise RuntimeError(
+                "The scheduler seems to be running under uWSGI, but threads have "
+                "been disabled. You must run uWSGI with the --enable-threads "
+                "option for the scheduler to work."
+            )
+
         self._ensure_services_ready()
         self._portal.call(self._async_scheduler.start_in_background)
 
