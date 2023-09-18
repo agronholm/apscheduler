@@ -275,3 +275,15 @@ class Scheduler:
             # Run the async scheduler
             self._ensure_services_ready(exit_stack)
             self._portal.call(self._async_scheduler.run_until_stopped)
+
+
+# Copy the docstrings from the async variant
+for attrname in dir(AsyncScheduler):
+    if attrname.startswith("_"):
+        continue
+
+    value = getattr(AsyncScheduler, attrname)
+    if callable(value):
+        sync_method = getattr(Scheduler, attrname, None)
+        if sync_method and not getattr(sync_method, "__doc__"):
+            sync_method.__doc__ = value.__doc__
