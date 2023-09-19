@@ -8,7 +8,6 @@ Data structures
 .. autoclass:: apscheduler.Schedule
 .. autoclass:: apscheduler.Job
 .. autoclass:: apscheduler.JobResult
-.. autoclass:: apscheduler.RetrySettings
 
 Schedulers
 ----------
@@ -31,13 +30,13 @@ Data stores
 .. autoclass:: apscheduler.abc.DataStore
 .. autoclass:: apscheduler.datastores.memory.MemoryDataStore
 .. autoclass:: apscheduler.datastores.sqlalchemy.SQLAlchemyDataStore
-.. autoclass:: apscheduler.datastores.async_sqlalchemy.AsyncSQLAlchemyDataStore
 .. autoclass:: apscheduler.datastores.mongodb.MongoDBDataStore
 
 Event brokers
 -------------
 
 .. autoclass:: apscheduler.abc.EventBroker
+.. autoclass:: apscheduler.abc.Subscription
 .. autoclass:: apscheduler.eventbrokers.local.LocalEventBroker
 .. autoclass:: apscheduler.eventbrokers.asyncpg.AsyncpgEventBroker
 .. autoclass:: apscheduler.eventbrokers.mqtt.MQTTEventBroker
@@ -88,10 +87,20 @@ Events
 Enumerated types
 ----------------
 
-.. autoclass:: apscheduler.RunState
-.. autoclass:: apscheduler.JobOutcome
-.. autoclass:: apscheduler.ConflictPolicy
-.. autoclass:: apscheduler.CoalescePolicy
+.. autoclass:: apscheduler.SchedulerRole()
+    :show-inheritance:
+
+.. autoclass:: apscheduler.RunState()
+    :show-inheritance:
+
+.. autoclass:: apscheduler.JobOutcome()
+    :show-inheritance:
+
+.. autoclass:: apscheduler.ConflictPolicy()
+    :show-inheritance:
+
+.. autoclass:: apscheduler.CoalescePolicy()
+    :show-inheritance:
 
 Context variables
 -----------------
@@ -99,11 +108,19 @@ Context variables
 See the :mod:`contextvars` module for information on how to work with context variables.
 
 .. data:: apscheduler.current_scheduler
-   :annotation: the current scheduler
-   :type: ~contextvars.ContextVar[~typing.Union[Scheduler, AsyncScheduler]]
+   :type: ~contextvars.ContextVar[Scheduler]
+
+   The current scheduler.
+
+.. data:: apscheduler.current_async_scheduler
+   :type: ~contextvars.ContextVar[AsyncScheduler]
+
+   The current asynchronous scheduler.
+
 .. data:: apscheduler.current_job
-   :annotation: information on the job being currently run
-   :type: ~contextvars.ContextVar[JobInfo]
+   :type: ~contextvars.ContextVar[Job]
+
+   The job being currently run (available when running the job's target callable).
 
 Exceptions
 ----------
@@ -118,3 +135,9 @@ Exceptions
 .. autoexception:: apscheduler.SerializationError
 .. autoexception:: apscheduler.DeserializationError
 .. autoexception:: apscheduler.MaxIterationsReached
+
+Support classes for retrying failures
+-------------------------------------
+
+.. autoclass:: apscheduler.RetrySettings
+.. autoclass:: apscheduler.RetryMixin

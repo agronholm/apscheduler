@@ -1,6 +1,8 @@
 Integrating with application frameworks
 =======================================
 
+.. py:currentmodule:: apscheduler
+
 WSGI
 ----
 
@@ -37,7 +39,7 @@ by default which then prevents the scheduler from working. See the
 `uWSGI documentation <uWSGI-threads>`_ for more details.
 
 .. note::
-    The :meth:`.schedulers.Scheduler.start_in_background` method installs an
+    The :meth:`Scheduler.start_in_background` method installs an
     :mod:`atexit` hook that shuts down the scheduler gracefully when the worker process
     exits.
 

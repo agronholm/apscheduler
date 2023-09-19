@@ -44,7 +44,16 @@ templates_path = ["_templates"]
 exclude_patterns = []
 
 autodoc_default_options = {"members": True}
-autodoc_mock_imports = ["asyncpg", "cbor2", "paho", "pymongo", "redis", "sqlalchemy"]
+autodoc_mock_imports = [
+    "asyncpg",
+    "bson",
+    "cbor2",
+    "paho",
+    "pymongo",
+    "redis",
+    "sqlalchemy",
+    "PyQt6",
+]
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -55,7 +64,6 @@ html_theme = "sphinx_rtd_theme"
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
-    "sqlalchemy": ("https://docs.sqlalchemy.org/en/20/", None),
     "anyio": ("https://anyio.readthedocs.io/en/latest/", None),
-    "cbor2": ("https://cbor2.readthedocs.io/en/latest/", None),
+    "tenacity": ("https://tenacity.readthedocs.io/en/latest/", None),
 }

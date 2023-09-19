@@ -222,15 +222,15 @@ class JobReleased(SchedulerEvent):
     """
     Signals that a worker has finished processing of a job.
 
-    :param job_id: the ID of the job that was released
+    :param uuid.UUID job_id: the ID of the job that was released
     :param worker_id: the ID of the worker that released the job
     :param outcome: the outcome of the job
     :param exception_type: the fully qualified name of the exception if ``outcome`` is
-        :data:`JobOutcome.error`
+        :attr:`JobOutcome.error`
     :param exception_message: the result of ``str(exception)`` if ``outcome`` is
-        :data:`JobOutcome.error`
+        :attr:`JobOutcome.error`
     :param exception_traceback: the traceback lines from the exception if ``outcome`` is
-        :data:`JobOutcome.error`
+        :attr:`JobOutcome.error`
     """
 
     job_id: UUID = attrs.field(converter=as_uuid)

@@ -175,8 +175,8 @@ class AsyncScheduler:
         """
         Subscribe to events.
 
-        To unsubscribe, call the :meth:`Subscription.unsubscribe` method on the returned
-        object.
+        To unsubscribe, call the :meth:`~abc.Subscription.unsubscribe` method on the
+        returned object.
 
         :param callback: callable to be called with the event object when an event is
             published
@@ -466,11 +466,12 @@ class AsyncScheduler:
 
     async def wait_until_stopped(self) -> None:
         """
-        Wait until the scheduler is in the "stopped" or "stopping" state.
+        Wait until the scheduler is in the :attr:`~RunState.stopped` or
+        :attr:`~RunState.stopping` state.
 
         If the scheduler is already stopped or in the process of stopping, this method
         returns immediately. Otherwise, it waits until the scheduler posts the
-        ``SchedulerStopped`` event.
+        :class:`SchedulerStopped` event.
 
         """
         if self._state not in (RunState.stopped, RunState.stopping):

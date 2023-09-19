@@ -7,11 +7,17 @@ class SchedulerRole(Enum):
     """
     Specifies what the scheduler should be doing when it's running.
 
-    Values:
+    .. attribute:: scheduler
 
-    * ``scheduler``: processes due schedules, but won't run jobs
-    * ``worker``: runs due jobs, but won't process schedules
-    * ``both``: processes schedules and runs due jobs
+        processes due schedules, but won't run jobs
+
+    .. attribute:: worker
+
+        runs due jobs, but won't process schedules
+
+    .. attribute:: both
+
+        processes schedules and runs due jobs
     """
 
     scheduler = auto()
@@ -23,12 +29,21 @@ class RunState(Enum):
     """
     Used to track the running state of schedulers and workers.
 
-    Values:
+    .. attribute:: starting
 
-    * ``starting``: not running yet, but in the process of starting
-    * ``started``: running
-    * ``stopping``: still running but in the process of shutting down
-    * ``stopped``: not running
+        not running yet, but in the process of starting
+
+    .. attribute:: started
+
+        running
+
+    .. attribute:: stopping
+
+        still running but in the process of shutting down
+
+    .. attribute:: stopped
+
+        not running
     """
 
     starting = auto()
@@ -41,13 +56,21 @@ class JobOutcome(Enum):
     """
     Used to indicate how the execution of a job ended.
 
-    Values:
+    .. attribute:: success
 
-    * ``success``: the job completed successfully
-    * ``error``: the job raised an exception
-    * ``missed_start_deadline``: the job's execution was delayed enough for it to miss
-      its deadline
-    * ``cancelled``: the job's execution was cancelled
+        the job completed successfully
+
+    .. attribute:: error
+
+        the job raised an exception
+
+    .. attribute:: missed_start_deadline
+
+        the job's execution was delayed enough for it to miss
+
+    .. attribute:: cancelled
+
+        the job's execution was cancelled
     """
 
     success = auto()
@@ -61,11 +84,17 @@ class ConflictPolicy(Enum):
     Used to indicate what to do when trying to add a schedule whose ID conflicts with an
     existing schedule.
 
-    Values:
+    .. attribute:: replace
 
-    * ``replace``: replace the existing schedule with a new one
-    * ``do_nothing``: keep the existing schedule as-is and drop the new schedule
-    * ``exception``: raise an exception if a conflict is detected
+        replace the existing schedule with a new one
+
+    .. attribute:: do_nothing
+
+        keep the existing schedule as-is and drop the new schedule
+
+    .. attribute:: exception
+
+        raise an exception if a conflict is detected
     """
 
     replace = auto()
@@ -78,11 +107,17 @@ class CoalescePolicy(Enum):
     Used to indicate how to queue jobs for a schedule that has accumulated multiple
     run times since the last scheduler iteration.
 
-    Values:
+    .. attribute:: earliest
 
-    * ``earliest``: run once, with the earliest fire time
-    * ``latest``: run once, with the latest fire time
-    * ``all``: submit one job for every accumulated fire time
+        run once, with the earliest fire time
+
+    .. attribute:: latest
+
+        run once, with the latest fire time
+
+    .. attribute:: all
+
+        submit one job for every accumulated fire time
     """
 
     earliest = auto()

@@ -46,7 +46,7 @@ class CalendarIntervalTrigger(Trigger):
     .. warning:: Be wary of setting a start date near the end of the month (29. – 31.)
         if you have ``months`` specified in your interval, as this will skip the months
         when those days do not exist. Likewise, setting the start date on the leap day
-        (February 29th) and having `years`` defined may cause some years to be skipped.
+        (February 29th) and having ``years`` defined may cause some years to be skipped.
 
         Users are also discouraged from  using a time inside the target timezone's DST
         switching period (typically around 2 am) since a date could either be skipped or

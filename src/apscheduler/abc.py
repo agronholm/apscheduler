@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import sys
 from abc import ABCMeta, abstractmethod
 from contextlib import AsyncExitStack
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
 from uuid import UUID
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from ._enums import ConflictPolicy
@@ -25,18 +31,21 @@ class Trigger(Iterator[datetime], metaclass=ABCMeta):
         Return the next datetime to fire on.
 
         If no such datetime can be calculated, ``None`` is returned.
-        :raises apscheduler.exceptions.MaxIterationsReached:
+
+        :raises MaxIterationsReached: if the trigger's internal logic has exceeded a set
+            maximum of iterations (used to detect potentially infinite loops)
+
         """
 
     @abstractmethod
-    def __getstate__(self):
+    def __getstate__(self) -> Any:
         """Return the (JSON compatible) serializable state of the trigger."""
 
     @abstractmethod
-    def __setstate__(self, state):
+    def __setstate__(self, state: Any) -> None:
         """Initialize an empty instance from an existing state."""
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         return self
 
     def __next__(self) -> datetime:

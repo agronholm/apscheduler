@@ -37,6 +37,7 @@ from ._exceptions import MaxIterationsReached as MaxIterationsReached
 from ._exceptions import ScheduleLookupError as ScheduleLookupError
 from ._exceptions import SerializationError as SerializationError
 from ._exceptions import TaskLookupError as TaskLookupError
+from ._retry import RetryMixin as RetryMixin
 from ._retry import RetrySettings as RetrySettings
 from ._schedulers.async_ import AsyncScheduler as AsyncScheduler
 from ._schedulers.sync import Scheduler as Scheduler

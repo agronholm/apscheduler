@@ -26,7 +26,7 @@ class JobLookupError(LookupError):
 
 class JobResultNotReady(Exception):
     """
-    Raised by :meth:`~.schedulers.sync.Scheduler.get_job_result` if the job result is
+    Raised by :meth:`~Scheduler.get_job_result` if the job result is
     not ready.
     """
 
@@ -36,14 +36,14 @@ class JobResultNotReady(Exception):
 
 class JobCancelled(Exception):
     """
-    Raised by :meth:`~.schedulers.sync.Scheduler.get_job_result` if the job was
+    Raised by :meth:`~Scheduler.get_job_result` if the job was
     cancelled.
     """
 
 
 class JobDeadlineMissed(Exception):
     """
-    Raised by :meth:`~.schedulers.sync.Scheduler.get_job_result` if the job failed to
+    Raised by :meth:`~Scheduler.get_job_result` if the job failed to
     start within the allotted time.
     """
 

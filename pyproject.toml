@@ -132,6 +132,6 @@ deps = pyright
 commands = pyright --verifytypes apscheduler
 
 [testenv:docs]
-extras = test,doc
+extras = doc
 commands = sphinx-build -n docs build/sphinx
 """

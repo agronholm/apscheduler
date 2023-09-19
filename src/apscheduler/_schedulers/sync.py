@@ -138,8 +138,8 @@ class Scheduler:
         """
         Subscribe to events.
 
-        To unsubscribe, call the :meth:`Subscription.unsubscribe` method on the returned
-        object.
+        To unsubscribe, call the :meth:`~abc.Subscription.unsubscribe` method on the
+        returned object.
 
         :param callback: callable to be called with the event object when an event is
             published

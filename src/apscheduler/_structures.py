@@ -3,17 +3,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from uuid import UUID, uuid4
 
 import attrs
 
 from ._converters import as_enum, as_timedelta
 from ._enums import CoalescePolicy, JobOutcome
+from .abc import Serializer, Trigger
 from .marshalling import callable_from_ref, callable_to_ref
-
-if TYPE_CHECKING:
-    from .abc import Serializer, Trigger
 
 
 def serialize(inst, field, value):

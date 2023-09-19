@@ -275,7 +275,7 @@ It is possible to control the maximum number of concurrently running jobs for a
 particular task. By default, only one job is allowed to be run for every task.
 This means that if the job is about to be run but there is another job for the same task
 still running, the later job is terminated with the outcome of
-:data:`~JobOutcome.missed_start_deadline`.
+:attr:`~JobOutcome.missed_start_deadline`.
 
 To allow more jobs to be concurrently running for a task, pass the desired maximum
 number as the ``max_running_jobs`` keyword argument to
@@ -284,14 +284,13 @@ number as the ``max_running_jobs`` keyword argument to
 Controlling how much a job can be started late
 ----------------------------------------------
 
-Some tasks are time sensitive, and should not be run at all if it fails to be started on
-time (like, for example, if the scheduler(s) were down while they were supposed to be
+Some tasks are time sensitive, and should not be run at all if they fail to be started
+on time (like, for example, if the scheduler(s) were down while they were supposed to be
 running the scheduled jobs). You can control this time limit with the
-``misfire_grace_time`` option passed to
-:meth:`~Scheduler.add_schedule`. A scheduler that acquires
-the job then checks if the current time is later than the deadline
+``misfire_grace_time`` option passed to :meth:`~Scheduler.add_schedule`. A scheduler
+that acquires the job then checks if the current time is later than the deadline
 (run time + misfire grace time) and if it is, it skips the execution of the job and
-releases it with the outcome of :data:`~JobOutcome.`
+releases it with the outcome of :attr:`~JobOutcome.missed_start_deadline`.
 
 Controlling how jobs are queued from schedules
 ----------------------------------------------
