@@ -135,7 +135,6 @@ async def test_replace_schedules(
             kwargs={},
             coalesce=CoalescePolicy.earliest,
             misfire_grace_time=None,
-            tags=frozenset(),
         )
         schedule.next_fire_time = next_fire_time
         await datastore.add_schedule(schedule, ConflictPolicy.replace)
@@ -147,7 +146,6 @@ async def test_replace_schedules(
         assert schedules[0].kwargs == {}
         assert schedules[0].coalesce is CoalescePolicy.earliest
         assert schedules[0].misfire_grace_time is None
-        assert schedules[0].tags == frozenset()
 
     received_event = events.pop(0)
     assert received_event.schedule_id == "s3"

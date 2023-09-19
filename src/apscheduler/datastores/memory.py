@@ -244,7 +244,6 @@ class MemoryDataStore(BaseDataStore):
             job_id=job.id,
             task_id=job.task_id,
             schedule_id=job.schedule_id,
-            tags=job.tags,
         )
         await self._event_broker.publish(event)
 

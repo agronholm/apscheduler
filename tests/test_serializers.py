@@ -16,7 +16,6 @@ from apscheduler.abc import Serializer
                 job_id=uuid4(),
                 task_id="task",
                 schedule_id="schedule",
-                tags=["tag1", "tag2"],
             ),
             id="job_added",
         )

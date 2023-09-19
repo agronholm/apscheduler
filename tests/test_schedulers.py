@@ -271,7 +271,6 @@ class TestAsyncScheduler:
             assert info.scheduled_fire_time == scheduled_fire_time
             assert info.jitter == timedelta(seconds=2.16)
             assert info.start_deadline == start_deadline
-            assert info.tags == {"foo", "bar"}
 
         scheduled_fire_time = datetime.now(timezone.utc)
         start_deadline = datetime.now(timezone.utc) + timedelta(seconds=10)
@@ -285,7 +284,6 @@ class TestAsyncScheduler:
                 scheduled_fire_time=scheduled_fire_time,
                 jitter=timedelta(seconds=2.16),
                 start_deadline=start_deadline,
-                tags={"foo", "bar"},
                 result_expiration_time=timedelta(seconds=10),
             )
             await scheduler.data_store.add_job(job)
@@ -498,7 +496,6 @@ class TestSyncScheduler:
             assert info.scheduled_fire_time == scheduled_fire_time
             assert info.jitter == timedelta(seconds=2.16)
             assert info.start_deadline == start_deadline
-            assert info.tags == {"foo", "bar"}
 
         scheduled_fire_time = datetime.now(timezone.utc)
         start_deadline = datetime.now(timezone.utc) + timedelta(seconds=10)
@@ -513,7 +510,6 @@ class TestSyncScheduler:
                 scheduled_fire_time=scheduled_fire_time,
                 jitter=timedelta(seconds=2.16),
                 start_deadline=start_deadline,
-                tags={"foo", "bar"},
                 result_expiration_time=timedelta(seconds=10),
             )
             scheduler._portal.call(scheduler.data_store.add_job, job)

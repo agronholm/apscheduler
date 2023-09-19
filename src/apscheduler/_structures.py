@@ -78,8 +78,6 @@ class Schedule:
         run time
     :var ~datetime.timedelta | None max_jitter: maximum number of seconds to randomly
         add to the scheduled time for each job created from this schedule
-    :var frozenset[str] tags: strings that can be used to categorize and filter the
-        schedule and its derivative jobs
     :var ConflictPolicy conflict_policy: determines what to do if a schedule with the
         same ID already exists in the data store
     :var ~datetime.datetime next_fire_time: the next time the task will be run
@@ -109,9 +107,6 @@ class Schedule:
     )
     max_jitter: timedelta | None = attrs.field(
         eq=False, order=False, converter=as_timedelta, default=None
-    )
-    tags: frozenset[str] = attrs.field(
-        eq=False, order=False, converter=frozenset, default=()
     )
     next_fire_time: datetime | None = attrs.field(eq=False, order=False, default=None)
     last_fire_time: datetime | None = attrs.field(eq=False, order=False, default=None)
@@ -163,7 +158,6 @@ class Job:
         after this time, it is considered to be misfired and will be aborted
     :var ~datetime.timedelta result_expiration_time: minimum amount of time to keep the
         result available for fetching in the data store
-    :var frozenset[str] tags: strings that can be used to categorize and filter the job
     :var ~datetime.datetime created_at: the time at which the job was created
     :var ~datetime.datetime | None started_at: the time at which the execution of the
         job was started
@@ -189,9 +183,6 @@ class Job:
     start_deadline: datetime | None = attrs.field(eq=False, order=False, default=None)
     result_expiration_time: timedelta = attrs.field(
         eq=False, order=False, converter=as_timedelta, default=timedelta()
-    )
-    tags: frozenset[str] = attrs.field(
-        eq=False, order=False, converter=frozenset, default=()
     )
     created_at: datetime = attrs.field(
         eq=False, order=False, factory=partial(datetime.now, timezone.utc)
@@ -243,7 +234,6 @@ class JobInfo:
         scheduled run time (if the job was derived from a schedule)
     :var ~datetime.datetime | None start_deadline: if the job is started in the worker
         after this time, it is considered to be misfired and will be aborted
-    :var frozenset[str] tags: strings that can be used to categorize and filter the job
     """
 
     job_id: UUID
@@ -252,7 +242,6 @@ class JobInfo:
     scheduled_fire_time: datetime | None
     jitter: timedelta
     start_deadline: datetime | None
-    tags: frozenset[str]
 
     @classmethod
     def from_job(cls, job: Job) -> JobInfo:
@@ -263,7 +252,6 @@ class JobInfo:
             scheduled_fire_time=job.scheduled_fire_time,
             jitter=job.jitter,
             start_deadline=job.start_deadline,
-            tags=job.tags,
         )
 
 

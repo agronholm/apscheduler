@@ -14,7 +14,6 @@ import sniffio
 import tenacity
 from anyio import to_thread
 from sqlalchemy import (
-    JSON,
     BigInteger,
     Column,
     Enum,
@@ -218,12 +217,10 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             timestamp_type = postgresql.TIMESTAMP(timezone=True)
             job_id_type = postgresql.UUID(as_uuid=True)
             interval_type = postgresql.INTERVAL(precision=6)
-            tags_type = postgresql.ARRAY(Unicode)
         else:
             timestamp_type = EmulatedTimestampTZ
             job_id_type = EmulatedUUID
             interval_type = EmulatedInterval
-            tags_type = JSON
 
         metadata = MetaData(schema=self.schema)
         Table("metadata", metadata, Column("schema_version", Integer, nullable=False))
@@ -249,7 +246,6 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("coalesce", Enum(CoalescePolicy), nullable=False),
             Column("misfire_grace_time", interval_type),
             Column("max_jitter", interval_type),
-            Column("tags", tags_type, nullable=False),
             Column("next_fire_time", timestamp_type, index=True),
             Column("last_fire_time", timestamp_type),
             Column("acquired_by", Unicode(500)),
@@ -267,7 +263,6 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("jitter", interval_type),
             Column("start_deadline", timestamp_type),
             Column("result_expiration_time", interval_type),
-            Column("tags", tags_type, nullable=False),
             Column("created_at", timestamp_type, nullable=False),
             Column("started_at", timestamp_type),
             Column("acquired_by", Unicode(500)),
@@ -657,7 +652,6 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             job_id=job.id,
             task_id=job.task_id,
             schedule_id=job.schedule_id,
-            tags=job.tags,
         )
         await self._event_broker.publish(event)
 

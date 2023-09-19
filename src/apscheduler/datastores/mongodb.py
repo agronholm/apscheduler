@@ -117,7 +117,6 @@ class MongoDBDataStore(BaseExternalDataStore):
             self._schedules.create_index("next_fire_time", session=session)
             self._jobs.create_index("task_id", session=session)
             self._jobs.create_index("created_at", session=session)
-            self._jobs.create_index("tags", session=session)
             self._jobs_results.create_index("finished_at", session=session)
             self._jobs_results.create_index("expires_at", session=session)
 
@@ -374,7 +373,6 @@ class MongoDBDataStore(BaseExternalDataStore):
             job_id=job.id,
             task_id=job.task_id,
             schedule_id=job.schedule_id,
-            tags=job.tags,
         )
         await self._event_broker.publish(event)
 

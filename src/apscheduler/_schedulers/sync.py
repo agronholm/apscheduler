@@ -165,7 +165,6 @@ class Scheduler:
         misfire_grace_time: float | timedelta | None = None,
         max_jitter: float | timedelta | None = None,
         max_running_jobs: int | None = None,
-        tags: Iterable[str] | None = None,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
     ) -> str:
         self._ensure_services_ready()
@@ -182,7 +181,6 @@ class Scheduler:
                 misfire_grace_time=misfire_grace_time,
                 max_jitter=max_jitter,
                 max_running_jobs=max_running_jobs,
-                tags=tags,
                 conflict_policy=conflict_policy,
             )
         )
@@ -206,7 +204,6 @@ class Scheduler:
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
         job_executor: str | None = None,
-        tags: Iterable[str] | None = None,
         result_expiration_time: timedelta | float = 0,
     ) -> UUID:
         self._ensure_services_ready()
@@ -217,7 +214,6 @@ class Scheduler:
                 args=args,
                 kwargs=kwargs,
                 job_executor=job_executor,
-                tags=tags,
                 result_expiration_time=result_expiration_time,
             )
         )
@@ -235,7 +231,6 @@ class Scheduler:
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
         job_executor: str | None = None,
-        tags: Iterable[str] | None = (),
     ) -> Any:
         self._ensure_services_ready()
         return self._portal.call(
@@ -245,7 +240,6 @@ class Scheduler:
                 args=args,
                 kwargs=kwargs,
                 job_executor=job_executor,
-                tags=tags,
             )
         )
 

@@ -230,7 +230,6 @@ class AsyncScheduler:
         misfire_grace_time: float | timedelta | None = None,
         max_jitter: float | timedelta | None = None,
         max_running_jobs: int | None = None,
-        tags: Iterable[str] | None = None,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
     ) -> str:
         """
@@ -252,8 +251,6 @@ class AsyncScheduler:
             time for each job created from this schedule
         :param max_running_jobs: maximum number of instances of the task that are
             allowed to run concurrently
-        :param tags: strings that can be used to categorize and filter the schedule and
-            its derivative jobs
         :param conflict_policy: determines what to do if a schedule with the same ID
             already exists in the data store
         :return: the ID of the newly added schedule
@@ -263,7 +260,6 @@ class AsyncScheduler:
         id = id or str(uuid4())
         args = tuple(args or ())
         kwargs = dict(kwargs or {})
-        tags = frozenset(tags or ())
         if isinstance(misfire_grace_time, (int, float)):
             misfire_grace_time = timedelta(seconds=misfire_grace_time)
 
@@ -287,7 +283,6 @@ class AsyncScheduler:
             coalesce=coalesce,
             misfire_grace_time=misfire_grace_time,
             max_jitter=max_jitter,
-            tags=tags,
         )
         schedule.next_fire_time = trigger.next()
         await self.data_store.add_schedule(schedule, conflict_policy)
@@ -341,7 +336,6 @@ class AsyncScheduler:
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
         job_executor: str | None = None,
-        tags: Iterable[str] | None = None,
         result_expiration_time: timedelta | float = 0,
     ) -> UUID:
         """
@@ -352,7 +346,6 @@ class AsyncScheduler:
         :param args: positional arguments to call the target callable with
         :param kwargs: keyword arguments to call the target callable with
         :param job_executor: name of the job executor to run the task with
-        :param tags: strings that can be used to categorize and filter the job
         :param result_expiration_time: the minimum time (as seconds, or timedelta) to
             keep the result of the job available for fetching (the result won't be
             saved at all if that time is 0)
@@ -374,7 +367,6 @@ class AsyncScheduler:
             task_id=task.id,
             args=args or (),
             kwargs=kwargs or {},
-            tags=tags or frozenset(),
             result_expiration_time=result_expiration_time,
         )
         await self.data_store.add_job(job)
@@ -416,7 +408,6 @@ class AsyncScheduler:
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
         job_executor: str | None = None,
-        tags: Iterable[str] | None = (),
     ) -> Any:
         """
         Convenience method to add a job and then return its result.
@@ -428,7 +419,6 @@ class AsyncScheduler:
         :param args: positional arguments to be passed to the task function
         :param kwargs: keyword arguments to be passed to the task function
         :param job_executor: name of the job executor to run the task with
-        :param tags: strings that can be used to categorize and filter the job
         :returns: the return value of the task function
 
         """
@@ -446,7 +436,6 @@ class AsyncScheduler:
                 args=args,
                 kwargs=kwargs,
                 job_executor=job_executor,
-                tags=tags,
                 result_expiration_time=timedelta(minutes=15),
             )
             await job_complete_event.wait()
@@ -642,7 +631,6 @@ class AsyncScheduler:
                             scheduled_fire_time=fire_time,
                             jitter=jitter,
                             start_deadline=schedule.next_deadline,
-                            tags=schedule.tags,
                         )
                         await self.data_store.add_job(job)
 

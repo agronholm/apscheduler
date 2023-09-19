@@ -133,13 +133,11 @@ class JobAdded(DataStoreEvent):
     :ivar job_id: ID of the job that was added
     :ivar task_id: ID of the task the job would run
     :ivar schedule_id: ID of the schedule the job was created from
-    :ivar tags: the set of tags collected from the associated task and schedule
     """
 
     job_id: UUID = attrs.field(converter=as_uuid)
     task_id: str
     schedule_id: str | None
-    tags: frozenset[str] = attrs.field(converter=frozenset)
 
 
 @attrs.define(kw_only=True, frozen=True)
