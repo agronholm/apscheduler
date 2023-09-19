@@ -16,8 +16,8 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from apscheduler import AsyncScheduler
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
-from apscheduler.schedulers.async_ import AsyncScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 

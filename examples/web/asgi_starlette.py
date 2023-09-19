@@ -21,9 +21,9 @@ from starlette.responses import PlainTextResponse, Response
 from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from apscheduler import AsyncScheduler
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
-from apscheduler.schedulers.async_ import AsyncScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 

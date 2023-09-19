@@ -16,9 +16,9 @@ import logging
 from example_tasks import tick
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from apscheduler import Scheduler
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
-from apscheduler.schedulers.sync import Scheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 logging.basicConfig(level=logging.INFO)

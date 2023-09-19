@@ -58,10 +58,10 @@ task. Previously you would have had to call ``add_job()`` with a
 
 The two most commonly used schedulers, ``BlockingScheduler`` and
 ``BackgroundScheduler``, have often caused confusion among users and have thus been
-combined into :class:`~.schedulers.sync.Scheduler`. This new unified scheduler class
+combined into :class:`~.schedulers.Scheduler`. This new unified scheduler class
 has two methods that replace the ``start()`` method used previously:
-:meth:`~.schedulers.sync.Scheduler.run_until_stopped` and
-:meth:`~.schedulers.sync.Scheduler.start_in_background`. The former should be used if
+:meth:`~.schedulers.Scheduler.run_until_stopped` and
+:meth:`~.schedulers.Scheduler.start_in_background`. The former should be used if
 you previously used ``BlockingScheduler``, and the latter if you used
 ``BackgroundScheduler``.
 

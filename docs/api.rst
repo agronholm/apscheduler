@@ -14,8 +14,8 @@ Data structures
 Schedulers
 ----------
 
-.. autoclass:: apscheduler.schedulers.sync.Scheduler
-.. autoclass:: apscheduler.schedulers.async_.AsyncScheduler
+.. autoclass:: apscheduler.Scheduler
+.. autoclass:: apscheduler.AsyncScheduler
 
 Job executors
 -------------

@@ -17,9 +17,9 @@ import logging
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from apscheduler import AsyncScheduler
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
-from apscheduler.schedulers.async_ import AsyncScheduler
 
 
 async def main():

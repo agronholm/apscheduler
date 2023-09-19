@@ -3,8 +3,8 @@ from __future__ import annotations
 import sys
 from datetime import datetime
 
+from apscheduler import Scheduler
 from apscheduler.executors.qt import QtJobExecutor
-from apscheduler.schedulers.sync import Scheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 try:

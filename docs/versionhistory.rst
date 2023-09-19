@@ -6,6 +6,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- **BREAKING** The scheduler classes were moved to be importable (only) directly from
+  the ``apscheduler`` package (``apscheduler.Scheduler`` and
+  ``apscheduler.AsyncScheduler``)
 - **BREAKING** Workers were merged into schedulers. As the ``Worker`` and
   ``AsyncWorker`` classes have been removed, you now need to pass
   ``role=SchedulerRole.scheduler`` to the scheduler to prevent it from processing due
@@ -17,10 +20,10 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** The ``current_worker`` context variable has been removed
 - **BREAKING** The ``current_scheduler`` context variable is now specified to only
   contain the currently running instance of a **synchronous** scheduler
-  (``apscheduler.schedulers.sync.Scheduler``). The asynchronous scheduler instance can
-  be fetched from the new ``current_async_scheduler`` context variable, and will always
-  be available when a scheduler is running in the current context, while
-  ``current_scheduler`` is only available when the synchronous wrapper is being run.
+  (``apscheduler.Scheduler``). The asynchronous scheduler instance can be fetched from
+  the new ``current_async_scheduler`` context variable, and will always be available
+  when a scheduler is running in the current context, while ``current_scheduler`` is
+  only available when the synchronous wrapper is being run.
 - **BREAKING** Changed the initialization of data stores and event brokers to use a
   single ``start()`` method that accepts an ``AsyncExitStack`` (and, depending on the
   interface, other arguments too)

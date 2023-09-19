@@ -15,9 +15,9 @@ from datetime import datetime
 
 from sqlalchemy.future import create_engine
 
+from apscheduler import Scheduler
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.eventbrokers.redis import RedisEventBroker
-from apscheduler.schedulers.sync import Scheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 

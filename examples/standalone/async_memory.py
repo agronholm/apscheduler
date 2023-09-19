@@ -11,7 +11,7 @@ from __future__ import annotations
 from asyncio import run
 from datetime import datetime
 
-from apscheduler.schedulers.async_ import AsyncScheduler
+from apscheduler import AsyncScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 

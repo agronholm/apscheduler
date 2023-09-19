@@ -12,6 +12,7 @@ from anyio import fail_after
 from pytest_mock import MockerFixture
 
 from apscheduler import (
+    AsyncScheduler,
     Event,
     Job,
     JobAdded,
@@ -21,7 +22,9 @@ from apscheduler import (
     Schedule,
     ScheduleAdded,
     ScheduleLookupError,
+    Scheduler,
     ScheduleRemoved,
+    SchedulerRole,
     SchedulerStarted,
     SchedulerStopped,
     Task,
@@ -30,9 +33,6 @@ from apscheduler import (
     current_job,
     current_scheduler,
 )
-from apscheduler._enums import SchedulerRole
-from apscheduler.schedulers.async_ import AsyncScheduler
-from apscheduler.schedulers.sync import Scheduler
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 

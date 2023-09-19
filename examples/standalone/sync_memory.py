@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from apscheduler.schedulers.sync import Scheduler
+from apscheduler import Scheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 

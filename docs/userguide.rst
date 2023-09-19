@@ -2,6 +2,7 @@
 User guide
 ##########
 
+.. py:currentmodule:: apscheduler
 
 Installation
 ============
@@ -77,14 +78,13 @@ Running the scheduler
 =====================
 
 The scheduler can run either in the foreground, blocking on a call to
-:meth:`~apscheduler.schedulers.sync.Scheduler.run_until_stopped`, or in the background
+:meth:`~Scheduler.run_until_stopped`, or in the background
 where it does its work while letting the rest of the program run.
 
 If the only intent of your program is to run scheduled tasks, then you should start the
-scheduler with :meth:`~apscheduler.schedulers.sync.Scheduler.run_until_stopped`. But if
-you need to do other things too, then you should call
-:meth:`~apscheduler.schedulers.sync.Scheduler.start_in_background` before running the
-rest of the program.
+scheduler with :meth:`~Scheduler.run_until_stopped`. But if you need to do other things
+too, then you should call :meth:`~Scheduler.start_in_background` before running the rest
+of the program.
 
 The scheduler can be used as a context manager. This initializes the underlying data
 store and event broker, allowing you to use the scheduler for manipulating tasks and
@@ -107,7 +107,7 @@ of the scheduler before the process terminates.
 
    .. code-tab:: python Synchronous (run in foreground)
 
-      from apscheduler.schedulers.sync import Scheduler
+      from apscheduler import Scheduler
 
       scheduler = Scheduler()
       # Add schedules, configure tasks here
@@ -115,7 +115,7 @@ of the scheduler before the process terminates.
 
    .. code-tab:: python Synchronous (background thread; preferred method)
 
-      from apscheduler.schedulers.sync import Scheduler
+      from apscheduler import Scheduler
 
       with Scheduler() as scheduler:
           # Add schedules, configure tasks here
@@ -123,7 +123,7 @@ of the scheduler before the process terminates.
 
    .. code-tab:: python Synchronous (background thread; WSGI alternative)
 
-      from apscheduler.schedulers.sync import Scheduler
+      from apscheduler import Scheduler
 
       scheduler = Scheduler()
       # Add schedules, configure tasks here
@@ -133,7 +133,7 @@ of the scheduler before the process terminates.
 
       import asyncio
 
-      from apscheduler.schedulers.async_ import AsyncScheduler
+      from apscheduler import AsyncScheduler
 
       async def main():
           async with AsyncScheduler() as scheduler:
@@ -146,7 +146,7 @@ of the scheduler before the process terminates.
 
       import asyncio
 
-      from apscheduler.schedulers.async_ import AsyncScheduler
+      from apscheduler import AsyncScheduler
 
       async def main():
           async with AsyncScheduler() as scheduler:
@@ -176,13 +176,13 @@ The trigger determines the scheduling logic for your schedule. In other words, i
 used to calculate the datetimes on which the task will be run. APScheduler comes with a
 number of built-in trigger classes:
 
-* :class:`~apscheduler.triggers.date.DateTrigger`:
+* :class:`~triggers.date.DateTrigger`:
   use when you want to run the task just once at a certain point of time
-* :class:`~apscheduler.triggers.interval.IntervalTrigger`:
+* :class:`~triggers.interval.IntervalTrigger`:
   use when you want to run the task at fixed intervals of time
-* :class:`~apscheduler.triggers.cron.CronTrigger`:
+* :class:`~triggers.cron.CronTrigger`:
   use when you want to run the task periodically at certain time(s) of day
-* :class:`~apscheduler.triggers.calendarinterval.CalendarIntervalTrigger`:
+* :class:`~triggers.calendarinterval.CalendarIntervalTrigger`:
   use when you want to run the task on calendar-based intervals, at a specific time of
   day
 
@@ -194,8 +194,8 @@ complex to be handled with any of the built-in triggers directly.
 
 One examples of such a need would be when you want the task to run at 10:00 from Monday
 to Friday, but also at 11:00 from Saturday to Sunday.
-A single :class:`~apscheduler.triggers.cron.CronTrigger` would not be able to handle
-this case, but an :class:`~apscheduler.triggers.combining.OrTrigger` containing two cron
+A single :class:`~triggers.cron.CronTrigger` would not be able to handle
+this case, but an :class:`~triggers.combining.OrTrigger` containing two cron
 triggers can::
 
     from apscheduler.triggers.combining import OrTrigger
@@ -206,7 +206,7 @@ triggers can::
         CronTrigger(day_of_week="sat-sun", hour=11),
     )
 
-On the first run, :class:`~apscheduler.triggers.combining.OrTrigger` generates the next
+On the first run, :class:`~triggers.combining.OrTrigger` generates the next
 run times from both cron triggers and saves them internally. It then returns the
 earliest one. On the next run, it generates a new run time from the trigger that
 produced the earliest run time on the previous run, and then again returns the earliest
@@ -224,10 +224,10 @@ Another example would be a case where you want the task to be run every 2 months
         CronTrigger(day_of_week="mon-fri", hour=10),
     )
 
-On the first run, :class:`~apscheduler.triggers.combining.AndTrigger` generates the next
+On the first run, :class:`~triggers.combining.AndTrigger` generates the next
 run times from both the
-:class:`~apscheduler.triggers.calendarinterval.CalendarIntervalTrigger` and
-:class:`~apscheduler.triggers.cron.CronTrigger`. If the run times coincide, it will
+:class:`~triggers.calendarinterval.CalendarIntervalTrigger` and
+:class:`~triggers.cron.CronTrigger`. If the run times coincide, it will
 return that run time. Otherwise, it will calculate a new run time from the trigger that
 produced the earliest run time. It will keep doing this until a match is found, one of
 the triggers has been exhausted or the maximum number of iterations (1000 by default) is
@@ -250,20 +250,20 @@ In some cases, you want to run tasks directly, without involving schedules:
 * You're interested in the job's return value
 
 To queue a job and wait for its completion and get the result, the easiest way is to
-use :meth:`~apscheduler.schedulers.sync.Scheduler.run_job`. If you prefer to just launch
+use :meth:`~Scheduler.run_job`. If you prefer to just launch
 a job and not wait for its result, use
-:meth:`~apscheduler.schedulers.sync.Scheduler.add_job` instead. If you want to get the
+:meth:`~Scheduler.add_job` instead. If you want to get the
 results later, you can then call
-:meth:`~apscheduler.schedulers.sync.Scheduler.get_job_result` with the job ID you got
-from :meth:`~apscheduler.schedulers.sync.Scheduler.add_job`.
+:meth:`~Scheduler.get_job_result` with the job ID you got
+from :meth:`~Scheduler.add_job`.
 
 Removing schedules
 ------------------
 
 To remove a previously added schedule, call
-:meth:`~apscheduler.schedulers.sync.Scheduler.remove_schedule`. Pass the identifier of
+:meth:`~Scheduler.remove_schedule`. Pass the identifier of
 the schedule you want to remove as an argument. This is the ID you got from
-:meth:`~apscheduler.schedulers.sync.Scheduler.add_schedule`.
+:meth:`~Scheduler.add_schedule`.
 
 Note that removing a schedule does not cancel any jobs derived from it, but does prevent
 further jobs from being created from that schedule.
@@ -275,11 +275,11 @@ It is possible to control the maximum number of concurrently running jobs for a
 particular task. By default, only one job is allowed to be run for every task.
 This means that if the job is about to be run but there is another job for the same task
 still running, the later job is terminated with the outcome of
-:data:`~apscheduler.JobOutcome.missed_start_deadline`.
+:data:`~JobOutcome.missed_start_deadline`.
 
 To allow more jobs to be concurrently running for a task, pass the desired maximum
 number as the ``max_running_jobs`` keyword argument to
-:meth:`~apscheduler.schedulers.sync.Scheduler.add_schedule`.~
+:meth:`~Scheduler.add_schedule`.~
 
 Controlling how much a job can be started late
 ----------------------------------------------
@@ -288,10 +288,10 @@ Some tasks are time sensitive, and should not be run at all if it fails to be st
 time (like, for example, if the scheduler(s) were down while they were supposed to be
 running the scheduled jobs). You can control this time limit with the
 ``misfire_grace_time`` option passed to
-:meth:`~apscheduler.schedulers.sync.Scheduler.add_schedule`. A scheduler that acquires
+:meth:`~Scheduler.add_schedule`. A scheduler that acquires
 the job then checks if the current time is later than the deadline
 (run time + misfire grace time) and if it is, it skips the execution of the job and
-releases it with the outcome of :data:`~apscheduler.JobOutcome.`
+releases it with the outcome of :data:`~JobOutcome.`
 
 Controlling how jobs are queued from schedules
 ----------------------------------------------
@@ -305,15 +305,15 @@ one or more next run times produced by the trigger are actually in the past.
 In a situation like that, the scheduler needs to decide what to do: to queue a job for
 every run time produced, or to *coalesce* them all into a single job, effectively just
 kicking off a single job. To control this, pass the ``coalesce`` argument to
-:meth:`~apscheduler.schedulers.sync.Scheduler.add_schedule`.
+:meth:`~Scheduler.add_schedule`.
 
 The possible values are:
 
-* :data:`~apscheduler.CoalescePolicy.latest`: queue exactly one job, using the
+* :data:`~CoalescePolicy.latest`: queue exactly one job, using the
   **latest** run time as the designated run time
-* :data:`~apscheduler.CoalescePolicy.earliest`: queue exactly one job, using the
+* :data:`~CoalescePolicy.earliest`: queue exactly one job, using the
   **earliest** run time as the designated run time
-* :data:`~apscheduler.CoalescePolicy.all`: queue one job for **each** of the calculated
+* :data:`~CoalescePolicy.all`: queue one job for **each** of the calculated
   run times
 
 The biggest difference between the first two options is how the designated run time, and
@@ -330,9 +330,9 @@ Context variables
 
 Schedulers provide certain `context variables`_ available to the tasks being run:
 
-* The current (synchronous) scheduler: :data:`~apscheduler.current_scheduler`
-* The current asynchronous scheduler: :data:`~apscheduler.current_async_scheduler`
-* Information about the job being currently run: :data:`~apscheduler.current_job`
+* The current (synchronous) scheduler: :data:`~current_scheduler`
+* The current asynchronous scheduler: :data:`~current_async_scheduler`
+* Information about the job being currently run: :data:`~current_job`
 
 Here's an example::
 
@@ -379,8 +379,8 @@ is the event object. Then, you need to decide which events you're interested in:
 
         scheduler.subscribe(listener, {JobAcquired, JobReleased})
 
-This example subscribes to the :class:`~apscheduler.JobAcquired` and
-:class:`~apscheduler.JobAcquired` event types. The callback will receive an event of
+This example subscribes to the :class:`~JobAcquired` and
+:class:`~JobAcquired` event types. The callback will receive an event of
 either type, and prints the name of the class of the received event.
 
 Asynchronous schedulers and workers support both synchronous and asynchronous callbacks,
@@ -396,7 +396,7 @@ Deployment
 Using persistent data stores
 ----------------------------
 
-The default data store, :class:`~apscheduler.datastores.memory.MemoryDataStore`, stores
+The default data store, :class:`~datastores.memory.MemoryDataStore`, stores
 data only in memory so all the schedules and jobs that were added to it will be erased
 if the process crashes.
 
@@ -419,8 +419,8 @@ brings us to the second point. If you cannot be sure that nobody can maliciously
 the externally stored serialized data, it would be best to use another serializer. The
 built-in alternatives are:
 
-* :class:`~apscheduler.serializers.cbor.CBORSerializer`
-* :class:`~apscheduler.serializers.json.JSONSerializer`
+* :class:`~serializers.cbor.CBORSerializer`
+* :class:`~serializers.json.JSONSerializer`
 
 The former requires the cbor2_ library, but supports a wider variety of types natively.
 The latter has no dependencies but has very limited support for different types.
@@ -434,7 +434,7 @@ the same schedule will not be added over and over again (as data stores are requ
 enforce the uniqueness of schedule identifiers). You'll also need to decide what to do
 if the schedule already exists in the data store (that is, when the application is
 started the second time) by passing the ``conflict_policy`` argument. Usually you want
-the :data:`~apscheduler.ConflictPolicy.replace` option, which replaces the existing
+the :data:`~ConflictPolicy.replace` option, which replaces the existing
 schedule with the new one.
 
 .. seealso:: You can find practical examples of persistent data stores in the
