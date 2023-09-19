@@ -41,7 +41,6 @@ from ._retry import RetrySettings as RetrySettings
 from ._schedulers.async_ import AsyncScheduler as AsyncScheduler
 from ._schedulers.sync import Scheduler as Scheduler
 from ._structures import Job as Job
-from ._structures import JobInfo as JobInfo
 from ._structures import JobResult as JobResult
 from ._structures import Schedule as Schedule
 from ._structures import Task as Task

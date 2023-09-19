@@ -11,6 +11,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   ``apscheduler.AsyncScheduler``)
 - **BREAKING** Removed the "tags" field in schedules and jobs (this will be added back
   when the feature has been fully thought through)
+- **BREAKING** Removed the ``JobInfo`` class in favor of just using the ``Job`` class
+  (which is now immutable)
 - **BREAKING** Workers were merged into schedulers. As the ``Worker`` and
   ``AsyncWorker`` classes have been removed, you now need to pass
   ``role=SchedulerRole.scheduler`` to the scheduler to prevent it from processing due

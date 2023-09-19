@@ -10,7 +10,7 @@ import anyio
 import attrs
 from anyio.from_thread import BlockingPortal
 
-from apscheduler import Job, JobInfo, current_job
+from apscheduler import Job, current_job
 from apscheduler.abc import JobExecutor
 
 if "PySide6" in sys.modules:
@@ -52,7 +52,7 @@ class QtJobExecutor(JobExecutor):
         self, parameters: tuple[Callable[..., Any], Job, Future, anyio.Event]
     ) -> Any:
         func, job, future, event = parameters
-        token = current_job.set(JobInfo.from_job(job))
+        token = current_job.set(job)
         try:
             retval = func(*job.args, **job.kwargs)
         except BaseException as exc:

@@ -139,7 +139,7 @@ class Schedule:
         return None
 
 
-@attrs.define(kw_only=True)
+@attrs.define(kw_only=True, frozen=True)
 class Job:
     """
     Represents a queued request to run a task.
@@ -214,45 +214,6 @@ class Job:
         marshalled["args"] = serializer.deserialize(marshalled["args"])
         marshalled["kwargs"] = serializer.deserialize(marshalled["kwargs"])
         return cls(**marshalled)
-
-
-@attrs.define(kw_only=True)
-class JobInfo:
-    """
-    Contains information about the currently running job.
-
-    This information is available in the thread or task where a job is currently being
-    run, available from :data:`~apscheduler.current_job`.
-
-    :var ~uuid.UUID job_id: the unique identifier of the job
-    :var str task_id: the unique identifier of the task that is being run
-    :var str | None schedule_id: the unique identifier of the schedule that the job was
-        derived from (if any)
-    :var ~datetime.datetime | None scheduled_fire_time: the time the job was scheduled
-        to run at (if the job was derived from a schedule; includes jitter)
-    :var ~datetime.timedelta jitter: the time that was randomly added to the calculated
-        scheduled run time (if the job was derived from a schedule)
-    :var ~datetime.datetime | None start_deadline: if the job is started in the worker
-        after this time, it is considered to be misfired and will be aborted
-    """
-
-    job_id: UUID
-    task_id: str
-    schedule_id: str | None
-    scheduled_fire_time: datetime | None
-    jitter: timedelta
-    start_deadline: datetime | None
-
-    @classmethod
-    def from_job(cls, job: Job) -> JobInfo:
-        return cls(
-            job_id=job.id,
-            task_id=job.task_id,
-            schedule_id=job.schedule_id,
-            scheduled_fire_time=job.scheduled_fire_time,
-            jitter=job.jitter,
-            start_deadline=job.start_deadline,
-        )
 
 
 @attrs.define(kw_only=True, frozen=True)

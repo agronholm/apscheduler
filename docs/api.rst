@@ -7,7 +7,6 @@ Data structures
 .. autoclass:: apscheduler.Task
 .. autoclass:: apscheduler.Schedule
 .. autoclass:: apscheduler.Job
-.. autoclass:: apscheduler.JobInfo
 .. autoclass:: apscheduler.JobResult
 .. autoclass:: apscheduler.RetrySettings
 

@@ -4,7 +4,7 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ._structures import JobInfo
+    from ._structures import Job
     from .schedulers.async_ import AsyncScheduler
     from .schedulers.sync import Scheduler
 
@@ -16,4 +16,4 @@ current_async_scheduler: ContextVar[AsyncScheduler | None] = ContextVar(
     "current_async_scheduler", default=None
 )
 #: Metadata about the current job
-current_job: ContextVar[JobInfo] = ContextVar("job_info")
+current_job: ContextVar[Job] = ContextVar("job_info")

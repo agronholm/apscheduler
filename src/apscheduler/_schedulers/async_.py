@@ -42,7 +42,7 @@ from .._exceptions import (
     JobLookupError,
     ScheduleLookupError,
 )
-from .._structures import Job, JobInfo, JobResult, Schedule, Task
+from .._structures import Job, JobResult, Schedule, Task
 from .._validators import non_negative_number
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
 from ..datastores.memory import MemoryDataStore
@@ -717,7 +717,7 @@ class AsyncScheduler:
             except KeyError:
                 return
 
-            token = current_job.set(JobInfo.from_job(job))
+            token = current_job.set(job)
             try:
                 retval = await job_executor.run_job(func, job)
             except get_cancelled_exc_class():
