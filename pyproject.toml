@@ -26,7 +26,7 @@ keywords = ["scheduling", "cron"]
 license = {text = "MIT"}
 requires-python = ">= 3.8"
 dependencies = [
-    "anyio >= 4.0.0",
+    "anyio ~= 4.0.0",
     "attrs >= 21.3",
     "tenacity ~= 8.0",
     "tzlocal >= 3.0",
