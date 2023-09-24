@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from bisect import bisect_left, insort_right
+from bisect import bisect_left, insort_right, bisect_right
 from collections import defaultdict
 from datetime import MAXYEAR, datetime, timedelta, timezone
 from functools import partial
-from typing import Any, Iterable
+from typing import Iterable
 from uuid import UUID
 
 import attrs
@@ -31,10 +31,6 @@ max_datetime = datetime(MAXYEAR, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc
 class TaskState:
     task: Task
     running_jobs: int = 0
-    saved_state: Any = None
-
-    def __eq__(self, other):
-        return self.task.id == other.task.id
 
 
 @attrs.define
@@ -47,20 +43,26 @@ class ScheduleState:
     def __attrs_post_init__(self):
         self.next_fire_time = self.schedule.next_fire_time
 
-    def __eq__(self, other):
-        return self.schedule.id == other.schedule.id
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, ScheduleState):
+            return self.schedule.id == other.schedule.id
 
-    def __lt__(self, other):
-        if self.next_fire_time is None:
-            return False
-        elif other.next_fire_time is None:
-            return self.next_fire_time is not None
-        elif self.next_fire_time != other.next_fire_time:
-            return self.next_fire_time < other.next_fire_time
-        else:
-            return self.schedule.id < other.schedule.id
+        return NotImplemented
 
-    def __hash__(self):
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, ScheduleState):
+            if self.next_fire_time is None:
+                return False
+            elif other.next_fire_time is None:
+                return self.next_fire_time is not None
+            elif self.next_fire_time != other.next_fire_time:
+                return self.next_fire_time < other.next_fire_time
+            else:
+                return self.schedule.id < other.schedule.id
+
+        return NotImplemented
+
+    def __hash__(self) -> int:
         return hash(self.schedule.id)
 
 
@@ -73,10 +75,13 @@ class JobState:
     acquired_by: str | None = attrs.field(eq=False, order=False, default=None)
     acquired_until: datetime | None = attrs.field(eq=False, order=False, default=None)
 
-    def __eq__(self, other):
-        return self.job.id == other.job.id
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, JobState):
+            return self.job.id == other.job.id
 
-    def __hash__(self):
+        return NotImplemented
+
+    def __hash__(self) -> int:
         return hash(self.job.id)
 
 
@@ -103,12 +108,12 @@ class MemoryDataStore(BaseDataStore):
 
     def _find_schedule_index(self, state: ScheduleState) -> int | None:
         left_index = bisect_left(self._schedules, state)
-        right_index = bisect_left(self._schedules, state)
+        right_index = bisect_right(self._schedules, state)
         return self._schedules.index(state, left_index, right_index + 1)
 
     def _find_job_index(self, state: JobState) -> int | None:
         left_index = bisect_left(self._jobs, state)
-        right_index = bisect_left(self._jobs, state)
+        right_index = bisect_right(self._jobs, state)
         return self._jobs.index(state, left_index, right_index + 1)
 
     async def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
