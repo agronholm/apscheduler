@@ -25,7 +25,7 @@ from anyio import (
 from anyio.abc import TaskGroup, TaskStatus
 from attr.validators import instance_of
 
-from .. import JobAdded
+from .. import JobAdded, TaskLookupError
 from .._context import current_async_scheduler, current_job
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState, SchedulerRole
 from .._events import (
@@ -264,13 +264,17 @@ class AsyncScheduler:
             misfire_grace_time = timedelta(seconds=misfire_grace_time)
 
         if callable(func_or_task_id):
-            task = Task(
-                id=callable_to_ref(func_or_task_id),
-                func=func_or_task_id,
-                executor=job_executor or self.default_job_executor,
-                max_running_jobs=max_running_jobs,
-            )
-            await self.data_store.add_task(task)
+            task_ref = callable_to_ref(func_or_task_id)
+            try:
+                task = await self.data_store.get_task(task_ref)
+            except TaskLookupError:
+                task = Task(
+                    id=task_ref,
+                    func=func_or_task_id,
+                    executor=job_executor or self.default_job_executor,
+                    max_running_jobs=max_running_jobs,
+                )
+                await self.data_store.add_task(task)
         else:
             task = await self.data_store.get_task(func_or_task_id)
 
@@ -354,12 +358,16 @@ class AsyncScheduler:
         """
         self._check_initialized()
         if callable(func_or_task_id):
-            task = Task(
-                id=callable_to_ref(func_or_task_id),
-                func=func_or_task_id,
-                executor=job_executor or self.default_job_executor,
-            )
-            await self.data_store.add_task(task)
+            task_id = callable_to_ref(func_or_task_id)
+            try:
+                task = await self.data_store.get_task(task_id)
+            except TaskLookupError:
+                task = Task(
+                    id=task_id,
+                    func=func_or_task_id,
+                    executor=job_executor or self.default_job_executor,
+                )
+                await self.data_store.add_task(task)
         else:
             task = await self.data_store.get_task(func_or_task_id)
 
