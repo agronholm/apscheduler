@@ -20,7 +20,8 @@ Code examples
 
 The source distribution contains the :file:`examples` directory where you can find many
 working examples for using APScheduler in different ways. The examples can also be
-`browsed online <https://github.com/agronholm/apscheduler/tree/master/examples/?at=master>`_.
+`browsed online
+<https://github.com/agronholm/apscheduler/tree/master/examples/?at=master>`_.
 
 
 Introduction
@@ -31,11 +32,11 @@ be executed, either as soon as possible, later at a given time, or on a recurrin
 schedule.
 
 The *scheduler* is the user-facing interface of the system. When it's running, it does
-two things concurrently. The first is processing *schedules*. From its  *data store*,
+two things concurrently. The first is processing *schedules*. From its *data store*,
 it fetches *schedules* due to be run. For each such schedule, it then uses the
-schedule's *trigger* to calculate run times up to the present. For each run time, the
-scheduler creates a *job* in the data store, containing the designated run time and the
-identifier of the schedule it was derived from.
+schedule's *trigger* to calculate run times up to the present. The scheduler then
+creates one or more jobs (controllable by configuration) based on these run times and
+adds them to the data store.
 
 The second role of the scheduler is running jobs. The scheduler asks the data store for
 jobs, and then starts running those jobs. If the data store signals that it has new
@@ -69,6 +70,10 @@ when a scheduler processes it, or it can be directly created by the user if they
 directly request a task to be run.
 
 A *data store* is used to store *schedules* and *jobs*, and to keep track of tasks.
+
+A *job executor* runs the job, by calling the function associated with the job's task.
+An executor could directly call the function, or do it in another thread, subprocess or
+even some external service.
 
 An *event broker* delivers published events to all interested parties. It facilitates
 the cooperation between schedulers and workers by notifying them of new or updated
