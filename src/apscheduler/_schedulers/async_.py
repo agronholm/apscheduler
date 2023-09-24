@@ -4,7 +4,7 @@ import os
 import platform
 import random
 import sys
-from collections.abc import MutableMapping
+from collections.abc import MutableMapping, Sequence
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from inspect import isclass
@@ -371,6 +371,11 @@ class AsyncScheduler:
         )
         await self.data_store.add_job(job)
         return job.id
+
+    async def get_jobs(self) -> Sequence[Job]:
+        """Retrieve all jobs from the data store."""
+        self._check_initialized()
+        return await self.data_store.get_jobs()
 
     async def get_job_result(self, job_id: UUID, *, wait: bool = True) -> JobResult:
         """

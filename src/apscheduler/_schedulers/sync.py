@@ -4,7 +4,7 @@ import atexit
 import logging
 import sys
 import threading
-from collections.abc import MutableMapping
+from collections.abc import MutableMapping, Sequence
 from contextlib import ExitStack
 from datetime import timedelta
 from functools import partial
@@ -17,7 +17,7 @@ from anyio.from_thread import BlockingPortal, start_blocking_portal
 
 from .. import Event, current_scheduler
 from .._enums import CoalescePolicy, ConflictPolicy, RunState, SchedulerRole
-from .._structures import JobResult, Schedule
+from .._structures import Job, JobResult, Schedule
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
 from .async_ import AsyncScheduler
 
@@ -217,6 +217,10 @@ class Scheduler:
                 result_expiration_time=result_expiration_time,
             )
         )
+
+    def get_jobs(self) -> Sequence[Job]:
+        self._ensure_services_ready()
+        return self._portal.call(self._async_scheduler.get_jobs)
 
     def get_job_result(self, job_id: UUID, *, wait: bool = True) -> JobResult:
         self._ensure_services_ready()

@@ -63,7 +63,6 @@ def dummy_sync_job(delay: float = 0, fail: bool = False) -> str:
 class TestAsyncScheduler:
     async def test_schedule_job(self) -> None:
         def listener(received_event: Event) -> None:
-            print(received_event)
             received_events.append(received_event)
             if isinstance(received_event, ScheduleRemoved):
                 event.set()
@@ -138,6 +137,13 @@ class TestAsyncScheduler:
             assert all(isinstance(schedule, Schedule) for schedule in schedules)
             assert any(schedule.id == schedule1_id for schedule in schedules)
             assert any(schedule.id == "dummyid" for schedule in schedules)
+
+    async def test_get_jobs(self) -> None:
+        async with AsyncScheduler(role=SchedulerRole.scheduler) as scheduler:
+            job_id = await scheduler.add_job(dummy_async_job)
+            jobs = await scheduler.get_jobs()
+            assert len(jobs) == 1
+            assert jobs[0].id == job_id
 
     @pytest.mark.parametrize(
         "max_jitter, expected_upper_bound",
@@ -375,6 +381,13 @@ class TestSyncScheduler:
             assert all(isinstance(schedule, Schedule) for schedule in schedules)
             assert any(schedule.id == schedule1_id for schedule in schedules)
             assert any(schedule.id == "dummyid" for schedule in schedules)
+
+    async def test_get_jobs(self) -> None:
+        with Scheduler(role=SchedulerRole.scheduler) as scheduler:
+            job_id = scheduler.add_job(dummy_async_job)
+            jobs = scheduler.get_jobs()
+            assert len(jobs) == 1
+            assert jobs[0].id == job_id
 
     @pytest.mark.parametrize(
         "max_jitter, expected_upper_bound",
