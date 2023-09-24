@@ -263,6 +263,10 @@ async def asyncmy_store() -> AsyncGenerator[DataStore, None]:
 @pytest.fixture(
     params=[
         pytest.param(
+            lazy_fixture("memory_store"),
+            id="memory",
+        ),
+        pytest.param(
             lazy_fixture("aiosqlite_store"),
             id="aiosqlite",
         ),
