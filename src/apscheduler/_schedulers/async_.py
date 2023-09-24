@@ -346,6 +346,9 @@ class AsyncScheduler:
         Add a job to the data store.
 
         :param func_or_task_id:
+            Either the ID of a pre-existing task, or a function/method. If a function is
+            given, a task will be created with the fully qualified name of the function
+            as the task ID (unless that task already exists of course).
         :param job_executor: name of the job executor to run the task with
         :param args: positional arguments to call the target callable with
         :param kwargs: keyword arguments to call the target callable with
