@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from bisect import bisect_left, insort_right, bisect_right
+from bisect import bisect_left, bisect_right, insort_right
 from collections import defaultdict
 from datetime import MAXYEAR, datetime, timedelta, timezone
 from functools import partial
