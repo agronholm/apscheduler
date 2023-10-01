@@ -156,7 +156,7 @@ class AsyncScheduler:
             raise RuntimeError(
                 "The scheduler has not been initialized yet. Use the scheduler as an "
                 "async context manager (async with ...) in order to call methods other "
-                "than run_until_complete()."
+                "than run_until_stopped()."
             )
 
     @property
