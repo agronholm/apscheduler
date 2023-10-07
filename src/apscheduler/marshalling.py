@@ -37,7 +37,7 @@ def marshal_date(value: date) -> str:
     ...
 
 
-def marshal_date(value):
+def marshal_date(value: date | None) -> str | None:
     return value.isoformat() if value is not None else None
 
 
@@ -51,7 +51,7 @@ def unmarshal_date(value: str) -> date:
     ...
 
 
-def unmarshal_date(value):
+def unmarshal_date(value: str | None) -> date | None:
     if value is None:
         return None
     elif len(value) == 10:

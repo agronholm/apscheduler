@@ -15,7 +15,7 @@ from .abc import Serializer, Trigger
 from .marshalling import callable_from_ref, callable_to_ref
 
 
-def serialize(inst, field, value):
+def serialize(inst: Any, field: attrs.Attribute, value: Any) -> Any:
     if isinstance(value, frozenset):
         return list(value)
 
