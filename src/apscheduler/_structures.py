@@ -7,6 +7,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import attrs
+from attrs.validators import instance_of
 
 from ._converters import as_enum, as_timedelta
 from ._enums import CoalescePolicy, JobOutcome
@@ -29,6 +30,7 @@ class Task:
     :var str id: the unique identifier of this task
     :var ~collections.abc.Callable func: the callable that is called when this task is
         run
+    :var str job_executor: name of the job executor that will run this task
     :var int | None max_running_jobs: maximum number of instances of this task that are
         allowed to run concurrently
     :var ~datetime.timedelta | None misfire_grace_time: maximum number of seconds the
@@ -38,7 +40,7 @@ class Task:
 
     id: str
     func: Callable = attrs.field(eq=False, order=False)
-    executor: str = attrs.field(eq=False)
+    job_executor: str = attrs.field(eq=False, validator=instance_of(str))
     max_running_jobs: int | None = attrs.field(eq=False, order=False, default=None)
     misfire_grace_time: timedelta | None = attrs.field(
         eq=False, order=False, default=None

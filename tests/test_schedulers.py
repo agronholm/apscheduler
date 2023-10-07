@@ -282,7 +282,7 @@ class TestAsyncScheduler:
         start_deadline = datetime.now(timezone.utc) + timedelta(seconds=10)
         async with AsyncScheduler() as scheduler:
             await scheduler.data_store.add_task(
-                Task(id="task_id", func=check_contextvars, executor="async")
+                Task(id="task_id", func=check_contextvars, job_executor="async")
             )
             job = Job(
                 task_id="task_id",
@@ -515,7 +515,7 @@ class TestSyncScheduler:
         with Scheduler() as scheduler:
             scheduler._portal.call(
                 scheduler.data_store.add_task,
-                Task(id="task_id", func=check_contextvars, executor="threadpool"),
+                Task(id="task_id", func=check_contextvars, job_executor="threadpool"),
             )
             job = Job(
                 task_id="task_id",

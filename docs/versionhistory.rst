@@ -4,6 +4,11 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+**UNRELEASED**
+
+- **BREAKING** Renamed any leftover fields named ``executor`` to ``job_executor``
+  (this breaks data store compatibility)
+
 **4.0.0a3**
 
 - **BREAKING** The scheduler classes were moved to be importable (only) directly from

@@ -229,7 +229,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             metadata,
             Column("id", Unicode(500), primary_key=True),
             Column("func", Unicode(500), nullable=False),
-            Column("executor", Unicode(500), nullable=False),
+            Column("job_executor", Unicode(500), nullable=False),
             Column("max_running_jobs", Integer),
             Column("misfire_grace_time", interval_type),
             Column("running_jobs", Integer, nullable=False, server_default=literal(0)),
@@ -356,7 +356,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         insert = self.t_tasks.insert().values(
             id=task.id,
             func=callable_to_ref(task.func),
-            executor=task.executor,
+            job_executor=task.job_executor,
             max_running_jobs=task.max_running_jobs,
             misfire_grace_time=task.misfire_grace_time,
         )
@@ -370,7 +370,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                 self.t_tasks.update()
                 .values(
                     func=callable_to_ref(task.func),
-                    executor=task.executor,
+                    job_executor=task.job_executor,
                     max_running_jobs=task.max_running_jobs,
                     misfire_grace_time=task.misfire_grace_time,
                 )
@@ -400,7 +400,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         query = select(
             self.t_tasks.c.id,
             self.t_tasks.c.func,
-            self.t_tasks.c.executor,
+            self.t_tasks.c.job_executor,
             self.t_tasks.c.max_running_jobs,
             self.t_tasks.c.misfire_grace_time,
         ).where(self.t_tasks.c.id == task_id)
@@ -419,7 +419,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         query = select(
             self.t_tasks.c.id,
             self.t_tasks.c.func,
-            self.t_tasks.c.executor,
+            self.t_tasks.c.job_executor,
             self.t_tasks.c.max_running_jobs,
             self.t_tasks.c.misfire_grace_time,
         ).order_by(self.t_tasks.c.id)

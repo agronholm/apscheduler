@@ -271,7 +271,7 @@ class AsyncScheduler:
                 task = Task(
                     id=task_ref,
                     func=func_or_task_id,
-                    executor=job_executor or self.default_job_executor,
+                    job_executor=job_executor or self.default_job_executor,
                     max_running_jobs=max_running_jobs,
                 )
                 await self.data_store.add_task(task)
@@ -368,7 +368,7 @@ class AsyncScheduler:
                 task = Task(
                     id=task_id,
                     func=func_or_task_id,
-                    executor=job_executor or self.default_job_executor,
+                    job_executor=job_executor or self.default_job_executor,
                 )
                 await self.data_store.add_task(task)
         else:
@@ -707,7 +707,7 @@ class AsyncScheduler:
                         task = await self.data_store.get_task(job.task_id)
                         self._running_jobs.add(job.id)
                         task_group.start_soon(
-                            self._run_job, job, task.func, task.executor
+                            self._run_job, job, task.func, task.job_executor
                         )
 
                 await wakeup_event.wait()
