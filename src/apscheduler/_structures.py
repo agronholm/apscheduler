@@ -43,20 +43,15 @@ class Task:
     misfire_grace_time: timedelta | None = attrs.field(
         eq=False, order=False, default=None
     )
-    state: Any = None
 
     def marshal(self, serializer: Serializer) -> dict[str, Any]:
         marshalled = attrs.asdict(self, value_serializer=serialize)
         marshalled["func"] = callable_to_ref(self.func)
-        marshalled["state"] = serializer.serialize(self.state) if self.state else None
         return marshalled
 
     @classmethod
     def unmarshal(cls, serializer: Serializer, marshalled: dict[str, Any]) -> Task:
         marshalled["func"] = callable_from_ref(marshalled["func"])
-        if marshalled["state"] is not None:
-            marshalled["state"] = serializer.deserialize(marshalled["state"])
-
         return cls(**marshalled)
 
 

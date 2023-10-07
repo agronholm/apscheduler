@@ -230,7 +230,6 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("id", Unicode(500), primary_key=True),
             Column("func", Unicode(500), nullable=False),
             Column("executor", Unicode(500), nullable=False),
-            Column("state", LargeBinary),
             Column("max_running_jobs", Integer),
             Column("misfire_grace_time", interval_type),
             Column("running_jobs", Integer, nullable=False, server_default=literal(0)),
@@ -403,7 +402,6 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             self.t_tasks.c.func,
             self.t_tasks.c.executor,
             self.t_tasks.c.max_running_jobs,
-            self.t_tasks.c.state,
             self.t_tasks.c.misfire_grace_time,
         ).where(self.t_tasks.c.id == task_id)
         async for attempt in self._retry():
@@ -423,7 +421,6 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             self.t_tasks.c.func,
             self.t_tasks.c.executor,
             self.t_tasks.c.max_running_jobs,
-            self.t_tasks.c.state,
             self.t_tasks.c.misfire_grace_time,
         ).order_by(self.t_tasks.c.id)
         async for attempt in self._retry():
