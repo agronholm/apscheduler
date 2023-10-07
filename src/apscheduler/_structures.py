@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import attrs
-from attrs.validators import instance_of
+from attrs.validators import and_, gt, instance_of, is_callable, min_len, optional
 
 from ._converters import as_enum, as_timedelta
 from ._enums import CoalescePolicy, JobOutcome
@@ -38,12 +38,21 @@ class Task:
         scheduled run time
     """
 
-    id: str
-    func: Callable = attrs.field(eq=False, order=False)
+    id: str = attrs.field(validator=[instance_of(str), min_len(1)])
+    func: Callable = attrs.field(eq=False, order=False, validator=is_callable())
     job_executor: str = attrs.field(eq=False, validator=instance_of(str))
-    max_running_jobs: int | None = attrs.field(eq=False, order=False, default=None)
+    max_running_jobs: int | None = attrs.field(
+        eq=False,
+        order=False,
+        default=None,
+        validator=optional(and_(instance_of(int), gt(0))),
+    )
     misfire_grace_time: timedelta | None = attrs.field(
-        eq=False, order=False, default=None
+        eq=False,
+        order=False,
+        default=None,
+        converter=as_timedelta,
+        validator=optional(instance_of(timedelta)),
     )
 
     def marshal(self, serializer: Serializer) -> dict[str, Any]:
@@ -84,9 +93,13 @@ class Schedule:
         acquire the schedule for processing even if it is still marked as acquired
     """
 
-    id: str
-    task_id: str = attrs.field(eq=False, order=False)
-    trigger: Trigger = attrs.field(eq=False, order=False)
+    id: str = attrs.field(validator=[instance_of(str), min_len(1)])
+    task_id: str = attrs.field(
+        eq=False, order=False, validator=[instance_of(str), min_len(1)]
+    )
+    trigger: Trigger = attrs.field(
+        eq=False, order=False, validator=instance_of(Trigger)
+    )
     args: tuple = attrs.field(eq=False, order=False, converter=tuple, default=())
     kwargs: dict[str, Any] = attrs.field(
         eq=False, order=False, converter=dict, default=()
@@ -96,12 +109,21 @@ class Schedule:
         order=False,
         default=CoalescePolicy.latest,
         converter=as_enum(CoalescePolicy),
+        validator=instance_of(CoalescePolicy),
     )
     misfire_grace_time: timedelta | None = attrs.field(
-        eq=False, order=False, default=None, converter=as_timedelta
+        eq=False,
+        order=False,
+        default=None,
+        converter=as_timedelta,
+        validator=optional(instance_of(timedelta)),
     )
     max_jitter: timedelta | None = attrs.field(
-        eq=False, order=False, converter=as_timedelta, default=None
+        eq=False,
+        order=False,
+        converter=as_timedelta,
+        default=None,
+        validator=optional(instance_of(timedelta)),
     )
     next_fire_time: datetime | None = attrs.field(eq=False, order=False, default=None)
     last_fire_time: datetime | None = attrs.field(eq=False, order=False, default=None)
