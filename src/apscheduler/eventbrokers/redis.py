@@ -7,7 +7,7 @@ import anyio
 import attrs
 import tenacity
 from redis import ConnectionError
-from redis.asyncio import Redis, RedisCluster
+from redis.asyncio import Redis
 from redis.asyncio.client import PubSub
 from redis.asyncio.connection import ConnectionPool
 
@@ -31,7 +31,7 @@ class RedisEventBroker(BaseExternalEventBroker):
         CPU use)
     """
 
-    client: Redis | RedisCluster
+    client: Redis
     channel: str = attrs.field(kw_only=True, default="apscheduler")
     stop_check_interval: float = attrs.field(kw_only=True, default=1)
     _stopped: bool = attrs.field(init=False, default=True)

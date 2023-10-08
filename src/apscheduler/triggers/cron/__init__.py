@@ -71,8 +71,8 @@ class CronTrigger(Trigger):
     start_time: datetime = attrs.field(
         converter=as_aware_datetime, factory=datetime.now
     )
-    end_time: datetime | None = None
-    timezone: tzinfo | str = attrs.field(converter=as_timezone, factory=get_localzone)
+    end_time: datetime | None = attrs.field(converter=as_aware_datetime, default=None)
+    timezone: tzinfo = attrs.field(converter=as_timezone, factory=get_localzone)
     _fields: list[BaseField] = attrs.field(init=False, eq=False, factory=list)
     _last_fire_time: datetime | None = attrs.field(init=False, eq=False, default=None)
 
@@ -230,6 +230,8 @@ class CronTrigger(Trigger):
         if fieldnum >= 0:
             self._last_fire_time = next_time
             return next_time
+
+        return None
 
     def __getstate__(self) -> dict[str, Any]:
         return {

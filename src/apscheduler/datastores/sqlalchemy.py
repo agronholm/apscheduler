@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from collections import defaultdict
-from collections.abc import AsyncGenerator, Sequence
+from collections.abc import AsyncGenerator, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
@@ -16,6 +16,7 @@ from anyio import to_thread
 from sqlalchemy import (
     TIMESTAMP,
     Column,
+    Delete,
     Enum,
     Integer,
     Interval,
@@ -39,9 +40,11 @@ from sqlalchemy.exc import (
 )
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 from sqlalchemy.future import Connection, Engine
-from sqlalchemy.sql import ClauseElement, Executable
+from sqlalchemy.sql import Executable
 from sqlalchemy.sql.ddl import DropTable
+from sqlalchemy.sql.dml import ReturningDelete
 from sqlalchemy.sql.elements import BindParameter, literal
+from sqlalchemy.sql.type_api import TypeEngine
 
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome
 from .._events import (
@@ -69,14 +72,18 @@ else:
     from typing_extensions import Self
 
 
-class EmulatedTimestampTZ(TypeDecorator):
+class EmulatedTimestampTZ(TypeDecorator[datetime]):
     impl = Unicode(32)
     cache_ok = True
 
-    def process_bind_param(self, value, dialect: Dialect) -> Any:
+    def process_bind_param(
+        self, value: datetime | None, dialect: Dialect
+    ) -> str | None:
         return value.isoformat() if value is not None else None
 
-    def process_result_value(self, value: Any, dialect: Dialect):
+    def process_result_value(
+        self, value: str | None, dialect: Dialect
+    ) -> datetime | None:
         return datetime.fromisoformat(value) if value is not None else None
 
 
@@ -106,19 +113,23 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     max_poll_time: float | None = attrs.field(default=1)
     max_idle_time: float = attrs.field(default=60)
 
-    _is_async: bool = attrs.field(init=False)
     _supports_update_returning: bool = attrs.field(init=False, default=False)
+    _metadata: MetaData = attrs.field(init=False)
+    _t_metadata: Table = attrs.field(init=False)
+    _t_tasks: Table = attrs.field(init=False)
+    _t_schedules: Table = attrs.field(init=False)
+    _t_jobs: Table = attrs.field(init=False)
+    _t_job_results: Table = attrs.field(init=False)
 
     def __attrs_post_init__(self) -> None:
         # Generate the table definitions
         prefix = f"{self.schema}." if self.schema else ""
         self._metadata = self.get_table_definitions()
-        self.t_metadata = self._metadata.tables[prefix + "metadata"]
-        self.t_tasks = self._metadata.tables[prefix + "tasks"]
-        self.t_schedules = self._metadata.tables[prefix + "schedules"]
-        self.t_jobs = self._metadata.tables[prefix + "jobs"]
-        self.t_job_results = self._metadata.tables[prefix + "job_results"]
-        self._is_async = isinstance(self.engine, AsyncEngine)
+        self._t_metadata = self._metadata.tables[prefix + "metadata"]
+        self._t_tasks = self._metadata.tables[prefix + "tasks"]
+        self._t_schedules = self._metadata.tables[prefix + "schedules"]
+        self._t_jobs = self._metadata.tables[prefix + "jobs"]
+        self._t_job_results = self._metadata.tables[prefix + "job_results"]
 
     @classmethod
     def from_url(cls: type[Self], url: str | URL, **options) -> Self:
@@ -153,7 +164,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         )
 
     @asynccontextmanager
-    async def _begin_transaction(self) -> AsyncGenerator[Connection | AsyncConnection]:
+    async def _begin_transaction(
+        self,
+    ) -> AsyncGenerator[Connection | AsyncConnection, None]:
         if isinstance(self.engine, AsyncEngine):
             async with self.engine.begin() as conn:
                 yield conn
@@ -177,8 +190,8 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     async def _execute(
         self,
         conn: Connection | AsyncConnection,
-        statement: ClauseElement | Executable,
-        parameters: Sequence | None = None,
+        statement: Executable,
+        parameters: Sequence | Mapping | None = None,
     ):
         if isinstance(conn, AsyncConnection):
             return await conn.execute(statement, parameters)
@@ -195,9 +208,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
     def get_table_definitions(self) -> MetaData:
         if self.engine.dialect.name in ("postgresql", "oracle"):
-            timestamp_type = TIMESTAMP(timezone=True)
+            timestamp_type: TypeEngine[datetime] = TIMESTAMP(timezone=True)
         else:
-            timestamp_type = EmulatedTimestampTZ
+            timestamp_type = EmulatedTimestampTZ()
 
         metadata = MetaData(schema=self.schema)
         Table("metadata", metadata, Column("schema_version", Integer, nullable=False))
@@ -275,12 +288,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             await self._execute(conn, DropTable(table, if_exists=True))
 
                     await self._create_metadata(conn)
-                    query = select(self.t_metadata.c.schema_version)
+                    query = select(self._t_metadata.c.schema_version)
                     result = await self._execute(conn, query)
                     version = result.scalar()
                     if version is None:
                         await self._execute(
-                            conn, self.t_metadata.insert(), {"schema_version": 1}
+                            conn, self._t_metadata.insert(), {"schema_version": 1}
                         )
                     elif version > 1:
                         raise RuntimeError(
@@ -293,9 +306,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 update = (
-                    self.t_metadata.update()
-                    .values(schema_version=self.t_metadata.c.schema_version)
-                    .returning(self.t_metadata.c.schema_version)
+                    self._t_metadata.update()
+                    .values(schema_version=self._t_metadata.c.schema_version)
+                    .returning(self._t_metadata.c.schema_version)
                 )
                 async with self._begin_transaction() as conn:
                     try:
@@ -312,7 +325,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                 schedules.append(Schedule.unmarshal(self.serializer, row._asdict()))
             except SerializationError as exc:
                 await self._event_broker.publish(
-                    ScheduleDeserializationFailed(schedule_id=row["id"], exception=exc)
+                    ScheduleDeserializationFailed(schedule_id=row.id, exception=exc)
                 )
 
         return schedules
@@ -324,13 +337,13 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                 jobs.append(Job.unmarshal(self.serializer, row._asdict()))
             except SerializationError as exc:
                 await self._event_broker.publish(
-                    JobDeserializationFailed(job_id=row["id"], exception=exc)
+                    JobDeserializationFailed(job_id=row.id, exception=exc)
                 )
 
         return jobs
 
     async def add_task(self, task: Task) -> None:
-        insert = self.t_tasks.insert().values(
+        insert = self._t_tasks.insert().values(
             id=task.id,
             func=callable_to_ref(task.func),
             job_executor=task.job_executor,
@@ -344,14 +357,14 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         await self._execute(conn, insert)
         except IntegrityError:
             update = (
-                self.t_tasks.update()
+                self._t_tasks.update()
                 .values(
                     func=callable_to_ref(task.func),
                     job_executor=task.job_executor,
                     max_running_jobs=task.max_running_jobs,
                     misfire_grace_time=task.misfire_grace_time,
                 )
-                .where(self.t_tasks.c.id == task.id)
+                .where(self._t_tasks.c.id == task.id)
             )
             async for attempt in self._retry():
                 with attempt:
@@ -363,7 +376,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             await self._event_broker.publish(TaskAdded(task_id=task.id))
 
     async def remove_task(self, task_id: str) -> None:
-        delete = self.t_tasks.delete().where(self.t_tasks.c.id == task_id)
+        delete = self._t_tasks.delete().where(self._t_tasks.c.id == task_id)
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
@@ -375,12 +388,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
     async def get_task(self, task_id: str) -> Task:
         query = select(
-            self.t_tasks.c.id,
-            self.t_tasks.c.func,
-            self.t_tasks.c.job_executor,
-            self.t_tasks.c.max_running_jobs,
-            self.t_tasks.c.misfire_grace_time,
-        ).where(self.t_tasks.c.id == task_id)
+            self._t_tasks.c.id,
+            self._t_tasks.c.func,
+            self._t_tasks.c.job_executor,
+            self._t_tasks.c.max_running_jobs,
+            self._t_tasks.c.misfire_grace_time,
+        ).where(self._t_tasks.c.id == task_id)
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
@@ -394,12 +407,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
     async def get_tasks(self) -> list[Task]:
         query = select(
-            self.t_tasks.c.id,
-            self.t_tasks.c.func,
-            self.t_tasks.c.job_executor,
-            self.t_tasks.c.max_running_jobs,
-            self.t_tasks.c.misfire_grace_time,
-        ).order_by(self.t_tasks.c.id)
+            self._t_tasks.c.id,
+            self._t_tasks.c.func,
+            self._t_tasks.c.job_executor,
+            self._t_tasks.c.max_running_jobs,
+            self._t_tasks.c.misfire_grace_time,
+        ).order_by(self._t_tasks.c.id)
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
@@ -407,14 +420,15 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     tasks = [
                         Task.unmarshal(self.serializer, row._asdict()) for row in result
                     ]
-                    return tasks
+
+        return tasks
 
     async def add_schedule(
         self, schedule: Schedule, conflict_policy: ConflictPolicy
     ) -> None:
         event: DataStoreEvent
         values = schedule.marshal(self.serializer)
-        insert = self.t_schedules.insert().values(**values)
+        insert = self._t_schedules.insert().values(**values)
         try:
             async for attempt in self._retry():
                 with attempt:
@@ -426,8 +440,8 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             elif conflict_policy is ConflictPolicy.replace:
                 del values["id"]
                 update = (
-                    self.t_schedules.update()
-                    .where(self.t_schedules.c.id == schedule.id)
+                    self._t_schedules.update()
+                    .where(self._t_schedules.c.id == schedule.id)
                     .values(**values)
                 )
                 async for attempt in self._retry():
@@ -449,13 +463,16 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
-                    delete = self.t_schedules.delete().where(
-                        self.t_schedules.c.id.in_(ids)
+                    delete: Delete | ReturningDelete[
+                        Any
+                    ] = self._t_schedules.delete().where(
+                        self._t_schedules.c.id.in_(ids)
                     )
                     if self._supports_update_returning:
-                        delete = delete.returning(self.t_schedules.c.id)
+                        delete_returning = delete.returning(self._t_schedules.c.id)
                         removed_ids: Iterable[str] = [
-                            row[0] for row in await self._execute(conn, delete)
+                            row[0]
+                            for row in await self._execute(conn, delete_returning)
                         ]
                     else:
                         # TODO: actually check which rows were deleted?
@@ -466,15 +483,16 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             await self._event_broker.publish(ScheduleRemoved(schedule_id=schedule_id))
 
     async def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
-        query = self.t_schedules.select().order_by(self.t_schedules.c.id)
+        query = self._t_schedules.select().order_by(self._t_schedules.c.id)
         if ids:
-            query = query.where(self.t_schedules.c.id.in_(ids))
+            query = query.where(self._t_schedules.c.id.in_(ids))
 
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
                     result = await self._execute(conn, query)
-                    return await self._deserialize_schedules(result)
+
+        return await self._deserialize_schedules(result)
 
     async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
         async for attempt in self._retry():
@@ -483,35 +501,35 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     now = datetime.now(timezone.utc)
                     acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
                     schedules_cte = (
-                        select(self.t_schedules.c.id)
+                        select(self._t_schedules.c.id)
                         .where(
                             and_(
-                                self.t_schedules.c.next_fire_time.isnot(None),
-                                self.t_schedules.c.next_fire_time <= now,
+                                self._t_schedules.c.next_fire_time.isnot(None),
+                                self._t_schedules.c.next_fire_time <= now,
                                 or_(
-                                    self.t_schedules.c.acquired_until.is_(None),
-                                    self.t_schedules.c.acquired_until < now,
+                                    self._t_schedules.c.acquired_until.is_(None),
+                                    self._t_schedules.c.acquired_until < now,
                                 ),
                             )
                         )
-                        .order_by(self.t_schedules.c.next_fire_time)
+                        .order_by(self._t_schedules.c.next_fire_time)
                         .limit(limit)
                         .with_for_update(skip_locked=True)
                         .cte()
                     )
                     subselect = select(schedules_cte.c.id)
                     update = (
-                        self.t_schedules.update()
-                        .where(self.t_schedules.c.id.in_(subselect))
+                        self._t_schedules.update()
+                        .where(self._t_schedules.c.id.in_(subselect))
                         .values(acquired_by=scheduler_id, acquired_until=acquired_until)
                     )
                     if self._supports_update_returning:
-                        update = update.returning(*self.t_schedules.columns)
+                        update = update.returning(*self._t_schedules.columns)
                         result = await self._execute(conn, update)
                     else:
                         await self._execute(conn, update)
-                        query = self.t_schedules.select().where(
-                            and_(self.t_schedules.c.acquired_by == scheduler_id)
+                        query = self._t_schedules.select().where(
+                            and_(self._t_schedules.c.acquired_by == scheduler_id)
                         )
                         result = await self._execute(conn, query)
 
@@ -559,11 +577,11 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         p_trigger: BindParameter = bindparam("p_trigger")
                         p_next_fire_time: BindParameter = bindparam("p_next_fire_time")
                         update = (
-                            self.t_schedules.update()
+                            self._t_schedules.update()
                             .where(
                                 and_(
-                                    self.t_schedules.c.id == p_id,
-                                    self.t_schedules.c.acquired_by == scheduler_id,
+                                    self._t_schedules.c.id == p_id,
+                                    self._t_schedules.c.acquired_by == scheduler_id,
                                 )
                             )
                             .values(
@@ -590,8 +608,8 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     # Remove schedules that have no next fire time or failed to
                     # serialize
                     if finished_schedule_ids:
-                        delete = self.t_schedules.delete().where(
-                            self.t_schedules.c.id.in_(finished_schedule_ids)
+                        delete = self._t_schedules.delete().where(
+                            self._t_schedules.c.id.in_(finished_schedule_ids)
                         )
                         await self._execute(conn, delete)
 
@@ -603,20 +621,21 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
     async def get_next_schedule_run_time(self) -> datetime | None:
         statenent = (
-            select(self.t_schedules.c.next_fire_time)
-            .where(self.t_schedules.c.next_fire_time.isnot(None))
-            .order_by(self.t_schedules.c.next_fire_time)
+            select(self._t_schedules.c.next_fire_time)
+            .where(self._t_schedules.c.next_fire_time.isnot(None))
+            .order_by(self._t_schedules.c.next_fire_time)
             .limit(1)
         )
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
                     result = await self._execute(conn, statenent)
-                    return result.scalar()
+
+        return result.scalar()
 
     async def add_job(self, job: Job) -> None:
         marshalled = job.marshal(self.serializer)
-        insert = self.t_jobs.insert().values(**marshalled)
+        insert = self._t_jobs.insert().values(**marshalled)
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
@@ -630,16 +649,17 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         await self._event_broker.publish(event)
 
     async def get_jobs(self, ids: Iterable[UUID] | None = None) -> list[Job]:
-        query = self.t_jobs.select().order_by(self.t_jobs.c.id)
+        query = self._t_jobs.select().order_by(self._t_jobs.c.id)
         if ids:
             job_ids = [job_id for job_id in ids]
-            query = query.where(self.t_jobs.c.id.in_(job_ids))
+            query = query.where(self._t_jobs.c.id.in_(job_ids))
 
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
                     result = await self._execute(conn, query)
-                    return await self._deserialize_jobs(result)
+
+        return await self._deserialize_jobs(result)
 
     async def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
         async for attempt in self._retry():
@@ -648,15 +668,17 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     now = datetime.now(timezone.utc)
                     acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
                     query = (
-                        self.t_jobs.select()
-                        .join(self.t_tasks, self.t_tasks.c.id == self.t_jobs.c.task_id)
+                        self._t_jobs.select()
+                        .join(
+                            self._t_tasks, self._t_tasks.c.id == self._t_jobs.c.task_id
+                        )
                         .where(
                             or_(
-                                self.t_jobs.c.acquired_until.is_(None),
-                                self.t_jobs.c.acquired_until < now,
+                                self._t_jobs.c.acquired_until.is_(None),
+                                self._t_jobs.c.acquired_until < now,
                             )
                         )
-                        .order_by(self.t_jobs.c.created_at)
+                        .order_by(self._t_jobs.c.created_at)
                         .with_for_update(skip_locked=True)
                         .limit(limit)
                     )
@@ -671,11 +693,11 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
                     # Retrieve the limits
                     query = select(
-                        self.t_tasks.c.id,
-                        self.t_tasks.c.max_running_jobs - self.t_tasks.c.running_jobs,
+                        self._t_tasks.c.id,
+                        self._t_tasks.c.max_running_jobs - self._t_tasks.c.running_jobs,
                     ).where(
-                        self.t_tasks.c.max_running_jobs.isnot(None),
-                        self.t_tasks.c.id.in_(task_ids),
+                        self._t_tasks.c.max_running_jobs.isnot(None),
+                        self._t_tasks.c.id.in_(task_ids),
                     )
                     result = await self._execute(conn, query)
                     job_slots_left: dict[str, int] = dict(result.fetchall())
@@ -698,11 +720,11 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         # Mark the acquired jobs as acquired by this worker
                         acquired_job_ids = [job.id for job in acquired_jobs]
                         update = (
-                            self.t_jobs.update()
+                            self._t_jobs.update()
                             .values(
                                 acquired_by=worker_id, acquired_until=acquired_until
                             )
-                            .where(self.t_jobs.c.id.in_(acquired_job_ids))
+                            .where(self._t_jobs.c.id.in_(acquired_job_ids))
                         )
                         await self._execute(conn, update)
 
@@ -714,11 +736,11 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             for task_id, increment in increments.items()
                         ]
                         update = (
-                            self.t_tasks.update()
+                            self._t_tasks.update()
                             .values(
-                                running_jobs=self.t_tasks.c.running_jobs + p_increment
+                                running_jobs=self._t_tasks.c.running_jobs + p_increment
                             )
-                            .where(self.t_tasks.c.id == p_id)
+                            .where(self._t_tasks.c.id == p_id)
                         )
                         await self._execute(conn, update, params)
 
@@ -739,20 +761,20 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     # Record the job result
                     if result.expires_at > result.finished_at:
                         marshalled = result.marshal(self.serializer)
-                        insert = self.t_job_results.insert().values(**marshalled)
+                        insert = self._t_job_results.insert().values(**marshalled)
                         await self._execute(conn, insert)
 
                     # Decrement the number of running jobs for this task
                     update = (
-                        self.t_tasks.update()
-                        .values(running_jobs=self.t_tasks.c.running_jobs - 1)
-                        .where(self.t_tasks.c.id == task_id)
+                        self._t_tasks.update()
+                        .values(running_jobs=self._t_tasks.c.running_jobs - 1)
+                        .where(self._t_tasks.c.id == task_id)
                     )
                     await self._execute(conn, update)
 
                     # Delete the job
-                    delete = self.t_jobs.delete().where(
-                        self.t_jobs.c.id == result.job_id
+                    delete = self._t_jobs.delete().where(
+                        self._t_jobs.c.id == result.job_id
                     )
                     await self._execute(conn, delete)
 
@@ -761,19 +783,15 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             with attempt:
                 async with self._begin_transaction() as conn:
                     # Retrieve the result
-                    query = self.t_job_results.select().where(
-                        self.t_job_results.c.job_id == job_id
+                    query = self._t_job_results.select().where(
+                        self._t_job_results.c.job_id == job_id
                     )
                     row = (await self._execute(conn, query)).first()
 
                     # Delete the result
-                    delete = self.t_job_results.delete().where(
-                        self.t_job_results.c.job_id == job_id
+                    delete = self._t_job_results.delete().where(
+                        self._t_job_results.c.job_id == job_id
                     )
                     await self._execute(conn, delete)
 
-                    return (
-                        JobResult.unmarshal(self.serializer, row._asdict())
-                        if row
-                        else None
-                    )
+        return JobResult.unmarshal(self.serializer, row._asdict()) if row else None

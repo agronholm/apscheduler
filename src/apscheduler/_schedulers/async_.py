@@ -257,7 +257,7 @@ class AsyncScheduler:
 
         """
         self._check_initialized()
-        id = id or str(uuid4())
+        schedule_id = id or str(uuid4())
         args = tuple(args or ())
         kwargs = dict(kwargs or {})
         if isinstance(misfire_grace_time, (int, float)):
@@ -279,7 +279,7 @@ class AsyncScheduler:
             task = await self.data_store.get_task(func_or_task_id)
 
         schedule = Schedule(
-            id=id,
+            id=schedule_id,
             task_id=task.id,
             trigger=trigger,
             args=args,

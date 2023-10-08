@@ -103,7 +103,7 @@ class AsyncpgEventBroker(BaseExternalEventBroker):
         return cls(factory, **kwargs)
 
     @property
-    def _temporary_failure_exceptions(self) -> tuple[type[Exception]]:
+    def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:
         return OSError, InterfaceError
 
     async def start(self, exit_stack: AsyncExitStack) -> None:

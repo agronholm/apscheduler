@@ -37,7 +37,7 @@ class Scheduler:
         *,
         identity: str | None = None,
         role: SchedulerRole = SchedulerRole.both,
-        job_executors: Mapping[str, JobExecutor] | None = None,
+        job_executors: MutableMapping[str, JobExecutor] | None = None,
         default_job_executor: str | None = None,
         logger: Logger | None = None,
     ):

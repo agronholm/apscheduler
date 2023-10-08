@@ -4,7 +4,7 @@ import sys
 from collections.abc import Callable
 from concurrent.futures import Future
 from contextlib import AsyncExitStack
-from typing import Any
+from typing import Any, TypeVar
 
 import anyio
 import attrs
@@ -25,6 +25,8 @@ else:
         from PyQt6.QtCore import QObject
         from PyQt6.QtCore import pyqtSignal as Signal
 
+T_Retval = TypeVar("T_Retval")
+
 
 class _SchedulerSignals(QObject):
     run_job = Signal(tuple)
@@ -41,15 +43,16 @@ class QtJobExecutor(JobExecutor):
     async def start(self, exit_stack: AsyncExitStack) -> None:
         self._portal = await exit_stack.enter_async_context(BlockingPortal())
 
-    async def run_job(self, func: Callable[..., Any], job: Job) -> Any:
-        future = Future()
+    async def run_job(self, func: Callable[..., T_Retval], job: Job) -> Any:
+        future: Future[T_Retval] = Future()
         event = anyio.Event()
         self._signals.run_job.emit((func, job, future, event))
         await event.wait()
         return future.result(0)
 
     def run_in_qt_thread(
-        self, parameters: tuple[Callable[..., Any], Job, Future, anyio.Event]
+        self,
+        parameters: tuple[Callable[..., T_Retval], Job, Future[T_Retval], anyio.Event],
     ) -> Any:
         func, job, future, event = parameters
         token = current_job.set(job)

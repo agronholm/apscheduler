@@ -30,6 +30,18 @@ repos:
     hooks:
       - id: black
 
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.5.1
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - attrs == 23.1.0
+          - redis == 5.0.1
+          - sqlalchemy == 2.0.21
+          - types-tzlocal == 5.1.0.0
+        exclude: docs/conf.py
+        stages: [manual]
+
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.6
     hooks:

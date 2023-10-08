@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 from calendar import monthrange
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, ClassVar, Sequence
 
@@ -40,7 +41,7 @@ MAX_VALUES = {
     "minute": 59,
     "second": 59,
 }
-DEFAULT_VALUES = {
+DEFAULT_VALUES: Mapping[str, str | int] = {
     "year": "*",
     "month": 1,
     "day": 1,

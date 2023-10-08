@@ -76,6 +76,10 @@ class MongoDBDataStore(BaseExternalDataStore):
         field.name for field in attrs.fields(Schedule)
     ]
     _job_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Job)]
+    _tasks: Collection = attrs.field(init=False)
+    _schedules: Collection = attrs.field(init=False)
+    _jobs: Collection = attrs.field(init=False)
+    _jobs_results: Collection = attrs.field(init=False)
 
     @property
     def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:
@@ -96,10 +100,10 @@ class MongoDBDataStore(BaseExternalDataStore):
             uuid_representation=UuidRepresentation.STANDARD,
         )
         database = self.client.get_database(self.database, codec_options=codec_options)
-        self._tasks: Collection = database["tasks"]
-        self._schedules: Collection = database["schedules"]
-        self._jobs: Collection = database["jobs"]
-        self._jobs_results: Collection = database["job_results"]
+        self._tasks = database["tasks"]
+        self._schedules = database["schedules"]
+        self._jobs = database["jobs"]
+        self._jobs_results = database["job_results"]
 
     @classmethod
     def from_url(cls, uri: str, **options) -> MongoDBDataStore:
