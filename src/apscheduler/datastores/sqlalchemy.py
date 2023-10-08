@@ -14,15 +14,17 @@ import sniffio
 import tenacity
 from anyio import to_thread
 from sqlalchemy import (
-    BigInteger,
+    TIMESTAMP,
     Column,
     Enum,
     Integer,
+    Interval,
     LargeBinary,
     MetaData,
     Table,
     TypeDecorator,
     Unicode,
+    Uuid,
     and_,
     bindparam,
     or_,
@@ -67,17 +69,6 @@ else:
     from typing_extensions import Self
 
 
-class EmulatedUUID(TypeDecorator):
-    impl = Unicode(32)
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect: Dialect) -> Any:
-        return value.hex if value is not None else None
-
-    def process_result_value(self, value: Any, dialect: Dialect):
-        return UUID(value) if value else None
-
-
 class EmulatedTimestampTZ(TypeDecorator):
     impl = Unicode(32)
     cache_ok = True
@@ -87,17 +78,6 @@ class EmulatedTimestampTZ(TypeDecorator):
 
     def process_result_value(self, value: Any, dialect: Dialect):
         return datetime.fromisoformat(value) if value is not None else None
-
-
-class EmulatedInterval(TypeDecorator):
-    impl = BigInteger()
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect: Dialect) -> Any:
-        return value.total_seconds() if value is not None else None
-
-    def process_result_value(self, value: Any, dialect: Dialect):
-        return timedelta(seconds=value) if value is not None else None
 
 
 @attrs.define(eq=False)
@@ -214,16 +194,10 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         return InterfaceError, OSError
 
     def get_table_definitions(self) -> MetaData:
-        if self.engine.dialect.name == "postgresql":
-            from sqlalchemy.dialects import postgresql
-
-            timestamp_type = postgresql.TIMESTAMP(timezone=True)
-            job_id_type = postgresql.UUID(as_uuid=True)
-            interval_type = postgresql.INTERVAL(precision=6)
+        if self.engine.dialect.name in ("postgresql", "oracle"):
+            timestamp_type = TIMESTAMP(timezone=True)
         else:
             timestamp_type = EmulatedTimestampTZ
-            job_id_type = EmulatedUUID
-            interval_type = EmulatedInterval
 
         metadata = MetaData(schema=self.schema)
         Table("metadata", metadata, Column("schema_version", Integer, nullable=False))
@@ -234,7 +208,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("func", Unicode(500), nullable=False),
             Column("job_executor", Unicode(500), nullable=False),
             Column("max_running_jobs", Integer),
-            Column("misfire_grace_time", interval_type),
+            Column("misfire_grace_time", Interval(second_precision=6)),
             Column("running_jobs", Integer, nullable=False, server_default=literal(0)),
         )
         Table(
@@ -246,8 +220,8 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("args", LargeBinary),
             Column("kwargs", LargeBinary),
             Column("coalesce", Enum(CoalescePolicy), nullable=False),
-            Column("misfire_grace_time", interval_type),
-            Column("max_jitter", interval_type),
+            Column("misfire_grace_time", Interval(second_precision=6)),
+            Column("max_jitter", Interval(second_precision=6)),
             Column("next_fire_time", timestamp_type, index=True),
             Column("last_fire_time", timestamp_type),
             Column("acquired_by", Unicode(500)),
@@ -256,15 +230,15 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         Table(
             "jobs",
             metadata,
-            Column("id", job_id_type, primary_key=True),
+            Column("id", Uuid, primary_key=True),
             Column("task_id", Unicode(500), nullable=False, index=True),
             Column("args", LargeBinary, nullable=False),
             Column("kwargs", LargeBinary, nullable=False),
             Column("schedule_id", Unicode(500)),
             Column("scheduled_fire_time", timestamp_type),
-            Column("jitter", interval_type),
+            Column("jitter", Interval(second_precision=6)),
             Column("start_deadline", timestamp_type),
-            Column("result_expiration_time", interval_type),
+            Column("result_expiration_time", Interval(second_precision=6)),
             Column("created_at", timestamp_type, nullable=False),
             Column("started_at", timestamp_type),
             Column("acquired_by", Unicode(500)),
@@ -273,7 +247,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         Table(
             "job_results",
             metadata,
-            Column("job_id", job_id_type, primary_key=True),
+            Column("job_id", Uuid, primary_key=True),
             Column("outcome", Enum(JobOutcome), nullable=False),
             Column("finished_at", timestamp_type, index=True),
             Column("expires_at", timestamp_type, nullable=False, index=True),

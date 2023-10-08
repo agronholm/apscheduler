@@ -8,6 +8,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - **BREAKING** Renamed any leftover fields named ``executor`` to ``job_executor``
   (this breaks data store compatibility)
+- **BREAKING** Switched to using the timezone aware timestamp column type on Oracle
 
 **4.0.0a3**
 
