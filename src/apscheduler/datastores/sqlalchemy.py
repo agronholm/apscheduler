@@ -111,8 +111,11 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     Operations are retried (in accordance to ``retry_settings``) when an operation
     raises :exc:`sqlalchemy.OperationalError`.
 
-    This store has been tested to work with PostgreSQL (asyncpg driver) and MySQL
-    (asyncmy driver).
+    This store has been tested to work with:
+
+     * PostgreSQL (asyncpg and psycopg drivers)
+     * MySQL (asyncmy driver)
+     * aiosqlite
 
     :param engine: an asynchronous SQLAlchemy engine
     :param schema: a database schema name to use, if not the default
@@ -144,7 +147,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
         :param url: an SQLAlchemy URL to pass to :func:`~sqlalchemy.create_engine`
             (must use an async dialect like ``asyncpg`` or ``asyncmy``)
-        :param kwargs: keyword arguments to pass to the initializer of this class
+        :param options: keyword arguments to pass to the initializer of this class
         :return: the newly created data store
 
         """
