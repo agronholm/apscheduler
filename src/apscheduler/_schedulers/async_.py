@@ -70,7 +70,6 @@ class AsyncScheduler:
     :param event_broker: the event broker to use for publishing an subscribing events
     :param max_concurrent_jobs: Maximum number of jobs the worker will run at once
     :param role: specifies what the scheduler should be doing when running
-    :param process_schedules: ``True`` to process due schedules in this scheduler
     """
 
     data_store: DataStore = attrs.field(
