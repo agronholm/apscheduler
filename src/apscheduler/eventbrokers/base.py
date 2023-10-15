@@ -7,7 +7,7 @@ from logging import Logger, getLogger
 from typing import Any, Callable, Iterable
 
 import attrs
-from anyio import create_task_group, to_thread
+from anyio import CapacityLimiter, create_task_group, to_thread
 from anyio.abc import TaskGroup
 
 from .. import _events
@@ -38,12 +38,14 @@ class BaseEventBroker(EventBroker):
         init=False, factory=dict
     )
     _task_group: TaskGroup = attrs.field(init=False)
+    _thread_limiter: CapacityLimiter = attrs.field(init=False)
 
     def __attrs_post_init__(self) -> None:
         self._logger = getLogger(self.__class__.__module__)
 
     async def start(self, exit_stack: AsyncExitStack) -> None:
         self._task_group = await exit_stack.enter_async_context(create_task_group())
+        self._thread_limiter = CapacityLimiter(1)
 
     def subscribe(
         self,
@@ -88,7 +90,9 @@ class BaseEventBroker(EventBroker):
                 if iscoroutine(retval):
                     await retval
             else:
-                await to_thread.run_sync(subscription.callback, event)
+                await to_thread.run_sync(
+                    subscription.callback, event, limiter=self._thread_limiter
+                )
         except Exception:
             self._logger.exception(
                 "Error delivering %s event", event.__class__.__name__
