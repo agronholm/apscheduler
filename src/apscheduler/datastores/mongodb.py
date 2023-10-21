@@ -506,7 +506,7 @@ class MongoDBDataStore(BaseExternalDataStore):
         # Publish the appropriate events
         for job in acquired_jobs:
             await self._event_broker.publish(
-                JobAcquired(job_id=job.id, worker_id=worker_id)
+                JobAcquired(job_id=job.id, scheduler_id=worker_id)
             )
 
         return acquired_jobs

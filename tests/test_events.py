@@ -8,7 +8,7 @@ from apscheduler.abc import Serializer
 
 def test_serialize_job_released(serializer: Serializer) -> None:
     event = JobReleased(
-        job_id=uuid4(), worker_id="test_worker", outcome=JobOutcome.success
+        job_id=uuid4(), scheduler_id="test_worker", outcome=JobOutcome.success
     )
     payload = serializer.serialize(event.marshal(serializer))
     event2 = JobReleased.unmarshal(serializer, serializer.deserialize(payload))

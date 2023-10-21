@@ -128,6 +128,7 @@ Exceptions
 .. autoexception:: apscheduler.TaskLookupError
 .. autoexception:: apscheduler.ScheduleLookupError
 .. autoexception:: apscheduler.JobLookupError
+.. autoexception:: apscheduler.CallableLookupError
 .. autoexception:: apscheduler.JobResultNotReady
 .. autoexception:: apscheduler.JobCancelled
 .. autoexception:: apscheduler.JobDeadlineMissed
@@ -141,3 +142,12 @@ Support classes for retrying failures
 
 .. autoclass:: apscheduler.RetrySettings
 .. autoclass:: apscheduler.RetryMixin
+
+Support classes for unset options
+---------------------------------
+
+.. data:: apscheduler.unset
+
+    Sentinel value for unset option values.
+
+.. autoclass:: apscheduler.UnsetValue

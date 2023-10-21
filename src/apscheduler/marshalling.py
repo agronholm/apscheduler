@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from datetime import date, datetime, tzinfo
 from functools import partial
+from inspect import isclass, ismethod, ismethoddescriptor
 from typing import Any, Callable, overload
 
 from ._exceptions import DeserializationError, SerializationError
@@ -22,6 +23,9 @@ def marshal_object(obj) -> tuple[str, Any]:
 
 def unmarshal_object(ref: str, state: Any) -> Any:
     cls = callable_from_ref(ref)
+    if not isinstance(cls, type):
+        raise TypeError(f"{ref} is not a class")
+
     instance = cls.__new__(cls)
     instance.__setstate__(state)
     return instance
@@ -81,19 +85,31 @@ def callable_to_ref(func: Callable) -> str:
     Return a reference to the given callable.
 
     :raises SerializationError: if the given object is not callable, is a partial(),
-        lambda or local function or does not have the ``__module__`` and
+        bound method, lambda or local function or does not have the ``__module__`` and
         ``__qualname__`` attributes
 
     """
     if isinstance(func, partial):
         raise SerializationError("Cannot create a reference to a partial()")
 
+    if ismethod(func):
+        if not isclass(func.__self__):
+            raise SerializationError("Cannot create a reference to an instance method")
+
+        return f"{func.__module__}:{func.__self__.__qualname__}.{func.__name__}"
+
+    if ismethoddescriptor(func):
+        return f"{func.__objclass__.__module__}:{func.__qualname__}"
+
     if not hasattr(func, "__module__"):
         raise SerializationError("Callable has no __module__ attribute")
+
     if not hasattr(func, "__qualname__"):
         raise SerializationError("Callable has no __qualname__ attribute")
+
     if "<lambda>" in func.__qualname__:
         raise SerializationError("Cannot create a reference to a lambda")
+
     if "<locals>" in func.__qualname__:
         raise SerializationError("Cannot create a reference to a nested function")
 

@@ -70,22 +70,24 @@ async def capture_events(
 
 
 async def test_add_replace_task(datastore: DataStore) -> None:
-    import math
-
     event_types = {TaskAdded, TaskUpdated}
     async with capture_events(datastore, 3, event_types) as events:
-        await datastore.add_task(Task(id="test_task", func=print, job_executor="async"))
         await datastore.add_task(
-            Task(id="test_task2", func=math.ceil, job_executor="async")
+            Task(id="test_task", func="builtins:print", job_executor="async")
         )
-        await datastore.add_task(Task(id="test_task", func=repr, job_executor="async"))
+        await datastore.add_task(
+            Task(id="test_task2", func="math:ceil", job_executor="async")
+        )
+        await datastore.add_task(
+            Task(id="test_task", func="builtins:repr", job_executor="async")
+        )
 
         tasks = await datastore.get_tasks()
         assert len(tasks) == 2
         assert tasks[0].id == "test_task"
-        assert tasks[0].func is repr
+        assert tasks[0].func == "builtins:repr"
         assert tasks[1].id == "test_task2"
-        assert tasks[1].func is math.ceil
+        assert tasks[1].func == "math:ceil"
 
     received_event = events.pop(0)
     assert isinstance(received_event, TaskAdded)
@@ -285,7 +287,7 @@ async def test_acquire_schedules_lock_timeout(
 
 async def test_acquire_multiple_workers(datastore: DataStore) -> None:
     await datastore.add_task(
-        Task(id="task1", func=asynccontextmanager, job_executor="async")
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
     )
     jobs = [Job(task_id="task1") for _ in range(2)]
     for job in jobs:
@@ -308,7 +310,7 @@ async def test_acquire_multiple_workers(datastore: DataStore) -> None:
 
 async def test_job_release_success(datastore: DataStore) -> None:
     await datastore.add_task(
-        Task(id="task1", func=asynccontextmanager, job_executor="async")
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
     )
     job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
     await datastore.add_job(job)
@@ -338,7 +340,7 @@ async def test_job_release_success(datastore: DataStore) -> None:
 
 async def test_job_release_failure(datastore: DataStore) -> None:
     await datastore.add_task(
-        Task(id="task1", job_executor="async", func=asynccontextmanager)
+        Task(id="task1", job_executor="async", func="contextlib:asynccontextmanager")
     )
     job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
     await datastore.add_job(job)
@@ -369,7 +371,7 @@ async def test_job_release_failure(datastore: DataStore) -> None:
 
 async def test_job_release_missed_deadline(datastore: DataStore):
     await datastore.add_task(
-        Task(id="task1", func=asynccontextmanager, job_executor="async")
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
     )
     job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
     await datastore.add_job(job)
@@ -398,7 +400,7 @@ async def test_job_release_missed_deadline(datastore: DataStore):
 
 async def test_job_release_cancelled(datastore: DataStore) -> None:
     await datastore.add_task(
-        Task(id="task1", func=asynccontextmanager, job_executor="async")
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
     )
     job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
     await datastore.add_job(job)
@@ -431,7 +433,7 @@ async def test_acquire_jobs_lock_timeout(
 
     """
     await datastore.add_task(
-        Task(id="task1", func=asynccontextmanager, job_executor="async")
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
     )
     job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
     await datastore.add_job(job)
@@ -457,7 +459,7 @@ async def test_acquire_jobs_max_number_exceeded(datastore: DataStore) -> None:
     await datastore.add_task(
         Task(
             id="task1",
-            func=asynccontextmanager,
+            func="contextlib:asynccontextmanager",
             job_executor="async",
             max_running_jobs=2,
         )
@@ -490,11 +492,11 @@ async def test_add_get_task(datastore: DataStore) -> None:
         await datastore.get_task("dummyid")
 
     await datastore.add_task(
-        Task(id="dummyid", func=asynccontextmanager, job_executor="async")
+        Task(id="dummyid", func="contextlib:asynccontextmanager", job_executor="async")
     )
     task = await datastore.get_task("dummyid")
     assert task.id == "dummyid"
-    assert task.func is asynccontextmanager
+    assert task.func == "contextlib:asynccontextmanager"
 
 
 async def test_cancel_start(

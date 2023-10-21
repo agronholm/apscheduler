@@ -33,9 +33,7 @@ class DummyClass:
 
 
 class InheritedDummyClass(DummyClass):
-    @classmethod
-    def classmeth(cls):
-        pass
+    pass
 
 
 class TestCallableToRef:

@@ -7,7 +7,8 @@ import sys
 from collections.abc import MutableMapping, Sequence
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
-from inspect import isclass
+from functools import partial
+from inspect import isbuiltin, isclass, ismethod, ismodule
 from logging import Logger, getLogger
 from types import TracebackType
 from typing import Any, Callable, Iterable, Mapping, cast
@@ -25,7 +26,7 @@ from anyio import (
 from anyio.abc import TaskGroup, TaskStatus
 from attr.validators import instance_of
 
-from .. import JobAdded, TaskLookupError
+from .. import JobAdded, SerializationError, TaskLookupError
 from .._context import current_async_scheduler, current_job
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState, SchedulerRole
 from .._events import (
@@ -37,12 +38,15 @@ from .._events import (
     ScheduleUpdated,
 )
 from .._exceptions import (
+    CallableLookupError,
+    DeserializationError,
     JobCancelled,
     JobDeadlineMissed,
     JobLookupError,
     ScheduleLookupError,
 )
 from .._structures import Job, JobResult, Schedule, Task
+from .._utils import UnsetValue, unset
 from .._validators import non_negative_number
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
 from ..datastores.memory import MemoryDataStore
@@ -50,15 +54,22 @@ from ..eventbrokers.local import LocalEventBroker
 from ..executors.async_ import AsyncJobExecutor
 from ..executors.subprocess import ProcessPoolJobExecutor
 from ..executors.thread import ThreadPoolJobExecutor
-from ..marshalling import callable_to_ref
+from ..marshalling import callable_from_ref, callable_to_ref
 
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
 
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    from typing_extensions import TypeAlias
+
 _microsecond_delta = timedelta(microseconds=1)
 _zero_timedelta = timedelta()
+
+TaskType: TypeAlias = "Task | str | Callable"
 
 
 @attrs.define(eq=False)
@@ -83,18 +94,19 @@ class AsyncScheduler:
     max_concurrent_jobs: int = attrs.field(
         kw_only=True, validator=non_negative_number, default=100
     )
-    job_executors: MutableMapping[str, JobExecutor] | None = attrs.field(
-        kw_only=True, default=None
+    job_executors: MutableMapping[str, JobExecutor] = attrs.field(
+        kw_only=True, factory=dict
     )
     default_job_executor: str | None = attrs.field(kw_only=True, default=None)
     logger: Logger = attrs.field(kw_only=True, default=getLogger(__name__))
 
     _state: RunState = attrs.field(init=False, default=RunState.stopped)
     _services_task_group: TaskGroup | None = attrs.field(init=False, default=None)
-    _exit_stack: AsyncExitStack = attrs.field(init=False, factory=AsyncExitStack)
+    _exit_stack: AsyncExitStack = attrs.field(init=False)
     _services_initialized: bool = attrs.field(init=False, default=False)
     _scheduler_cancel_scope: CancelScope | None = attrs.field(init=False, default=None)
-    _running_jobs: set[Job] = attrs.field(init=False, factory=set)
+    _running_jobs: set[UUID] = attrs.field(init=False, factory=set)
+    _task_callables: dict[str, Callable] = attrs.field(init=False, factory=dict)
 
     def __attrs_post_init__(self) -> None:
         if not self.identity:
@@ -110,21 +122,20 @@ class AsyncScheduler:
         if not self.default_job_executor:
             self.default_job_executor = next(iter(self.job_executors))
         elif self.default_job_executor not in self.job_executors:
+            valid_executors = ", ".join(self.job_executors)
             raise ValueError(
-                "default_job_executor must be one of the given job executors"
+                f"default_job_executor must be one of the given job executors "
+                f"({valid_executors})"
             )
 
-    async def __aenter__(self: Self) -> Self:
-        await self._exit_stack.__aenter__()
-        try:
-            await self._ensure_services_initialized(self._exit_stack)
-            self._services_task_group = await self._exit_stack.enter_async_context(
+    async def __aenter__(self) -> Self:
+        async with AsyncExitStack() as exit_stack:
+            await self._ensure_services_initialized(exit_stack)
+            self._services_task_group = await exit_stack.enter_async_context(
                 create_task_group()
             )
-            self._exit_stack.callback(setattr, self, "_services_task_group", None)
-        except BaseException as exc:
-            await self._exit_stack.__aexit__(type(exc), exc, exc.__traceback__)
-            raise
+            exit_stack.callback(setattr, self, "_services_task_group", None)
+            self._exit_stack = exit_stack.pop_all()
 
         return self
 
@@ -216,19 +227,133 @@ class AsyncScheduler:
             await event.wait()
             return received_event
 
+    async def configure_task(
+        self,
+        func_or_task_id: TaskType,
+        *,
+        func: Callable | UnsetValue = unset,
+        job_executor: str | UnsetValue = unset,
+        misfire_grace_time: float | timedelta | None | UnsetValue = unset,
+        max_running_jobs: int | None | UnsetValue = unset,
+    ) -> Task:
+        """
+        Add or update a :ref:`task` definition.
+
+        Any options not explicitly passed to this method will use their default values
+        when a new task is created:
+
+        * ``job_executor``: the value of ``default_job_executor`` scheduler attribute
+        * ``misfire_grace_time``: ``None``
+        * ``max_running_jobs``: 1
+
+        When updating a task, any options not explicitly passed will remain the same.
+
+        If a callable is passed as the first argument, its fully qualified name will be
+        used as the task ID.
+
+        :param func_or_task_id: either a task, task ID or a callable
+        :param func: a callable that will be associated with the task (can be omitted if
+            the callable is already passed as ``func_or_task_id``)
+        :param job_executor: name of the job executor to run the task with
+        :param misfire_grace_time: maximum number of seconds the scheduled job's actual
+            run time is allowed to be late, compared to the scheduled run time
+        :param max_running_jobs: maximum number of instances of the task that are
+            allowed to run concurrently
+        :raises TypeError: if ``func_or_task_id`` is neither a task, task ID or a
+            callable
+        :return: the created or updated task definition
+
+        """
+        func_ref: str | None = None
+        if callable(func_or_task_id):
+            task_ref = callable_to_ref(func_or_task_id)
+            if func is unset:
+                func = func_or_task_id
+        elif isinstance(func_or_task_id, Task):
+            task_ref = func_or_task_id.id
+        elif isinstance(func_or_task_id, str) and func_or_task_id:
+            task_ref = func_or_task_id
+        else:
+            raise TypeError(
+                "func_or_task_id must be either a task, its identifier or a callable"
+            )
+
+        if callable(func):
+            self._task_callables[task_ref] = func
+            try:
+                func_ref = callable_to_ref(func)
+            except SerializationError:
+                pass
+
+        modified = False
+        try:
+            task = await self.data_store.get_task(task_ref)
+        except TaskLookupError:
+            task = Task(
+                id=task_ref,
+                func=func_ref,
+                job_executor=(
+                    self.default_job_executor if job_executor is unset else job_executor
+                ),
+                max_running_jobs=(
+                    None if max_running_jobs is unset else max_running_jobs
+                ),
+                misfire_grace_time=(
+                    None if misfire_grace_time is unset else misfire_grace_time
+                ),
+            )
+            modified = True
+        else:
+            if func is not unset and task.func is not func:
+                task.func = func
+                modified = True
+
+            if job_executor is not unset and task.job_executor != job_executor:
+                task.job_executor = job_executor
+                modified = True
+
+            if (
+                max_running_jobs is not unset
+                and task.max_running_jobs != max_running_jobs
+            ):
+                task.max_running_jobs = max_running_jobs
+                modified = True
+
+            if (
+                misfire_grace_time is not unset
+                and task.misfire_grace_time != misfire_grace_time
+            ):
+                task.misfire_grace_time = misfire_grace_time
+                modified = True
+
+        if modified:
+            await self.data_store.add_task(task)
+
+        return task
+
+    async def get_tasks(self) -> Sequence[Task]:
+        """
+        Retrieve all currently defined tasks.
+
+        :return: a sequence of tasks, sorted by ID
+
+        """
+        self._check_initialized()
+        return await self.data_store.get_tasks()
+
     async def add_schedule(
         self,
-        func_or_task_id: str | Callable,
+        func_or_task_id: TaskType,
         trigger: Trigger,
         *,
         id: str | None = None,
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
-        job_executor: str | None = None,
+        job_executor: str | UnsetValue = unset,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
-        misfire_grace_time: float | timedelta | None = None,
+        misfire_grace_time: float | timedelta | None | UnsetValue = unset,
         max_jitter: float | timedelta | None = None,
-        max_running_jobs: int | None = None,
+        max_running_jobs: int | None | UnsetValue = unset,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
     ) -> str:
         """
@@ -249,7 +374,8 @@ class AsyncScheduler:
         :param max_jitter: maximum number of seconds to randomly add to the scheduled
             time for each job created from this schedule
         :param max_running_jobs: maximum number of instances of the task that are
-            allowed to run concurrently
+            allowed to run concurrently (if not set, uses the default misfire grace time
+            from the associated task, or ``None`` if there is no existing task)
         :param conflict_policy: determines what to do if a schedule with the same ID
             already exists in the data store
         :return: the ID of the newly added schedule
@@ -259,24 +385,28 @@ class AsyncScheduler:
         schedule_id = id or str(uuid4())
         args = tuple(args or ())
         kwargs = dict(kwargs or {})
-        if isinstance(misfire_grace_time, (int, float)):
-            misfire_grace_time = timedelta(seconds=misfire_grace_time)
 
-        if callable(func_or_task_id):
-            task_ref = callable_to_ref(func_or_task_id)
-            try:
-                task = await self.data_store.get_task(task_ref)
-            except TaskLookupError:
-                task = Task(
-                    id=task_ref,
-                    func=func_or_task_id,
-                    job_executor=job_executor or self.default_job_executor,
-                    max_running_jobs=max_running_jobs,
-                )
-                await self.data_store.add_task(task)
-        else:
-            task = await self.data_store.get_task(func_or_task_id)
+        # Unpack the function and positional + keyword arguments from a partial()
+        if isinstance(func_or_task_id, partial):
+            args = func_or_task_id.args + args
+            kwargs.update(func_or_task_id.keywords)
+            func_or_task_id = func_or_task_id.func
 
+        # For instance methods, use the unbound function as the function, and  the
+        # "self" argument as the first positional argument
+        if ismethod(func_or_task_id):
+            args = (func_or_task_id.__self__,) + args
+            func_or_task_id = func_or_task_id.__func__
+        elif isbuiltin(func_or_task_id) and hasattr(func_or_task_id, "__self__"):
+            args = (func_or_task_id.__self__,) + args
+            method_class = type(func_or_task_id.__self__)
+            func_or_task_id = getattr(method_class, func_or_task_id.__name__)
+
+        task = await self.configure_task(
+            func_or_task_id,
+            job_executor=job_executor,
+            max_running_jobs=max_running_jobs,
+        )
         schedule = Schedule(
             id=schedule_id,
             task_id=task.id,
@@ -284,7 +414,9 @@ class AsyncScheduler:
             args=args,
             kwargs=kwargs,
             coalesce=coalesce,
-            misfire_grace_time=misfire_grace_time,
+            misfire_grace_time=task.misfire_grace_time
+            if misfire_grace_time is unset
+            else misfire_grace_time,
             max_jitter=max_jitter,
         )
         schedule.next_fire_time = trigger.next()
@@ -334,11 +466,11 @@ class AsyncScheduler:
 
     async def add_job(
         self,
-        func_or_task_id: str | Callable,
+        func_or_task_id: TaskType,
         *,
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
-        job_executor: str | None = None,
+        job_executor: str | None | UnsetValue = unset,
         result_expiration_time: timedelta | float = 0,
     ) -> UUID:
         """
@@ -348,7 +480,7 @@ class AsyncScheduler:
             Either the ID of a pre-existing task, or a function/method. If a function is
             given, a task will be created with the fully qualified name of the function
             as the task ID (unless that task already exists of course).
-        :param job_executor: name of the job executor to run the task with
+        :param job_executor: name of the job executor to run the job with
         :param args: positional arguments to call the target callable with
         :param kwargs: keyword arguments to call the target callable with
         :param job_executor: name of the job executor to run the task with
@@ -359,20 +491,26 @@ class AsyncScheduler:
 
         """
         self._check_initialized()
-        if callable(func_or_task_id):
-            task_id = callable_to_ref(func_or_task_id)
-            try:
-                task = await self.data_store.get_task(task_id)
-            except TaskLookupError:
-                task = Task(
-                    id=task_id,
-                    func=func_or_task_id,
-                    job_executor=job_executor or self.default_job_executor,
-                )
-                await self.data_store.add_task(task)
-        else:
-            task = await self.data_store.get_task(func_or_task_id)
+        args = tuple(args or ())
+        kwargs = dict(kwargs or {})
 
+        # Unpack the function and positional + keyword arguments from a partial()
+        if isinstance(func_or_task_id, partial):
+            args = func_or_task_id.args + args
+            kwargs.update(func_or_task_id.keywords)
+            func_or_task_id = func_or_task_id.func
+
+        # For instance methods, use the unbound function as the function, and  the
+        # "self" argument as the first positional argument
+        if ismethod(func_or_task_id):
+            args = (func_or_task_id.__self__,) + args
+            func_or_task_id = func_or_task_id.__func__
+        elif isbuiltin(func_or_task_id) and not ismodule(func_or_task_id.__self__):
+            args = (func_or_task_id.__self__,) + args
+            method_class = type(func_or_task_id.__self__)
+            func_or_task_id = getattr(method_class, func_or_task_id.__name__)
+
+        task = await self.configure_task(func_or_task_id, job_executor=job_executor)
         job = Job(
             task_id=task.id,
             args=args or (),
@@ -422,7 +560,7 @@ class AsyncScheduler:
         *,
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
-        job_executor: str | None = None,
+        job_executor: str | UnsetValue = unset,
     ) -> Any:
         """
         Convenience method to add a job and then return its result.
@@ -450,7 +588,9 @@ class AsyncScheduler:
                 func_or_task_id,
                 args=args,
                 kwargs=kwargs,
-                job_executor=job_executor,
+                job_executor=self.default_job_executor
+                if job_executor is unset
+                else job_executor,
                 result_expiration_time=timedelta(minutes=15),
             )
             await job_complete_event.wait()
@@ -625,7 +765,7 @@ class AsyncScheduler:
                             if next_fire_time is not None:
                                 # Jitter must never be so high that it would cause a
                                 # fire time to equal or exceed the next fire time
-                                jitter_s = min(
+                                max_jitter = min(
                                     [
                                         max_jitter,
                                         (
@@ -635,8 +775,14 @@ class AsyncScheduler:
                                         ).total_seconds(),
                                     ]
                                 )
-                                jitter = timedelta(seconds=random.uniform(0, jitter_s))
-                                fire_time += jitter
+
+                            jitter = timedelta(seconds=random.uniform(0, max_jitter))
+                            fire_time += jitter
+
+                        if schedule.misfire_grace_time is None:
+                            start_deadline = None
+                        else:
+                            start_deadline = fire_time + schedule.misfire_grace_time
 
                         schedule.last_fire_time = fire_time
                         job = Job(
@@ -646,7 +792,7 @@ class AsyncScheduler:
                             schedule_id=schedule.id,
                             scheduled_fire_time=fire_time,
                             jitter=jitter,
-                            start_deadline=schedule.next_deadline,
+                            start_deadline=start_deadline,
                         )
                         await self.data_store.add_job(job)
 
@@ -677,6 +823,28 @@ class AsyncScheduler:
                 else:
                     self.logger.debug("Processing more schedules on the next iteration")
 
+    def _get_task_callable(self, task: Task) -> Callable:
+        try:
+            return self._task_callables[task.id]
+        except KeyError:
+            if task.func:
+                try:
+                    func = self._task_callables[task.id] = callable_from_ref(task.func)
+                except DeserializationError as exc:
+                    raise CallableLookupError(
+                        f"Error looking up the callable ({task.func!r}) for task "
+                        f"{task.id!r}"
+                    ) from exc
+
+                return func
+
+            raise CallableLookupError(
+                f"Task {task.id} requires a locally defined callable to be run, but no "
+                f"such callable has been defined. Call "
+                f"scheduler.configure_task({task.id!r}, func=...) to define the local "
+                f"callable."
+            )
+
     async def _process_jobs(self, *, task_status: TaskStatus) -> None:
         wakeup_event = anyio.Event()
 
@@ -704,9 +872,10 @@ class AsyncScheduler:
                     jobs = await self.data_store.acquire_jobs(self.identity, limit)
                     for job in jobs:
                         task = await self.data_store.get_task(job.task_id)
+                        func = self._get_task_callable(task)
                         self._running_jobs.add(job.id)
                         task_group.start_soon(
-                            self._run_job, job, task.func, task.job_executor
+                            self._run_job, job, func, task.job_executor
                         )
 
                 await wakeup_event.wait()

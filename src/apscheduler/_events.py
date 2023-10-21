@@ -210,11 +210,11 @@ class JobAcquired(SchedulerEvent):
     Signals that a worker has acquired a job for processing.
 
     :param job_id: the ID of the job that was acquired
-    :param worker_id: the ID of the worker that acquired the job
+    :param scheduler_id: the ID of the scheduler that acquired the job
     """
 
     job_id: UUID = attrs.field(converter=as_uuid)
-    worker_id: str
+    scheduler_id: str
 
 
 @attrs.define(kw_only=True, frozen=True)
@@ -223,7 +223,7 @@ class JobReleased(SchedulerEvent):
     Signals that a worker has finished processing of a job.
 
     :param uuid.UUID job_id: the ID of the job that was released
-    :param worker_id: the ID of the worker that released the job
+    :param scheduler_id: the ID of the worker that released the job
     :param outcome: the outcome of the job
     :param exception_type: the fully qualified name of the exception if ``outcome`` is
         :attr:`JobOutcome.error`
@@ -234,7 +234,7 @@ class JobReleased(SchedulerEvent):
     """
 
     job_id: UUID = attrs.field(converter=as_uuid)
-    worker_id: str
+    scheduler_id: str
     outcome: JobOutcome = attrs.field(converter=as_enum(JobOutcome))
     exception_type: str | None = None
     exception_message: str | None = None
@@ -253,7 +253,7 @@ class JobReleased(SchedulerEvent):
 
         return cls(
             job_id=result.job_id,
-            worker_id=worker_id,
+            scheduler_id=worker_id,
             outcome=result.outcome,
             exception_type=exception_type,
             exception_message=exception_message,

@@ -24,6 +24,10 @@ class JobLookupError(LookupError):
         super().__init__(f"No job by the id of {job_id} was found")
 
 
+class CallableLookupError(LookupError):
+    """Raised when the target callable for a job could not be found."""
+
+
 class JobResultNotReady(Exception):
     """
     Raised by :meth:`~Scheduler.get_job_result` if the job result is

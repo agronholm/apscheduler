@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from typing import Any
 from uuid import UUID, uuid4
 
 import attrs
-from attrs.validators import and_, gt, instance_of, is_callable, min_len, optional
+from attrs.validators import and_, gt, instance_of, matches_re, min_len, optional
 
-from ._converters import as_enum, as_timedelta
+from ._converters import as_aware_datetime, as_enum, as_timedelta
 from ._enums import CoalescePolicy, JobOutcome
 from .abc import Serializer, Trigger
-from .marshalling import callable_from_ref, callable_to_ref
 
 
 def serialize(inst: Any, field: attrs.Attribute, value: Any) -> Any:
@@ -39,7 +37,11 @@ class Task:
     """
 
     id: str = attrs.field(validator=[instance_of(str), min_len(1)])
-    func: Callable = attrs.field(eq=False, order=False, validator=is_callable())
+    func: str | None = attrs.field(
+        eq=False,
+        order=False,
+        validator=optional(and_(instance_of(str), matches_re(r".+:.+"))),
+    )
     job_executor: str = attrs.field(eq=False, validator=instance_of(str))
     max_running_jobs: int | None = attrs.field(
         eq=False,
@@ -56,13 +58,10 @@ class Task:
     )
 
     def marshal(self, serializer: Serializer) -> dict[str, Any]:
-        marshalled = attrs.asdict(self, value_serializer=serialize)
-        marshalled["func"] = callable_to_ref(self.func)
-        return marshalled
+        return attrs.asdict(self, value_serializer=serialize)
 
     @classmethod
     def unmarshal(cls, serializer: Serializer, marshalled: dict[str, Any]) -> Task:
-        marshalled["func"] = callable_from_ref(marshalled["func"])
         return cls(**marshalled)
 
 
@@ -98,7 +97,9 @@ class Schedule:
         eq=False, order=False, validator=[instance_of(str), min_len(1)]
     )
     trigger: Trigger = attrs.field(
-        eq=False, order=False, validator=instance_of(Trigger)
+        eq=False,
+        order=False,
+        validator=instance_of(Trigger),  # type: ignore[type-abstract]
     )
     args: tuple = attrs.field(eq=False, order=False, converter=tuple, default=())
     kwargs: dict[str, Any] = attrs.field(
@@ -125,10 +126,16 @@ class Schedule:
         default=None,
         validator=optional(instance_of(timedelta)),
     )
-    next_fire_time: datetime | None = attrs.field(eq=False, order=False, default=None)
-    last_fire_time: datetime | None = attrs.field(eq=False, order=False, default=None)
+    next_fire_time: datetime | None = attrs.field(
+        eq=False, order=False, converter=as_aware_datetime, default=None
+    )
+    last_fire_time: datetime | None = attrs.field(
+        eq=False, order=False, converter=as_aware_datetime, default=None
+    )
     acquired_by: str | None = attrs.field(eq=False, order=False, default=None)
-    acquired_until: datetime | None = attrs.field(eq=False, order=False, default=None)
+    acquired_until: datetime | None = attrs.field(
+        eq=False, order=False, converter=as_aware_datetime, default=None
+    )
 
     def marshal(self, serializer: Serializer) -> dict[str, Any]:
         marshalled = attrs.asdict(self, value_serializer=serialize)
@@ -147,13 +154,6 @@ class Schedule:
         marshalled["args"] = serializer.deserialize(marshalled["args"])
         marshalled["kwargs"] = serializer.deserialize(marshalled["kwargs"])
         return cls(**marshalled)
-
-    @property
-    def next_deadline(self) -> datetime | None:
-        if self.next_fire_time and self.misfire_grace_time:
-            return self.next_fire_time + self.misfire_grace_time
-
-        return None
 
 
 @attrs.define(kw_only=True, frozen=True)
@@ -192,21 +192,30 @@ class Job:
     )
     schedule_id: str | None = attrs.field(eq=False, order=False, default=None)
     scheduled_fire_time: datetime | None = attrs.field(
-        eq=False, order=False, default=None
+        eq=False, order=False, converter=as_aware_datetime, default=None
     )
     jitter: timedelta = attrs.field(
         eq=False, order=False, converter=as_timedelta, factory=timedelta
     )
-    start_deadline: datetime | None = attrs.field(eq=False, order=False, default=None)
+    start_deadline: datetime | None = attrs.field(
+        eq=False, order=False, converter=as_aware_datetime, default=None
+    )
     result_expiration_time: timedelta = attrs.field(
         eq=False, order=False, converter=as_timedelta, default=timedelta()
     )
     created_at: datetime = attrs.field(
-        eq=False, order=False, factory=partial(datetime.now, timezone.utc)
+        eq=False,
+        order=False,
+        converter=as_aware_datetime,
+        factory=partial(datetime.now, timezone.utc),
     )
-    started_at: datetime | None = attrs.field(eq=False, order=False, default=None)
+    started_at: datetime | None = attrs.field(
+        eq=False, order=False, converter=as_aware_datetime, default=None
+    )
     acquired_by: str | None = attrs.field(eq=False, order=False, default=None)
-    acquired_until: datetime | None = attrs.field(eq=False, order=False, default=None)
+    acquired_until: datetime | None = attrs.field(
+        eq=False, order=False, converter=as_aware_datetime, default=None
+    )
 
     @property
     def original_scheduled_time(self) -> datetime | None:
@@ -252,9 +261,14 @@ class JobResult:
         eq=False, order=False, converter=as_enum(JobOutcome)
     )
     finished_at: datetime = attrs.field(
-        eq=False, order=False, factory=partial(datetime.now, timezone.utc)
+        eq=False,
+        order=False,
+        converter=as_aware_datetime,
+        factory=partial(datetime.now, timezone.utc),
     )
-    expires_at: datetime = attrs.field(eq=False, order=False)
+    expires_at: datetime = attrs.field(
+        eq=False, converter=as_aware_datetime, order=False
+    )
     exception: BaseException | None = attrs.field(eq=False, order=False, default=None)
     return_value: Any = attrs.field(eq=False, order=False, default=None)
 

@@ -17,9 +17,10 @@ from anyio.from_thread import BlockingPortal, start_blocking_portal
 
 from .. import Event, current_scheduler
 from .._enums import CoalescePolicy, ConflictPolicy, RunState, SchedulerRole
-from .._structures import Job, JobResult, Schedule
+from .._structures import Job, JobResult, Schedule, Task
+from .._utils import UnsetValue, unset
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
-from .async_ import AsyncScheduler
+from .async_ import AsyncScheduler, TaskType
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -105,18 +106,18 @@ class Scheduler:
         exc_val: BaseException,
         exc_tb: TracebackType,
     ) -> None:
-        self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
+        if self._exit_stack:
+            self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
 
     def _ensure_services_ready(self, exit_stack: ExitStack | None = None) -> None:
         """Ensure that the underlying asynchronous scheduler has been initialized."""
         with self._lock:
             if self._portal is None:
                 if exit_stack is None:
-                    if self._exit_stack is None:
-                        self._exit_stack = exit_stack = ExitStack()
-                        atexit.register(self._exit_stack.close)
-                    else:
-                        exit_stack = self._exit_stack
+                    self._exit_stack = exit_stack = ExitStack()
+                    atexit.register(self._exit_stack.close)
+                else:
+                    exit_stack = self._exit_stack
 
                 # Set this scheduler as the current synchronous scheduler
                 token = current_scheduler.set(self)
@@ -148,23 +149,55 @@ class Scheduler:
             event
 
         """
-        return self.data_store.event_broker.subscribe(
-            callback, event_types, is_async=False, one_shot=one_shot
+        self._ensure_services_ready()
+        return self._portal.call(
+            partial(
+                self._async_scheduler.subscribe,
+                callback,
+                event_types,
+                is_async=False,
+                one_shot=one_shot,
+            )
         )
+
+    def configure_task(
+        self,
+        func_or_task_id: TaskType,
+        *,
+        func: Callable | UnsetValue = unset,
+        job_executor: str | UnsetValue = unset,
+        misfire_grace_time: float | timedelta | None | UnsetValue = unset,
+        max_running_jobs: int | None | UnsetValue = unset,
+    ) -> Task:
+        self._ensure_services_ready()
+        return self._portal.call(
+            partial(
+                self._async_scheduler.configure_task,
+                func_or_task_id,
+                func=func,
+                job_executor=job_executor,
+                misfire_grace_time=misfire_grace_time,
+                max_running_jobs=max_running_jobs,
+            )
+        )
+
+    def get_tasks(self) -> Sequence[Task]:
+        self._ensure_services_ready()
+        return self._portal.call(self._async_scheduler.get_tasks)
 
     def add_schedule(
         self,
-        func_or_task_id: str | Callable,
+        func_or_task_id: TaskType,
         trigger: Trigger,
         *,
         id: str | None = None,
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
-        job_executor: str | None = None,
+        job_executor: str | UnsetValue = unset,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
-        misfire_grace_time: float | timedelta | None = None,
+        misfire_grace_time: float | timedelta | None | UnsetValue = unset,
         max_jitter: float | timedelta | None = None,
-        max_running_jobs: int | None = None,
+        max_running_jobs: int | None | UnsetValue = unset,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
     ) -> str:
         self._ensure_services_ready()
@@ -199,11 +232,11 @@ class Scheduler:
 
     def add_job(
         self,
-        func_or_task_id: str | Callable,
+        func_or_task_id: TaskType,
         *,
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
-        job_executor: str | None = None,
+        job_executor: str | UnsetValue = unset,
         result_expiration_time: timedelta | float = 0,
     ) -> UUID:
         self._ensure_services_ready()
@@ -234,7 +267,7 @@ class Scheduler:
         *,
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
-        job_executor: str | None = None,
+        job_executor: str | UnsetValue = unset,
     ) -> Any:
         self._ensure_services_ready()
         return self._portal.call(

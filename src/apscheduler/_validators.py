@@ -138,8 +138,8 @@ def as_positive_integer(value, name: str) -> int:
 def as_timedelta(value: timedelta | float) -> timedelta:
     if isinstance(value, (int, float)):
         return timedelta(seconds=value)
-    elif isinstance(value, timedelta):
-        return value
+
+    return value
 
     # raise TypeError(f'{attribute.name} must be a timedelta or number of seconds, got '
     #                 f'{value.__class__.__name__} instead')

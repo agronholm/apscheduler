@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime, tzinfo
-from typing import TypeVar
+from typing import NoReturn, TypeVar
 
 if sys.version_info >= (3, 9):
     from zoneinfo import ZoneInfo
@@ -11,6 +11,27 @@ else:
     from backports.zoneinfo import ZoneInfo
 
 T = TypeVar("T")
+
+
+class UnsetValue:
+    """The type of :data:`unset`."""
+
+    __slots__ = ()
+
+    def __new__(cls) -> UnsetValue:
+        try:
+            return unset
+        except NameError:
+            return super().__new__(cls)
+
+    def __getstate__(self) -> NoReturn:
+        raise RuntimeError("Internal error: attempted to serialize an unset value")
+
+    def __repr__(self) -> str:
+        return "<unset>"
+
+
+unset = UnsetValue()
 
 
 def timezone_repr(timezone: tzinfo) -> str:

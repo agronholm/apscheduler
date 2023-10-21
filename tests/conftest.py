@@ -140,6 +140,7 @@ def sqlite_store() -> Generator[DataStore, None, None]:
         engine = create_engine(f"sqlite:///{tempdir}/test.db")
         try:
             yield SQLAlchemyDataStore(engine)
+            assert "Current Checked out connections: 0" in engine.pool.status()
         finally:
             engine.dispose()
 
@@ -161,6 +162,7 @@ async def psycopg_async_store() -> AsyncGenerator[DataStore, None]:
         yield SQLAlchemyDataStore(
             engine, schema="psycopg_async", start_from_scratch=True
         )
+        assert "Current Checked out connections: 0" in engine.pool.status()
     finally:
         await engine.dispose()
 
@@ -179,6 +181,7 @@ def psycopg_sync_store() -> Generator[DataStore, None, None]:
         yield SQLAlchemyDataStore(
             engine, schema="psycopg_sync", start_from_scratch=True
         )
+        assert "Current Checked out connections: 0" in engine.pool.status()
     finally:
         engine.dispose()
 
@@ -192,6 +195,7 @@ def pymysql_store() -> Generator[DataStore, None, None]:
     engine = create_engine("mysql+pymysql://root:secret@localhost/testdb")
     try:
         yield SQLAlchemyDataStore(engine, start_from_scratch=True)
+        assert "Current Checked out connections: 0" in engine.pool.status()
     finally:
         engine.dispose()
 
@@ -240,6 +244,7 @@ async def asyncpg_store() -> AsyncGenerator[DataStore, None]:
     )
     try:
         yield SQLAlchemyDataStore(engine, start_from_scratch=True)
+        assert "Current Checked out connections: 0" in engine.pool.status()
     finally:
         await engine.dispose()
 
@@ -256,6 +261,7 @@ async def asyncmy_store() -> AsyncGenerator[DataStore, None]:
     )
     try:
         yield SQLAlchemyDataStore(engine, start_from_scratch=True)
+        assert "Current Checked out connections: 0" in engine.pool.status()
     finally:
         await engine.dispose()
 

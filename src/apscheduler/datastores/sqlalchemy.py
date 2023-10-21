@@ -5,6 +5,7 @@ from collections import defaultdict
 from collections.abc import AsyncGenerator, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from functools import partial
 from typing import Any, Iterable
 from uuid import UUID
 
@@ -12,7 +13,7 @@ import anyio
 import attrs
 import sniffio
 import tenacity
-from anyio import to_thread
+from anyio import CancelScope, to_thread
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
@@ -64,7 +65,6 @@ from .._events import (
 from .._exceptions import ConflictingIdError, SerializationError, TaskLookupError
 from .._structures import Job, JobResult, Schedule, Task
 from ..abc import EventBroker
-from ..marshalling import callable_to_ref
 from .base import BaseExternalDataStore
 
 if sys.version_info >= (3, 11):
@@ -183,19 +183,21 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     async def _begin_transaction(
         self,
     ) -> AsyncGenerator[Connection | AsyncConnection, None]:
-        if isinstance(self.engine, AsyncEngine):
-            async with self.engine.begin() as conn:
-                yield conn
-        else:
-            cm = self.engine.begin()
-            conn = await to_thread.run_sync(cm.__enter__)
-            try:
-                yield conn
-            except BaseException as exc:
-                await to_thread.run_sync(cm.__exit__, type(exc), exc, exc.__traceback__)
-                raise
+        # A shielded cancel scope is injected to the exit stack to allow finalization
+        # to occur even when the surrounding cancel scope is cancelled
+        async with AsyncExitStack() as exit_stack:
+            if isinstance(self.engine, AsyncEngine):
+                async_cm = self.engine.begin()
+                conn = await async_cm.__aenter__()
+                exit_stack.enter_context(CancelScope(shield=True))
+                exit_stack.push_async_exit(async_cm.__aexit__)
             else:
-                await to_thread.run_sync(cm.__exit__, None, None, None)
+                cm = self.engine.begin()
+                conn = await to_thread.run_sync(cm.__enter__)
+                exit_stack.enter_context(CancelScope(shield=True))
+                exit_stack.push_async_exit(partial(to_thread.run_sync, cm.__exit__))
+
+            yield conn
 
     async def _create_metadata(self, conn: Connection | AsyncConnection) -> None:
         if isinstance(conn, AsyncConnection):
@@ -239,7 +241,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             "tasks",
             metadata,
             Column("id", Unicode(500), primary_key=True),
-            Column("func", Unicode(500), nullable=False),
+            Column("func", Unicode(500)),
             Column("job_executor", Unicode(500), nullable=False),
             Column("max_running_jobs", Integer),
             Column("misfire_grace_time", interval_type),
@@ -366,7 +368,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     async def add_task(self, task: Task) -> None:
         insert = self._t_tasks.insert().values(
             id=task.id,
-            func=callable_to_ref(task.func),
+            func=task.func,
             job_executor=task.job_executor,
             max_running_jobs=task.max_running_jobs,
             misfire_grace_time=task.misfire_grace_time,
@@ -380,7 +382,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             update = (
                 self._t_tasks.update()
                 .values(
-                    func=callable_to_ref(task.func),
+                    func=task.func,
                     job_executor=task.job_executor,
                     max_running_jobs=task.max_running_jobs,
                     misfire_grace_time=task.misfire_grace_time,
@@ -768,7 +770,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         # Publish the appropriate events
         for job in acquired_jobs:
             await self._event_broker.publish(
-                JobAcquired(job_id=job.id, worker_id=worker_id)
+                JobAcquired(job_id=job.id, scheduler_id=worker_id)
             )
 
         return acquired_jobs
