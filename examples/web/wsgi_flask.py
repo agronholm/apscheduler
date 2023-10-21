@@ -2,7 +2,7 @@
 Example demonstrating use with WSGI (raw WSGI application, no framework).
 
 Requires the "postgresql" and "redis" services to be running.
-To install prerequisites: pip install sqlalchemy psycopg2 flask uwsgi
+To install prerequisites: pip install sqlalchemy psycopg flask uwsgi
 To run: uwsgi -T --http :8000 --wsgi-file wsgi_flask.py
 
 It should print a line on the console on a one-second interval while running a
@@ -33,7 +33,7 @@ def hello_world():
     return "<p>Hello, World!</p>"
 
 
-engine = create_engine("postgresql+psycopg2://postgres:secret@localhost/testdb")
+engine = create_engine("postgresql+psycopg://postgres:secret@localhost/testdb")
 data_store = SQLAlchemyDataStore(engine)
 event_broker = RedisEventBroker.from_url("redis://localhost")
 scheduler = Scheduler(data_store, event_broker)
