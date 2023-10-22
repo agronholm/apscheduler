@@ -10,6 +10,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   (this breaks data store compatibility)
 - **BREAKING** Switched to using the timezone aware timestamp column type on Oracle
 - **BREAKING** Fixed precision issue with interval columns on MySQL
+- **BREAKING** Worked around datetime microsecond precision issue on MongoDB
 - Fixed out of order delivery of events delivered using worker threads
 
 **4.0.0a3**

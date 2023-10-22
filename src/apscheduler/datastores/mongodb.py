@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import operator
 from collections import defaultdict
+from collections.abc import Mapping
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, ClassVar, Iterable
@@ -53,6 +54,31 @@ class CustomEncoder(TypeEncoder):
         return self._encoder(value)
 
 
+def marshal_timestamp(timestamp: datetime, key: str) -> Mapping[str, Any]:
+    return {
+        key: timestamp.timestamp(),
+        key + "_utcoffset": timestamp.utcoffset().total_seconds() // 60,
+    }
+
+
+def marshal_document(document: dict[str, Any]) -> None:
+    if "id" in document:
+        document["_id"] = document.pop("id")
+
+    for key, value in list(document.items()):
+        if isinstance(value, datetime):
+            document.update(marshal_timestamp(document[key], key))
+
+
+def unmarshal_timestamps(document: dict[str, Any]) -> None:
+    for key in list(document):
+        if key.endswith("_utcoffset"):
+            offset = timedelta(seconds=document.pop(key) * 60)
+            tzinfo = timezone(offset)
+            time_micro = document[key[:-10]]
+            document[key[:-10]] = datetime.fromtimestamp(time_micro, tzinfo)
+
+
 @attrs.define(eq=False)
 class MongoDBDataStore(BaseExternalDataStore):
     """
@@ -66,6 +92,10 @@ class MongoDBDataStore(BaseExternalDataStore):
 
     :param client: a PyMongo client
     :param database: name of the database to use
+
+    .. note:: Datetimes are stored as integers along with their UTC offsets instead of
+        BSON datetimes due to the BSON datetimes only being accurate to the millisecond
+        while Python datetimes are accurate to the microsecond.
     """
 
     client: MongoClient = attrs.field(validator=instance_of(MongoClient))
@@ -95,7 +125,6 @@ class MongoDBDataStore(BaseExternalDataStore):
             ]
         )
         codec_options = CodecOptions(
-            tz_aware=True,
             type_registry=type_registry,
             uuid_representation=UuidRepresentation.STANDARD,
         )
@@ -204,6 +233,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                 cursor = self._schedules.find(filters).sort("_id")
                 for document in cursor:
                     document["id"] = document.pop("_id")
+                    unmarshal_timestamps(document)
                     try:
                         schedule = Schedule.unmarshal(self.serializer, document)
                     except DeserializationError:
@@ -221,7 +251,7 @@ class MongoDBDataStore(BaseExternalDataStore):
     ) -> None:
         event: DataStoreEvent
         document = schedule.marshal(self.serializer)
-        document["_id"] = document.pop("id")
+        marshal_document(document)
         try:
             async for attempt in self._retry():
                 with attempt:
@@ -264,7 +294,7 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt, self.client.start_session() as session:
                 schedules: list[Schedule] = []
-                now = datetime.now(timezone.utc)
+                now = datetime.now(timezone.utc).timestamp()
                 cursor = (
                     self._schedules.find(
                         {
@@ -281,6 +311,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                 )
                 for document in cursor:
                     document["id"] = document.pop("_id")
+                    unmarshal_timestamps(document)
                     schedule = Schedule.unmarshal(self.serializer, document)
                     schedules.append(schedule)
 
@@ -291,7 +322,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                     update = {
                         "$set": {
                             "acquired_by": scheduler_id,
-                            "acquired_until": acquired_until,
+                            **marshal_timestamp(acquired_until, "acquired_until"),
                         }
                     }
                     self._schedules.update_many(filters, update, session=session)
@@ -324,10 +355,11 @@ class MongoDBDataStore(BaseExternalDataStore):
                     "$unset": {
                         "acquired_by": True,
                         "acquired_until": True,
+                        "acquired_until_utcoffset": True,
                     },
                     "$set": {
                         "trigger": serialized_trigger,
-                        "next_fire_time": schedule.next_fire_time,
+                        **marshal_timestamp(schedule.next_fire_time, "next_fire_time"),
                     },
                 }
                 requests.append(UpdateOne(filters, update))
@@ -357,18 +389,19 @@ class MongoDBDataStore(BaseExternalDataStore):
             with attempt:
                 document = self._schedules.find_one(
                     {"next_fire_time": {"$ne": None}},
-                    projection=["next_fire_time"],
+                    projection=["next_fire_time", "next_fire_time_utcoffset"],
                     sort=[("next_fire_time", ASCENDING)],
                 )
 
         if document:
+            unmarshal_timestamps(document)
             return document["next_fire_time"]
         else:
             return None
 
     async def add_job(self, job: Job) -> None:
         document = job.marshal(self.serializer)
-        document["_id"] = document.pop("id")
+        marshal_document(document)
         async for attempt in self._retry():
             with attempt:
                 self._jobs.insert_one(document)
@@ -388,6 +421,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                 cursor = self._jobs.find(filters).sort("_id")
                 for document in cursor:
                     document["id"] = document.pop("_id")
+                    unmarshal_timestamps(document)
                     try:
                         job = Job.unmarshal(self.serializer, document)
                     except DeserializationError:
@@ -403,11 +437,12 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
         async for attempt in self._retry():
             with attempt, self.client.start_session() as session:
+                now = datetime.now(timezone.utc)
                 cursor = self._jobs.find(
                     {
                         "$or": [
                             {"acquired_until": {"$exists": False}},
-                            {"acquired_until": {"$lt": datetime.now(timezone.utc)}},
+                            {"acquired_until": {"$lt": now.timestamp()}},
                         ]
                     },
                     sort=[("created_at", ASCENDING)],
@@ -433,6 +468,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                 increments: dict[str, int] = defaultdict(lambda: 0)
                 for document in documents:
                     document["id"] = document.pop("_id")
+                    unmarshal_timestamps(document)
                     job = Job.unmarshal(self.serializer, document)
 
                     # Don't acquire the job if there are no free slots left
@@ -454,7 +490,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                     update = {
                         "$set": {
                             "acquired_by": worker_id,
-                            "acquired_until": acquired_until,
+                            **marshal_timestamp(acquired_until, "acquired_until"),
                         }
                     }
                     self._jobs.update_many(filters, update, session=session)
@@ -484,6 +520,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                 if result.expires_at > result.finished_at:
                     document = result.marshal(self.serializer)
                     document["_id"] = document.pop("job_id")
+                    marshal_document(document)
                     self._jobs_results.insert_one(document, session=session)
 
                 # Decrement the running jobs counter
@@ -501,6 +538,7 @@ class MongoDBDataStore(BaseExternalDataStore):
 
         if document:
             document["job_id"] = document.pop("_id")
+            unmarshal_timestamps(document)
             return JobResult.unmarshal(self.serializer, document)
         else:
             return None
