@@ -15,6 +15,7 @@ import tenacity
 from anyio import to_thread
 from sqlalchemy import (
     TIMESTAMP,
+    BigInteger,
     Column,
     Delete,
     Enum,
@@ -85,6 +86,21 @@ class EmulatedTimestampTZ(TypeDecorator[datetime]):
         self, value: str | None, dialect: Dialect
     ) -> datetime | None:
         return datetime.fromisoformat(value) if value is not None else None
+
+
+class EmulatedInterval(TypeDecorator[timedelta]):
+    impl = BigInteger()
+    cache_ok = True
+
+    def process_bind_param(
+        self, value: timedelta | None, dialect: Dialect
+    ) -> str | None:
+        return value.total_seconds() * 1000000 if value is not None else None
+
+    def process_result_value(
+        self, value: int | None, dialect: Dialect
+    ) -> timedelta | None:
+        return timedelta(seconds=value / 1000000) if value is not None else None
 
 
 @attrs.define(eq=False)
@@ -212,6 +228,11 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         else:
             timestamp_type = EmulatedTimestampTZ()
 
+        if self.engine.dialect.name == "postgresql":
+            interval_type = Interval(second_precision=6)
+        else:
+            interval_type = EmulatedInterval()
+
         metadata = MetaData(schema=self.schema)
         Table("metadata", metadata, Column("schema_version", Integer, nullable=False))
         Table(
@@ -221,7 +242,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("func", Unicode(500), nullable=False),
             Column("job_executor", Unicode(500), nullable=False),
             Column("max_running_jobs", Integer),
-            Column("misfire_grace_time", Interval(second_precision=6)),
+            Column("misfire_grace_time", interval_type),
             Column("running_jobs", Integer, nullable=False, server_default=literal(0)),
         )
         Table(
@@ -233,8 +254,8 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("args", LargeBinary),
             Column("kwargs", LargeBinary),
             Column("coalesce", Enum(CoalescePolicy), nullable=False),
-            Column("misfire_grace_time", Interval(second_precision=6)),
-            Column("max_jitter", Interval(second_precision=6)),
+            Column("misfire_grace_time", interval_type),
+            Column("max_jitter", interval_type),
             Column("next_fire_time", timestamp_type, index=True),
             Column("last_fire_time", timestamp_type),
             Column("acquired_by", Unicode(500)),
@@ -249,9 +270,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("kwargs", LargeBinary, nullable=False),
             Column("schedule_id", Unicode(500)),
             Column("scheduled_fire_time", timestamp_type),
-            Column("jitter", Interval(second_precision=6)),
+            Column("jitter", interval_type),
             Column("start_deadline", timestamp_type),
-            Column("result_expiration_time", Interval(second_precision=6)),
+            Column("result_expiration_time", interval_type),
             Column("created_at", timestamp_type, nullable=False),
             Column("started_at", timestamp_type),
             Column("acquired_by", Unicode(500)),
