@@ -37,8 +37,8 @@ repos:
         additional_dependencies:
           - attrs == 23.1.0
           - redis == 5.0.1
-          - sqlalchemy == 2.0.21
-          - types-tzlocal == 5.1.0.0
+          - sqlalchemy == 2.0.23
+          - tzlocal == 5.2
         exclude: docs/conf.py
         stages: [manual]
 
