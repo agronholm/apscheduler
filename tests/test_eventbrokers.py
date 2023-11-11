@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from contextlib import AsyncExitStack
 from datetime import datetime, timezone
 
@@ -10,6 +11,11 @@ from anyio import CancelScope, create_memory_object_stream, fail_after
 from apscheduler import Event, ScheduleAdded
 from apscheduler.abc import EventBroker
 
+if sys.version_info >= (3, 11):
+    from datetime import UTC
+else:
+    UTC = timezone.utc
+
 pytestmark = pytest.mark.anyio
 
 
@@ -19,7 +25,8 @@ async def test_publish_subscribe(event_broker: EventBroker) -> None:
     event_broker.subscribe(send.send_nowait)
     event = ScheduleAdded(
         schedule_id="schedule1",
-        next_fire_time=datetime(2021, 9, 11, 12, 31, 56, 254867, timezone.utc),
+        task_id="task1",
+        next_fire_time=datetime(2021, 9, 11, 12, 31, 56, 254867, UTC),
     )
     await event_broker.publish(event)
 
@@ -31,9 +38,8 @@ async def test_publish_subscribe(event_broker: EventBroker) -> None:
     assert isinstance(event1, ScheduleAdded)
     assert isinstance(event1.timestamp, datetime)
     assert event1.schedule_id == "schedule1"
-    assert event1.next_fire_time == datetime(
-        2021, 9, 11, 12, 31, 56, 254867, timezone.utc
-    )
+    assert event1.task_id == "task1"
+    assert event1.next_fire_time == datetime(2021, 9, 11, 12, 31, 56, 254867, UTC)
 
 
 async def test_subscribe_one_shot(event_broker: EventBroker) -> None:
@@ -41,12 +47,14 @@ async def test_subscribe_one_shot(event_broker: EventBroker) -> None:
     event_broker.subscribe(send.send, one_shot=True)
     event = ScheduleAdded(
         schedule_id="schedule1",
-        next_fire_time=datetime(2021, 9, 11, 12, 31, 56, 254867, timezone.utc),
+        task_id="task1",
+        next_fire_time=datetime(2021, 9, 11, 12, 31, 56, 254867, UTC),
     )
     await event_broker.publish(event)
     event = ScheduleAdded(
         schedule_id="schedule2",
-        next_fire_time=datetime(2021, 9, 12, 8, 42, 11, 968481, timezone.utc),
+        task_id="task1",
+        next_fire_time=datetime(2021, 9, 12, 8, 42, 11, 968481, UTC),
     )
     await event_broker.publish(event)
 
@@ -58,6 +66,7 @@ async def test_subscribe_one_shot(event_broker: EventBroker) -> None:
 
     assert isinstance(received_event, ScheduleAdded)
     assert received_event.schedule_id == "schedule1"
+    assert received_event.task_id == "task1"
 
 
 async def test_unsubscribe(event_broker: EventBroker) -> None:
@@ -73,16 +82,20 @@ async def test_unsubscribe(event_broker: EventBroker) -> None:
         await receive.receive()
 
 
-async def test_publish_no_subscribers(event_broker, caplog: LogCaptureFixture) -> None:
+async def test_publish_no_subscribers(
+    event_broker: EventBroker, caplog: LogCaptureFixture
+) -> None:
     await event_broker.publish(Event())
     assert not caplog.text
 
 
-async def test_publish_exception(event_broker, caplog: LogCaptureFixture) -> None:
+async def test_publish_exception(
+    event_broker: EventBroker, caplog: LogCaptureFixture
+) -> None:
     def bad_subscriber(event: Event) -> None:
         raise Exception("foo")
 
-    timestamp = datetime.now(timezone.utc)
+    timestamp = datetime.now(UTC)
     send, receive = create_memory_object_stream()
     event_broker.subscribe(bad_subscriber)
     event_broker.subscribe(send.send)

@@ -18,7 +18,6 @@ from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
     Column,
-    Delete,
     Enum,
     Integer,
     Interval,
@@ -44,7 +43,6 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_en
 from sqlalchemy.future import Connection, Engine
 from sqlalchemy.sql import Executable
 from sqlalchemy.sql.ddl import DropTable
-from sqlalchemy.sql.dml import ReturningDelete
 from sqlalchemy.sql.elements import BindParameter, literal
 from sqlalchemy.sql.type_api import TypeEngine
 
@@ -473,12 +471,16 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             await self._execute(conn, update)
 
                 event = ScheduleUpdated(
-                    schedule_id=schedule.id, next_fire_time=schedule.next_fire_time
+                    schedule_id=schedule.id,
+                    task_id=schedule.task_id,
+                    next_fire_time=schedule.next_fire_time,
                 )
                 await self._event_broker.publish(event)
         else:
             event = ScheduleAdded(
-                schedule_id=schedule.id, next_fire_time=schedule.next_fire_time
+                schedule_id=schedule.id,
+                task_id=schedule.task_id,
+                next_fire_time=schedule.next_fire_time,
             )
             await self._event_broker.publish(event)
 
@@ -486,24 +488,37 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
-                    delete: Delete | ReturningDelete[
-                        Any
-                    ] = self._t_schedules.delete().where(
-                        self._t_schedules.c.id.in_(ids)
-                    )
                     if self._supports_update_returning:
-                        delete_returning = delete.returning(self._t_schedules.c.id)
-                        removed_ids: Iterable[str] = [
-                            row[0]
+                        delete_returning = (
+                            self._t_schedules.delete()
+                            .where(self._t_schedules.c.id.in_(ids))
+                            .returning(
+                                self._t_schedules.c.id, self._t_schedules.c.task_id
+                            )
+                        )
+                        removed_ids: list[tuple[str, str]] = [
+                            (row[0], row[1])
                             for row in await self._execute(conn, delete_returning)
                         ]
                     else:
-                        # TODO: actually check which rows were deleted?
-                        await self._execute(conn, delete)
-                        removed_ids = ids
+                        query = select(
+                            self._t_schedules.c.id, self._t_schedules.c.task_id
+                        ).where(self._t_schedules.c.id.in_(ids))
+                        ids_to_remove: list[str] = []
+                        removed_ids = []
+                        for schedule_id, task_id in await self._execute(conn, query):
+                            ids_to_remove.append(schedule_id)
+                            removed_ids.append((schedule_id, task_id))
 
-        for schedule_id in removed_ids:
-            await self._event_broker.publish(ScheduleRemoved(schedule_id=schedule_id))
+                        delete = self._t_schedules.delete().where(
+                            self._t_schedules.c.id.in_(ids_to_remove)
+                        )
+                        await self._execute(conn, delete)
+
+        for schedule_id, task_id in removed_ids:
+            await self._event_broker.publish(
+                ScheduleRemoved(schedule_id=schedule_id, task_id=task_id)
+            )
 
     async def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
         query = self._t_schedules.select().order_by(self._t_schedules.c.id)
@@ -563,6 +578,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     async def release_schedules(
         self, scheduler_id: str, schedules: list[Schedule]
     ) -> None:
+        task_ids = {schedule.id: schedule.task_id for schedule in schedules}
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
@@ -624,6 +640,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         for schedule_id in updated_ids:
                             event = ScheduleUpdated(
                                 schedule_id=schedule_id,
+                                task_id=task_ids[schedule_id],
                                 next_fire_time=next_fire_times[schedule_id],
                             )
                             update_events.append(event)
@@ -640,7 +657,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             await self._event_broker.publish(event)
 
         for schedule_id in finished_schedule_ids:
-            await self._event_broker.publish(ScheduleRemoved(schedule_id=schedule_id))
+            await self._event_broker.publish(
+                ScheduleRemoved(schedule_id=schedule_id, task_id=task_ids[schedule_id])
+            )
 
     async def get_next_schedule_run_time(self) -> datetime | None:
         statenent = (

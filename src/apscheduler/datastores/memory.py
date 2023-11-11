@@ -171,11 +171,15 @@ class MemoryDataStore(BaseDataStore):
 
         if old_state is not None:
             event = ScheduleUpdated(
-                schedule_id=schedule.id, next_fire_time=schedule.next_fire_time
+                schedule_id=schedule.id,
+                task_id=schedule.task_id,
+                next_fire_time=schedule.next_fire_time,
             )
         else:
             event = ScheduleAdded(
-                schedule_id=schedule.id, next_fire_time=schedule.next_fire_time
+                schedule_id=schedule.id,
+                task_id=schedule.task_id,
+                next_fire_time=schedule.next_fire_time,
             )
 
         await self._event_broker.publish(event)
@@ -185,7 +189,9 @@ class MemoryDataStore(BaseDataStore):
             state = self._schedules_by_id.pop(schedule_id, None)
             if state:
                 self._schedules.remove(state)
-                event = ScheduleRemoved(schedule_id=state.schedule.id)
+                event = ScheduleRemoved(
+                    schedule_id=state.schedule.id, task_id=state.schedule.task_id
+                )
                 await self._event_broker.publish(event)
 
     async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
@@ -227,7 +233,7 @@ class MemoryDataStore(BaseDataStore):
                 schedule_state.acquired_until = None
                 insort_right(self._schedules, schedule_state)
                 event = ScheduleUpdated(
-                    schedule_id=s.id, next_fire_time=s.next_fire_time
+                    schedule_id=s.id, task_id=s.task_id, next_fire_time=s.next_fire_time
                 )
                 await self._event_broker.publish(event)
             else:

@@ -13,6 +13,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** Worked around datetime microsecond precision issue on MongoDB
 - **BREAKING** Renamed the ``worker_id`` field to ``scheduler_id`` in the
   ``JobAcquired`` and ``JobReleased`` events
+- **BREAKING** Added the ``task_id`` attribute to the ``ScheduleAdded``,
+  ``ScheduleUpdated`` and ``ScheduleRemoved`` events
 - Added the ``configure_task()`` and ``get_tasks()`` scheduler methods
 - Fixed out of order delivery of events delivered using worker threads
 - Fixed schedule processing not setting job start deadlines correctly

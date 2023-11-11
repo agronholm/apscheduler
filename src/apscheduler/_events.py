@@ -94,10 +94,12 @@ class ScheduleAdded(DataStoreEvent):
     Signals that a new schedule was added to the store.
 
     :ivar schedule_id: ID of the schedule that was added
+    :ivar task_id: ID of the task the schedule belongs to
     :ivar next_fire_time: the first run time calculated for the schedule
     """
 
     schedule_id: str
+    task_id: str
     next_fire_time: datetime | None = attrs.field(converter=optional(as_aware_datetime))
 
 
@@ -107,10 +109,12 @@ class ScheduleUpdated(DataStoreEvent):
     Signals that a schedule has been updated in the store.
 
     :ivar schedule_id: ID of the schedule that was updated
+    :ivar task_id: ID of the task the schedule belongs to
     :ivar next_fire_time: the next time the schedule will run
     """
 
     schedule_id: str
+    task_id: str
     next_fire_time: datetime | None = attrs.field(converter=optional(as_aware_datetime))
 
 
@@ -120,9 +124,11 @@ class ScheduleRemoved(DataStoreEvent):
     Signals that a schedule was removed from the store.
 
     :ivar schedule_id: ID of the schedule that was removed
+    :ivar task_id: ID of the task the schedule belongs to
     """
 
     schedule_id: str
+    task_id: str
 
 
 @attrs.define(kw_only=True, frozen=True)
@@ -146,10 +152,12 @@ class JobRemoved(DataStoreEvent):
     Signals that a job was removed from the store.
 
     :ivar job_id: ID of the job that was removed
+    :ivar task_id: ID of the task the job would have run
 
     """
 
     job_id: UUID = attrs.field(converter=as_uuid)
+    task_id: str
 
 
 @attrs.define(kw_only=True, frozen=True)

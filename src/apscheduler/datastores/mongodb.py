@@ -267,12 +267,16 @@ class MongoDBDataStore(BaseExternalDataStore):
                         )
 
                 event = ScheduleUpdated(
-                    schedule_id=schedule.id, next_fire_time=schedule.next_fire_time
+                    schedule_id=schedule.id,
+                    task_id=schedule.task_id,
+                    next_fire_time=schedule.next_fire_time,
                 )
                 await self._event_broker.publish(event)
         else:
             event = ScheduleAdded(
-                schedule_id=schedule.id, next_fire_time=schedule.next_fire_time
+                schedule_id=schedule.id,
+                task_id=schedule.task_id,
+                next_fire_time=schedule.next_fire_time,
             )
             await self._event_broker.publish(event)
 
@@ -281,14 +285,16 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt, self.client.start_session() as session:
                 cursor = self._schedules.find(
-                    filters, projection=["_id"], session=session
+                    filters, projection=["_id", "task_id"], session=session
                 )
-                ids = [doc["_id"] for doc in cursor]
+                ids = [(doc["_id"], doc["task_id"]) for doc in cursor]
                 if ids:
                     self._schedules.delete_many(filters, session=session)
 
-        for schedule_id in ids:
-            await self._event_broker.publish(ScheduleRemoved(schedule_id=schedule_id))
+        for schedule_id, task_id in ids:
+            await self._event_broker.publish(
+                ScheduleRemoved(schedule_id=schedule_id, task_id=task_id)
+            )
 
     async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
         async for attempt in self._retry():
@@ -334,6 +340,7 @@ class MongoDBDataStore(BaseExternalDataStore):
     ) -> None:
         updated_schedules: list[tuple[str, datetime]] = []
         finished_schedule_ids: list[str] = []
+        task_ids = {schedule.id: schedule.task_id for schedule in schedules}
 
         # Update schedules that have a next fire time
         requests = []
@@ -377,12 +384,16 @@ class MongoDBDataStore(BaseExternalDataStore):
 
         for schedule_id, next_fire_time in updated_schedules:
             event = ScheduleUpdated(
-                schedule_id=schedule_id, next_fire_time=next_fire_time
+                schedule_id=schedule_id,
+                task_id=task_ids[schedule_id],
+                next_fire_time=next_fire_time,
             )
             await self._event_broker.publish(event)
 
         for schedule_id in finished_schedule_ids:
-            await self._event_broker.publish(ScheduleRemoved(schedule_id=schedule_id))
+            await self._event_broker.publish(
+                ScheduleRemoved(schedule_id=schedule_id, task_id=task_ids[schedule_id])
+            )
 
     async def get_next_schedule_run_time(self) -> datetime | None:
         async for attempt in self._retry():

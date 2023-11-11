@@ -117,6 +117,7 @@ async def test_add_schedules(datastore: DataStore, schedules: list[Schedule]) ->
 
     for event, schedule in zip(events, schedules):
         assert event.schedule_id == schedule.id
+        assert event.task_id == schedule.task_id
         assert event.next_fire_time == schedule.next_fire_time
 
 
@@ -151,6 +152,7 @@ async def test_replace_schedules(
 
     received_event = events.pop(0)
     assert received_event.schedule_id == "s3"
+    assert received_event.task_id == "foo"
     assert received_event.next_fire_time == datetime(2020, 9, 16, tzinfo=timezone.utc)
     assert not events
 
