@@ -140,7 +140,7 @@ class EventBroker(metaclass=ABCMeta):
             published
         :param event_types: an iterable of concrete Event classes to subscribe to
         :param is_async: ``True`` if the (synchronous) callback should be called on the
-            event loop thread, ``False`` if it should be called in a worker thread.
+            event loop thread, ``False`` if it should be called in a scheduler thread.
             If the callback is a coroutine function, this flag is ignored.
         :param one_shot: if ``True``, automatically unsubscribe after the first matching
             event
@@ -159,8 +159,8 @@ class DataStore(metaclass=ABCMeta):
 
         :param exit_stack: an asynchronous exit stack which will be processed when the
             scheduler is shut down
-        :param event_broker: the event broker shared between the scheduler, worker (if
-            any) and this data store
+        :param event_broker: the event broker shared between the scheduler, scheduler
+            (if any) and this data store
         """
 
     @abstractmethod
@@ -265,7 +265,7 @@ class DataStore(metaclass=ABCMeta):
     @abstractmethod
     async def add_job(self, job: Job) -> None:
         """
-        Add a job to be executed by an eligible worker.
+        Add a job to be executed by an eligible scheduler.
 
         :param job: the job object
         """
@@ -277,30 +277,32 @@ class DataStore(metaclass=ABCMeta):
 
         :param ids: a specific set of job IDs to return, or ``None`` to return all jobs
         :return: the list of matching pending jobs, in the order they will be given to
-            workers
+            schedulers
         """
 
     @abstractmethod
-    async def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
+    async def acquire_jobs(
+        self, scheduler_id: str, limit: int | None = None
+    ) -> list[Job]:
         """
         Acquire unclaimed jobs for execution.
 
-        This method claims up to the requested number of jobs for the given worker and
-        returns them.
+        This method claims up to the requested number of jobs for the given scheduler
+        and returns them.
 
-        :param worker_id: unique identifier of the worker
+        :param scheduler_id: unique identifier of the scheduler
         :param limit: maximum number of jobs to claim and return
         :return: the list of claimed jobs
         """
 
     @abstractmethod
     async def release_job(
-        self, worker_id: str, task_id: str, result: JobResult
+        self, scheduler_id: str, task_id: str, result: JobResult
     ) -> None:
         """
         Release the claim on the given job and record the result.
 
-        :param worker_id: unique identifier of the worker
+        :param scheduler_id: unique identifier of the scheduler
         :param task_id: the job's task ID
         :param result: the result of the job
         """
