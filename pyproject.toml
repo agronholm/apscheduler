@@ -59,12 +59,12 @@ test = [
     "psycopg",
     "pymongo >= 4",
     "pymysql[rsa]",
-    "PySide6 >= 6.3; python_implementation == 'CPython' and python_version < '3.12'",
+    "PySide6 >= 6.6; python_implementation == 'CPython'",
     "pytest >= 7.4.0",
     "pytest-freezer",
     "pytest-lazy-fixture",
     "pytest-mock",
-    "uwsgi; python_version < '3.12' and platform_system != 'Windows'",
+    "uwsgi; python_implementation == 'CPython' and platform_system != 'Windows'",
 ]
 doc = [
     "sphinx",
