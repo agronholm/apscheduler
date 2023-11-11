@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.11", "3.12", "pypy-3.10"]
+        python-version: ["3.8", "3.9", "3.11", "3.12"]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -34,6 +34,23 @@ jobs:
       with:
         parallel: true
         file: coverage.xml
+
+  test-pypy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: pypy-3.10
+        cache: pip
+        cache-dependency-path: pyproject.toml
+    - name: Start external services
+      run: docker compose up -d
+    - name: Install the project and its dependencies
+      run: pip install -e .[test]
+    - name: Test with pytest
+      run: pytest
 
   test-others:
     strategy:
