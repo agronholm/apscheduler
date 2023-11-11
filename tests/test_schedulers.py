@@ -868,9 +868,12 @@ class TestSyncScheduler:
         platform.python_implementation() != "CPython",
         reason="May not work on other Python implementations",
     )
+    @pytest.mark.skipif(
+        platform.system() != "Windows",
+        reason="uWSGI won't install on Windows",
+    )
     def test_uwsgi_threads_error_subprocess(self) -> None:
-        prefix = ".exe" if platform.platform() == "Windows" else ""
-        uwsgi_path = Path(sysconfig.get_path("scripts")) / f"uwsgi{prefix}"
+        uwsgi_path = Path(sysconfig.get_path("scripts")) / "uwsgi"
         if not uwsgi_path.is_file():
             pytest.skip("uwgsi is not installed")
 

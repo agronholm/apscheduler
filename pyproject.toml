@@ -64,7 +64,7 @@ test = [
     "pytest-freezer",
     "pytest-lazy-fixture",
     "pytest-mock",
-    "uwsgi; python_version < '3.12'",
+    "uwsgi; python_version < '3.12' and platform_system != 'Windows'",
 ]
 doc = [
     "sphinx",
