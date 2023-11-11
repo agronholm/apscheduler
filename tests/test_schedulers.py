@@ -862,6 +862,10 @@ class TestSyncScheduler:
         ):
             Scheduler().start_in_background()
 
+    @pytest.mark.skipif(
+        platform.python_implementation() != "CPython",
+        reason="May not work on other Python implementations",
+    )
     def test_uwsgi_threads_error_subprocess(self) -> None:
         prefix = ".exe" if platform.platform() == "Windows" else ""
         uwsgi_path = Path(sysconfig.get_path("scripts")) / f"uwsgi{prefix}"
