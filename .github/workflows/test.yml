@@ -41,9 +41,6 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
         python-version: ["3.8", "3.12"]
-        exclude:
-        - os: windows-latest
-          python-version: "3.12"  # won't compile psycopg2
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
