@@ -337,7 +337,9 @@ class TestAsyncScheduler:
             ),
             pytest.param(bytes, b"", id="builtin_function"),
             pytest.param(
-                datetime(2023, 10, 19).timestamp, 1697662800.0, id="builtin_method"
+                datetime(2023, 10, 19, tzinfo=UTC).timestamp,
+                1697673600.0,
+                id="builtin_method",
             ),
             pytest.param(partial(bytes, "foo", "ascii"), b"foo", id="partial"),
         ],
