@@ -517,7 +517,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
         for schedule_id, task_id in removed_ids:
             await self._event_broker.publish(
-                ScheduleRemoved(schedule_id=schedule_id, task_id=task_id)
+                ScheduleRemoved(
+                    schedule_id=schedule_id, task_id=task_id, finished=False
+                )
             )
 
     async def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
@@ -658,7 +660,11 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
         for schedule_id in finished_schedule_ids:
             await self._event_broker.publish(
-                ScheduleRemoved(schedule_id=schedule_id, task_id=task_ids[schedule_id])
+                ScheduleRemoved(
+                    schedule_id=schedule_id,
+                    task_id=task_ids[schedule_id],
+                    finished=True,
+                )
             )
 
     async def get_next_schedule_run_time(self) -> datetime | None:

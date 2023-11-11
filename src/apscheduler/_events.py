@@ -125,10 +125,13 @@ class ScheduleRemoved(DataStoreEvent):
 
     :ivar schedule_id: ID of the schedule that was removed
     :ivar task_id: ID of the task the schedule belongs to
+    :ivar finished: ``True`` if the schedule was removed automatically because its
+        trigger had no more fire times left
     """
 
     schedule_id: str
     task_id: str
+    finished: bool
 
 
 @attrs.define(kw_only=True, frozen=True)

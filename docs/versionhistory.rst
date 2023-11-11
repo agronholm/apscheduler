@@ -15,6 +15,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   ``JobAcquired`` and ``JobReleased`` events
 - **BREAKING** Added the ``task_id`` attribute to the ``ScheduleAdded``,
   ``ScheduleUpdated`` and ``ScheduleRemoved`` events
+- **BREAKING** Added the ``finished`` attribute to the ``ScheduleRemoved`` event
 - Added the ``configure_task()`` and ``get_tasks()`` scheduler methods
 - Fixed out of order delivery of events delivered using worker threads
 - Fixed schedule processing not setting job start deadlines correctly

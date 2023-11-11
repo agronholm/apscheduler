@@ -226,6 +226,7 @@ class TestAsyncScheduler:
             assert isinstance(event, ScheduleRemoved)
             assert event.schedule_id == "foo"
             assert event.task_id == f"{__name__}:dummy_async_job"
+            assert not event.finished
 
     async def test_add_job_wait_result(self, raw_datastore: DataStore) -> None:
         send, receive = create_memory_object_stream[Event](2)
@@ -408,6 +409,7 @@ class TestAsyncScheduler:
                 event = await receive.receive()
                 assert isinstance(event, ScheduleRemoved)
                 assert event.schedule_id == "foo"
+                assert event.finished
 
                 # The new job was acquired
                 event = await receive.receive()
@@ -773,6 +775,7 @@ class TestSyncScheduler:
         event = queue.get(timeout=1)
         assert isinstance(event, ScheduleRemoved)
         assert event.schedule_id == "foo"
+        assert not event.finished
 
     def test_add_job_wait_result(self) -> None:
         queue = Queue()

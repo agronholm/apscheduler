@@ -293,7 +293,9 @@ class MongoDBDataStore(BaseExternalDataStore):
 
         for schedule_id, task_id in ids:
             await self._event_broker.publish(
-                ScheduleRemoved(schedule_id=schedule_id, task_id=task_id)
+                ScheduleRemoved(
+                    schedule_id=schedule_id, task_id=task_id, finished=False
+                )
             )
 
     async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
@@ -392,7 +394,11 @@ class MongoDBDataStore(BaseExternalDataStore):
 
         for schedule_id in finished_schedule_ids:
             await self._event_broker.publish(
-                ScheduleRemoved(schedule_id=schedule_id, task_id=task_ids[schedule_id])
+                ScheduleRemoved(
+                    schedule_id=schedule_id,
+                    task_id=task_ids[schedule_id],
+                    finished=True,
+                )
             )
 
     async def get_next_schedule_run_time(self) -> datetime | None:

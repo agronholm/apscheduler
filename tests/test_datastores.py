@@ -218,6 +218,7 @@ async def test_acquire_release_schedules(
     received_event = events.pop(0)
     assert isinstance(received_event, ScheduleRemoved)
     assert received_event.schedule_id == "s1"
+    assert received_event.finished
 
     received_event = events.pop(0)
     assert isinstance(received_event, ScheduleUpdated)

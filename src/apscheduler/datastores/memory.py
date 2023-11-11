@@ -184,13 +184,17 @@ class MemoryDataStore(BaseDataStore):
 
         await self._event_broker.publish(event)
 
-    async def remove_schedules(self, ids: Iterable[str]) -> None:
+    async def remove_schedules(
+        self, ids: Iterable[str], *, finished: bool = False
+    ) -> None:
         for schedule_id in ids:
             state = self._schedules_by_id.pop(schedule_id, None)
             if state:
                 self._schedules.remove(state)
                 event = ScheduleRemoved(
-                    schedule_id=state.schedule.id, task_id=state.schedule.task_id
+                    schedule_id=state.schedule.id,
+                    task_id=state.schedule.task_id,
+                    finished=finished,
                 )
                 await self._event_broker.publish(event)
 
@@ -240,7 +244,7 @@ class MemoryDataStore(BaseDataStore):
                 finished_schedule_ids.append(s.id)
 
         # Remove schedules that didn't get a new next fire time
-        await self.remove_schedules(finished_schedule_ids)
+        await self.remove_schedules(finished_schedule_ids, finished=True)
 
     async def get_next_schedule_run_time(self) -> datetime | None:
         return self._schedules[0].next_fire_time if self._schedules else None
