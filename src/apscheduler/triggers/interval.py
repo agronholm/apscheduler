@@ -5,7 +5,6 @@ from typing import Any
 
 import attrs
 
-from .._marshalling import marshal_date, unmarshal_date
 from .._validators import as_aware_datetime, require_state_version
 from ..abc import Trigger
 
@@ -83,9 +82,9 @@ class IntervalTrigger(Trigger):
                 self.seconds,
                 self.microseconds,
             ],
-            "start_time": marshal_date(self.start_time),
-            "end_time": marshal_date(self.end_time),
-            "last_fire_time": marshal_date(self._last_fire_time),
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "last_fire_time": self._last_fire_time,
         }
 
     def __setstate__(self, state: dict[str, Any]) -> None:
@@ -98,9 +97,9 @@ class IntervalTrigger(Trigger):
             self.seconds,
             self.microseconds,
         ) = state["interval"]
-        self.start_time = unmarshal_date(state["start_time"])
-        self.end_time = unmarshal_date(state["end_time"])
-        self._last_fire_time = unmarshal_date(state["last_fire_time"])
+        self.start_time = state["start_time"]
+        self.end_time = state["end_time"]
+        self._last_fire_time = state["last_fire_time"]
         self._interval = timedelta(
             weeks=self.weeks,
             days=self.days,

@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, timedelta, tzinfo
 from json import dumps, loads
 from typing import Any
 from uuid import UUID
 
 import attrs
 
-from .._marshalling import marshal_date, marshal_object, unmarshal_object
+from .._marshalling import (
+    marshal_object,
+    marshal_timezone,
+    unmarshal_object,
+)
 from ..abc import Serializer
 
 
@@ -35,8 +39,12 @@ class JSONSerializer(Serializer):
         self.load_options["object_hook"] = self._object_hook
 
     def _default_hook(self, obj):
-        if isinstance(obj, datetime):
-            return marshal_date(obj)
+        if isinstance(obj, date):
+            return obj.isoformat()
+        elif isinstance(obj, timedelta):
+            return obj.total_seconds()
+        elif isinstance(obj, tzinfo):
+            return marshal_timezone(obj)
         elif isinstance(obj, UUID):
             return str(obj)
         elif hasattr(obj, "__getstate__"):
@@ -54,7 +62,7 @@ class JSONSerializer(Serializer):
 
         return obj_state
 
-    def serialize(self, obj) -> bytes:
+    def serialize(self, obj: object) -> bytes:
         return dumps(obj, ensure_ascii=False, **self.dump_options).encode("utf-8")
 
     def deserialize(self, serialized: bytes):

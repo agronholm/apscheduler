@@ -5,12 +5,6 @@ from typing import Any
 
 import attrs
 
-from .._marshalling import (
-    marshal_date,
-    marshal_timezone,
-    unmarshal_date,
-    unmarshal_timezone,
-)
 from .._utils import timezone_repr
 from .._validators import as_date, as_timezone, require_state_version
 from ..abc import Trigger
@@ -126,20 +120,20 @@ class CalendarIntervalTrigger(Trigger):
             "version": 1,
             "interval": [self.years, self.months, self.weeks, self.days],
             "time": [self._time.hour, self._time.minute, self._time.second],
-            "start_date": marshal_date(self.start_date),
-            "end_date": marshal_date(self.end_date),
-            "timezone": marshal_timezone(self.timezone),
-            "last_fire_date": marshal_date(self._last_fire_date),
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+            "timezone": self.timezone,
+            "last_fire_date": self._last_fire_date,
         }
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
         self.years, self.months, self.weeks, self.days = state["interval"]
-        self.start_date = unmarshal_date(state["start_date"])
-        self.end_date = unmarshal_date(state["end_date"])
-        self.timezone = unmarshal_timezone(state["timezone"])
+        self.start_date = state["start_date"]
+        self.end_date = state["end_date"]
+        self.timezone = state["timezone"]
         self._time = time(*state["time"], tzinfo=self.timezone)
-        self._last_fire_date = unmarshal_date(state["last_fire_date"])
+        self._last_fire_date = state["last_fire_date"]
 
     def __repr__(self) -> str:
         fields = []

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import sys
-from datetime import date, datetime, tzinfo
+from datetime import tzinfo
 from functools import partial
 from inspect import isclass, ismethod, ismethoddescriptor
-from typing import Any, Callable, overload
+from typing import Any, Callable
 
 from ._exceptions import DeserializationError, SerializationError
 
@@ -29,39 +29,6 @@ def unmarshal_object(ref: str, state: Any) -> Any:
     instance = cls.__new__(cls)
     instance.__setstate__(state)
     return instance
-
-
-@overload
-def marshal_date(value: None) -> None:
-    ...
-
-
-@overload
-def marshal_date(value: date) -> str:
-    ...
-
-
-def marshal_date(value: date | None) -> str | None:
-    return value.isoformat() if value is not None else None
-
-
-@overload
-def unmarshal_date(value: None) -> None:
-    ...
-
-
-@overload
-def unmarshal_date(value: str) -> date:
-    ...
-
-
-def unmarshal_date(value: str | None) -> date | None:
-    if value is None:
-        return None
-    elif len(value) == 10:
-        return date.fromisoformat(value)
-    else:
-        return datetime.fromisoformat(value)
 
 
 def marshal_timezone(value: tzinfo) -> str:

@@ -6,12 +6,6 @@ from typing import Any, ClassVar, Sequence
 import attrs
 from tzlocal import get_localzone
 
-from ..._marshalling import (
-    marshal_date,
-    marshal_timezone,
-    unmarshal_date,
-    unmarshal_timezone,
-)
 from ..._utils import timezone_repr
 from ..._validators import as_aware_datetime, as_timezone, require_state_version
 from ...abc import Trigger
@@ -236,19 +230,19 @@ class CronTrigger(Trigger):
     def __getstate__(self) -> dict[str, Any]:
         return {
             "version": 1,
-            "timezone": marshal_timezone(self.timezone),
+            "timezone": self.timezone,
             "fields": [str(f) for f in self._fields],
-            "start_time": marshal_date(self.start_time),
-            "end_time": marshal_date(self.end_time),
-            "last_fire_time": marshal_date(self._last_fire_time),
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "last_fire_time": self._last_fire_time,
         }
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
-        self.timezone = unmarshal_timezone(state["timezone"])
-        self.start_time = unmarshal_date(state["start_time"])
-        self.end_time = unmarshal_date(state["end_time"])
-        self._last_fire_time = unmarshal_date(state["last_fire_time"])
+        self.timezone = state["timezone"]
+        self.start_time = state["start_time"]
+        self.end_time = state["end_time"]
+        self._last_fire_time = state["last_fire_time"]
         self._set_fields(state["fields"])
 
     def __repr__(self) -> str:

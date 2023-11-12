@@ -40,7 +40,7 @@ class Trigger(Iterator[datetime], metaclass=ABCMeta):
 
     @abstractmethod
     def __getstate__(self) -> Any:
-        """Return the (JSON compatible) serializable state of the trigger."""
+        """Return the serializable state of the trigger."""
 
     @abstractmethod
     def __setstate__(self, state: Any) -> None:
@@ -63,9 +63,15 @@ class Serializer(metaclass=ABCMeta):
     __slots__ = ()
 
     @abstractmethod
-    def serialize(self, obj: Any) -> bytes:
+    def serialize(self, obj: object) -> bytes:
         """
         Turn the given object into a bytestring.
+
+        Must handle the serialization of at least any JSON type, plus the following:
+
+        * ``datetime.date`` (using :meth:`datetime.date.isoformat`)
+        * ``datetime.timedelta`` (using :meth:`datetime.timedelta.total_seconds`)
+        * ``datetime.tzinfo`` (by extracting the time zone name)
 
         :return: a bytestring that can be later restored using :meth:`deserialize`
         """

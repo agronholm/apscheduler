@@ -41,6 +41,8 @@ Requirements and constraints for trigger classes:
 * :meth:`~abc.Trigger.__setstate__` must accept the return value of
   :meth:`~abc.Trigger.__getstate__` and restore the trigger to the functionally same
   state as the original
+* :meth:`~abc.Trigger.__getstate__` may only return an object containing types
+  serializable by :class:`~abc.Serializer`
 
 Triggers are stateful objects. The :meth:`~abc.Trigger.next` method is where you
 determine the next run time based on the current state of the trigger. The trigger's

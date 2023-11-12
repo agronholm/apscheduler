@@ -23,7 +23,7 @@ class PickleSerializer(Serializer):
 
     protocol: int = 4
 
-    def serialize(self, obj) -> bytes:
+    def serialize(self, obj: object) -> bytes:
         return dumps(obj, self.protocol)
 
     def deserialize(self, serialized: bytes):

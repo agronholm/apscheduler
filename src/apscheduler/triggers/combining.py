@@ -93,14 +93,14 @@ class AndTrigger(BaseCombiningTrigger):
 
     def __getstate__(self) -> dict[str, Any]:
         state = super().__getstate__()
-        state["threshold"] = self.threshold.total_seconds()
+        state["threshold"] = self.threshold
         state["max_iterations"] = self.max_iterations
         return state
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
         super().__setstate__(state)
-        self.threshold = timedelta(seconds=state["threshold"])
+        self.threshold = state["threshold"]
         self.max_iterations = state["max_iterations"]
 
     def __repr__(self) -> str:
