@@ -8,7 +8,7 @@ from types import ModuleType
 import pytest
 
 from apscheduler import SerializationError
-from apscheduler.marshalling import callable_from_ref, callable_to_ref
+from apscheduler._marshalling import callable_from_ref, callable_to_ref
 
 
 class DummyClass:

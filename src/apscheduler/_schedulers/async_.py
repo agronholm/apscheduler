@@ -45,6 +45,7 @@ from .._exceptions import (
     JobLookupError,
     ScheduleLookupError,
 )
+from .._marshalling import callable_from_ref, callable_to_ref
 from .._structures import Job, JobResult, Schedule, Task
 from .._utils import UnsetValue, unset
 from .._validators import non_negative_number
@@ -54,7 +55,6 @@ from ..eventbrokers.local import LocalEventBroker
 from ..executors.async_ import AsyncJobExecutor
 from ..executors.subprocess import ProcessPoolJobExecutor
 from ..executors.thread import ThreadPoolJobExecutor
-from ..marshalling import callable_from_ref, callable_to_ref
 
 if sys.version_info >= (3, 11):
     from typing import Self

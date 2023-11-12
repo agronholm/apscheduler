@@ -7,8 +7,8 @@ from uuid import UUID
 
 import attrs
 
+from .._marshalling import marshal_date, marshal_object, unmarshal_object
 from ..abc import Serializer
-from ..marshalling import marshal_date, marshal_object, unmarshal_object
 
 
 @attrs.define(kw_only=True, eq=False)

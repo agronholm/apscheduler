@@ -5,8 +5,8 @@ from typing import Any
 import attrs
 from cbor2 import CBOREncodeTypeError, CBORTag, dumps, loads
 
+from .._marshalling import marshal_object, unmarshal_object
 from ..abc import Serializer
-from ..marshalling import marshal_object, unmarshal_object
 
 
 @attrs.define(kw_only=True, eq=False)
