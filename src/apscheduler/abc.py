@@ -148,7 +148,12 @@ class EventBroker(metaclass=ABCMeta):
 
 
 class DataStore(metaclass=ABCMeta):
-    """Asynchronous version of :class:`DataStore`. Expected to work on asyncio."""
+    """
+    Interface for data stores.
+
+    Data stores keep track of tasks, schedules and jobs. When these objects change, the
+    data store publishes events to the associated event broker accordingly.
+    """
 
     @abstractmethod
     async def start(
