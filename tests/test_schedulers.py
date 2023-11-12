@@ -192,11 +192,13 @@ class TestAsyncScheduler:
             assert isinstance(event, TaskUpdated)
             assert event.task_id == "mytask"
 
-    async def test_add_remove_schedule(self, raw_datastore: DataStore) -> None:
+    async def test_add_remove_schedule(
+        self, raw_datastore: DataStore, timezone: ZoneInfo
+    ) -> None:
         send, receive = create_memory_object_stream[Event](3)
         async with AsyncScheduler(data_store=raw_datastore) as scheduler:
             scheduler.subscribe(send.send)
-            now = datetime.now(UTC)
+            now = datetime.now(timezone)
             trigger = DateTrigger(now)
             schedule_id = await scheduler.add_schedule(
                 dummy_async_job, trigger, id="foo"
@@ -360,9 +362,10 @@ class TestAsyncScheduler:
         expected_result: object,
         use_scheduling: bool,
         raw_datastore: DataStore,
+        timezone: ZoneInfo,
     ) -> None:
         send, receive = create_memory_object_stream[Event](4)
-        now = datetime.now(UTC)
+        now = datetime.now(timezone)
         async with AsyncScheduler(data_store=raw_datastore) as scheduler:
             scheduler.subscribe(send.send, {JobReleased})
             await scheduler.start_in_background()
@@ -382,10 +385,10 @@ class TestAsyncScheduler:
                 assert result.return_value == expected_result
 
     async def test_scheduled_job_missed_deadline(
-        self, raw_datastore: DataStore
+        self, raw_datastore: DataStore, timezone: ZoneInfo
     ) -> None:
         send, receive = create_memory_object_stream[Event](4)
-        now = datetime.now(UTC)
+        now = datetime.now(timezone)
         trigger = DateTrigger(now)
         async with AsyncScheduler(data_store=raw_datastore) as scheduler:
             await scheduler.add_schedule(
@@ -453,9 +456,10 @@ class TestAsyncScheduler:
         expected_jobs: int,
         first_fire_time_delta: timedelta,
         raw_datastore: DataStore,
+        timezone: ZoneInfo,
     ) -> None:
         send, receive = create_memory_object_stream[Event](4)
-        now = datetime.now(UTC)
+        now = datetime.now(timezone)
         first_start_time = now - timedelta(minutes=3, seconds=5)
         trigger = IntervalTrigger(minutes=1, start_time=first_start_time)
         async with AsyncScheduler(
@@ -513,7 +517,7 @@ class TestAsyncScheduler:
     ) -> None:
         send, receive = create_memory_object_stream[Event](4)
         jitter = 1.569374
-        now = datetime.now(UTC)
+        now = datetime.now(timezone)
         fake_uniform = mocker.patch("random.uniform")
         fake_uniform.configure_mock(side_effect=lambda a, b: jitter)
         async with AsyncScheduler(
@@ -632,7 +636,7 @@ class TestAsyncScheduler:
             with pytest.raises(JobLookupError), fail_after(1):
                 await scheduler.get_job_result(job_id, wait=False)
 
-    async def test_contextvars(self, mocker: MockerFixture) -> None:
+    async def test_contextvars(self, mocker: MockerFixture, timezone: ZoneInfo) -> None:
         def check_contextvars() -> None:
             assert current_async_scheduler.get() is scheduler
             info = current_job.get()
@@ -649,7 +653,7 @@ class TestAsyncScheduler:
         fake_uniform = mocker.patch("random.uniform")
         fake_uniform.configure_mock(return_value=2.16)
         send, receive = create_memory_object_stream[Event](1)
-        now = datetime.now(UTC)
+        now = datetime.now(timezone)
         async with AsyncScheduler() as scheduler:
             await scheduler.configure_task("contextvars", func=check_contextvars)
             await scheduler.add_schedule(
@@ -743,11 +747,11 @@ class TestSyncScheduler:
         assert isinstance(event, TaskUpdated)
         assert event.task_id == "mytask"
 
-    def test_add_remove_schedule(self) -> None:
+    def test_add_remove_schedule(self, timezone: ZoneInfo) -> None:
         queue = Queue()
         with Scheduler() as scheduler:
             scheduler.subscribe(queue.put_nowait)
-            now = datetime.now(UTC)
+            now = datetime.now(timezone)
             trigger = DateTrigger(now)
             schedule_id = scheduler.add_schedule(dummy_async_job, trigger, id="foo")
             assert schedule_id == "foo"

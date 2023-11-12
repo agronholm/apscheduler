@@ -15,14 +15,15 @@ import sniffio
 import tenacity
 from anyio import CancelScope, to_thread
 from sqlalchemy import (
-    TIMESTAMP,
     BigInteger,
     Column,
+    DateTime,
     Enum,
     Integer,
     Interval,
     LargeBinary,
     MetaData,
+    SmallInteger,
     Table,
     TypeDecorator,
     Unicode,
@@ -128,6 +129,8 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     max_idle_time: float = attrs.field(default=60)
 
     _supports_update_returning: bool = attrs.field(init=False, default=False)
+    _supports_tzaware_timestamps: bool = attrs.field(init=False, default=False)
+    _supports_native_interval: bool = attrs.field(init=False, default=False)
     _metadata: MetaData = attrs.field(init=False)
     _t_metadata: Table = attrs.field(init=False)
     _t_tasks: Table = attrs.field(init=False)
@@ -138,6 +141,11 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     def __attrs_post_init__(self) -> None:
         # Generate the table definitions
         prefix = f"{self.schema}." if self.schema else ""
+        self._supports_tzaware_timestamps = self.engine.dialect in (
+            "postgresql",
+            "oracle",
+        )
+        self._supports_native_interval = self.engine.dialect == "postgresql"
         self._metadata = self.get_table_definitions()
         self._t_metadata = self._metadata.tables[prefix + "metadata"]
         self._t_tasks = self._metadata.tables[prefix + "tasks"]
@@ -222,13 +230,43 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
         return InterfaceError, OSError
 
+    def _convert_incoming_next_fire_time(self, data: dict[str, Any]) -> dict[str, Any]:
+        if not self._supports_tzaware_timestamps:
+            utcoffset_minutes = data.pop("next_fire_time_utcoffset", None)
+            if utcoffset_minutes is not None:
+                tz = timezone(timedelta(minutes=utcoffset_minutes))
+                timestamp = data["next_fire_time"] / 1000_000
+                data["next_fire_time"] = datetime.fromtimestamp(timestamp, tz=tz)
+
+        return data
+
+    def _convert_outgoing_next_fire_time(self, data: dict[str, Any]) -> dict[str, Any]:
+        if not self._supports_tzaware_timestamps:
+            next_fire_time = data["next_fire_time"]
+            if next_fire_time is not None:
+                data["next_fire_time"] = int(next_fire_time.timestamp() * 1000_000)
+                data["next_fire_time_utcoffset"] = (
+                    next_fire_time.utcoffset().total_seconds() // 60
+                )
+            else:
+                data["next_fire_time_utcoffset"] = None
+
+        return data
+
     def get_table_definitions(self) -> MetaData:
-        if self.engine.dialect.name in ("postgresql", "oracle"):
-            timestamp_type: TypeEngine[datetime] = TIMESTAMP(timezone=True)
+        if self._supports_tzaware_timestamps:
+            timestamp_type: TypeEngine[datetime] = DateTime(timezone=True)
+            next_fire_time_tzoffset_columns: tuple[Column, ...] = (
+                Column("next_fire_time", timestamp_type, index=True),
+            )
         else:
             timestamp_type = EmulatedTimestampTZ()
+            next_fire_time_tzoffset_columns = (
+                Column("next_fire_time", BigInteger, index=True),
+                Column("next_fire_time_utcoffset", SmallInteger),
+            )
 
-        if self.engine.dialect.name == "postgresql":
+        if self._supports_native_interval:
             interval_type = Interval(second_precision=6)
         else:
             interval_type = EmulatedInterval()
@@ -256,7 +294,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("coalesce", Enum(CoalescePolicy), nullable=False),
             Column("misfire_grace_time", interval_type),
             Column("max_jitter", interval_type),
-            Column("next_fire_time", timestamp_type, index=True),
+            *next_fire_time_tzoffset_columns,
             Column("last_fire_time", timestamp_type),
             Column("acquired_by", Unicode(500)),
             Column("acquired_until", timestamp_type),
@@ -343,7 +381,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         schedules: list[Schedule] = []
         for row in result:
             try:
-                schedules.append(Schedule.unmarshal(self.serializer, row._asdict()))
+                schedules.append(
+                    Schedule.unmarshal(
+                        self.serializer,
+                        self._convert_incoming_next_fire_time(row._asdict()),
+                    )
+                )
             except SerializationError as exc:
                 await self._event_broker.publish(
                     ScheduleDeserializationFailed(schedule_id=row.id, exception=exc)
@@ -448,7 +491,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         self, schedule: Schedule, conflict_policy: ConflictPolicy
     ) -> None:
         event: DataStoreEvent
-        values = schedule.marshal(self.serializer)
+        values = self._convert_outgoing_next_fire_time(
+            schedule.marshal(self.serializer)
+        )
         insert = self._t_schedules.insert().values(**values)
         try:
             async for attempt in self._retry():
@@ -540,12 +585,19 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                 async with self._begin_transaction() as conn:
                     now = datetime.now(timezone.utc)
                     acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
+                    if self._supports_tzaware_timestamps:
+                        comparison = self._t_schedules.c.next_fire_time <= now
+                    else:
+                        comparison = self._t_schedules.c.next_fire_time <= int(
+                            now.timestamp() * 1000_000
+                        )
+
                     schedules_cte = (
                         select(self._t_schedules.c.id)
                         .where(
                             and_(
                                 self._t_schedules.c.next_fire_time.isnot(None),
-                                self._t_schedules.c.next_fire_time <= now,
+                                comparison,
                                 or_(
                                     self._t_schedules.c.acquired_until.is_(None),
                                     self._t_schedules.c.acquired_until < now,
@@ -581,6 +633,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         self, scheduler_id: str, schedules: list[Schedule]
     ) -> None:
         task_ids = {schedule.id: schedule.task_id for schedule in schedules}
+        next_fire_times = {
+            schedule.id: schedule.next_fire_time for schedule in schedules
+        }
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
@@ -602,21 +657,43 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                                 finished_schedule_ids.append(schedule.id)
                                 continue
 
-                            update_args.append(
-                                {
-                                    "p_id": schedule.id,
-                                    "p_trigger": serialized_trigger,
-                                    "p_next_fire_time": schedule.next_fire_time,
-                                }
-                            )
+                            if self._supports_tzaware_timestamps:
+                                update_args.append(
+                                    {
+                                        "p_id": schedule.id,
+                                        "p_trigger": serialized_trigger,
+                                        "p_next_fire_time": schedule.next_fire_time,
+                                    }
+                                )
+                            else:
+                                update_args.append(
+                                    {
+                                        "p_id": schedule.id,
+                                        "p_trigger": serialized_trigger,
+                                        "p_next_fire_time": int(
+                                            schedule.next_fire_time.timestamp()
+                                            * 1000_000
+                                        ),
+                                        "p_next_fire_time_utcoffset": (
+                                            schedule.next_fire_time.utcoffset().total_seconds()
+                                            // 60
+                                        ),
+                                    }
+                                )
                         else:
                             finished_schedule_ids.append(schedule.id)
 
                     # Update schedules that have a next fire time
                     if update_args:
+                        extra_values = {}
                         p_id: BindParameter = bindparam("p_id")
                         p_trigger: BindParameter = bindparam("p_trigger")
                         p_next_fire_time: BindParameter = bindparam("p_next_fire_time")
+                        if not self._supports_tzaware_timestamps:
+                            extra_values["next_fire_time_utcoffset"] = bindparam(
+                                "p_next_fire_time_utcoffset"
+                            )
+
                         update = (
                             self._t_schedules.update()
                             .where(
@@ -630,11 +707,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                                 next_fire_time=p_next_fire_time,
                                 acquired_by=None,
                                 acquired_until=None,
+                                **extra_values,
                             )
                         )
-                        next_fire_times = {
-                            arg["p_id"]: arg["p_next_fire_time"] for arg in update_args
-                        }
                         # TODO: actually check which rows were updated?
                         await self._execute(conn, update, update_args)
                         updated_ids = list(next_fire_times)
@@ -668,8 +743,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             )
 
     async def get_next_schedule_run_time(self) -> datetime | None:
+        columns = [self._t_schedules.c.next_fire_time]
+        if not self._supports_tzaware_timestamps:
+            columns.append(self._t_schedules.c.next_fire_time_utcoffset)
+
         statenent = (
-            select(self._t_schedules.c.next_fire_time)
+            select(*columns)
             .where(self._t_schedules.c.next_fire_time.isnot(None))
             .order_by(self._t_schedules.c.next_fire_time)
             .limit(1)
@@ -678,6 +757,13 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             with attempt:
                 async with self._begin_transaction() as conn:
                     result = await self._execute(conn, statenent)
+
+        if not self._supports_tzaware_timestamps:
+            if row := result.first():
+                tz = timezone(timedelta(minutes=row[1]))
+                return datetime.fromtimestamp(row[0] / 1000_000, tz=tz)
+            else:
+                return None
 
         return result.scalar()
 

@@ -10,6 +10,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   (this breaks data store compatibility)
 - **BREAKING** Switched to using the timezone aware timestamp column type on Oracle
 - **BREAKING** Fixed precision issue with interval columns on MySQL
+- **BREAKING** Fixed datetime comparison issues on SQLite and MySQL
 - **BREAKING** Worked around datetime microsecond precision issue on MongoDB
 - **BREAKING** Renamed the ``worker_id`` field to ``scheduler_id`` in the
   ``JobAcquired`` and ``JobReleased`` events

@@ -304,8 +304,8 @@ class AsyncScheduler:
             )
             modified = True
         else:
-            if func is not unset and task.func is not func:
-                task.func = func
+            if func is not unset and task.func != func_ref:
+                task.func = func_ref
                 modified = True
 
             if job_executor is not unset and task.job_executor != job_executor:
@@ -397,11 +397,7 @@ class AsyncScheduler:
         if ismethod(func_or_task_id):
             args = (func_or_task_id.__self__,) + args
             func_or_task_id = func_or_task_id.__func__
-        elif (
-            isbuiltin(func_or_task_id)
-            and func_or_task_id.__self__ is not None
-            and not ismodule(func_or_task_id.__self__)
-        ):
+        elif isbuiltin(func_or_task_id) and hasattr(func_or_task_id, "__self__"):
             args = (func_or_task_id.__self__,) + args
             method_class = type(func_or_task_id.__self__)
             func_or_task_id = getattr(method_class, func_or_task_id.__name__)
@@ -509,11 +505,7 @@ class AsyncScheduler:
         if ismethod(func_or_task_id):
             args = (func_or_task_id.__self__,) + args
             func_or_task_id = func_or_task_id.__func__
-        elif (
-            isbuiltin(func_or_task_id)
-            and func_or_task_id.__self__ is not None
-            and not ismodule(func_or_task_id.__self__)
-        ):
+        elif isbuiltin(func_or_task_id) and not ismodule(func_or_task_id.__self__):
             args = (func_or_task_id.__self__,) + args
             method_class = type(func_or_task_id.__self__)
             func_or_task_id = getattr(method_class, func_or_task_id.__name__)
