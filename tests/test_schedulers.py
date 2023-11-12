@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import platform
 import subprocess
 import sys
 import sysconfig
@@ -873,14 +872,6 @@ class TestSyncScheduler:
         ):
             Scheduler().start_in_background()
 
-    @pytest.mark.skipif(
-        platform.python_implementation() != "CPython",
-        reason="May not work on other Python implementations",
-    )
-    @pytest.mark.skipif(
-        platform.system() != "Windows",
-        reason="uWSGI won't install on Windows",
-    )
     def test_uwsgi_threads_error_subprocess(self) -> None:
         uwsgi_path = Path(sysconfig.get_path("scripts")) / "uwsgi"
         if not uwsgi_path.is_file():
