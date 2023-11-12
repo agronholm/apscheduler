@@ -5,6 +5,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
+from logging import Logger
 from typing import Any, Callable, ClassVar, Iterable
 from uuid import UUID
 
@@ -154,9 +155,9 @@ class MongoDBDataStore(BaseExternalDataStore):
             self._jobs_results.create_index("expires_at", session=session)
 
     async def start(
-        self, exit_stack: AsyncExitStack, event_broker: EventBroker
+        self, exit_stack: AsyncExitStack, event_broker: EventBroker, logger: Logger
     ) -> None:
-        await super().start(exit_stack, event_broker)
+        await super().start(exit_stack, event_broker, logger)
         server_info = await to_thread.run_sync(self.client.server_info)
         if server_info["versionArray"] < [4, 0]:
             raise RuntimeError(

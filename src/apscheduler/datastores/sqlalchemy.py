@@ -6,6 +6,7 @@ from collections.abc import AsyncGenerator, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from functools import partial
+from logging import Logger
 from typing import Any, Iterable
 from uuid import UUID
 
@@ -329,9 +330,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         return metadata
 
     async def start(
-        self, exit_stack: AsyncExitStack, event_broker: EventBroker
+        self, exit_stack: AsyncExitStack, event_broker: EventBroker, logger: Logger
     ) -> None:
-        await super().start(exit_stack, event_broker)
+        await super().start(exit_stack, event_broker, logger)
         asynclib = sniffio.current_async_library() or "(unknown)"
         if asynclib != "asyncio":
             raise RuntimeError(

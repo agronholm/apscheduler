@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 import sys
 from collections.abc import Generator
 from contextlib import AsyncExitStack
+from logging import Logger
 from tempfile import TemporaryDirectory
 from typing import Any, AsyncGenerator, cast
 
@@ -108,10 +110,10 @@ async def raw_event_broker(request: SubRequest) -> EventBroker:
 
 @pytest.fixture
 async def event_broker(
-    raw_event_broker: EventBroker,
+    raw_event_broker: EventBroker, logger: Logger
 ) -> AsyncGenerator[EventBroker, Any]:
     async with AsyncExitStack() as exit_stack:
-        await raw_event_broker.start(exit_stack)
+        await raw_event_broker.start(exit_stack, logger)
         yield raw_event_broker
 
 
@@ -312,11 +314,16 @@ async def raw_datastore(request: SubRequest) -> DataStore:
     return cast(DataStore, request.param)
 
 
+@pytest.fixture(scope="session")
+def logger() -> Logger:
+    return logging.getLogger("apscheduler")
+
+
 @pytest.fixture
 async def datastore(
-    raw_datastore: DataStore, local_broker: EventBroker
+    raw_datastore: DataStore, local_broker: EventBroker, logger: Logger
 ) -> AsyncGenerator[DataStore, Any]:
     async with AsyncExitStack() as exit_stack:
-        await local_broker.start(exit_stack)
-        await raw_datastore.start(exit_stack, local_broker)
+        await local_broker.start(exit_stack, logger)
+        await raw_datastore.start(exit_stack, local_broker, logger)
         yield raw_datastore

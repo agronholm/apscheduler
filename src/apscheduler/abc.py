@@ -4,6 +4,7 @@ import sys
 from abc import ABCMeta, abstractmethod
 from contextlib import AsyncExitStack
 from datetime import datetime
+from logging import Logger
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
 from uuid import UUID
 
@@ -108,12 +109,13 @@ class EventBroker(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    async def start(self, exit_stack: AsyncExitStack) -> None:
+    async def start(self, exit_stack: AsyncExitStack, logger: Logger) -> None:
         """
         Start the event broker.
 
         :param exit_stack: an asynchronous exit stack which will be processed when the
             scheduler is shut down
+        :param logger: the logger object the event broker should use to log events
         """
 
     @abstractmethod
@@ -157,7 +159,7 @@ class DataStore(metaclass=ABCMeta):
 
     @abstractmethod
     async def start(
-        self, exit_stack: AsyncExitStack, event_broker: EventBroker
+        self, exit_stack: AsyncExitStack, event_broker: EventBroker, logger: Logger
     ) -> None:
         """
         Start the event broker.
@@ -166,6 +168,7 @@ class DataStore(metaclass=ABCMeta):
             scheduler is shut down
         :param event_broker: the event broker shared between the scheduler, scheduler
             (if any) and this data store
+        :param logger: the logger object the data store should use to log events
         """
 
     @abstractmethod

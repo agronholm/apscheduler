@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from asyncio import CancelledError
 from contextlib import AsyncExitStack
+from logging import Logger
 
 import anyio
 import attrs
@@ -68,8 +69,8 @@ class RedisEventBroker(BaseExternalEventBroker):
             reraise=True,
         )
 
-    async def start(self, exit_stack: AsyncExitStack) -> None:
-        await super().start(exit_stack)
+    async def start(self, exit_stack: AsyncExitStack, logger: Logger) -> None:
+        await super().start(exit_stack, logger)
         pubsub = self.client.pubsub()
         await pubsub.subscribe(self.channel)
 

@@ -17,6 +17,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** Added the ``task_id`` attribute to the ``ScheduleAdded``,
   ``ScheduleUpdated`` and ``ScheduleRemoved`` events
 - **BREAKING** Added the ``finished`` attribute to the ``ScheduleRemoved`` event
+- **BREAKING** Added the ``logger`` parameter to ``Datastore.start()`` and
+  ``EventBroker.start()`` to make both use the scheduler's assigned logger
 - Added the ``configure_task()`` and ``get_tasks()`` scheduler methods
 - Fixed out of order delivery of events delivered using worker threads
 - Fixed schedule processing not setting job start deadlines correctly

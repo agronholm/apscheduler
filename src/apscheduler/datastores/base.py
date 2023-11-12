@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import AsyncExitStack
-from logging import Logger, getLogger
+from logging import Logger
 
 import attrs
 
@@ -24,12 +24,10 @@ class BaseDataStore(DataStore):
     _logger: Logger = attrs.field(init=False)
 
     async def start(
-        self, exit_stack: AsyncExitStack, event_broker: EventBroker
+        self, exit_stack: AsyncExitStack, event_broker: EventBroker, logger: Logger
     ) -> None:
         self._event_broker = event_broker
-
-    def __attrs_post_init__(self):
-        self._logger = getLogger(self.__class__.__name__)
+        self._logger = logger
 
 
 @attrs.define(kw_only=True)

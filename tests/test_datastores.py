@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from logging import Logger
 from typing import AsyncGenerator
 
 import anyio
@@ -503,18 +504,20 @@ async def test_add_get_task(datastore: DataStore) -> None:
 
 
 async def test_cancel_start(
-    raw_datastore: DataStore, local_broker: EventBroker
+    raw_datastore: DataStore, local_broker: EventBroker, logger: Logger
 ) -> None:
     with CancelScope() as scope:
         scope.cancel()
         async with AsyncExitStack() as exit_stack:
-            await raw_datastore.start(exit_stack, local_broker)
+            await raw_datastore.start(exit_stack, local_broker, logger)
 
 
-async def test_cancel_stop(raw_datastore: DataStore, local_broker: EventBroker) -> None:
+async def test_cancel_stop(
+    raw_datastore: DataStore, local_broker: EventBroker, logger: Logger
+) -> None:
     with CancelScope() as scope:
         async with AsyncExitStack() as exit_stack:
-            await raw_datastore.start(exit_stack, local_broker)
+            await raw_datastore.start(exit_stack, local_broker, logger)
             scope.cancel()
 
 

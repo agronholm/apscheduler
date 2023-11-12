@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from concurrent.futures import Future
 from contextlib import AsyncExitStack
+from logging import Logger
 from typing import Any
 
 import attrs
@@ -42,8 +43,8 @@ class MQTTEventBroker(BaseExternalEventBroker):
     _portal: BlockingPortal = attrs.field(init=False)
     _ready_future: Future[None] = attrs.field(init=False)
 
-    async def start(self, exit_stack: AsyncExitStack) -> None:
-        await super().start(exit_stack)
+    async def start(self, exit_stack: AsyncExitStack, logger: Logger) -> None:
+        await super().start(exit_stack, logger)
         self._portal = await exit_stack.enter_async_context(BlockingPortal())
         self._ready_future = Future()
         self.client.on_connect = self._on_connect

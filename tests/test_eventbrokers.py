@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from contextlib import AsyncExitStack
 from datetime import datetime, timezone
+from logging import Logger
 
 import pytest
 from _pytest.logging import LogCaptureFixture
@@ -106,15 +107,15 @@ async def test_publish_exception(
     assert "Error delivering Event" in caplog.text
 
 
-async def test_cancel_start(raw_event_broker: EventBroker) -> None:
+async def test_cancel_start(raw_event_broker: EventBroker, logger: Logger) -> None:
     with CancelScope() as scope:
         scope.cancel()
         async with AsyncExitStack() as exit_stack:
-            await raw_event_broker.start(exit_stack)
+            await raw_event_broker.start(exit_stack, logger)
 
 
-async def test_cancel_stop(raw_event_broker: EventBroker) -> None:
+async def test_cancel_stop(raw_event_broker: EventBroker, logger: Logger) -> None:
     with CancelScope() as scope:
         async with AsyncExitStack() as exit_stack:
-            await raw_event_broker.start(exit_stack)
+            await raw_event_broker.start(exit_stack, logger)
             scope.cancel()

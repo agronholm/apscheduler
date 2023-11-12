@@ -3,7 +3,7 @@ from __future__ import annotations
 from base64 import b64decode, b64encode
 from contextlib import AsyncExitStack
 from inspect import iscoroutine
-from logging import Logger, getLogger
+from logging import Logger
 from typing import Any, Callable, Iterable
 
 import attrs
@@ -40,10 +40,8 @@ class BaseEventBroker(EventBroker):
     _task_group: TaskGroup = attrs.field(init=False)
     _thread_limiter: CapacityLimiter = attrs.field(init=False)
 
-    def __attrs_post_init__(self) -> None:
-        self._logger = getLogger(self.__class__.__module__)
-
-    async def start(self, exit_stack: AsyncExitStack) -> None:
+    async def start(self, exit_stack: AsyncExitStack, logger: Logger) -> None:
+        self._logger = logger
         self._task_group = await exit_stack.enter_async_context(create_task_group())
         self._thread_limiter = CapacityLimiter(1)
 

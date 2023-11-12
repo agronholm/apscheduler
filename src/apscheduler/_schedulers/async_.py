@@ -157,8 +157,8 @@ class AsyncScheduler:
             self._services_initialized = True
             exit_stack.callback(setattr, self, "_services_initialized", False)
 
-            await self.event_broker.start(exit_stack)
-            await self.data_store.start(exit_stack, self.event_broker)
+            await self.event_broker.start(exit_stack, self.logger)
+            await self.data_store.start(exit_stack, self.event_broker, self.logger)
 
     def _check_initialized(self) -> None:
         """Raise RuntimeError if the services have not been initialized yet."""

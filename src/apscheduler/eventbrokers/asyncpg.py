@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Mapping
 from contextlib import AsyncExitStack
 from functools import partial
+from logging import Logger
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 import asyncpg
@@ -106,8 +107,8 @@ class AsyncpgEventBroker(BaseExternalEventBroker):
     def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:
         return OSError, InterfaceError
 
-    async def start(self, exit_stack: AsyncExitStack) -> None:
-        await super().start(exit_stack)
+    async def start(self, exit_stack: AsyncExitStack, logger: Logger) -> None:
+        await super().start(exit_stack, logger)
         self._send = cast(
             MemoryObjectSendStream[str],
             await self._task_group.start(self._listen_notifications),
