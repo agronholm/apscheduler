@@ -27,7 +27,7 @@ jobs:
       run: pip install -e .[test]
     - name: Test with pytest
       run: |
-        coverage run -m pytest
+        coverage run -m pytest -v
         coverage xml
     - name: Upload Coverage
       uses: coverallsapp/github-action@v2
@@ -50,7 +50,7 @@ jobs:
     - name: Install the project and its dependencies
       run: pip install -e .[test]
     - name: Test with pytest
-      run: pytest
+      run: pytest -v
 
   test-others:
     strategy:
@@ -72,7 +72,7 @@ jobs:
       run: pip install -e .[test]
     - name: Test with pytest
       run: |
-        coverage run -m pytest -m "not external_service"
+        coverage run -m pytest -v -m "not external_service"
         coverage xml
     - name: Upload Coverage
       uses: coverallsapp/github-action@v2
