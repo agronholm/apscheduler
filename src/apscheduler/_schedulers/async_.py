@@ -397,7 +397,11 @@ class AsyncScheduler:
         if ismethod(func_or_task_id):
             args = (func_or_task_id.__self__,) + args
             func_or_task_id = func_or_task_id.__func__
-        elif isbuiltin(func_or_task_id) and hasattr(func_or_task_id, "__self__"):
+        elif (
+            isbuiltin(func_or_task_id)
+            and func_or_task_id.__self__ is not None
+            and not ismodule(func_or_task_id.__self__)
+        ):
             args = (func_or_task_id.__self__,) + args
             method_class = type(func_or_task_id.__self__)
             func_or_task_id = getattr(method_class, func_or_task_id.__name__)
@@ -505,7 +509,11 @@ class AsyncScheduler:
         if ismethod(func_or_task_id):
             args = (func_or_task_id.__self__,) + args
             func_or_task_id = func_or_task_id.__func__
-        elif isbuiltin(func_or_task_id) and not ismodule(func_or_task_id.__self__):
+        elif (
+            isbuiltin(func_or_task_id)
+            and func_or_task_id.__self__ is not None
+            and not ismodule(func_or_task_id.__self__)
+        ):
             args = (func_or_task_id.__self__,) + args
             method_class = type(func_or_task_id.__self__)
             func_or_task_id = getattr(method_class, func_or_task_id.__name__)
