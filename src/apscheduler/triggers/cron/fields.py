@@ -109,7 +109,7 @@ class BaseField:
 
         raise ValueError(f"Unrecognized expression {expr!r} for field {self.name!r}")
 
-    def __str__(self):
+    def __str__(self) -> str:
         expr_strings = (str(e) for e in self.expressions)
         return ",".join(expr_strings)
 
