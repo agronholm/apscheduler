@@ -441,7 +441,7 @@ which is the event object. Then, you need to decide which events you're interest
         scheduler.subscribe(listener, {JobAcquired, JobReleased})
 
 This example subscribes to the :class:`~JobAcquired` and
-:class:`~JobAcquired` event types. The callback will receive an event of
+:class:`~JobReleased` event types. The callback will receive an event of
 either type, and prints the name of the class of the received event.
 
 Asynchronous schedulers and workers support both synchronous and asynchronous callbacks,
