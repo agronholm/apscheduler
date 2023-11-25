@@ -55,7 +55,10 @@ class CustomEncoder(TypeEncoder):
         return self._encoder(value)
 
 
-def marshal_timestamp(timestamp: datetime, key: str) -> Mapping[str, Any]:
+def marshal_timestamp(timestamp: datetime | None, key: str) -> Mapping[str, Any]:
+    if timestamp is None:
+        return {key: None, key + "_utcoffset": None}
+
     return {
         key: timestamp.timestamp(),
         key + "_utcoffset": timestamp.utcoffset().total_seconds() // 60,
@@ -73,8 +76,8 @@ def marshal_document(document: dict[str, Any]) -> None:
 
 def unmarshal_timestamps(document: dict[str, Any]) -> None:
     for key in list(document):
-        if key.endswith("_utcoffset"):
-            offset = timedelta(seconds=document.pop(key) * 60)
+        if key.endswith("_utcoffset") and (value := document.pop(key)) is not None:
+            offset = timedelta(seconds=value * 60)
             tzinfo = timezone(offset)
             time_micro = document[key[:-10]]
             document[key[:-10]] = datetime.fromtimestamp(time_micro, tzinfo)
@@ -150,6 +153,7 @@ class MongoDBDataStore(BaseExternalDataStore):
 
             self._schedules.create_index("next_fire_time", session=session)
             self._jobs.create_index("task_id", session=session)
+            self._jobs.create_index("schedule_id", session=session)
             self._jobs.create_index("created_at", session=session)
             self._jobs_results.create_index("finished_at", session=session)
             self._jobs_results.create_index("expires_at", session=session)
@@ -345,45 +349,38 @@ class MongoDBDataStore(BaseExternalDataStore):
         finished_schedule_ids: list[str] = []
         task_ids = {schedule.id: schedule.task_id for schedule in schedules}
 
-        # Update schedules that have a next fire time
         requests = []
         for schedule in schedules:
             filters = {"_id": schedule.id, "acquired_by": scheduler_id}
-            if schedule.next_fire_time is not None:
-                try:
-                    serialized_trigger = self.serializer.serialize(schedule.trigger)
-                except SerializationError:
-                    self._logger.exception(
-                        "Error serializing schedule %r – removing from data store",
-                        schedule.id,
-                    )
-                    requests.append(DeleteOne(filters))
-                    finished_schedule_ids.append(schedule.id)
-                    continue
-
-                update = {
-                    "$unset": {
-                        "acquired_by": True,
-                        "acquired_until": True,
-                        "acquired_until_utcoffset": True,
-                    },
-                    "$set": {
-                        "trigger": serialized_trigger,
-                        **marshal_timestamp(schedule.next_fire_time, "next_fire_time"),
-                    },
-                }
-                requests.append(UpdateOne(filters, update))
-                updated_schedules.append((schedule.id, schedule.next_fire_time))
-            else:
+            try:
+                serialized_trigger = self.serializer.serialize(schedule.trigger)
+            except SerializationError:
+                self._logger.exception(
+                    "Error serializing schedule %r – removing from data store",
+                    schedule.id,
+                )
                 requests.append(DeleteOne(filters))
                 finished_schedule_ids.append(schedule.id)
+                continue
 
-            if requests:
-                async for attempt in self._retry():
-                    with attempt, self.client.start_session() as session:
-                        self._schedules.bulk_write(
-                            requests, ordered=False, session=session
-                        )
+            update = {
+                "$unset": {
+                    "acquired_by": True,
+                    "acquired_until": True,
+                    "acquired_until_utcoffset": True,
+                },
+                "$set": {
+                    "trigger": serialized_trigger,
+                    **marshal_timestamp(schedule.next_fire_time, "next_fire_time"),
+                },
+            }
+            requests.append(UpdateOne(filters, update))
+            updated_schedules.append((schedule.id, schedule.next_fire_time))
+
+        if requests:
+            async for attempt in self._retry():
+                with attempt, self.client.start_session() as session:
+                    self._schedules.bulk_write(requests, ordered=False, session=session)
 
         for schedule_id, next_fire_time in updated_schedules:
             event = ScheduleUpdated(
@@ -560,3 +557,41 @@ class MongoDBDataStore(BaseExternalDataStore):
             return JobResult.unmarshal(self.serializer, document)
         else:
             return None
+
+    async def cleanup(self) -> None:
+        # Clean up expired job results
+        async for attempt in self._retry():
+            with attempt, self.client.start_session() as session:
+                # Purge expired job results
+                now = datetime.now(timezone.utc).timestamp()
+                await to_thread.run_sync(
+                    lambda: self._jobs_results.delete_many(
+                        {"expired_at": {"$lte": now}}, session=session
+                    )
+                )
+
+                # Find finished schedules
+                cursor = await to_thread.run_sync(
+                    lambda: self._schedules.find(
+                        {"next_fire_time": None}, projection=["_id"], session=session
+                    )
+                )
+                if finished_schedule_ids := {item["_id"] for item in cursor}:
+                    # Find distinct schedule IDs of jobs associated with these schedules
+                    for schedule_id in await to_thread.run_sync(
+                        lambda: self._jobs.distinct(
+                            "schedule_id",
+                            {"schedule_id": {"$in": list(finished_schedule_ids)}},
+                            session=session,
+                        )
+                    ):
+                        finished_schedule_ids.discard(schedule_id)
+
+                    # Delete finished schedules that not having any associated jobs
+                    if finished_schedule_ids:
+                        await to_thread.run_sync(
+                            lambda: self._jobs_results.delete_many(
+                                {"schedule_id": {"$in": list(finished_schedule_ids)}},
+                                session=session,
+                            )
+                        )

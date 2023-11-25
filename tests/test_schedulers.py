@@ -15,7 +15,7 @@ from types import ModuleType
 
 import anyio
 import pytest
-from anyio import WouldBlock, create_memory_object_stream, fail_after
+from anyio import WouldBlock, create_memory_object_stream, fail_after, sleep
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture, MockFixture
 
@@ -31,6 +31,7 @@ from apscheduler import (
     JobReleased,
     RunState,
     ScheduleAdded,
+    ScheduleLookupError,
     Scheduler,
     ScheduleRemoved,
     SchedulerRole,
@@ -407,11 +408,11 @@ class TestAsyncScheduler:
                 assert event.schedule_id == "foo"
                 assert event.task_id == "test_schedulers:dummy_async_job"
 
-                # The schedule was removed since the trigger had been exhausted
+                # The schedule was updated with a null next fire time
                 event = await receive.receive()
-                assert isinstance(event, ScheduleRemoved)
+                assert isinstance(event, ScheduleUpdated)
                 assert event.schedule_id == "foo"
-                assert event.finished
+                assert event.next_fire_time is None
 
                 # The new job was acquired
                 event = await receive.receive()
@@ -462,7 +463,9 @@ class TestAsyncScheduler:
         first_start_time = now - timedelta(minutes=3, seconds=5)
         trigger = IntervalTrigger(minutes=1, start_time=first_start_time)
         async with AsyncScheduler(
-            data_store=raw_datastore, role=SchedulerRole.scheduler
+            data_store=raw_datastore,
+            role=SchedulerRole.scheduler,
+            cleanup_interval=None,
         ) as scheduler:
             await scheduler.add_schedule(
                 dummy_async_job, trigger, id="foo", coalesce=coalesce
@@ -520,7 +523,8 @@ class TestAsyncScheduler:
         fake_uniform = mocker.patch("random.uniform")
         fake_uniform.configure_mock(side_effect=lambda a, b: jitter)
         async with AsyncScheduler(
-            data_store=raw_datastore, role=SchedulerRole.scheduler
+            data_store=raw_datastore,
+            role=SchedulerRole.scheduler,
         ) as scheduler:
             scheduler.subscribe(send.send)
             trigger = DateTrigger(now)
@@ -669,6 +673,89 @@ class TestAsyncScheduler:
                 event = await receive.receive()
 
             assert event.outcome is JobOutcome.success
+
+    async def test_explicit_cleanup(self, raw_datastore: DataStore) -> None:
+        async with AsyncScheduler(cleanup_interval=None) as scheduler:
+            await scheduler.start_in_background()
+
+            # Add a job whose result expires after 1 ms
+            event = anyio.Event()
+            job_id = await scheduler.add_job(event.set, result_expiration_time=0.001)
+            with fail_after(3):
+                await event.wait()
+
+            # After the sleeping past the expiration time and performing a cleanup, the
+            # result should not be there anymore
+            await sleep(0.001)
+            await scheduler.cleanup()
+            with pytest.raises(JobLookupError):
+                await scheduler.get_job_result(job_id)
+
+            # Add a schedule to immediately set the event
+            event = anyio.Event()
+            await scheduler.add_schedule(
+                event.set, DateTrigger(datetime.now(timezone.utc)), id="event_set"
+            )
+            with fail_after(3):
+                await event.wait()
+
+            # The schedule should still be around, but with a null next_fire_time
+            schedule = await scheduler.get_schedule("event_set")
+            assert schedule.next_fire_time is None
+
+            # After the cleanup, the schedule should be gone
+            await scheduler.cleanup()
+            with pytest.raises(ScheduleLookupError):
+                await scheduler.get_schedule("event_set")
+
+    async def test_explicit_cleanup_avoid_schedules_still_having_jobs(
+        self, raw_datastore: DataStore
+    ) -> None:
+        send, receive = create_memory_object_stream[Event](4)
+        async with AsyncScheduler(raw_datastore, cleanup_interval=None) as scheduler:
+            scheduler.subscribe(send.send, {JobAdded, JobReleased})
+            await scheduler.start_in_background()
+
+            # Add a schedule to immediately set the event
+            dummy_event = anyio.Event()
+            await scheduler.configure_task("event_set", func=dummy_event.wait)
+            schedule_id = await scheduler.add_schedule(
+                "event_set", DateTrigger(datetime.now(timezone.utc)), id="event_set"
+            )
+
+            # Wait for the job to be submitted
+            event = await receive.receive()
+            assert isinstance(event, JobAdded)
+            assert event.schedule_id == schedule_id
+
+            # Check that there is a job for the schedule
+            jobs = await scheduler.get_jobs()
+            assert len(jobs) == 1
+            assert jobs[0].schedule_id == schedule_id
+
+            # After the cleanup, the schedule should still be around, with a
+            # null next_fire_time
+            await scheduler.cleanup()
+            schedule = await scheduler.get_schedule("event_set")
+            assert schedule.next_fire_time is None
+
+            # Wait for the job to finish
+            dummy_event.set()
+            event = await receive.receive()
+            assert isinstance(event, JobReleased)
+
+    async def test_implicit_cleanup(self, mocker: MockerFixture) -> None:
+        """
+        Test that the scheduler's cleanup() method is called when the scheduler is
+        started.
+
+        """
+        async with AsyncScheduler() as scheduler:
+            event = anyio.Event()
+            mocker.patch.object(scheduler.data_store, "cleanup", side_effect=event.set)
+            await scheduler.start_in_background()
+            with fail_after(3):
+                await event.wait()
 
     async def test_wait_until_stopped(self) -> None:
         async with AsyncScheduler() as scheduler:
@@ -842,6 +929,24 @@ class TestSyncScheduler:
 
         event = queue.get(timeout=1)
         assert isinstance(event, SchedulerStopped)
+
+    def test_explicit_cleanup(self) -> None:
+        with Scheduler(cleanup_interval=None) as scheduler:
+            event = threading.Event()
+            scheduler.add_schedule(
+                event.set, DateTrigger(datetime.now(timezone.utc)), id="event_set"
+            )
+            scheduler.start_in_background()
+            assert event.wait(3)
+
+            # The schedule should still be around, but with a null next_fire_time
+            schedule = scheduler.get_schedule("event_set")
+            assert schedule.next_fire_time is None
+
+            # After the cleanup, the schedule should be gone
+            scheduler.cleanup()
+            with pytest.raises(ScheduleLookupError):
+                scheduler.get_schedule("event_set")
 
     def test_run_until_stopped(self) -> None:
         queue = Queue()

@@ -209,17 +209,20 @@ async def test_acquire_release_schedules(
         await datastore.release_schedules("dummy-id1", schedules1)
         await datastore.release_schedules("dummy-id2", schedules2)
 
-        # Check that the first schedule is gone
+        # Check that the first schedule has its next fire time nullified
         schedules = await datastore.get_schedules()
-        assert len(schedules) == 2
-        assert schedules[0].id == "s2"
-        assert schedules[1].id == "s3"
+        assert len(schedules) == 3
+        schedules.sort(key=lambda s: s.id)
+        assert schedules[0].id == "s1"
+        assert schedules[0].next_fire_time is None
+        assert schedules[1].id == "s2"
+        assert schedules[2].id == "s3"
 
     # Check for the appropriate update and delete events
     received_event = events.pop(0)
-    assert isinstance(received_event, ScheduleRemoved)
+    assert isinstance(received_event, ScheduleUpdated)
     assert received_event.schedule_id == "s1"
-    assert received_event.finished
+    assert received_event.next_fire_time is None
 
     received_event = events.pop(0)
     assert isinstance(received_event, ScheduleUpdated)
@@ -242,8 +245,12 @@ async def test_release_schedule_two_identical_fire_times(datastore: DataStore) -
     await datastore.release_schedules("foo", schedules)
 
     remaining = await datastore.get_schedules({s.id for s in schedules})
-    assert len(remaining) == 1
-    assert remaining[0].id == schedules[1].id
+    assert len(remaining) == 2
+    remaining.sort(key=lambda s: s.id)
+    assert remaining[0].id == schedules[0].id
+    assert remaining[0].next_fire_time is None
+    assert remaining[1].id == schedules[1].id
+    assert remaining[1].next_fire_time
 
 
 async def test_release_two_schedules_at_once(datastore: DataStore) -> None:

@@ -104,6 +104,9 @@ class MemoryDataStore(BaseDataStore):
     _jobs_by_task_id: dict[str, set[JobState]] = attrs.Factory(
         partial(defaultdict, set)
     )
+    _jobs_by_schedule_id: dict[str, set[JobState]] = attrs.Factory(
+        partial(defaultdict, set)
+    )
     _job_results: dict[UUID, JobResult] = attrs.Factory(dict)
 
     def _find_schedule_index(self, state: ScheduleState) -> int | None:
@@ -222,29 +225,22 @@ class MemoryDataStore(BaseDataStore):
     async def release_schedules(
         self, scheduler_id: str, schedules: list[Schedule]
     ) -> None:
-        # Send update events for schedules that have a next time
-        finished_schedule_ids: list[str] = []
+        # Send update events for schedules
         for s in schedules:
-            if s.next_fire_time is not None:
-                # Remove the schedule
-                schedule_state = self._schedules_by_id.get(s.id)
-                index = self._find_schedule_index(schedule_state)
-                del self._schedules[index]
+            # Remove the schedule
+            schedule_state = self._schedules_by_id.get(s.id)
+            index = self._find_schedule_index(schedule_state)
+            del self._schedules[index]
 
-                # Re-add the schedule to its new position
-                schedule_state.next_fire_time = s.next_fire_time
-                schedule_state.acquired_by = None
-                schedule_state.acquired_until = None
-                insort_right(self._schedules, schedule_state)
-                event = ScheduleUpdated(
-                    schedule_id=s.id, task_id=s.task_id, next_fire_time=s.next_fire_time
-                )
-                await self._event_broker.publish(event)
-            else:
-                finished_schedule_ids.append(s.id)
-
-        # Remove schedules that didn't get a new next fire time
-        await self.remove_schedules(finished_schedule_ids, finished=True)
+            # Re-add the schedule to its new position
+            schedule_state.next_fire_time = s.next_fire_time
+            schedule_state.acquired_by = None
+            schedule_state.acquired_until = None
+            insort_right(self._schedules, schedule_state)
+            event = ScheduleUpdated(
+                schedule_id=s.id, task_id=s.task_id, next_fire_time=s.next_fire_time
+            )
+            await self._event_broker.publish(event)
 
     async def get_next_schedule_run_time(self) -> datetime | None:
         return self._schedules[0].next_fire_time if self._schedules else None
@@ -254,6 +250,8 @@ class MemoryDataStore(BaseDataStore):
         self._jobs.append(state)
         self._jobs_by_id[job.id] = state
         self._jobs_by_task_id[job.task_id].add(state)
+        if job.schedule_id is not None:
+            self._jobs_by_schedule_id[job.schedule_id].add(state)
 
         event = JobAdded(
             job_id=job.id,
@@ -324,9 +322,43 @@ class MemoryDataStore(BaseDataStore):
 
         # Delete the job
         job_state = self._jobs_by_id.pop(result.job_id)
-        self._jobs_by_task_id[task_id].remove(job_state)
+
+        # Remove the job from the jobs belonging to its task
+        task_jobs = self._jobs_by_task_id[task_id]
+        task_jobs.remove(job_state)
+        if not task_jobs:
+            del self._jobs_by_task_id[task_id]
+
+        # If this was a scheduled job, remove the job from the set of jobs belonging to
+        # this schedule
+        if job_state.job.schedule_id:
+            schedule_jobs = self._jobs_by_schedule_id[job_state.job.schedule_id]
+            schedule_jobs.remove(job_state)
+            if not schedule_jobs:
+                del self._jobs_by_schedule_id[job_state.job.schedule_id]
+
         index = self._find_job_index(job_state)
         del self._jobs[index]
 
     async def get_job_result(self, job_id: UUID) -> JobResult | None:
         return self._job_results.pop(job_id, None)
+
+    async def cleanup(self) -> None:
+        # Clean up expired job results
+        now = datetime.now(timezone.utc)
+        expired_job_ids = [
+            result.job_id
+            for result in self._job_results.values()
+            if result.expires_at <= now
+        ]
+        for job_id in expired_job_ids:
+            del self._job_results[job_id]
+
+        # Clean up finished schedules that have no running jobs
+        finished_schedule_ids = [
+            schedule_id
+            for schedule_id, state in self._schedules_by_id.items()
+            if state.next_fire_time is None
+            and schedule_id not in self._jobs_by_schedule_id
+        ]
+        await self.remove_schedules(finished_schedule_ids, finished=True)

@@ -38,6 +38,7 @@ class Scheduler:
         *,
         identity: str | None = None,
         role: SchedulerRole = SchedulerRole.both,
+        cleanup_interval: float | timedelta | None = None,
         job_executors: MutableMapping[str, JobExecutor] | None = None,
         default_job_executor: str | None = None,
         logger: Logger | None = None,
@@ -55,6 +56,7 @@ class Scheduler:
             identity=identity,
             role=role,
             job_executors=job_executors,
+            cleanup_interval=cleanup_interval,
             default_job_executor=default_job_executor,
             logger=logger or logging.getLogger(__name__),
             **kwargs,
@@ -128,6 +130,10 @@ class Scheduler:
                 exit_stack.enter_context(
                     self._portal.wrap_async_context_manager(self._async_scheduler)
                 )
+
+    def cleanup(self) -> None:
+        self._ensure_services_ready()
+        return self._portal.call(self._async_scheduler.cleanup)
 
     def subscribe(
         self,

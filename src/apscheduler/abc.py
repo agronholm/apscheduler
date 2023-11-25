@@ -332,6 +332,13 @@ class DataStore(metaclass=ABCMeta):
         :return: the result, or ``None`` if the result was not found
         """
 
+    @abstractmethod
+    async def cleanup(self) -> None:
+        """
+        Purge expired job results and finished schedules that have no running jobs
+        associated with them.
+        """
+
 
 class JobExecutor(metaclass=ABCMeta):
     async def start(self, exit_stack: AsyncExitStack) -> None:

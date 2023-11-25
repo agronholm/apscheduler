@@ -307,7 +307,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("task_id", Unicode(500), nullable=False, index=True),
             Column("args", LargeBinary, nullable=False),
             Column("kwargs", LargeBinary, nullable=False),
-            Column("schedule_id", Unicode(500)),
+            Column("schedule_id", Unicode(500), index=True),
             Column("scheduled_fire_time", timestamp_type),
             Column("jitter", interval_type),
             Column("start_deadline", timestamp_type),
@@ -644,47 +644,49 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     finished_schedule_ids: list[str] = []
                     update_args: list[dict[str, Any]] = []
                     for schedule in schedules:
-                        if schedule.next_fire_time is not None:
-                            try:
-                                serialized_trigger = self.serializer.serialize(
-                                    schedule.trigger
-                                )
-                            except SerializationError:
-                                self._logger.exception(
-                                    "Error serializing trigger for schedule %r – "
-                                    "removing from data store",
-                                    schedule.id,
-                                )
-                                finished_schedule_ids.append(schedule.id)
-                                continue
+                        try:
+                            serialized_trigger = self.serializer.serialize(
+                                schedule.trigger
+                            )
+                        except SerializationError:
+                            self._logger.exception(
+                                "Error serializing trigger for schedule %r – "
+                                "removing from data store",
+                                schedule.id,
+                            )
+                            finished_schedule_ids.append(schedule.id)
+                            continue
 
-                            if self._supports_tzaware_timestamps:
-                                update_args.append(
-                                    {
-                                        "p_id": schedule.id,
-                                        "p_trigger": serialized_trigger,
-                                        "p_next_fire_time": schedule.next_fire_time,
-                                    }
+                        if self._supports_tzaware_timestamps:
+                            update_args.append(
+                                {
+                                    "p_id": schedule.id,
+                                    "p_trigger": serialized_trigger,
+                                    "p_next_fire_time": schedule.next_fire_time,
+                                }
+                            )
+                        else:
+                            if schedule.next_fire_time is not None:
+                                timestamp = int(
+                                    schedule.next_fire_time.timestamp() * 1000_000
+                                )
+                                utcoffset = (
+                                    schedule.next_fire_time.utcoffset().total_seconds()
+                                    // 60
                                 )
                             else:
-                                update_args.append(
-                                    {
-                                        "p_id": schedule.id,
-                                        "p_trigger": serialized_trigger,
-                                        "p_next_fire_time": int(
-                                            schedule.next_fire_time.timestamp()
-                                            * 1000_000
-                                        ),
-                                        "p_next_fire_time_utcoffset": (
-                                            schedule.next_fire_time.utcoffset().total_seconds()
-                                            // 60
-                                        ),
-                                    }
-                                )
-                        else:
-                            finished_schedule_ids.append(schedule.id)
+                                timestamp = utcoffset = None
 
-                    # Update schedules that have a next fire time
+                            update_args.append(
+                                {
+                                    "p_id": schedule.id,
+                                    "p_trigger": serialized_trigger,
+                                    "p_next_fire_time": timestamp,
+                                    "p_next_fire_time_utcoffset": utcoffset,
+                                }
+                            )
+
+                    # Update schedules
                     if update_args:
                         extra_values = {}
                         p_id: BindParameter = bindparam("p_id")
@@ -723,8 +725,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             )
                             update_events.append(event)
 
-                    # Remove schedules that have no next fire time or failed to
-                    # serialize
+                    # Remove schedules that failed to serialize
                     if finished_schedule_ids:
                         delete = self._t_schedules.delete().where(
                             self._t_schedules.c.id.in_(finished_schedule_ids)
@@ -930,3 +931,40 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     await self._execute(conn, delete)
 
         return JobResult.unmarshal(self.serializer, row._asdict()) if row else None
+
+    async def cleanup(self) -> None:
+        async for attempt in self._retry():
+            with attempt:
+                async with self._begin_transaction() as conn:
+                    # Purge expired job results
+                    delete = self._t_job_results.delete().where(
+                        self._t_job_results.c.expires_at <= datetime.now(timezone.utc)
+                    )
+                    await self._execute(conn, delete)
+
+                    # Clean up finished schedules that have no running jobs
+                    query = (
+                        select(self._t_schedules.c.id, self._t_schedules.c.task_id)
+                        .outerjoin(
+                            self._t_jobs,
+                            self._t_jobs.c.schedule_id == self._t_schedules.c.id,
+                        )
+                        .where(
+                            self._t_schedules.c.next_fire_time.is_(None),
+                            self._t_jobs.c.id.is_(None),
+                        )
+                    )
+                    results = await self._execute(conn, query)
+                    if finished_schedule_ids := dict(results.all()):
+                        delete = self._t_schedules.delete().where(
+                            ~self._t_schedules.c.id.in_(finished_schedule_ids)
+                        )
+                        await self._execute(conn, delete)
+                        for schedule_id, task_id in finished_schedule_ids.items():
+                            await self._event_broker.publish(
+                                ScheduleRemoved(
+                                    schedule_id=schedule_id,
+                                    task_id=task_id,
+                                    finished=True,
+                                )
+                            )

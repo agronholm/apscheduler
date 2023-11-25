@@ -22,12 +22,14 @@ from anyio import (
     create_task_group,
     get_cancelled_exc_class,
     move_on_after,
+    sleep,
 )
 from anyio.abc import TaskGroup, TaskStatus
 from attr.validators import instance_of
 
 from .. import JobAdded, SerializationError, TaskLookupError
 from .._context import current_async_scheduler, current_job
+from .._converters import as_timedelta
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState, SchedulerRole
 from .._events import (
     Event,
@@ -81,6 +83,8 @@ class AsyncScheduler:
     :param event_broker: the event broker to use for publishing an subscribing events
     :param max_concurrent_jobs: Maximum number of jobs the worker will run at once
     :param role: specifies what the scheduler should be doing when running
+    :param cleanup_interval: interval (as seconds or timedelta) between automatic
+        calls to :meth:`cleanup` – ``None`` to disable automatic clean-up
     """
 
     data_store: DataStore = attrs.field(
@@ -96,6 +100,9 @@ class AsyncScheduler:
     )
     job_executors: MutableMapping[str, JobExecutor] = attrs.field(
         kw_only=True, factory=dict
+    )
+    cleanup_interval: timedelta | None = attrs.field(
+        kw_only=True, converter=as_timedelta, default=timedelta(minutes=15)
     )
     default_job_executor: str | None = attrs.field(kw_only=True, default=None)
     logger: Logger = attrs.field(kw_only=True, default=getLogger(__name__))
@@ -169,10 +176,22 @@ class AsyncScheduler:
                 "than run_until_stopped()."
             )
 
+    async def _cleanup_loop(self) -> None:
+        delay = self.cleanup_interval.total_seconds()
+        assert delay > 0
+        while self._state in (RunState.starting, RunState.started):
+            await self.cleanup()
+            await sleep(delay)
+
     @property
     def state(self) -> RunState:
         """The current running state of the scheduler."""
         return self._state
+
+    async def cleanup(self) -> None:
+        """Clean up expired job results and finished schedules."""
+        await self.data_store.cleanup()
+        self.logger.info("Cleaned up expired job results and finished schedules")
 
     def subscribe(
         self,
@@ -540,8 +559,9 @@ class AsyncScheduler:
         :param job_id: the ID of the job
         :param wait: if ``True``, wait until the job has ended (one way or another),
             ``False`` to raise an exception if the result is not yet available
-        :raises JobLookupError: if ``wait=False`` and the job result does not exist in
-            the data store
+        :raises JobLookupError: if neither the job or its result exist in the data
+            store, or the job exists but the result is not ready yet and ``wait=False``
+            is set
 
         """
         self._check_initialized()
@@ -552,13 +572,14 @@ class AsyncScheduler:
                 wait_event.set()
 
         with self.event_broker.subscribe(listener, {JobReleased}):
-            result = await self.data_store.get_job_result(job_id)
-            if result:
+            job_exists = bool(await self.data_store.get_jobs([job_id]))
+            if result := await self.data_store.get_job_result(job_id):
                 return result
-            elif not wait:
-                raise JobLookupError(job_id)
 
-            await wait_event.wait()
+            if job_exists and wait:
+                await wait_event.wait()
+            else:
+                raise JobLookupError(job_id)
 
         return await self.data_store.get_job_result(job_id)
 
@@ -667,6 +688,14 @@ class AsyncScheduler:
                 async with create_task_group() as task_group:
                     self._scheduler_cancel_scope = task_group.cancel_scope
                     exit_stack.callback(setattr, self, "_scheduler_cancel_scope", None)
+
+                    # Start periodic cleanups
+                    if self.cleanup_interval:
+                        task_group.start_soon(self._cleanup_loop)
+                        self.logger.debug(
+                            "Started internal cleanup loop with interval: %s",
+                            self.cleanup_interval,
+                        )
 
                     # Start processing due schedules, if configured to do so
                     if self.role in (SchedulerRole.scheduler, SchedulerRole.both):

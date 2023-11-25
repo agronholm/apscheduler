@@ -4,6 +4,15 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+**UNRELEASED**
+
+- **BREAKING** Added the ``cleanup()`` scheduler method and a configuration option
+  (``cleanup_interval``). A corresponding abstract method was added to the ``DataStore``
+  class. This method purges expired job results and schedules that have exhausted their
+  triggers and have no more associated jobs running. Previously, schedules were
+  automatically deleted instantly once their triggers could no longer produce any fire
+  times.
+
 **4.0.0a4**
 
 - **BREAKING** Renamed any leftover fields named ``executor`` to ``job_executor``

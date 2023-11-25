@@ -451,6 +451,14 @@ When **distributed** event brokers (that is, other than the default one) are bei
 events other than the ones relating to the life cycles of schedulers and workers, will
 be sent to all schedulers and workers connected to that event broker.
 
+Clean-up of expired jobs and schedules
+======================================
+
+Expired job results and finished schedules are, by default, automatically cleaned up by
+each running scheduler on 15 minute intervals (counting from the scheduler's start
+time). This can be adjusted (or disabled entirely) through the ``cleanup_interval``
+configuration option.
+
 Deployment
 ==========
 
