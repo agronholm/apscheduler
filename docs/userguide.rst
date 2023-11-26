@@ -545,6 +545,33 @@ heavy lifting like processing schedules and running jobs.
 .. seealso:: A practical example of this separation of concerns can be found in the
     :file:`examples/separate_worker` directory.
 
+Explicitly assigning an identity to the scheduler
+-------------------------------------------------
+
+If you're running one or more schedulers against a persistent data store in a production
+setting, it'd be wise to assign each scheduler a custom identity. The reason for this is
+twofold:
+
+#. It helps you figure out which jobs are being run where
+#. It allows crashed jobs to cleared out quicker, as other schedulers aren't allowed to
+   clean them up until the jobs' timeouts expire
+
+The best choice would be something that the environment guarantees to be unique among
+all the scheduler instances but stays the same when the scheduler instance is restarted.
+For example, on Kubernetes, this would be the name of the pod where the scheduler is
+running, assuming of course that there is only one scheduler running in each pod against
+the same data store.
+
+Of course, if you're only ever running one scheduler against a persistent data store,
+you can just use a static scheduler ID.
+
+If no ID is explicitly given, the scheduler generates an ID by concatenating the
+following:
+
+* the current host name
+* the current process ID
+* the ID of the scheduler instance
+
 .. _troubleshooting:
 
 Troubleshooting

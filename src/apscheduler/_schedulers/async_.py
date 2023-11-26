@@ -79,12 +79,26 @@ class AsyncScheduler:
     """
     An asynchronous (AnyIO based) scheduler implementation.
 
+    Requires either :mod:`asyncio` or Trio_ to work.
+
+    .. note:: If running on Trio, ensure that the data store and event broker are
+        compatible with Trio.
+
+    .. _AnyIO: https://pypi.org/project/anyio/
+    .. _Trio: https://pypi.org/project/trio/
+
     :param data_store: the data store for tasks, schedules and jobs
     :param event_broker: the event broker to use for publishing an subscribing events
+    :param identity: the unique identifier of the scheduler
+    :param role: specifies what the scheduler should be doing when running (scheduling
+        only, job running only, or both)
     :param max_concurrent_jobs: Maximum number of jobs the worker will run at once
-    :param role: specifies what the scheduler should be doing when running
+    :param job_executors: a mutable mapping of executor names to executor instances
+    :param default_job_executor: name of the default job executor
     :param cleanup_interval: interval (as seconds or timedelta) between automatic
         calls to :meth:`cleanup` – ``None`` to disable automatic clean-up
+    :param logger: the logger instance used to log events from the scheduler, data store
+        and event broker
     """
 
     data_store: DataStore = attrs.field(
@@ -101,10 +115,10 @@ class AsyncScheduler:
     job_executors: MutableMapping[str, JobExecutor] = attrs.field(
         kw_only=True, factory=dict
     )
+    default_job_executor: str | None = attrs.field(kw_only=True, default=None)
     cleanup_interval: timedelta | None = attrs.field(
         kw_only=True, converter=as_timedelta, default=timedelta(minutes=15)
     )
-    default_job_executor: str | None = attrs.field(kw_only=True, default=None)
     logger: Logger = attrs.field(kw_only=True, default=getLogger(__name__))
 
     _state: RunState = attrs.field(init=False, default=RunState.stopped)

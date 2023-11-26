@@ -767,6 +767,23 @@ class TestAsyncScheduler:
 
 
 class TestSyncScheduler:
+    def test_configure(self) -> None:
+        executor = ThreadPoolJobExecutor()
+        scheduler = Scheduler(
+            identity="identity",
+            role=SchedulerRole.scheduler,
+            max_concurrent_jobs=150,
+            cleanup_interval=5,
+            job_executors={"executor1": executor},
+            default_job_executor="executor1",
+        )
+        assert scheduler.identity == "identity"
+        assert scheduler.role is SchedulerRole.scheduler
+        assert scheduler.max_concurrent_jobs == 150
+        assert scheduler.cleanup_interval == timedelta(seconds=5)
+        assert scheduler.job_executors == {"executor1": executor}
+        assert scheduler.default_job_executor == "executor1"
+
     @pytest.mark.parametrize("as_default", [False, True])
     def test_threadpool_executor(self, as_default: bool) -> None:
         with Scheduler() as scheduler:

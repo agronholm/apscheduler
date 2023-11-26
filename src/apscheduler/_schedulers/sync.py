@@ -30,7 +30,11 @@ else:
 
 class Scheduler:
     """
-    A synchronous scheduler implementation.
+    A synchronous wrapper for :class:`AsyncScheduler`.
+
+    When started, this wrapper launches an asynchronous event loop in a separate thread
+    and runs the asynchronous scheduler there. This thread is shut down along with the
+    scheduler.
 
     See the documentation of the :class:`AsyncScheduler` class for the documentation of
     the configuration options.
@@ -43,6 +47,7 @@ class Scheduler:
         *,
         identity: str | None = None,
         role: SchedulerRole = SchedulerRole.both,
+        max_concurrent_jobs: int = 100,
         cleanup_interval: float | timedelta | None = None,
         job_executors: MutableMapping[str, JobExecutor] | None = None,
         default_job_executor: str | None = None,
@@ -51,6 +56,7 @@ class Scheduler:
         kwargs: dict[str, Any] = {}
         if data_store is not None:
             kwargs["data_store"] = data_store
+
         if event_broker is not None:
             kwargs["event_broker"] = event_broker
 
@@ -60,6 +66,7 @@ class Scheduler:
         self._async_scheduler = AsyncScheduler(
             identity=identity,
             role=role,
+            max_concurrent_jobs=max_concurrent_jobs,
             job_executors=job_executors,
             cleanup_interval=cleanup_interval,
             default_job_executor=default_job_executor,
@@ -85,6 +92,14 @@ class Scheduler:
     @property
     def role(self) -> SchedulerRole:
         return self._async_scheduler.role
+
+    @property
+    def max_concurrent_jobs(self) -> int:
+        return self._async_scheduler.max_concurrent_jobs
+
+    @property
+    def cleanup_interval(self) -> timedelta:
+        return self._async_scheduler.cleanup_interval
 
     @property
     def job_executors(self) -> MutableMapping[str, JobExecutor]:
