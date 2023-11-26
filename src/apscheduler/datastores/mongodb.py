@@ -3,11 +3,11 @@ from __future__ import annotations
 import operator
 import sys
 from collections import defaultdict
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger
-from typing import Any, Callable, ClassVar, Generic, Iterable, TypeVar
+from typing import Any, Callable, ClassVar, Generic, Iterable, Mapping, TypeVar
 from uuid import UUID
 
 import attrs
