@@ -25,11 +25,11 @@ from anyio import (
     sleep,
 )
 from anyio.abc import TaskGroup, TaskStatus
-from attr.validators import instance_of
+from attr.validators import instance_of, optional
 
 from .. import JobAdded, SerializationError, TaskLookupError
 from .._context import current_async_scheduler, current_job
-from .._converters import as_timedelta
+from .._converters import as_enum, as_timedelta
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState, SchedulerRole
 from .._events import (
     Event,
@@ -107,17 +107,24 @@ class AsyncScheduler:
     event_broker: EventBroker = attrs.field(
         validator=instance_of(EventBroker), factory=LocalEventBroker
     )
-    identity: str = attrs.field(kw_only=True, default=None)
-    role: SchedulerRole = attrs.field(kw_only=True, default=SchedulerRole.both)
+    identity: str = attrs.field(kw_only=True, validator=instance_of(str), default="")
+    role: SchedulerRole = attrs.field(
+        kw_only=True, converter=as_enum(SchedulerRole), default=SchedulerRole.both
+    )
     max_concurrent_jobs: int = attrs.field(
         kw_only=True, validator=non_negative_number, default=100
     )
     job_executors: MutableMapping[str, JobExecutor] = attrs.field(
-        kw_only=True, factory=dict
+        kw_only=True, validator=instance_of(MutableMapping), factory=dict
     )
-    default_job_executor: str | None = attrs.field(kw_only=True, default=None)
+    default_job_executor: str | None = attrs.field(
+        kw_only=True, validator=optional(instance_of(str)), default=None
+    )
     cleanup_interval: timedelta | None = attrs.field(
-        kw_only=True, converter=as_timedelta, default=timedelta(minutes=15)
+        kw_only=True,
+        converter=as_timedelta,
+        validator=optional(instance_of(timedelta)),
+        default=timedelta(minutes=15),
     )
     logger: Logger = attrs.field(kw_only=True, default=getLogger(__name__))
 
