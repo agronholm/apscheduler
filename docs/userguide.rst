@@ -313,12 +313,12 @@ In some cases, you want to run tasks directly, without involving schedules:
 * You're interested in the job's return value
 
 To queue a job and wait for its completion and get the result, the easiest way is to
-use :meth:`~Scheduler.run_job`. If you prefer to just launch
-a job and not wait for its result, use
-:meth:`~Scheduler.add_job` instead. If you want to get the
-results later, you can then call
-:meth:`~Scheduler.get_job_result` with the job ID you got
-from :meth:`~Scheduler.add_job`.
+use :meth:`~Scheduler.run_job`. If you prefer to just launch a job and not wait for its
+result, use:meth:`~Scheduler.add_job` instead. If you want to get the results later, you
+need to pass an appropriate ``result_expiration_time`` parameter to
+:meth:`~Scheduler.add_job` so that the result is saved. Then, you can call
+:meth:`~Scheduler.get_job_result` with the job ID you got from
+:meth:`~Scheduler.add_job` to retrieve the result.
 
 Removing schedules
 ------------------
