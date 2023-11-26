@@ -12,6 +12,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   triggers and have no more associated jobs running. Previously, schedules were
   automatically deleted instantly once their triggers could no longer produce any fire
   times.
+- Fixed large parts of ``MongoDBDataStore`` still calling blocking functions in the
+  event loop thread
 
 **4.0.0a4**
 
