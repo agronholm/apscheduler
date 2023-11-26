@@ -266,7 +266,9 @@ class MemoryDataStore(BaseDataStore):
 
         return [state.job for state in self._jobs if ids is None or state.job.id in ids]
 
-    async def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
+    async def acquire_jobs(
+        self, scheduler_id: str, limit: int | None = None
+    ) -> list[Job]:
         now = datetime.now(timezone.utc)
         jobs: list[Job] = []
         for _index, job_state in enumerate(self._jobs):
@@ -288,7 +290,7 @@ class MemoryDataStore(BaseDataStore):
 
             # Mark the job as acquired by this worker
             jobs.append(job_state.job)
-            job_state.acquired_by = worker_id
+            job_state.acquired_by = scheduler_id
             job_state.acquired_until = now + timedelta(
                 seconds=self.lock_expiration_delay
             )
@@ -303,13 +305,13 @@ class MemoryDataStore(BaseDataStore):
         # Publish the appropriate events
         for job in jobs:
             await self._event_broker.publish(
-                JobAcquired(job_id=job.id, scheduler_id=worker_id)
+                JobAcquired(job_id=job.id, scheduler_id=scheduler_id)
             )
 
         return jobs
 
     async def release_job(
-        self, worker_id: str, task_id: str, result: JobResult
+        self, scheduler_id: str, task_id: str, result: JobResult
     ) -> None:
         # Record the job result
         if result.expires_at > result.finished_at:

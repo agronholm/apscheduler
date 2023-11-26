@@ -510,7 +510,9 @@ class MongoDBDataStore(BaseExternalDataStore):
 
         return jobs
 
-    async def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
+    async def acquire_jobs(
+        self, scheduler_id: str, limit: int | None = None
+    ) -> list[Job]:
         async for attempt in self._retry():
             with attempt, self.client.start_session() as session:
                 now = datetime.now(timezone.utc)
@@ -572,7 +574,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                     filters = {"_id": {"$in": [job.id for job in acquired_jobs]}}
                     update = {
                         "$set": {
-                            "acquired_by": worker_id,
+                            "acquired_by": scheduler_id,
                             **marshal_timestamp(acquired_until, "acquired_until"),
                         }
                     }
@@ -593,13 +595,13 @@ class MongoDBDataStore(BaseExternalDataStore):
         # Publish the appropriate events
         for job in acquired_jobs:
             await self._event_broker.publish(
-                JobAcquired(job_id=job.id, scheduler_id=worker_id)
+                JobAcquired(job_id=job.id, scheduler_id=scheduler_id)
             )
 
         return acquired_jobs
 
     async def release_job(
-        self, worker_id: str, task_id: str, result: JobResult
+        self, scheduler_id: str, task_id: str, result: JobResult
     ) -> None:
         async for attempt in self._retry():
             with attempt, self.client.start_session() as session:

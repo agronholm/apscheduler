@@ -92,7 +92,7 @@ class AsyncScheduler:
     :param identity: the unique identifier of the scheduler
     :param role: specifies what the scheduler should be doing when running (scheduling
         only, job running only, or both)
-    :param max_concurrent_jobs: Maximum number of jobs the worker will run at once
+    :param max_concurrent_jobs: Maximum number of jobs the scheduler will run at once
     :param job_executors: a mutable mapping of executor names to executor instances
     :param default_job_executor: name of the default job executor
     :param cleanup_interval: interval (as seconds or timedelta) between automatic

@@ -16,7 +16,7 @@ class BaseDataStore(DataStore):
     Base class for data stores.
 
     :param lock_expiration_delay: maximum amount of time (in seconds) that a scheduler
-        or worker can keep a lock on a schedule or task
+        can keep a lock on a schedule or task
     """
 
     lock_expiration_delay: float = 30

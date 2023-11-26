@@ -218,7 +218,7 @@ class SchedulerStopped(SchedulerEvent):
 @attrs.define(kw_only=True, frozen=True)
 class JobAcquired(SchedulerEvent):
     """
-    Signals that a worker has acquired a job for processing.
+    Signals that a scheduler has acquired a job for processing.
 
     :param job_id: the ID of the job that was acquired
     :param scheduler_id: the ID of the scheduler that acquired the job
@@ -231,10 +231,10 @@ class JobAcquired(SchedulerEvent):
 @attrs.define(kw_only=True, frozen=True)
 class JobReleased(SchedulerEvent):
     """
-    Signals that a worker has finished processing of a job.
+    Signals that a scheduler has finished processing of a job.
 
     :param uuid.UUID job_id: the ID of the job that was released
-    :param scheduler_id: the ID of the worker that released the job
+    :param scheduler_id: the ID of the scheduler that released the job
     :param outcome: the outcome of the job
     :param exception_type: the fully qualified name of the exception if ``outcome`` is
         :attr:`JobOutcome.error`
@@ -252,7 +252,7 @@ class JobReleased(SchedulerEvent):
     exception_traceback: list[str] | None = None
 
     @classmethod
-    def from_result(cls, result: JobResult, worker_id: str) -> JobReleased:
+    def from_result(cls, result: JobResult, scheduler_id: str) -> JobReleased:
         if result.exception is not None:
             exception_type: str | None = qualified_name(result.exception.__class__)
             exception_message: str | None = str(result.exception)
@@ -264,7 +264,7 @@ class JobReleased(SchedulerEvent):
 
         return cls(
             job_id=result.job_id,
-            scheduler_id=worker_id,
+            scheduler_id=scheduler_id,
             outcome=result.outcome,
             exception_type=exception_type,
             exception_message=exception_message,

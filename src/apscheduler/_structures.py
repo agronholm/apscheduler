@@ -171,16 +171,16 @@ class Job:
         to run at (if the job was derived from a schedule; includes jitter)
     :var ~datetime.timedelta | None jitter: the time that was randomly added to the
         calculated scheduled run time (if the job was derived from a schedule)
-    :var ~datetime.datetime | None start_deadline: if the job is started in the worker
-        after this time, it is considered to be misfired and will be aborted
+    :var ~datetime.datetime | None start_deadline: if the job is started in the
+        scheduler after this time, it is considered to be misfired and will be aborted
     :var ~datetime.timedelta result_expiration_time: minimum amount of time to keep the
         result available for fetching in the data store
     :var ~datetime.datetime created_at: the time at which the job was created
     :var ~datetime.datetime | None started_at: the time at which the execution of the
         job was started
-    :var str | None acquired_by: the unique identifier of the worker that has acquired
-        the job for execution
-    :var str | None acquired_until: the time after which other workers are free to
+    :var str | None acquired_by: the unique identifier of the scheduler that has
+        acquired the job for execution
+    :var str | None acquired_until: the time after which other schedulers are free to
         acquire the job for processing even if it is still marked as acquired
     """
 

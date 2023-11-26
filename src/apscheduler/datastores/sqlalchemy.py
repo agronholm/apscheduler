@@ -797,7 +797,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
         return await self._deserialize_jobs(result)
 
-    async def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
+    async def acquire_jobs(
+        self, scheduler_id: str, limit: int | None = None
+    ) -> list[Job]:
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
@@ -858,7 +860,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         update = (
                             self._t_jobs.update()
                             .values(
-                                acquired_by=worker_id, acquired_until=acquired_until
+                                acquired_by=scheduler_id, acquired_until=acquired_until
                             )
                             .where(self._t_jobs.c.id.in_(acquired_job_ids))
                         )
@@ -883,13 +885,13 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         # Publish the appropriate events
         for job in acquired_jobs:
             await self._event_broker.publish(
-                JobAcquired(job_id=job.id, scheduler_id=worker_id)
+                JobAcquired(job_id=job.id, scheduler_id=scheduler_id)
             )
 
         return acquired_jobs
 
     async def release_job(
-        self, worker_id: str, task_id: str, result: JobResult
+        self, scheduler_id: str, task_id: str, result: JobResult
     ) -> None:
         async for attempt in self._retry():
             with attempt:

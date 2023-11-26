@@ -27,7 +27,7 @@ class SchedulerRole(Enum):
 
 class RunState(Enum):
     """
-    Used to track the running state of schedulers and workers.
+    Used to track the running state of schedulers.
 
     .. attribute:: starting
 
