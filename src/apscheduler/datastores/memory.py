@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from bisect import bisect_left, insort_right
+from bisect import bisect_left, bisect_right, insort_right
 from collections import defaultdict
 from datetime import MAXYEAR, datetime, timedelta, timezone
 from functools import partial
-from typing import Any, Iterable
+from typing import Iterable
 from uuid import UUID
 
 import attrs
@@ -13,7 +13,6 @@ from .._enums import ConflictPolicy
 from .._events import (
     JobAcquired,
     JobAdded,
-    JobReleased,
     ScheduleAdded,
     ScheduleRemoved,
     ScheduleUpdated,
@@ -32,10 +31,6 @@ max_datetime = datetime(MAXYEAR, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc
 class TaskState:
     task: Task
     running_jobs: int = 0
-    saved_state: Any = None
-
-    def __eq__(self, other):
-        return self.task.id == other.task.id
 
 
 @attrs.define
@@ -48,20 +43,26 @@ class ScheduleState:
     def __attrs_post_init__(self):
         self.next_fire_time = self.schedule.next_fire_time
 
-    def __eq__(self, other):
-        return self.schedule.id == other.schedule.id
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, ScheduleState):
+            return self.schedule.id == other.schedule.id
 
-    def __lt__(self, other):
-        if self.next_fire_time is None:
-            return False
-        elif other.next_fire_time is None:
-            return self.next_fire_time is not None
-        elif self.next_fire_time != other.next_fire_time:
-            return self.next_fire_time < other.next_fire_time
-        else:
-            return self.schedule.id < other.schedule.id
+        return NotImplemented
 
-    def __hash__(self):
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, ScheduleState):
+            if self.next_fire_time is None:
+                return False
+            elif other.next_fire_time is None:
+                return self.next_fire_time is not None
+            elif self.next_fire_time != other.next_fire_time:
+                return self.next_fire_time < other.next_fire_time
+            else:
+                return self.schedule.id < other.schedule.id
+
+        return NotImplemented
+
+    def __hash__(self) -> int:
         return hash(self.schedule.id)
 
 
@@ -74,10 +75,13 @@ class JobState:
     acquired_by: str | None = attrs.field(eq=False, order=False, default=None)
     acquired_until: datetime | None = attrs.field(eq=False, order=False, default=None)
 
-    def __eq__(self, other):
-        return self.job.id == other.job.id
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, JobState):
+            return self.job.id == other.job.id
 
-    def __hash__(self):
+        return NotImplemented
+
+    def __hash__(self) -> int:
         return hash(self.job.id)
 
 
@@ -86,13 +90,9 @@ class MemoryDataStore(BaseDataStore):
     """
     Stores scheduler data in memory, without serializing it.
 
-    Can be shared between multiple schedulers and workers within the same event loop.
-
-    :param lock_expiration_delay: maximum amount of time (in seconds) that a scheduler
-        or worker can keep a lock on a schedule or task
+    Can be shared between multiple schedulers within the same event loop.
     """
 
-    lock_expiration_delay: float = 30
     _tasks: dict[str, TaskState] = attrs.Factory(dict)
     _schedules: list[ScheduleState] = attrs.Factory(list)
     _schedules_by_id: dict[str, ScheduleState] = attrs.Factory(dict)
@@ -104,53 +104,58 @@ class MemoryDataStore(BaseDataStore):
     _jobs_by_task_id: dict[str, set[JobState]] = attrs.Factory(
         partial(defaultdict, set)
     )
+    _jobs_by_schedule_id: dict[str, set[JobState]] = attrs.Factory(
+        partial(defaultdict, set)
+    )
     _job_results: dict[UUID, JobResult] = attrs.Factory(dict)
 
     def _find_schedule_index(self, state: ScheduleState) -> int | None:
         left_index = bisect_left(self._schedules, state)
-        right_index = bisect_left(self._schedules, state)
+        right_index = bisect_right(self._schedules, state)
         return self._schedules.index(state, left_index, right_index + 1)
 
     def _find_job_index(self, state: JobState) -> int | None:
         left_index = bisect_left(self._jobs, state)
-        right_index = bisect_left(self._jobs, state)
+        right_index = bisect_right(self._jobs, state)
         return self._jobs.index(state, left_index, right_index + 1)
 
-    def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
+    async def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
         return [
             state.schedule
             for state in self._schedules
             if ids is None or state.schedule.id in ids
         ]
 
-    def add_task(self, task: Task) -> None:
+    async def add_task(self, task: Task) -> None:
         task_exists = task.id in self._tasks
         self._tasks[task.id] = TaskState(task)
         if task_exists:
-            self._events.publish(TaskUpdated(task_id=task.id))
+            await self._event_broker.publish(TaskUpdated(task_id=task.id))
         else:
-            self._events.publish(TaskAdded(task_id=task.id))
+            await self._event_broker.publish(TaskAdded(task_id=task.id))
 
-    def remove_task(self, task_id: str) -> None:
+    async def remove_task(self, task_id: str) -> None:
         try:
             del self._tasks[task_id]
         except KeyError:
             raise TaskLookupError(task_id) from None
 
-        self._events.publish(TaskRemoved(task_id=task_id))
+        await self._event_broker.publish(TaskRemoved(task_id=task_id))
 
-    def get_task(self, task_id: str) -> Task:
+    async def get_task(self, task_id: str) -> Task:
         try:
             return self._tasks[task_id].task
         except KeyError:
             raise TaskLookupError(task_id) from None
 
-    def get_tasks(self) -> list[Task]:
+    async def get_tasks(self) -> list[Task]:
         return sorted(
             (state.task for state in self._tasks.values()), key=lambda task: task.id
         )
 
-    def add_schedule(self, schedule: Schedule, conflict_policy: ConflictPolicy) -> None:
+    async def add_schedule(
+        self, schedule: Schedule, conflict_policy: ConflictPolicy
+    ) -> None:
         old_state = self._schedules_by_id.get(schedule.id)
         if old_state is not None:
             if conflict_policy is ConflictPolicy.do_nothing:
@@ -169,24 +174,34 @@ class MemoryDataStore(BaseDataStore):
 
         if old_state is not None:
             event = ScheduleUpdated(
-                schedule_id=schedule.id, next_fire_time=schedule.next_fire_time
+                schedule_id=schedule.id,
+                task_id=schedule.task_id,
+                next_fire_time=schedule.next_fire_time,
             )
         else:
             event = ScheduleAdded(
-                schedule_id=schedule.id, next_fire_time=schedule.next_fire_time
+                schedule_id=schedule.id,
+                task_id=schedule.task_id,
+                next_fire_time=schedule.next_fire_time,
             )
 
-        self._events.publish(event)
+        await self._event_broker.publish(event)
 
-    def remove_schedules(self, ids: Iterable[str]) -> None:
+    async def remove_schedules(
+        self, ids: Iterable[str], *, finished: bool = False
+    ) -> None:
         for schedule_id in ids:
             state = self._schedules_by_id.pop(schedule_id, None)
             if state:
                 self._schedules.remove(state)
-                event = ScheduleRemoved(schedule_id=state.schedule.id)
-                self._events.publish(event)
+                event = ScheduleRemoved(
+                    schedule_id=state.schedule.id,
+                    task_id=state.schedule.task_id,
+                    finished=finished,
+                )
+                await self._event_broker.publish(event)
 
-    def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
+    async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
         now = datetime.now(timezone.utc)
         schedules: list[Schedule] = []
         for state in self._schedules:
@@ -195,8 +210,8 @@ class MemoryDataStore(BaseDataStore):
                 break
             elif state.acquired_by is not None:
                 if state.acquired_by != scheduler_id and now <= state.acquired_until:
-                    # The schedule has been acquired by another scheduler and the timeout has not
-                    # expired yet
+                    # The schedule has been acquired by another scheduler and the
+                    # timeout has not expired yet
                     continue
 
             schedules.append(state.schedule)
@@ -207,55 +222,51 @@ class MemoryDataStore(BaseDataStore):
 
         return schedules
 
-    def release_schedules(self, scheduler_id: str, schedules: list[Schedule]) -> None:
-        # Send update events for schedules that have a next time
-        finished_schedule_ids: list[str] = []
+    async def release_schedules(
+        self, scheduler_id: str, schedules: list[Schedule]
+    ) -> None:
+        # Send update events for schedules
         for s in schedules:
-            if s.next_fire_time is not None:
-                # Remove the schedule
-                schedule_state = self._schedules_by_id.get(s.id)
-                index = self._find_schedule_index(schedule_state)
-                del self._schedules[index]
+            # Remove the schedule
+            schedule_state = self._schedules_by_id.get(s.id)
+            index = self._find_schedule_index(schedule_state)
+            del self._schedules[index]
 
-                # Re-add the schedule to its new position
-                schedule_state.next_fire_time = s.next_fire_time
-                schedule_state.acquired_by = None
-                schedule_state.acquired_until = None
-                insort_right(self._schedules, schedule_state)
-                event = ScheduleUpdated(
-                    schedule_id=s.id, next_fire_time=s.next_fire_time
-                )
-                self._events.publish(event)
-            else:
-                finished_schedule_ids.append(s.id)
+            # Re-add the schedule to its new position
+            schedule_state.next_fire_time = s.next_fire_time
+            schedule_state.acquired_by = None
+            schedule_state.acquired_until = None
+            insort_right(self._schedules, schedule_state)
+            event = ScheduleUpdated(
+                schedule_id=s.id, task_id=s.task_id, next_fire_time=s.next_fire_time
+            )
+            await self._event_broker.publish(event)
 
-        # Remove schedules that didn't get a new next fire time
-        self.remove_schedules(finished_schedule_ids)
-
-    def get_next_schedule_run_time(self) -> datetime | None:
+    async def get_next_schedule_run_time(self) -> datetime | None:
         return self._schedules[0].next_fire_time if self._schedules else None
 
-    def add_job(self, job: Job) -> None:
+    async def add_job(self, job: Job) -> None:
         state = JobState(job)
         self._jobs.append(state)
         self._jobs_by_id[job.id] = state
         self._jobs_by_task_id[job.task_id].add(state)
+        if job.schedule_id is not None:
+            self._jobs_by_schedule_id[job.schedule_id].add(state)
 
         event = JobAdded(
             job_id=job.id,
             task_id=job.task_id,
             schedule_id=job.schedule_id,
-            tags=job.tags,
         )
-        self._events.publish(event)
+        await self._event_broker.publish(event)
 
-    def get_jobs(self, ids: Iterable[UUID] | None = None) -> list[Job]:
+    async def get_jobs(self, ids: Iterable[UUID] | None = None) -> list[Job]:
         if ids is not None:
             ids = frozenset(ids)
 
         return [state.job for state in self._jobs if ids is None or state.job.id in ids]
 
-    def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
+    async def acquire_jobs(self, worker_id: str, limit: int | None = None) -> list[Job]:
         now = datetime.now(timezone.utc)
         jobs: list[Job] = []
         for _index, job_state in enumerate(self._jobs):
@@ -291,31 +302,63 @@ class MemoryDataStore(BaseDataStore):
 
         # Publish the appropriate events
         for job in jobs:
-            self._events.publish(JobAcquired(job_id=job.id, worker_id=worker_id))
+            await self._event_broker.publish(
+                JobAcquired(job_id=job.id, scheduler_id=worker_id)
+            )
 
         return jobs
 
-    def release_job(self, worker_id: str, task_id: str, result: JobResult) -> None:
-        # Delete the job
-        job_state = self._jobs_by_id.pop(result.job_id)
-        self._jobs_by_task_id[task_id].remove(job_state)
-        index = self._find_job_index(job_state)
-        del self._jobs[index]
+    async def release_job(
+        self, worker_id: str, task_id: str, result: JobResult
+    ) -> None:
+        # Record the job result
+        if result.expires_at > result.finished_at:
+            self._job_results[result.job_id] = result
 
         # Decrement the number of running jobs for this task
         task_state = self._tasks.get(task_id)
         if task_state is not None:
             task_state.running_jobs -= 1
 
-        # Record the result
-        self._job_results[result.job_id] = result
+        # Delete the job
+        job_state = self._jobs_by_id.pop(result.job_id)
 
-        # Publish the event
-        self._events.publish(
-            JobReleased(
-                job_id=result.job_id, worker_id=worker_id, outcome=result.outcome
-            )
-        )
+        # Remove the job from the jobs belonging to its task
+        task_jobs = self._jobs_by_task_id[task_id]
+        task_jobs.remove(job_state)
+        if not task_jobs:
+            del self._jobs_by_task_id[task_id]
 
-    def get_job_result(self, job_id: UUID) -> JobResult | None:
+        # If this was a scheduled job, remove the job from the set of jobs belonging to
+        # this schedule
+        if job_state.job.schedule_id:
+            schedule_jobs = self._jobs_by_schedule_id[job_state.job.schedule_id]
+            schedule_jobs.remove(job_state)
+            if not schedule_jobs:
+                del self._jobs_by_schedule_id[job_state.job.schedule_id]
+
+        index = self._find_job_index(job_state)
+        del self._jobs[index]
+
+    async def get_job_result(self, job_id: UUID) -> JobResult | None:
         return self._job_results.pop(job_id, None)
+
+    async def cleanup(self) -> None:
+        # Clean up expired job results
+        now = datetime.now(timezone.utc)
+        expired_job_ids = [
+            result.job_id
+            for result in self._job_results.values()
+            if result.expires_at <= now
+        ]
+        for job_id in expired_job_ids:
+            del self._job_results[job_id]
+
+        # Clean up finished schedules that have no running jobs
+        finished_schedule_ids = [
+            schedule_id
+            for schedule_id, state in self._schedules_by_id.items()
+            if state.next_fire_time is None
+            and schedule_id not in self._jobs_by_schedule_id
+        ]
+        await self.remove_schedules(finished_schedule_ids, finished=True)

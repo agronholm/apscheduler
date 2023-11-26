@@ -1,66 +1,83 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, AsyncContextManager, AsyncGenerator, Callable
+from collections.abc import Awaitable, Mapping
+from contextlib import AsyncExitStack
+from functools import partial
+from logging import Logger
+from typing import TYPE_CHECKING, Any, Callable, cast
 
+import asyncpg
 import attrs
-from anyio import TASK_STATUS_IGNORED, CancelScope, sleep
-from asyncpg import Connection
-from asyncpg.pool import Pool
+from anyio import (
+    TASK_STATUS_IGNORED,
+    EndOfStream,
+    create_memory_object_stream,
+    move_on_after,
+)
+from anyio.streams.memory import MemoryObjectSendStream
+from asyncpg import Connection, InterfaceError
 
 from .._events import Event
 from .._exceptions import SerializationError
-from ..abc import Serializer
-from ..serializers.json import JSONSerializer
-from .async_local import LocalAsyncEventBroker
-from .base import DistributedEventBrokerMixin
+from .base import BaseExternalEventBroker
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
 
 @attrs.define(eq=False)
-class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
+class AsyncpgEventBroker(BaseExternalEventBroker):
     """
     An asynchronous, asyncpg_ based event broker that uses a PostgreSQL server to
     broadcast events using its ``NOTIFY`` mechanism.
 
     .. _asyncpg: https://pypi.org/project/asyncpg/
 
-    :param connection_factory: a callable that creates an async context manager that
-        yields a new asyncpg connection
-    :param serializer: the serializer used to (de)serialize events for transport
+    :param connection_factory: a callable that creates an asyncpg connection
     :param channel: the ``NOTIFY`` channel to use
     :param max_idle_time: maximum time to let the connection go idle, before sending a
         ``SELECT 1`` query to prevent a connection timeout
     """
 
-    connection_factory: Callable[[], AsyncContextManager[Connection]]
-    serializer: Serializer = attrs.field(kw_only=True, factory=JSONSerializer)
+    connection_factory: Callable[[], Awaitable[Connection]]
     channel: str = attrs.field(kw_only=True, default="apscheduler")
-    max_idle_time: float = attrs.field(kw_only=True, default=30)
-    _listen_cancel_scope: CancelScope = attrs.field(init=False)
+    max_idle_time: float = attrs.field(kw_only=True, default=10)
+    _send: MemoryObjectSendStream[str] = attrs.field(init=False)
 
     @classmethod
-    def from_asyncpg_pool(cls, pool: Pool, **kwargs) -> AsyncpgEventBroker:
+    def from_dsn(
+        cls, dsn: str, options: Mapping[str, Any] | None = None, **kwargs: Any
+    ) -> AsyncpgEventBroker:
         """
         Create a new asyncpg event broker from an existing asyncpg connection pool.
 
-        :param pool: an asyncpg connection pool
+        :param dsn: data source name, passed as first positional argument to
+            :func:`asyncpg.connect`
+        :param options: keyword arguments passed to :func:`asyncpg.connect`
         :param kwargs: keyword arguments to pass to the initializer of this class
         :return: the newly created event broker
 
         """
-        return cls(pool.acquire, **kwargs)
+        factory = partial(asyncpg.connect, dsn, **(options or {}))
+        return cls(factory, **kwargs)
 
     @classmethod
     def from_async_sqla_engine(
-        cls, engine: AsyncEngine, **kwargs
+        cls,
+        engine: AsyncEngine,
+        options: Mapping[str, Any] | None = None,
+        **kwargs: Any,
     ) -> AsyncpgEventBroker:
         """
         Create a new asyncpg event broker from an SQLAlchemy engine.
 
+        The engine will only be used to create the appropriate options for
+        :func:`asyncpg.connect`.
+
         :param engine: an asynchronous SQLAlchemy engine using asyncpg as the driver
+        :type engine: ~sqlalchemy.ext.asyncio.AsyncEngine
+        :param options: extra keyword arguments passed to :func:`asyncpg.connect` (will
+            override any automatically generated arguments based on the engine)
         :param kwargs: keyword arguments to pass to the initializer of this class
         :return: the newly created event broker
 
@@ -71,47 +88,87 @@ class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
                 f"{engine.dialect.driver})"
             )
 
-        @asynccontextmanager
-        async def connection_factory() -> AsyncGenerator[Connection, None]:
-            conn = await engine.raw_connection()
-            try:
-                yield conn.connection._connection
-            finally:
-                conn.close()
+        connect_args = dict(engine.url.query)
+        for optname in ("host", "port", "database", "username", "password"):
+            value = getattr(engine.url, optname)
+            if value is not None:
+                if optname == "username":
+                    optname = "user"
 
-        return cls(connection_factory, **kwargs)
+                connect_args[optname] = value
 
-    async def start(self) -> None:
-        await super().start()
-        self._listen_cancel_scope = await self._task_group.start(
-            self._listen_notifications
+        if options:
+            connect_args |= options
+
+        factory = partial(asyncpg.connect, **connect_args)
+        return cls(factory, **kwargs)
+
+    @property
+    def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:
+        return OSError, InterfaceError
+
+    async def start(self, exit_stack: AsyncExitStack, logger: Logger) -> None:
+        await super().start(exit_stack, logger)
+        self._send = cast(
+            MemoryObjectSendStream[str],
+            await self._task_group.start(self._listen_notifications),
         )
-
-    async def stop(self, *, force: bool = False) -> None:
-        self._listen_cancel_scope.cancel()
-        await super().stop(force=force)
+        await exit_stack.enter_async_context(self._send)
 
     async def _listen_notifications(self, *, task_status=TASK_STATUS_IGNORED) -> None:
-        def callback(connection, pid, channel: str, payload: str) -> None:
+        conn: Connection
+
+        def listen_callback(
+            connection: Connection, pid: int, channel: str, payload: str
+        ) -> None:
             event = self.reconstitute_event_str(payload)
             if event is not None:
                 self._task_group.start_soon(self.publish_local, event)
 
+        async def close_connection() -> None:
+            if not conn.is_closed():
+                with move_on_after(3, shield=True):
+                    await conn.close()
+
+        async def unsubscribe() -> None:
+            if not conn.is_closed():
+                with move_on_after(3, shield=True):
+                    await conn.remove_listener(self.channel, listen_callback)
+
         task_started_sent = False
-        with CancelScope() as cancel_scope:
-            while True:
-                async with self.connection_factory() as conn:
-                    await conn.add_listener(self.channel, callback)
+        send, receive = create_memory_object_stream[str](100)
+        while True:
+            async with AsyncExitStack() as exit_stack:
+                async for attempt in self._retry():
+                    with attempt:
+                        conn = await self.connection_factory()
+
+                exit_stack.push_async_callback(close_connection)
+                self._logger.info("Connection established")
+                try:
+                    await conn.add_listener(self.channel, listen_callback)
+                    exit_stack.push_async_callback(unsubscribe)
                     if not task_started_sent:
-                        task_status.started(cancel_scope)
+                        task_status.started(send)
                         task_started_sent = True
 
-                    try:
-                        while True:
-                            await sleep(self.max_idle_time)
+                    while True:
+                        notification: str | None = None
+                        with move_on_after(self.max_idle_time):
+                            try:
+                                notification = await receive.receive()
+                            except EndOfStream:
+                                self._logger.info("Stream finished")
+                                return
+
+                        if notification:
+                            await conn.execute(
+                                "SELECT pg_notify($1, $2)", self.channel, notification
+                            )
+                        else:
                             await conn.execute("SELECT 1")
-                    finally:
-                        await conn.remove_listener(self.channel, callback)
+                except InterfaceError as exc:
+                    self._logger.error("Connection error: %s", exc)
 
     async def publish(self, event: Event) -> None:
         notification = self.generate_notification_str(event)
@@ -120,6 +177,4 @@ class AsyncpgEventBroker(LocalAsyncEventBroker, DistributedEventBrokerMixin):
                 "Serialized event object exceeds 7999 bytes in size"
             )
 
-        async with self.connection_factory() as conn:
-            await conn.execute("SELECT pg_notify($1, $2)", self.channel, notification)
-            return
+        await self._send.send(notification)

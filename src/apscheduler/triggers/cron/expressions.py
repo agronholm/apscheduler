@@ -4,8 +4,12 @@ from __future__ import annotations
 import re
 from calendar import monthrange
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from ..._validators import as_int
+
+if TYPE_CHECKING:
+    from .fields import BaseField
 
 WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 MONTHS = [
@@ -49,7 +53,7 @@ class AllExpression:
                 f"expression ({value_range})"
             )
 
-    def get_next_value(self, dateval: datetime, field) -> int | None:
+    def get_next_value(self, dateval: datetime, field: BaseField) -> int | None:
         start = field.get_value(dateval)
         minval = field.get_min(dateval)
         maxval = field.get_max(dateval)
@@ -63,7 +67,7 @@ class AllExpression:
 
         return nextval if nextval <= maxval else None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"*/{self.step}" if self.step else "*"
 
 
@@ -108,10 +112,10 @@ class RangeExpression(AllExpression):
                 f"expression ({value_range})"
             )
 
-    def get_next_value(self, date, field):
-        startval = field.get_value(date)
-        minval = field.get_min(date)
-        maxval = field.get_max(date)
+    def get_next_value(self, dateval: datetime, field: BaseField) -> int | None:
+        startval = field.get_value(dateval)
+        minval = field.get_min(dateval)
+        maxval = field.get_max(dateval)
 
         # Apply range limits
         minval = max(minval, self.first)
@@ -125,7 +129,7 @@ class RangeExpression(AllExpression):
 
         return nextval if nextval <= maxval else None
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.last != self.first and self.last is not None:
             rangeval = f"{self.first}-{self.last}"
         else:
@@ -142,7 +146,7 @@ class MonthRangeExpression(RangeExpression):
 
     value_re = re.compile(r"(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?", re.IGNORECASE)
 
-    def __init__(self, first, last=None):
+    def __init__(self, first: str, last: str | None = None):
         try:
             first_num = MONTHS.index(first.lower()) + 1
         except ValueError:
@@ -158,7 +162,7 @@ class MonthRangeExpression(RangeExpression):
 
         super().__init__(first_num, last_num)
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.last != self.first and self.last is not None:
             return f"{MONTHS[self.first - 1]}-{MONTHS[self.last - 1]}"
 
@@ -175,7 +179,7 @@ class WeekdayRangeExpression(RangeExpression):
         last_num = get_weekday_index(last) if last else None
         super().__init__(first_num, last_num)
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.last != self.first and self.last is not None:
             return f"{WEEKDAYS[self.first]}-{WEEKDAYS[self.last]}"
 
@@ -199,8 +203,9 @@ class WeekdayPositionExpression(AllExpression):
         except ValueError:
             raise ValueError(f"Invalid weekday name {weekday_name!r}") from None
 
-    def get_next_value(self, dateval: datetime, field) -> int | None:
-        # Figure out the weekday of the month's first day and the number of days in that month
+    def get_next_value(self, dateval: datetime, field: BaseField) -> int | None:
+        # Figure out the weekday of the month's first day and the number of days in that
+        # month
         first_day_wday, last_day = monthrange(dateval.year, dateval.month)
 
         # Calculate which day of the month is the first of the target weekdays
@@ -219,7 +224,7 @@ class WeekdayPositionExpression(AllExpression):
         else:
             return None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.options[self.option_num]} {WEEKDAYS[self.weekday]}"
 
 
@@ -228,11 +233,11 @@ class LastDayOfMonthExpression(AllExpression):
 
     value_re = re.compile(r"last", re.IGNORECASE)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(None)
 
-    def get_next_value(self, dateval: datetime, field):
+    def get_next_value(self, dateval: datetime, field: BaseField) -> int | None:
         return monthrange(dateval.year, dateval.month)[1]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "last"

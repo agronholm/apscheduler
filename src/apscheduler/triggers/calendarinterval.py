@@ -8,46 +8,44 @@ import attrs
 from .._utils import timezone_repr
 from .._validators import as_date, as_timezone, require_state_version
 from ..abc import Trigger
-from ..marshalling import (
-    marshal_date,
-    marshal_timezone,
-    unmarshal_date,
-    unmarshal_timezone,
-)
 
 
 @attrs.define(kw_only=True)
 class CalendarIntervalTrigger(Trigger):
     """
-    Runs the task on specified calendar-based intervals always at the same exact time of day.
+    Runs the task on specified calendar-based intervals always at the same exact time of
+    day.
 
-    When calculating the next date, the ``years`` and ``months`` parameters are first added to the
-    previous date while keeping the day of the month constant. This is repeated until the resulting
-    date is valid. After that, the ``weeks`` and ``days`` parameters are added to that date.
-    Finally, the date is combined with the given time (hour, minute, second) to form the final
-    datetime.
+    When calculating the next date, the ``years`` and ``months`` parameters are first
+    added to the previous date while keeping the day of the month constant. This is
+    repeated until the resulting date is valid. After that, the ``weeks`` and ``days``
+    parameters are added to that date. Finally, the date is combined with the given time
+    (hour, minute, second) to form the final datetime.
 
-    This means that if the ``days`` or ``weeks`` parameters are not used, the task will always be
-    executed on the same day of the month at the same wall clock time, assuming the date and time
-    are valid.
+    This means that if the ``days`` or ``weeks`` parameters are not used, the task will
+    always be executed on the same day of the month at the same wall clock time,
+    assuming the date and time are valid.
 
-    If the resulting datetime is invalid due to a daylight saving forward shift, the date is
-    discarded and the process moves on to the next date. If instead the datetime is ambiguous due
-    to a backward DST shift, the earlier of the two resulting datetimes is used.
+    If the resulting datetime is invalid due to a daylight saving forward shift, the
+    date is discarded and the process moves on to the next date. If instead the datetime
+    is ambiguous due to a backward DST shift, the earlier of the two resulting datetimes
+    is used.
 
-    If no previous run time is specified when requesting a new run time (like when starting for the
-    first time or resuming after being paused), ``start_date`` is used as a reference and the next
-    valid datetime equal to or later than the current time will be returned. Otherwise, the next
-    valid datetime starting from the previous run time is returned, even if it's in the past.
+    If no previous run time is specified when requesting a new run time (like when
+    starting for the first time or resuming after being paused), ``start_date`` is used
+    as a reference and the next valid datetime equal to or later than the current time
+    will be returned. Otherwise, the next valid datetime starting from the previous run
+    time is returned, even if it's in the past.
 
-    .. warning:: Be wary of setting a start date near the end of the month (29. – 31.) if you have
-        ``months`` specified in your interval, as this will skip the months where those days do not
-        exist. Likewise, setting the start date on the leap day (February 29th) and having
-        ``years`` defined may cause some years to be skipped.
+    .. warning:: Be wary of setting a start date near the end of the month (29. – 31.)
+        if you have ``months`` specified in your interval, as this will skip the months
+        when those days do not exist. Likewise, setting the start date on the leap day
+        (February 29th) and having ``years`` defined may cause some years to be skipped.
 
-        Users are also discouraged from  using a time inside the target timezone's DST switching
-        period (typically around 2 am) since a date could either be skipped or repeated due to the
-        specified wall clock time either occurring twice or not at all.
+        Users are also discouraged from  using a time inside the target timezone's DST
+        switching period (typically around 2 am) since a date could either be skipped or
+        repeated due to the specified wall clock time either occurring twice or not at
+        all.
 
     :param years: number of years to wait
     :param months: number of months to wait
@@ -122,20 +120,20 @@ class CalendarIntervalTrigger(Trigger):
             "version": 1,
             "interval": [self.years, self.months, self.weeks, self.days],
             "time": [self._time.hour, self._time.minute, self._time.second],
-            "start_date": marshal_date(self.start_date),
-            "end_date": marshal_date(self.end_date),
-            "timezone": marshal_timezone(self.timezone),
-            "last_fire_date": marshal_date(self._last_fire_date),
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+            "timezone": self.timezone,
+            "last_fire_date": self._last_fire_date,
         }
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
         self.years, self.months, self.weeks, self.days = state["interval"]
-        self.start_date = unmarshal_date(state["start_date"])
-        self.end_date = unmarshal_date(state["end_date"])
-        self.timezone = unmarshal_timezone(state["timezone"])
+        self.start_date = state["start_date"]
+        self.end_date = state["end_date"]
+        self.timezone = state["timezone"]
         self._time = time(*state["time"], tzinfo=self.timezone)
-        self._last_fire_date = unmarshal_date(state["last_fire_date"])
+        self._last_fire_date = state["last_fire_date"]
 
     def __repr__(self) -> str:
         fields = []

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from datetime import date, timedelta, tzinfo
 from typing import Any
 
 import attrs
-from cbor2 import CBOREncodeTypeError, CBORTag, dumps, loads
+from cbor2 import CBORDecoder, CBOREncoder, CBOREncodeTypeError, CBORTag, dumps, loads
 
+from .._marshalling import marshal_object, marshal_timezone, unmarshal_object
 from ..abc import Serializer
-from ..marshalling import marshal_object, unmarshal_object
 
 
 @attrs.define(kw_only=True, eq=False)
@@ -26,12 +27,18 @@ class CBORSerializer(Serializer):
     dump_options: dict[str, Any] = attrs.field(factory=dict)
     load_options: dict[str, Any] = attrs.field(factory=dict)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         self.dump_options.setdefault("default", self._default_hook)
         self.load_options.setdefault("tag_hook", self._tag_hook)
 
-    def _default_hook(self, encoder, value):
-        if hasattr(value, "__getstate__"):
+    def _default_hook(self, encoder: CBOREncoder, value: object) -> None:
+        if isinstance(value, date):
+            encoder.encode(value.isoformat())
+        elif isinstance(value, timedelta):
+            encoder.encode(value.total_seconds())
+        elif isinstance(value, tzinfo):
+            encoder.encode(marshal_timezone(value))
+        elif hasattr(value, "__getstate__"):
             marshalled = marshal_object(value)
             encoder.encode(CBORTag(self.type_tag, marshalled))
         else:
@@ -39,12 +46,14 @@ class CBORSerializer(Serializer):
                 f"cannot serialize type {value.__class__.__name__}"
             )
 
-    def _tag_hook(self, decoder, tag: CBORTag, shareable_index: int = None):
+    def _tag_hook(
+        self, decoder: CBORDecoder, tag: CBORTag, shareable_index: int | None = None
+    ) -> object:
         if tag.tag == self.type_tag:
             cls_ref, state = tag.value
             return unmarshal_object(cls_ref, state)
 
-    def serialize(self, obj) -> bytes:
+    def serialize(self, obj: object) -> bytes:
         return dumps(obj, **self.dump_options)
 
     def deserialize(self, serialized: bytes):

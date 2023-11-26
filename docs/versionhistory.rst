@@ -6,8 +6,101 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- **BREAKING** Added the ``cleanup()`` scheduler method and a configuration option
+  (``cleanup_interval``). A corresponding abstract method was added to the ``DataStore``
+  class. This method purges expired job results and schedules that have exhausted their
+  triggers and have no more associated jobs running. Previously, schedules were
+  automatically deleted instantly once their triggers could no longer produce any fire
+  times.
+- Fixed large parts of ``MongoDBDataStore`` still calling blocking functions in the
+  event loop thread
+
+**4.0.0a4**
+
+- **BREAKING** Renamed any leftover fields named ``executor`` to ``job_executor``
+  (this breaks data store compatibility)
+- **BREAKING** Switched to using the timezone aware timestamp column type on Oracle
+- **BREAKING** Fixed precision issue with interval columns on MySQL
+- **BREAKING** Fixed datetime comparison issues on SQLite and MySQL
+- **BREAKING** Worked around datetime microsecond precision issue on MongoDB
+- **BREAKING** Renamed the ``worker_id`` field to ``scheduler_id`` in the
+  ``JobAcquired`` and ``JobReleased`` events
+- **BREAKING** Added the ``task_id`` attribute to the ``ScheduleAdded``,
+  ``ScheduleUpdated`` and ``ScheduleRemoved`` events
+- **BREAKING** Added the ``finished`` attribute to the ``ScheduleRemoved`` event
+- **BREAKING** Added the ``logger`` parameter to ``Datastore.start()`` and
+  ``EventBroker.start()`` to make both use the scheduler's assigned logger
+- **BREAKING** Made the ``apscheduler.marshalling`` module private
+- Added the ``configure_task()`` and ``get_tasks()`` scheduler methods
+- Fixed out of order delivery of events delivered using worker threads
+- Fixed schedule processing not setting job start deadlines correctly
+
+**4.0.0a3**
+
+- **BREAKING** The scheduler classes were moved to be importable (only) directly from
+  the ``apscheduler`` package (``apscheduler.Scheduler`` and
+  ``apscheduler.AsyncScheduler``)
+- **BREAKING** Removed the "tags" field in schedules and jobs (this will be added back
+  when the feature has been fully thought through)
+- **BREAKING** Removed the ``JobInfo`` class in favor of just using the ``Job`` class
+  (which is now immutable)
+- **BREAKING** Workers were merged into schedulers. As the ``Worker`` and
+  ``AsyncWorker`` classes have been removed, you now need to pass
+  ``role=SchedulerRole.scheduler`` to the scheduler to prevent it from processing due
+  jobs. The worker event classes (``WorkerEvent``, ``WorkerStarted``, ``WorkerStopped``)
+  have also been removed.
+- **BREAKING** The synchronous interfaces for event brokers and data stores have been
+  removed. Synchronous libraries can still be used to implement these services through
+  the use of ``anyio.to_thread.run_sync()``.
+- **BREAKING** The ``current_worker`` context variable has been removed
+- **BREAKING** The ``current_scheduler`` context variable is now specified to only
+  contain the currently running instance of a **synchronous** scheduler
+  (``apscheduler.Scheduler``). The asynchronous scheduler instance can be fetched from
+  the new ``current_async_scheduler`` context variable, and will always be available
+  when a scheduler is running in the current context, while ``current_scheduler`` is
+  only available when the synchronous wrapper is being run.
+- **BREAKING** Changed the initialization of data stores and event brokers to use a
+  single ``start()`` method that accepts an ``AsyncExitStack`` (and, depending on the
+  interface, other arguments too)
+- **BREAKING** Added a concept of "job executors". This determines how the task function
+  is executed once picked up by a worker. Several data structures and scheduler methods
+  have a new field/parameter for this, ``job_executor``. This addition requires database
+  schema changes too.
+- Dropped support for Python 3.7
+- Added support for Python 3.12
+- Added the ability to run jobs in worker processes, courtesy of the ``processpool``
+  executor
+- Added the ability to run jobs in the Qt event loop via the ``qt`` executor
+- Added the ``get_jobs()`` scheduler method
+- The synchronous scheduler now runs an asyncio event loop in a thread, acting as a
+  façade for ``AsyncScheduler``
+- Fixed the ``schema`` parameter in ``SQLAlchemyDataStore`` not being applied
+- Fixed SQLalchemy 2.0 compatibility
+
+**4.0.0a2**
+
+- **BREAKING** Changed the scheduler API to always require a call to either
+  ``run_until_stopped()`` or ``start_in_background()`` to start the scheduler (using it
+  as a context manager is no longer enough)
+- **BREAKING** Replaced ``from_asyncpg_pool()`` with ``from_dsn()`` in the asyncpg event
+  broker
+- Added an async Redis event broker
+- Added automatic reconnection to the Redis event brokers (sync and async)
+- Added automatic reconnection to the asyncpg event broker
+- Changed ``from_async_sqla_engine()`` in asyncpg event broker to only copy the
+  connection options instead of directly using the engine
+- Simplified the MQTT event broker by providing a default ``client`` instance if omitted
+- Fixed ``CancelledError`` being reported as a crash on Python 3.7
+- Fixed JSON/CBOR serialization of ``JobReleased`` events
+
+**4.0.0a1**
+
 This was a major rewrite/redesign of most parts of the project. See the
 :doc:`migration section <migration>` section for details.
+
+.. warning:: The v4.0 series is provided as a **pre-release** and may change in a
+   backwards incompatible fashion without any migration pathway, so do NOT use this
+   release in production!
 
 - Made persistent data stores shareable between multiple processes and nodes
 - Enhanced data stores to be more resilient against temporary connectivity failures

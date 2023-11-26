@@ -1,6 +1,8 @@
 Integrating with application frameworks
 =======================================
 
+.. py:currentmodule:: apscheduler
+
 WSGI
 ----
 
@@ -8,7 +10,7 @@ To integrate APScheduler with web frameworks using WSGI_ (Web Server Gateway Int
 you need to use the synchronous scheduler and start it as a side effect of importing the
 module that contains your application instance::
 
-    from apscheduler.schedulers.sync import Scheduler
+    from apscheduler import Scheduler
 
 
     def app(environ, start_response):
@@ -37,7 +39,7 @@ by default which then prevents the scheduler from working. See the
 `uWSGI documentation <uWSGI-threads>`_ for more details.
 
 .. note::
-    The :meth:`.schedulers.sync.Scheduler.start_in_background` method installs an
+    The :meth:`Scheduler.start_in_background` method installs an
     :mod:`atexit` hook that shuts down the scheduler gracefully when the worker process
     exits.
 
@@ -52,7 +54,7 @@ To integrate APScheduler with web frameworks using ASGI_ (Asynchronous Server Ga
 Interface), you need to use the asynchronous scheduler and tie its lifespan to the
 lifespan of the application by wrapping it in middleware, as follows::
 
-    from apscheduler.schedulers.async_ import AsyncScheduler
+    from apscheduler import AsyncScheduler
 
 
     async def app(scope, receive, send):

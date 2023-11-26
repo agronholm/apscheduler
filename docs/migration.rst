@@ -19,10 +19,6 @@ The concept of a *job* has been split into :class:`Task`, :class:`Schedule` and
 :class:`Job`. See the documentation of each class (and read the tutorial) to understand
 their roles.
 
-**Executors** have been replaced by *workers*. Workers were designed to be able to run
-independently from schedulers. Workers now *pull* jobs from the data store instead of
-the scheduler pushing jobs directly to them.
-
 **Data stores**, previously called *job stores*, have been redesigned to work with
 multiple running schedulers and workers, both for purposes of scalability and fault
 tolerance. Many data store implementations were dropped because they were either too
@@ -56,18 +52,16 @@ Scheduler changes
 -----------------
 
 The ``add_job()`` method is now :meth:`~Scheduler.add_schedule`. The scheduler still has
-a method named :meth:`~Scheduler.add_job`, but this is meant for making one-off runs of a
-task. Previously you would have had to call ``add_job()`` with a
-:class:`~apscheduler.triggers.date.DateTrigger` using the current time as the run time.
+a method named :meth:`~Scheduler.add_job`, but this is meant for making one-off runs of
+a task. Previously you would have had to call ``add_job()`` with a
+:class:`~triggers.date.DateTrigger` using the current time as the run time.
 
 The two most commonly used schedulers, ``BlockingScheduler`` and
 ``BackgroundScheduler``, have often caused confusion among users and have thus been
-combined into :class:`~.schedulers.sync.Scheduler`. This new unified scheduler class
-has two methods that replace the ``start()`` method used previously:
-:meth:`~.schedulers.sync.Scheduler.run_until_stopped` and
-:meth:`~.schedulers.sync.Scheduler.start_in_background`. The former should be used if
-you previously used ``BlockingScheduler``, and the latter if you used
-``BackgroundScheduler``.
+combined into :class:`~Scheduler`. This new unified scheduler class has two methods that
+replace the ``start()`` method used previously: :meth:`~Scheduler.run_until_stopped` and
+:meth:`~Scheduler.start_in_background`. The former should be used if you previously used
+``BlockingScheduler``, and the latter if you used ``BackgroundScheduler``.
 
 The asyncio scheduler has been replaced with a more generic :class:`AsyncScheduler`,
 which is based on AnyIO_ and thus also supports Trio_ in addition to :mod:`asyncio`.
@@ -102,12 +96,12 @@ documentation for more information.
 This not only simplified trigger design, but also enabled the scheduler to provide
 information about the randomized jitter and the original run time to the user.
 
-:class:`~.triggers.cron.CronTrigger` was changed to respect the standard order of
+:class:`~triggers.cron.CronTrigger` was changed to respect the standard order of
 weekdays, so that Sunday is now 0 and Saturday is 6. If you used numbered weekdays
 before, you must change your trigger configuration to match. If in doubt, use
 abbreviated weekday names (e.g. ``sun``, ``fri``) instead.
 
-:class:`~.triggers.interval.IntervalTrigger` was changed to start immediately, instead
+:class:`~triggers.interval.IntervalTrigger` was changed to start immediately, instead
 of waiting for the first interval to pass. If you have workarounds in place to "fix"
 the previous behavior, you should remove them.
 
@@ -116,11 +110,12 @@ the previous behavior, you should remove them.
 From v3.0 to v3.2
 =================
 
-Prior to v3.1, the scheduler inadvertently exposed the ability to fetch and manipulate jobs before
-the scheduler had been started. The scheduler now requires you to call ``scheduler.start()`` before
-attempting to access any of the jobs in the job stores. To ensure that no old jobs are mistakenly
-executed, you can start the scheduler in paused mode (``scheduler.start(paused=True)``) (introduced
-in v3.2) to avoid any premature job processing.
+Prior to v3.1, the scheduler inadvertently exposed the ability to fetch and manipulate
+jobs before the scheduler had been started. The scheduler now requires you to call
+``scheduler.start()`` before attempting to access any of the jobs in the job stores. To
+ensure that no old jobs are mistakenly executed, you can start the scheduler in paused
+mode (``scheduler.start(paused=True)``) (introduced in v3.2) to avoid any premature job
+processing.
 
 
 From v2.x to v3.0
@@ -132,52 +127,50 @@ Scheduler changes
 -----------------
 
 * The concept of "standalone mode" is gone. For ``standalone=True``, use
-  :class:`~apscheduler.schedulers.blocking.BlockingScheduler` instead, and for
-  ``standalone=False``, use :class:`~apscheduler.schedulers.background.BackgroundScheduler`.
-  BackgroundScheduler matches the old default semantics.
-* Job defaults (like ``misfire_grace_time`` and ``coalesce``) must now be passed in a dictionary as
-  the ``job_defaults`` option to :meth:`~apscheduler.schedulers.base.BaseScheduler.configure`. When
-  supplying an ini-style configuration as the first argument, they will need a corresponding
-  ``job_defaults.`` prefix.
-* The configuration key prefix for job stores was changed from ``jobstore.`` to ``jobstores.`` to
-  match the dict-style configuration better.
-* The ``max_runs`` option has been dropped since the run counter could not be reliably preserved
-  when replacing a job with another one with the same ID. To make up for this, the ``end_date``
-  option was added to cron and interval triggers.
+  ``BlockingScheduler`` instead, and for ``standalone=False``, use
+  ``BackgroundScheduler``. BackgroundScheduler matches the old default semantics.
+* Job defaults (like ``misfire_grace_time`` and ``coalesce``) must now be passed in a
+  dictionary as the ``job_defaults`` option to ``BaseScheduler.configure()``. When
+  supplying an ini-style configuration as the first argument, they will need a
+  corresponding ``job_defaults.`` prefix.
+* The configuration key prefix for job stores was changed from ``jobstore.`` to
+  ``jobstores.`` to match the dict-style configuration better.
+* The ``max_runs`` option has been dropped since the run counter could not be reliably
+  preserved when replacing a job with another one with the same ID. To make up for this,
+  the ``end_date`` option was added to cron and interval triggers.
 * The old thread pool is gone, replaced by ``ThreadPoolExecutor``.
   This means that the old ``threadpool`` options are no longer valid.
-  See :ref:`scheduler-config` on how to configure executors.
 * The trigger-specific scheduling methods have been removed entirely from the scheduler.
-  Use the generic :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job` method or the
-  :meth:`~apscheduler.schedulers.base.BaseScheduler.scheduled_job` decorator instead.
-  The signatures of these methods were changed significantly.
+  Use the generic ``BaseScheduler.add_job()`` method or the
+  ``@BaseScheduler.scheduled_job`` decorator instead. The signatures of these methods
+  were changed significantly.
 * The ``shutdown_threadpool`` and ``close_jobstores`` options have been removed from the
-  :meth:`~apscheduler.schedulers.base.BaseScheduler.shutdown` method.
+  ``BaseScheduler.shutdown()`` method.
   Executors and job stores are now always shut down on scheduler shutdown.
-* :meth:`~apscheduler.scheduler.Scheduler.unschedule_job` and
-  :meth:`~apscheduler.scheduler.Scheduler.unschedule_func` have been replaced by
-  :meth:`~apscheduler.schedulers.base.BaseScheduler.remove_job`. You can also unschedule a job by
-  using the job handle returned from :meth:`~apscheduler.schedulers.base.BaseScheduler.add_job`.
+* ``Scheduler.unschedule_job()`` and ``Scheduler.unschedule_func()`` have been replaced
+  by ``BaseScheduler.remove_job()``. You can also unschedule a job by using the job
+  handle returned from ``BaseScheduler.add_job()``.
 
 Job store changes
 -----------------
 
-The job store system was completely overhauled for both efficiency and forwards compatibility.
-Unfortunately, this means that the old data is not compatible with the new job stores.
-If you need to migrate existing data from APScheduler 2.x to 3.x, contact the APScheduler author.
+The job store system was completely overhauled for both efficiency and forwards
+compatibility. Unfortunately, this means that the old data is not compatible with the
+new job stores. If you need to migrate existing data from APScheduler 2.x to 3.x,
+contact the APScheduler author.
 
-The Shelve job store had to be dropped because it could not support the new job store design.
-Use SQLAlchemyJobStore with SQLite instead.
+The Shelve job store had to be dropped because it could not support the new job store
+design. Use SQLAlchemyJobStore with SQLite instead.
 
 Trigger changes
 ---------------
 
-From 3.0 onwards, triggers now require a pytz timezone. This is normally provided by the scheduler,
-but if you were instantiating triggers manually before, then one must be supplied as the
-``timezone`` argument.
+From 3.0 onwards, triggers now require a pytz timezone. This is normally provided by the
+scheduler, but if you were instantiating triggers manually before, then one must be
+supplied as the ``timezone`` argument.
 
-The only other backwards incompatible change was that ``get_next_fire_time()`` takes two arguments
-now: the previous fire time and the current datetime.
+The only other backwards incompatible change was that ``get_next_fire_time()`` takes two
+arguments now: the previous fire time and the current datetime.
 
 
 From v1.x to 2.0
@@ -200,13 +193,12 @@ API changes
 * dump_jobs() is now print_jobs() and prints directly to the given file or
   sys.stdout if none is given
 * The ``repeat`` parameter was removed from
-  :meth:`~apscheduler.scheduler.Scheduler.add_interval_job` and
-  :meth:`~apscheduler.scheduler.Scheduler.interval_schedule` in favor of the
+  ``Scheduler.add_interval_job()`` and ``@Scheduler.interval_schedule`` in favor of the
   universal ``max_runs`` option
-* :meth:`~apscheduler.scheduler.Scheduler.unschedule_func` now raises a
-  KeyError if the given function is not scheduled
-* The semantics of :meth:`~apscheduler.scheduler.Scheduler.shutdown` have
-  changed -- the method no longer accepts a numeric argument, but two booleans
+* ``Scheduler.unschedule_func()`` now raises a :exc:`KeyError` if the given function is
+  not scheduled
+* The semantics of ``Scheduler.shutdown()`` have changed – the method no longer accepts
+  a numeric argument, but two booleans
 
 
 Configuration changes

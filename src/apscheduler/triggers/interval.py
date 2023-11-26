@@ -7,7 +7,6 @@ import attrs
 
 from .._validators import as_aware_datetime, require_state_version
 from ..abc import Trigger
-from ..marshalling import marshal_date, unmarshal_date
 
 
 @attrs.define(kw_only=True)
@@ -15,10 +14,11 @@ class IntervalTrigger(Trigger):
     """
     Triggers on specified intervals.
 
-    The first trigger time is on ``start_time`` which is the  moment the trigger was created unless
-    specifically overridden. If ``end_time`` is specified, the last trigger time will be at or
-    before that time. If no ``end_time`` has been given, the trigger will produce new trigger times
-    as long as the resulting datetimes are valid datetimes in Python.
+    The first trigger time is on ``start_time`` which is the  moment the trigger was
+    created unless specifically overridden. If ``end_time`` is specified, the last
+    trigger time will be at or before that time. If no ``end_time`` has been given, the
+    trigger will produce new trigger times as long as the resulting datetimes are valid
+    datetimes in Python.
 
     :param weeks: number of weeks to wait
     :param days: number of days to wait
@@ -26,7 +26,8 @@ class IntervalTrigger(Trigger):
     :param minutes: number of minutes to wait
     :param seconds: number of seconds to wait
     :param microseconds: number of microseconds to wait
-    :param start_time: first trigger date/time (defaults to current date/time if omitted)
+    :param start_time: first trigger date/time (defaults to current date/time if
+        omitted)
     :param end_time: latest possible date/time to trigger on
     """
 
@@ -81,9 +82,9 @@ class IntervalTrigger(Trigger):
                 self.seconds,
                 self.microseconds,
             ],
-            "start_time": marshal_date(self.start_time),
-            "end_time": marshal_date(self.end_time),
-            "last_fire_time": marshal_date(self._last_fire_time),
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "last_fire_time": self._last_fire_time,
         }
 
     def __setstate__(self, state: dict[str, Any]) -> None:
@@ -96,9 +97,9 @@ class IntervalTrigger(Trigger):
             self.seconds,
             self.microseconds,
         ) = state["interval"]
-        self.start_time = unmarshal_date(state["start_time"])
-        self.end_time = unmarshal_date(state["end_time"])
-        self._last_fire_time = unmarshal_date(state["last_fire_time"])
+        self.start_time = state["start_time"]
+        self.end_time = state["end_time"]
+        self._last_fire_time = state["last_fire_time"]
         self._interval = timedelta(
             weeks=self.weeks,
             days=self.days,

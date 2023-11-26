@@ -10,38 +10,84 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7", "3.10", "3.11-dev"]
+        python-version: ["3.8", "3.9", "3.11", "3.12"]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
+        cache: pip
+        cache-dependency-path: pyproject.toml
     - name: Start external services
       run: docker compose up -d
     - name: Install the project and its dependencies
       run: pip install -e .[test]
     - name: Test with pytest
-      run: pytest
+      run: |
+        coverage run -m pytest -v
+        coverage xml
+    - name: Upload Coverage
+      uses: coverallsapp/github-action@v2
+      with:
+        parallel: true
+        file: coverage.xml
+
+  test-pypy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: pypy-3.10
+        cache: pip
+        cache-dependency-path: pyproject.toml
+    - name: Start external services
+      run: docker compose up -d
+    - name: Install the project and its dependencies
+      run: pip install -e .[test]
+    - name: Test with pytest
+      run: pytest -v
 
   test-others:
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest]
-        python-version: ["3.7", "3.9", "3.10"]
-        exclude:
-        - os: windows-latest
-          python-version: "3.10"  # won't compile psycopg2
+        python-version: ["3.8", "3.12"]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
+        cache: pip
+        cache-dependency-path: pyproject.toml
     - name: Install the project and its dependencies
       run: pip install -e .[test]
     - name: Test with pytest
-      run: pytest -m "not external_service"
+      run: |
+        coverage run -m pytest -v -m "not external_service"
+        coverage xml
+    - name: Upload Coverage
+      uses: coverallsapp/github-action@v2
+      with:
+        parallel: true
+        file: coverage.xml
+
+  coveralls:
+    name: Finish Coveralls
+    needs:
+      - test-linux
+      - test-others
+    runs-on: ubuntu-latest
+    steps:
+    - name: Finished
+      uses: coverallsapp/github-action@v2
+      with:
+        parallel-finished: true

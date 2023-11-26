@@ -5,7 +5,7 @@
 # * Run "pre-commit install".
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.3.0
+    rev: v4.5.0
     hooks:
       - id: check-added-large-files
       - id: check-case-conflict
@@ -19,41 +19,34 @@ repos:
         args: [ "--fix=lf" ]
       - id: trailing-whitespace
 
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v2.37.3
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.6
     hooks:
-      - id: pyupgrade
-        args: [ "--py37-plus" ]
+      - id: ruff
+        args: [--fix, --show-fixes]
+      - id: ruff-format
 
-  - repo: https://github.com/psf/black
-    rev: 22.6.0
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.1
     hooks:
-      - id: black
-
-  - repo: https://github.com/pycqa/isort
-    rev: 5.10.1
-    hooks:
-      - id: isort
-        args: [ "-a", "from __future__ import annotations" ]
-
-  - repo: https://github.com/csachs/pyproject-flake8
-    rev: v0.0.1a4
-    hooks:
-      - id: pyproject-flake8
-        additional_dependencies: [ flake8-bugbear ]
+      - id: mypy
+        additional_dependencies:
+          - attrs == 23.1.0
+          - pymongo == 4.6.0
+          - redis == 5.0.1
+          - sqlalchemy == 2.0.23
+          - tzlocal == 5.2
+        exclude: docs/conf.py
+        stages: [manual]
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.1.0
+    rev: v2.2.6
     hooks:
       - id: codespell
 
   - repo: https://github.com/pre-commit/pygrep-hooks
-    rev: v1.9.0
+    rev: v1.10.0
     hooks:
-      - id: python-check-blanket-noqa
-      - id: python-check-blanket-type-ignore
-      - id: python-no-eval
-      - id: python-use-type-annotations
-      - id: rst-backticks
-      - id: rst-directive-colons
-      - id: rst-inline-touching-normal
+    - id: rst-backticks
+    - id: rst-directive-colons
+    - id: rst-inline-touching-normal

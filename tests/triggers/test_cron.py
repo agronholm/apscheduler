@@ -227,8 +227,8 @@ def test_last_weekday(timezone, serializer):
 
 def test_increment_weekday(timezone, serializer):
     """
-    Tests that incrementing the weekday field in the process of calculating the next matching
-    date won't cause problems.
+    Tests that incrementing the weekday field in the process of calculating the next
+    matching date won't cause problems.
 
     """
     start_time = datetime(2009, 9, 25, 7, tzinfo=timezone)
@@ -386,8 +386,8 @@ def test_dst_change(
 ):
     """
     Making sure that CronTrigger works correctly when crossing the DST switch threshold.
-    Note that you should explicitly compare datetimes as strings to avoid the internal datetime
-    comparison which would test for equality in the UTC timezone.
+    Note that you should explicitly compare datetimes as strings to avoid the internal
+    datetime comparison which would test for equality in the UTC timezone.
 
     """
     timezone = ZoneInfo("US/Eastern")

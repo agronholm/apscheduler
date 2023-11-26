@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from apscheduler.schedulers.sync import Scheduler
+from apscheduler import Scheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 
@@ -20,4 +20,4 @@ def tick():
 
 with Scheduler() as scheduler:
     scheduler.add_schedule(tick, IntervalTrigger(seconds=1))
-    scheduler.wait_until_stopped()
+    scheduler.run_until_stopped()

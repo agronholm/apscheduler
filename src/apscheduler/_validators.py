@@ -4,7 +4,6 @@ import sys
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any
 
-import attrs
 from attrs import Attribute
 from tzlocal import get_localzone
 
@@ -139,8 +138,8 @@ def as_positive_integer(value, name: str) -> int:
 def as_timedelta(value: timedelta | float) -> timedelta:
     if isinstance(value, (int, float)):
         return timedelta(seconds=value)
-    elif isinstance(value, timedelta):
-        return value
+
+    return value
 
     # raise TypeError(f'{attribute.name} must be a timedelta or number of seconds, got '
     #                 f'{value.__class__.__name__} instead')
@@ -169,17 +168,13 @@ def require_state_version(
     try:
         if state["version"] > max_version:
             raise DeserializationError(
-                f"{trigger.__class__.__name__} received a serialized state with version "
-                f'{state["version"]}, but it only supports up to version {max_version}. '
-                f"This can happen when an older version of APScheduler is being used with a data "
-                f"store that was previously used with a newer APScheduler version."
+                f"{trigger.__class__.__name__} received a serialized state with "
+                f'version {state["version"]}, but it only supports up to version '
+                f"{max_version}. This can happen when an older version of APScheduler "
+                f"is being used with a data store that was previously used with a "
+                f"newer APScheduler version."
             )
     except KeyError as exc:
         raise DeserializationError(
             'Missing "version" key in the serialized state'
         ) from exc
-
-
-def positive_integer(inst, field: attrs.Attribute, value) -> None:
-    if value <= 0:
-        raise ValueError(f"{field} must be a positive integer")

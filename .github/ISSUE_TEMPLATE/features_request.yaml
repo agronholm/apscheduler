@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest a new feature
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        If you have thought of a new feature that would increase the usefulness of this
+        project, please use this form to send us your idea.
+  - type: checkboxes
+    attributes:
+      label: Things to check first
+      options:
+        - label: >
+            I have searched the existing issues and didn't find my feature already
+            requested there
+          required: true
+  - type: textarea
+    id: feature
+    attributes:
+      label: Feature description
+      description: >
+        Describe the feature in detail. The more specific the description you can give,
+        the easier it should be to implement this feature.
+    validations:
+      required: true
+  - type: textarea
+    id: usecase
+    attributes:
+      label: Use case
+      description: >
+        Explain why you need this feature, and why you think it would be useful to
+        others too.
+    validations:
+      required: true

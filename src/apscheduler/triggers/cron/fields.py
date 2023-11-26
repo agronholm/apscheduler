@@ -1,8 +1,12 @@
-"""Fields represent CronTrigger options which map to :class:`~datetime.datetime` fields."""
+"""
+Fields represent CronTrigger options which map to :class:`~datetime.datetime` fields.
+"""
+
 from __future__ import annotations
 
 import re
 from calendar import monthrange
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, ClassVar, Sequence
 
@@ -37,7 +41,7 @@ MAX_VALUES = {
     "minute": 59,
     "second": 59,
 }
-DEFAULT_VALUES = {
+DEFAULT_VALUES: Mapping[str, str | int] = {
     "year": "*",
     "month": 1,
     "day": 1,
@@ -105,7 +109,7 @@ class BaseField:
 
         raise ValueError(f"Unrecognized expression {expr!r} for field {self.name!r}")
 
-    def __str__(self):
+    def __str__(self) -> str:
         expr_strings = (str(e) for e in self.expressions)
         return ",".join(expr_strings)
 
@@ -144,8 +148,8 @@ class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpress
 
             expr = f"{WEEKDAYS[first]}-{WEEKDAYS[last]}"
 
-        # For expressions like Sun-Tue or Sat-Mon, add two expressions that together cover the
-        # expected weekdays
+        # For expressions like Sun-Tue or Sat-Mon, add two expressions that together
+        # cover the expected weekdays
         match = WeekdayRangeExpression.value_re.match(expr)
         if match and match.groups()[1]:
             groups = match.groups()

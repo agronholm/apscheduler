@@ -6,15 +6,13 @@ from enum import Enum
 from typing import TypeVar
 from uuid import UUID
 
-from . import abc
-
 TEnum = TypeVar("TEnum", bound=Enum)
 
 
 def as_aware_datetime(value: datetime | str) -> datetime:
     """Convert the value from a string to a timezone aware datetime."""
     if isinstance(value, str):
-        # fromisoformat() does not handle the "Z" suffix
+        # Before Python 3.11, fromisoformat() could not handle the "Z" suffix
         if value.upper().endswith("Z"):
             value = value[:-1] + "+00:00"
 
@@ -46,23 +44,3 @@ def as_enum(enum_class: type[TEnum]) -> Callable[[TEnum | str], TEnum]:
         return value
 
     return converter
-
-
-def as_async_eventbroker(
-    value: abc.EventBroker | abc.AsyncEventBroker,
-) -> abc.AsyncEventBroker:
-    if isinstance(value, abc.EventBroker):
-        from apscheduler.eventbrokers.async_adapter import AsyncEventBrokerAdapter
-
-        return AsyncEventBrokerAdapter(value)
-
-    return value
-
-
-def as_async_datastore(value: abc.DataStore | abc.AsyncDataStore) -> abc.AsyncDataStore:
-    if isinstance(value, abc.DataStore):
-        from apscheduler.datastores.async_adapter import AsyncDataStoreAdapter
-
-        return AsyncDataStoreAdapter(value)
-
-    return value

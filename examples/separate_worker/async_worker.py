@@ -7,27 +7,33 @@ will print a line on the console on one-second intervals.
 
 This script requires the "postgresql" service to be running.
 To install prerequisites: pip install sqlalchemy asyncpg
-To run: python sync_worker.py
+To run: python async_worker.py
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from apscheduler import Scheduler
+from apscheduler import AsyncScheduler
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
+
+
+async def main():
+    async with AsyncScheduler(data_store, event_broker) as scheduler:
+        await scheduler.run_until_stopped()
+
 
 logging.basicConfig(level=logging.INFO)
 engine = create_async_engine("postgresql+asyncpg://postgres:secret@localhost/testdb")
 data_store = SQLAlchemyDataStore(engine)
 event_broker = AsyncpgEventBroker.from_async_sqla_engine(engine)
 
-# Uncomment the next two lines to use the MQTT event broker instead
-# from apscheduler.eventbrokers.mqtt import MQTTEventBroker
-# event_broker = MQTTEventBroker()
+# Uncomment the next two lines to use the Redis event broker instead
+# from apscheduler.eventbrokers.redis import RedisEventBroker
+# event_broker = RedisEventBroker.from_url("redis://localhost")
 
-with Scheduler(data_store, event_broker) as scheduler:
-    scheduler.run_until_stopped()
+asyncio.run(main())

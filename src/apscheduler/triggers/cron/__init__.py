@@ -9,12 +9,6 @@ from tzlocal import get_localzone
 from ..._utils import timezone_repr
 from ..._validators import as_aware_datetime, as_timezone, require_state_version
 from ...abc import Trigger
-from ...marshalling import (
-    marshal_date,
-    marshal_timezone,
-    unmarshal_date,
-    unmarshal_timezone,
-)
 from .fields import (
     DEFAULT_VALUES,
     BaseField,
@@ -28,8 +22,8 @@ from .fields import (
 @attrs.define(kw_only=True)
 class CronTrigger(Trigger):
     """
-    Triggers when current time matches all specified time constraints, similarly to how the UNIX
-    cron scheduler works.
+    Triggers when current time matches all specified time constraints, similarly to how
+    the UNIX cron scheduler works.
 
     :param year: 4-digit year
     :param month: month (1-12)
@@ -39,7 +33,8 @@ class CronTrigger(Trigger):
     :param hour: hour (0-23)
     :param minute: minute (0-59)
     :param second: second (0-59)
-    :param start_time: earliest possible date/time to trigger on (defaults to current time)
+    :param start_time: earliest possible date/time to trigger on (defaults to current
+        time)
     :param end_time: latest possible date/time to trigger on
     :param timezone: time zone to use for the date/time calculations
         (defaults to the local timezone)
@@ -69,8 +64,8 @@ class CronTrigger(Trigger):
     start_time: datetime = attrs.field(
         converter=as_aware_datetime, factory=datetime.now
     )
-    end_time: datetime | None = None
-    timezone: tzinfo | str = attrs.field(converter=as_timezone, factory=get_localzone)
+    end_time: datetime | None = attrs.field(converter=as_aware_datetime, default=None)
+    timezone: tzinfo = attrs.field(converter=as_timezone, factory=get_localzone)
     _fields: list[BaseField] = attrs.field(init=False, eq=False, factory=list)
     _last_fire_time: datetime | None = attrs.field(init=False, eq=False, default=None)
 
@@ -109,7 +104,8 @@ class CronTrigger(Trigger):
         """
         Create a :class:`~CronTrigger` from a standard crontab expression.
 
-        See https://en.wikipedia.org/wiki/Cron for more information on the format accepted here.
+        See https://en.wikipedia.org/wiki/Cron for more information on the format
+        accepted here.
 
         :param expr: minute, hour, day of month, month, day of week
         :param timezone: time zone to use for the date/time calculations
@@ -133,11 +129,11 @@ class CronTrigger(Trigger):
         self, dateval: datetime, fieldnum: int
     ) -> tuple[datetime, int]:
         """
-        Increments the designated field and resets all less significant fields to their minimum
-        values.
+        Increments the designated field and resets all less significant fields to their
+        minimum values.
 
-        :return: a tuple containing the new date, and the number of the field that was actually
-            incremented
+        :return: a tuple containing the new date, and the number of the field that was
+            actually incremented
         """
 
         values = {}
@@ -228,22 +224,24 @@ class CronTrigger(Trigger):
             self._last_fire_time = next_time
             return next_time
 
+        return None
+
     def __getstate__(self) -> dict[str, Any]:
         return {
             "version": 1,
-            "timezone": marshal_timezone(self.timezone),
+            "timezone": self.timezone,
             "fields": [str(f) for f in self._fields],
-            "start_time": marshal_date(self.start_time),
-            "end_time": marshal_date(self.end_time),
-            "last_fire_time": marshal_date(self._last_fire_time),
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "last_fire_time": self._last_fire_time,
         }
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
-        self.timezone = unmarshal_timezone(state["timezone"])
-        self.start_time = unmarshal_date(state["start_time"])
-        self.end_time = unmarshal_date(state["end_time"])
-        self._last_fire_time = unmarshal_date(state["last_fire_time"])
+        self.timezone = state["timezone"]
+        self.start_time = state["start_time"]
+        self.end_time = state["end_time"]
+        self._last_fire_time = state["last_fire_time"]
         self._set_fields(state["fields"])
 
     def __repr__(self) -> str:

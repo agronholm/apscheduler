@@ -7,35 +7,37 @@ Data structures
 .. autoclass:: apscheduler.Task
 .. autoclass:: apscheduler.Schedule
 .. autoclass:: apscheduler.Job
-.. autoclass:: apscheduler.JobInfo
 .. autoclass:: apscheduler.JobResult
-.. autoclass:: apscheduler.RetrySettings
 
 Schedulers
 ----------
 
-.. autoclass:: apscheduler.schedulers.sync.Scheduler
-.. autoclass:: apscheduler.schedulers.async_.AsyncScheduler
+.. autoclass:: apscheduler.Scheduler
+.. autoclass:: apscheduler.AsyncScheduler
 
-Workers
--------
+Job executors
+-------------
 
-.. autoclass:: apscheduler.workers.sync.Worker
-.. autoclass:: apscheduler.workers.async_.AsyncWorker
+.. autoclass:: apscheduler.abc.JobExecutor
+.. autoclass:: apscheduler.executors.async_.AsyncJobExecutor
+.. autoclass:: apscheduler.executors.subprocess.ProcessPoolJobExecutor
+.. autoclass:: apscheduler.executors.qt.QtJobExecutor
+.. autoclass:: apscheduler.executors.thread.ThreadPoolJobExecutor
 
 Data stores
 -----------
 
+.. autoclass:: apscheduler.abc.DataStore
 .. autoclass:: apscheduler.datastores.memory.MemoryDataStore
 .. autoclass:: apscheduler.datastores.sqlalchemy.SQLAlchemyDataStore
-.. autoclass:: apscheduler.datastores.async_sqlalchemy.AsyncSQLAlchemyDataStore
 .. autoclass:: apscheduler.datastores.mongodb.MongoDBDataStore
 
 Event brokers
 -------------
 
+.. autoclass:: apscheduler.abc.EventBroker
+.. autoclass:: apscheduler.abc.Subscription
 .. autoclass:: apscheduler.eventbrokers.local.LocalEventBroker
-.. autoclass:: apscheduler.eventbrokers.async_local.LocalAsyncEventBroker
 .. autoclass:: apscheduler.eventbrokers.asyncpg.AsyncpgEventBroker
 .. autoclass:: apscheduler.eventbrokers.mqtt.MQTTEventBroker
 .. autoclass:: apscheduler.eventbrokers.redis.RedisEventBroker
@@ -43,12 +45,16 @@ Event brokers
 Serializers
 -----------
 
+.. autoclass:: apscheduler.abc.Serializer
 .. autoclass:: apscheduler.serializers.cbor.CBORSerializer
 .. autoclass:: apscheduler.serializers.json.JSONSerializer
 .. autoclass:: apscheduler.serializers.pickle.PickleSerializer
 
 Triggers
 --------
+
+.. autoclass:: apscheduler.abc.Trigger
+   :special-members: __getstate__, __setstate__
 
 .. autoclass:: apscheduler.triggers.date.DateTrigger
 .. autoclass:: apscheduler.triggers.interval.IntervalTrigger
@@ -75,26 +81,46 @@ Events
 .. autoclass:: apscheduler.SchedulerEvent
 .. autoclass:: apscheduler.SchedulerStarted
 .. autoclass:: apscheduler.SchedulerStopped
-.. autoclass:: apscheduler.WorkerEvent
-.. autoclass:: apscheduler.WorkerStarted
-.. autoclass:: apscheduler.WorkerStopped
 .. autoclass:: apscheduler.JobAcquired
 .. autoclass:: apscheduler.JobReleased
 
 Enumerated types
 ----------------
 
-.. autoclass:: apscheduler.RunState
-.. autoclass:: apscheduler.JobOutcome
-.. autoclass:: apscheduler.ConflictPolicy
-.. autoclass:: apscheduler.CoalescePolicy
+.. autoclass:: apscheduler.SchedulerRole()
+    :show-inheritance:
+
+.. autoclass:: apscheduler.RunState()
+    :show-inheritance:
+
+.. autoclass:: apscheduler.JobOutcome()
+    :show-inheritance:
+
+.. autoclass:: apscheduler.ConflictPolicy()
+    :show-inheritance:
+
+.. autoclass:: apscheduler.CoalescePolicy()
+    :show-inheritance:
 
 Context variables
 -----------------
 
-.. autodata:: apscheduler.current_scheduler
-.. autodata:: apscheduler.current_worker
-.. autodata:: apscheduler.job_info
+See the :mod:`contextvars` module for information on how to work with context variables.
+
+.. data:: apscheduler.current_scheduler
+   :type: ~contextvars.ContextVar[Scheduler]
+
+   The current scheduler.
+
+.. data:: apscheduler.current_async_scheduler
+   :type: ~contextvars.ContextVar[AsyncScheduler]
+
+   The current asynchronous scheduler.
+
+.. data:: apscheduler.current_job
+   :type: ~contextvars.ContextVar[Job]
+
+   The job being currently run (available when running the job's target callable).
 
 Exceptions
 ----------
@@ -102,6 +128,7 @@ Exceptions
 .. autoexception:: apscheduler.TaskLookupError
 .. autoexception:: apscheduler.ScheduleLookupError
 .. autoexception:: apscheduler.JobLookupError
+.. autoexception:: apscheduler.CallableLookupError
 .. autoexception:: apscheduler.JobResultNotReady
 .. autoexception:: apscheduler.JobCancelled
 .. autoexception:: apscheduler.JobDeadlineMissed
@@ -109,3 +136,18 @@ Exceptions
 .. autoexception:: apscheduler.SerializationError
 .. autoexception:: apscheduler.DeserializationError
 .. autoexception:: apscheduler.MaxIterationsReached
+
+Support classes for retrying failures
+-------------------------------------
+
+.. autoclass:: apscheduler.RetrySettings
+.. autoclass:: apscheduler.RetryMixin
+
+Support classes for unset options
+---------------------------------
+
+.. data:: apscheduler.unset
+
+    Sentinel value for unset option values.
+
+.. autoclass:: apscheduler.UnsetValue

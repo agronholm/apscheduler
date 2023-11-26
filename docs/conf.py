@@ -43,8 +43,17 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-autodoc_default_options = {"members": True, "show-inheritance": True}
-autodoc_mock_imports = ["asyncpg", "cbor2", "paho", "pymongo", "redis", "sqlalchemy"]
+autodoc_default_options = {"members": True}
+autodoc_mock_imports = [
+    "asyncpg",
+    "bson",
+    "cbor2",
+    "paho",
+    "pymongo",
+    "redis",
+    "sqlalchemy",
+    "PyQt6",
+]
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -53,12 +62,8 @@ autodoc_mock_imports = ["asyncpg", "cbor2", "paho", "pymongo", "redis", "sqlalch
 #
 html_theme = "sphinx_rtd_theme"
 
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
-
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/", None),
-    "sqlalchemy": ("http://docs.sqlalchemy.org/en/latest/", None),
+    "python": ("https://docs.python.org/3/", None),
+    "anyio": ("https://anyio.readthedocs.io/en/latest/", None),
+    "tenacity": ("https://tenacity.readthedocs.io/en/latest/", None),
 }

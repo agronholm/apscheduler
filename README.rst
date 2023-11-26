@@ -8,69 +8,90 @@
   :target: https://apscheduler.readthedocs.io/en/master/?badge=latest
   :alt: Documentation
 
-Advanced Python Scheduler (APScheduler) is a Python library that lets you schedule your Python code
-to be executed later, either just once or periodically. You can add new jobs or remove old ones on
-the fly as you please. If you store your jobs in a database, they will also survive scheduler
-restarts and maintain their state. When the scheduler is restarted, it will then run all the jobs
-it should have run while it was offline [#f1]_.
+.. warning:: The v4.0 series is provided as a **pre-release** and may change in a
+   backwards incompatible fashion without any migration pathway, so do NOT use this
+   release in production!
 
-Among other things, APScheduler can be used as a cross-platform, application specific replacement
-to platform specific schedulers, such as the cron daemon or the Windows task scheduler. Please
-note, however, that APScheduler is **not** a daemon or service itself, nor does it come with any
-command line tools. It is primarily meant to be run inside existing applications. That said,
-APScheduler does provide some building blocks for you to build a scheduler service or to run a
-dedicated scheduler process.
+Advanced Python Scheduler (APScheduler) is a task scheduler and task queue system for
+Python. It can be used solely as a job queuing system if you have no need for task
+scheduling. It scales both up and down, and is suitable for both trivial, single-process
+use cases as well as large deployments spanning multiple nodes. Multiple schedulers and
+workers can be deployed to use a shared data store to provide both a degree of high
+availability and horizontal scaling.
 
-APScheduler has three built-in scheduling systems you can use:
+APScheduler comes in both synchronous and asynchronous flavors, making it a good fit for
+both traditional, thread-based applications, and asynchronous (asyncio or Trio_)
+applications. Documentation and examples are provided for integrating with either WSGI_
+or ASGI_ compatible web applications.
 
-* Cron-style scheduling (with optional start/end times)
-* Interval-based execution (runs jobs on even intervals, with optional start/end times)
-* One-off delayed execution (runs jobs once, on a set date/time)
+Support is provided for persistent storage of schedules and jobs. This means that they
+can be shared among multiple scheduler/worker instances and will survive process and
+node restarts.
 
-You can mix and match scheduling systems and the backends where the jobs are stored any way you
-like. Supported backends for storing jobs include:
+The built-in persistent data store back-ends are:
 
-* Memory
-* `SQLAlchemy <http://www.sqlalchemy.org/>`_ (any RDBMS supported by SQLAlchemy works)
-* `MongoDB <http://www.mongodb.org/>`_
-* `Redis <http://redis.io/>`_
-* `RethinkDB <https://www.rethinkdb.com/>`_
-* `ZooKeeper <https://zookeeper.apache.org/>`_
+* PostgreSQL
+* MySQL and derivatives
+* SQLite
+* MongoDB
 
-APScheduler also integrates with several common Python frameworks, like:
+The built-in event brokers (needed in scenarios with multiple schedulers and/or
+workers):
 
-* `asyncio <http://docs.python.org/3.4/library/asyncio.html>`_ (:pep:`3156`)
-* `gevent <http://www.gevent.org/>`_
-* `Tornado <http://www.tornadoweb.org/>`_
-* `Twisted <http://twistedmatrix.com/>`_
+* PostgreSQL
+* Redis
+* MQTT
 
-.. [#f1] The cutoff period for this is also configurable.
+The built-in scheduling mechanisms (*triggers*) are:
 
+* Cron-style scheduling
+* Interval-based scheduling (runs tasks on even intervals)
+* Calendar-based scheduling (runs tasks on intervals of X years/months/weeks/days,
+  always at the same time of day)
+* One-off scheduling (runs a task once, at a specific date/time)
+
+Different scheduling mechanisms can even be combined with so-called *combining triggers*
+(see the documentation_ for details).
+
+You can also implement your custom scheduling logic by building your own trigger class.
+These will be treated no differently than the built-in ones.
+
+Other notable features include:
+
+* You can limit the maximum number of simultaneous jobs for a given task (function)
+* You can limit the amount of time a job is allowed to start late
+* Jitter (adjustable, random delays added to the run time of each scheduled job)
+
+.. _Trio: https://pypi.org/project/trio/
+.. _WSGI: https://wsgi.readthedocs.io/en/latest/what.html
+.. _ASGI: https://asgi.readthedocs.io/en/latest/index.html
+.. _documentation: https://apscheduler.readthedocs.io/en/master/
 
 Documentation
--------------
+=============
 
-Documentation can be found `here <https://apscheduler.readthedocs.io/en/master/?badge=latest>`_.
-
+Documentation can be found
+`here <https://apscheduler.readthedocs.io/en/master/?badge=latest>`_.
 
 Source
-------
+======
 
 The source can be browsed at `Github <https://github.com/agronholm/apscheduler>`_.
 
-
 Reporting bugs
---------------
+==============
 
-A `bug tracker <https://github.com/agronholm/apscheduler/issues>`_ is provided by Github.
-
+A `bug tracker <https://github.com/agronholm/apscheduler/issues>`_ is provided by
+GitHub.
 
 Getting help
-------------
+============
 
 If you have problems or other questions, you can either:
 
 * Ask in the `apscheduler <https://gitter.im/apscheduler/Lobby>`_ room on Gitter
-* Ask on the `APScheduler Google group <http://groups.google.com/group/apscheduler>`_, or
-* Ask on `StackOverflow <http://stackoverflow.com/questions/tagged/apscheduler>`_ and tag your
-  question with the ``apscheduler`` tag
+* Post a question on `GitHub discussions`_, or
+* Post a question on StackOverflow_ and add the ``apscheduler`` tag
+
+.. _GitHub discussions: https://github.com/agronholm/apscheduler/discussions/categories/q-a
+.. _StackOverflow: http://stackoverflow.com/questions/tagged/apscheduler

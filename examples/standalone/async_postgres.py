@@ -16,8 +16,8 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from apscheduler.datastores.async_sqlalchemy import AsyncSQLAlchemyDataStore
-from apscheduler.schedulers.async_ import AsyncScheduler
+from apscheduler import AsyncScheduler
+from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.triggers.interval import IntervalTrigger
 
 
@@ -29,10 +29,10 @@ async def main():
     engine = create_async_engine(
         "postgresql+asyncpg://postgres:secret@localhost/testdb"
     )
-    data_store = AsyncSQLAlchemyDataStore(engine)
+    data_store = SQLAlchemyDataStore(engine)
     async with AsyncScheduler(data_store) as scheduler:
         await scheduler.add_schedule(tick, IntervalTrigger(seconds=1), id="tick")
-        await scheduler.wait_until_stopped()
+        await scheduler.run_until_stopped()
 
 
 run(main())
