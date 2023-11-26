@@ -675,7 +675,9 @@ class TestAsyncScheduler:
             assert event.outcome is JobOutcome.success
 
     async def test_explicit_cleanup(self, raw_datastore: DataStore) -> None:
+        send, receive = create_memory_object_stream[Event](1)
         async with AsyncScheduler(cleanup_interval=None) as scheduler:
+            scheduler.subscribe(send.send, {ScheduleRemoved})
             await scheduler.start_in_background()
 
             # Add a job whose result expires after 1 ms
@@ -707,6 +709,13 @@ class TestAsyncScheduler:
             await scheduler.cleanup()
             with pytest.raises(ScheduleLookupError):
                 await scheduler.get_schedule("event_set")
+
+            # Check that the corresponding event was received
+            with fail_after(3):
+                event = await receive.receive()
+                assert isinstance(event, ScheduleRemoved)
+                assert event.schedule_id == schedule.id
+                assert event.finished
 
     async def test_explicit_cleanup_avoid_schedules_still_having_jobs(
         self, raw_datastore: DataStore

@@ -960,11 +960,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             ~self._t_schedules.c.id.in_(finished_schedule_ids)
                         )
                         await self._execute(conn, delete)
-                        for schedule_id, task_id in finished_schedule_ids.items():
-                            await self._event_broker.publish(
-                                ScheduleRemoved(
-                                    schedule_id=schedule_id,
-                                    task_id=task_id,
-                                    finished=True,
-                                )
-                            )
+
+                for schedule_id, task_id in finished_schedule_ids.items():
+                    await self._event_broker.publish(
+                        ScheduleRemoved(
+                            schedule_id=schedule_id,
+                            task_id=task_id,
+                            finished=True,
+                        )
+                    )
