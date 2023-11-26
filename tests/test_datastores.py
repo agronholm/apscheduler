@@ -8,7 +8,7 @@ from typing import AsyncGenerator
 import anyio
 import pytest
 from anyio import CancelScope
-from freezegun.api import FrozenDateTimeFactory
+from time_machine import TimeMachineFixture
 
 from apscheduler import (
     CoalescePolicy,
@@ -177,10 +177,11 @@ async def test_remove_schedules(
     assert not events
 
 
-@pytest.mark.freeze_time(datetime(2020, 9, 14, tzinfo=timezone.utc))
 async def test_acquire_release_schedules(
-    datastore: DataStore, schedules: list[Schedule]
+    datastore: DataStore, schedules: list[Schedule], time_machine: TimeMachineFixture
 ) -> None:
+    time_machine.move_to(datetime(2020, 9, 14, tzinfo=timezone.utc))
+
     event_types = {ScheduleRemoved, ScheduleUpdated}
     async with capture_events(datastore, 2, event_types) as events:
         for schedule in schedules:
@@ -269,13 +270,16 @@ async def test_release_two_schedules_at_once(datastore: DataStore) -> None:
 
 
 async def test_acquire_schedules_lock_timeout(
-    datastore: DataStore, schedules: list[Schedule], freezer
+    datastore: DataStore,
+    schedules: list[Schedule],
+    time_machine: TimeMachineFixture,
 ) -> None:
     """
     Test that a scheduler can acquire schedules that were acquired by another
     scheduler but not released within the lock timeout period.
 
     """
+    time_machine.move_to(datetime.now(timezone.utc), tick=False)
     await datastore.add_schedule(schedules[0], ConflictPolicy.exception)
 
     # First, one scheduler acquires the first available schedule
@@ -285,12 +289,12 @@ async def test_acquire_schedules_lock_timeout(
 
     # Try to acquire the schedule just at the threshold (now == acquired_until).
     # This should not yield any schedules.
-    freezer.tick(30)
+    time_machine.shift(30)
     acquired2 = await datastore.acquire_schedules("dummy-id2", 1)
     assert not acquired2
 
     # Right after that, the schedule should be available
-    freezer.tick(1)
+    time_machine.shift(1)
     acquired3 = await datastore.acquire_schedules("dummy-id2", 1)
     assert len(acquired3) == 1
     assert acquired3[0].id == "s1"
@@ -436,7 +440,7 @@ async def test_job_release_cancelled(datastore: DataStore) -> None:
 
 
 async def test_acquire_jobs_lock_timeout(
-    datastore: DataStore, freezer: FrozenDateTimeFactory
+    datastore: DataStore, time_machine: TimeMachineFixture
 ) -> None:
     """
     Test that a worker can acquire jobs that were acquired by another scheduler but
@@ -450,17 +454,18 @@ async def test_acquire_jobs_lock_timeout(
     await datastore.add_job(job)
 
     # First, one worker acquires the first available job
+    time_machine.move_to(datetime.now(timezone.utc), tick=False)
     acquired = await datastore.acquire_jobs("worker1", 1)
     assert len(acquired) == 1
     assert acquired[0].id == job.id
 
     # Try to acquire the job just at the threshold (now == acquired_until).
     # This should not yield any jobs.
-    freezer.tick(30)
+    time_machine.shift(30)
     assert not await datastore.acquire_jobs("worker2", 1)
 
     # Right after that, the job should be available
-    freezer.tick(1)
+    time_machine.shift(1)
     acquired = await datastore.acquire_jobs("worker2", 1)
     assert len(acquired) == 1
     assert acquired[0].id == job.id
