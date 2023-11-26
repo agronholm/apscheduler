@@ -722,7 +722,7 @@ class TestAsyncScheduler:
     ) -> None:
         send, receive = create_memory_object_stream[Event](4)
         async with AsyncScheduler(raw_datastore, cleanup_interval=None) as scheduler:
-            scheduler.subscribe(send.send, {JobAdded, JobReleased})
+            scheduler.subscribe(send.send, {ScheduleUpdated, JobAdded, JobReleased})
             await scheduler.start_in_background()
 
             # Add a schedule to immediately set the event
@@ -736,6 +736,12 @@ class TestAsyncScheduler:
             event = await receive.receive()
             assert isinstance(event, JobAdded)
             assert event.schedule_id == schedule_id
+
+            # Wait for the schedule to be updated
+            event = await receive.receive()
+            assert isinstance(event, ScheduleUpdated)
+            assert event.schedule_id == schedule_id
+            assert event.next_fire_time is None
 
             # Check that there is a job for the schedule
             jobs = await scheduler.get_jobs()
