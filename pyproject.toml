@@ -62,7 +62,7 @@ test = [
     "pytest >= 7.4.0",
     "pytest-lazy-fixture",
     "pytest-mock",
-    "time-machine >= 2.13.0",
+    "time-machine >= 2.13.0; python_implementation == 'CPython'",
     "uwsgi; python_implementation == 'CPython' and platform_system == 'Linux'",
 ]
 doc = [

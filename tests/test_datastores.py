@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+import platform
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from logging import Logger
-from typing import AsyncGenerator
+from typing import TYPE_CHECKING, AsyncGenerator
 
 import anyio
 import pytest
 from anyio import CancelScope
-from time_machine import TimeMachineFixture
 
 from apscheduler import (
     CoalescePolicy,
@@ -28,6 +28,9 @@ from apscheduler import (
 )
 from apscheduler.abc import DataStore, EventBroker
 from apscheduler.triggers.date import DateTrigger
+
+if TYPE_CHECKING:
+    from time_machine import TimeMachineFixture
 
 pytestmark = pytest.mark.anyio
 
@@ -177,6 +180,10 @@ async def test_remove_schedules(
     assert not events
 
 
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
 async def test_acquire_release_schedules(
     datastore: DataStore, schedules: list[Schedule], time_machine: TimeMachineFixture
 ) -> None:
@@ -269,6 +276,10 @@ async def test_release_two_schedules_at_once(datastore: DataStore) -> None:
     assert len(remaining) == 2
 
 
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
 async def test_acquire_schedules_lock_timeout(
     datastore: DataStore,
     schedules: list[Schedule],
@@ -439,6 +450,10 @@ async def test_job_release_cancelled(datastore: DataStore) -> None:
     assert not await datastore.get_job_result(acquired[0].id)
 
 
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
 async def test_acquire_jobs_lock_timeout(
     datastore: DataStore, time_machine: TimeMachineFixture
 ) -> None:
