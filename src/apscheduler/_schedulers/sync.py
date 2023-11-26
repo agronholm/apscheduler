@@ -29,7 +29,12 @@ else:
 
 
 class Scheduler:
-    """A synchronous scheduler implementation."""
+    """
+    A synchronous scheduler implementation.
+
+    See the documentation of the :class:`AsyncScheduler` class for the documentation of
+    the configuration options.
+    """
 
     def __init__(
         self,
