@@ -12,6 +12,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   triggers and have no more associated jobs running. Previously, schedules were
   automatically deleted instantly once their triggers could no longer produce any fire
   times.
+- **BREAKING** Made publishing ``JobReleased`` events the responsibility of the
+  ``DataStore`` implementation, rather than the scheduler, for consistency with the
+  ``acquire_jobs()`` method
 - Fixed large parts of ``MongoDBDataStore`` still calling blocking functions in the
   event loop thread
 

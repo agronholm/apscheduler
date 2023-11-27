@@ -310,14 +310,12 @@ class DataStore(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    async def release_job(
-        self, scheduler_id: str, task_id: str, result: JobResult
-    ) -> None:
+    async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
         """
         Release the claim on the given job and record the result.
 
         :param scheduler_id: unique identifier of the scheduler
-        :param task_id: the job's task ID
+        :param job: the job to be released
         :param result: the result of the job
         """
 

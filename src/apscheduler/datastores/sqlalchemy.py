@@ -54,6 +54,7 @@ from .._events import (
     JobAcquired,
     JobAdded,
     JobDeserializationFailed,
+    JobReleased,
     ScheduleAdded,
     ScheduleDeserializationFailed,
     ScheduleRemoved,
@@ -890,9 +891,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
         return acquired_jobs
 
-    async def release_job(
-        self, scheduler_id: str, task_id: str, result: JobResult
-    ) -> None:
+    async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
@@ -906,7 +905,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     update = (
                         self._t_tasks.update()
                         .values(running_jobs=self._t_tasks.c.running_jobs - 1)
-                        .where(self._t_tasks.c.id == task_id)
+                        .where(self._t_tasks.c.id == job.task_id)
                     )
                     await self._execute(conn, update)
 
@@ -915,6 +914,11 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         self._t_jobs.c.id == result.job_id
                     )
                     await self._execute(conn, delete)
+
+        # Notify other schedulers
+        await self._event_broker.publish(
+            JobReleased.from_result(job, result, scheduler_id)
+        )
 
     async def get_job_result(self, job_id: UUID) -> JobResult | None:
         async for attempt in self._retry():

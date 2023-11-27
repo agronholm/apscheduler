@@ -13,6 +13,7 @@ from .._enums import ConflictPolicy
 from .._events import (
     JobAcquired,
     JobAdded,
+    JobReleased,
     ScheduleAdded,
     ScheduleRemoved,
     ScheduleUpdated,
@@ -310,15 +311,13 @@ class MemoryDataStore(BaseDataStore):
 
         return jobs
 
-    async def release_job(
-        self, scheduler_id: str, task_id: str, result: JobResult
-    ) -> None:
+    async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
         # Record the job result
         if result.expires_at > result.finished_at:
             self._job_results[result.job_id] = result
 
         # Decrement the number of running jobs for this task
-        task_state = self._tasks.get(task_id)
+        task_state = self._tasks.get(job.task_id)
         if task_state is not None:
             task_state.running_jobs -= 1
 
@@ -326,21 +325,26 @@ class MemoryDataStore(BaseDataStore):
         job_state = self._jobs_by_id.pop(result.job_id)
 
         # Remove the job from the jobs belonging to its task
-        task_jobs = self._jobs_by_task_id[task_id]
+        task_jobs = self._jobs_by_task_id[job.task_id]
         task_jobs.remove(job_state)
         if not task_jobs:
-            del self._jobs_by_task_id[task_id]
+            del self._jobs_by_task_id[job.task_id]
 
         # If this was a scheduled job, remove the job from the set of jobs belonging to
         # this schedule
-        if job_state.job.schedule_id:
-            schedule_jobs = self._jobs_by_schedule_id[job_state.job.schedule_id]
+        if job.schedule_id:
+            schedule_jobs = self._jobs_by_schedule_id[job.schedule_id]
             schedule_jobs.remove(job_state)
             if not schedule_jobs:
-                del self._jobs_by_schedule_id[job_state.job.schedule_id]
+                del self._jobs_by_schedule_id[job.schedule_id]
 
         index = self._find_job_index(job_state)
         del self._jobs[index]
+
+        # Notify other schedulers
+        await self._event_broker.publish(
+            JobReleased.from_result(job, result, scheduler_id)
+        )
 
     async def get_job_result(self, job_id: UUID) -> JobResult | None:
         return self._job_results.pop(job_id, None)

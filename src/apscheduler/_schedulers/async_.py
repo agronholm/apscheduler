@@ -949,10 +949,7 @@ class AsyncScheduler:
                     outcome=JobOutcome.missed_start_deadline,
                     finished_at=start_time,
                 )
-                await self.data_store.release_job(self.identity, job.task_id, result)
-                await self.event_broker.publish(
-                    JobReleased.from_result(job, result, self.identity)
-                )
+                await self.data_store.release_job(self.identity, job, result)
                 return
 
             try:
@@ -970,12 +967,7 @@ class AsyncScheduler:
                         job,
                         outcome=JobOutcome.cancelled,
                     )
-                    await self.data_store.release_job(
-                        self.identity, job.task_id, result
-                    )
-                    await self.event_broker.publish(
-                        JobReleased.from_result(job, result, self.identity)
-                    )
+                    await self.data_store.release_job(self.identity, job, result)
             except BaseException as exc:
                 if isinstance(exc, Exception):
                     self.logger.exception("Job %s raised an exception", job.id)
@@ -989,14 +981,7 @@ class AsyncScheduler:
                     JobOutcome.error,
                     exception=exc,
                 )
-                await self.data_store.release_job(
-                    self.identity,
-                    job.task_id,
-                    result,
-                )
-                await self.event_broker.publish(
-                    JobReleased.from_result(job, result, self.identity)
-                )
+                await self.data_store.release_job(self.identity, job, result)
                 if not isinstance(exc, Exception):
                     raise
             else:
@@ -1006,10 +991,7 @@ class AsyncScheduler:
                     JobOutcome.success,
                     return_value=retval,
                 )
-                await self.data_store.release_job(self.identity, job.task_id, result)
-                await self.event_broker.publish(
-                    JobReleased.from_result(job, result, self.identity)
-                )
+                await self.data_store.release_job(self.identity, job, result)
             finally:
                 current_job.reset(token)
         finally:

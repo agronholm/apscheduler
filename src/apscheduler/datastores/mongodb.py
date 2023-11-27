@@ -26,6 +26,7 @@ from .._events import (
     DataStoreEvent,
     JobAcquired,
     JobAdded,
+    JobReleased,
     ScheduleAdded,
     ScheduleRemoved,
     ScheduleUpdated,
@@ -600,9 +601,7 @@ class MongoDBDataStore(BaseExternalDataStore):
 
         return acquired_jobs
 
-    async def release_job(
-        self, scheduler_id: str, task_id: str, result: JobResult
-    ) -> None:
+    async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
         async for attempt in self._retry():
             with attempt, self.client.start_session() as session:
                 # Record the job result
@@ -615,7 +614,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                 # Decrement the running jobs counter
                 await to_thread.run_sync(
                     lambda: self._tasks.find_one_and_update(
-                        {"_id": task_id},
+                        {"_id": job.task_id},
                         {"$inc": {"running_jobs": -1}},
                         session=session,
                     )
@@ -627,6 +626,11 @@ class MongoDBDataStore(BaseExternalDataStore):
                         {"_id": result.job_id}, session=session
                     )
                 )
+
+        # Notify other schedulers
+        await self._event_broker.publish(
+            JobReleased.from_result(job, result, scheduler_id)
+        )
 
     async def get_job_result(self, job_id: UUID) -> JobResult | None:
         async for attempt in self._retry():

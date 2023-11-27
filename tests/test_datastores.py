@@ -347,7 +347,7 @@ async def test_job_release_success(datastore: DataStore) -> None:
 
     await datastore.release_job(
         "worker_id",
-        acquired[0].task_id,
+        acquired[0],
         JobResult.from_job(
             acquired[0],
             JobOutcome.success,
@@ -377,7 +377,7 @@ async def test_job_release_failure(datastore: DataStore) -> None:
 
     await datastore.release_job(
         "worker_id",
-        acquired[0].task_id,
+        acquired[0],
         JobResult.from_job(
             acquired[0],
             JobOutcome.error,
@@ -408,7 +408,7 @@ async def test_job_release_missed_deadline(datastore: DataStore):
 
     await datastore.release_job(
         "worker_id",
-        acquired[0].task_id,
+        acquired[0],
         JobResult.from_job(
             acquired[0],
             JobOutcome.missed_start_deadline,
@@ -437,7 +437,7 @@ async def test_job_release_cancelled(datastore: DataStore) -> None:
 
     await datastore.release_job(
         "worker1",
-        acquired[0].task_id,
+        acquired[0],
         JobResult.from_job(acquired[0], JobOutcome.cancelled),
     )
     result = await datastore.get_job_result(acquired[0].id)
@@ -507,7 +507,7 @@ async def test_acquire_jobs_max_number_exceeded(datastore: DataStore) -> None:
     # Release one job, and the worker should be able to acquire the third job
     await datastore.release_job(
         "worker1",
-        acquired_jobs[0].task_id,
+        acquired_jobs[0],
         JobResult.from_job(
             acquired_jobs[0],
             JobOutcome.success,
