@@ -12,7 +12,7 @@ from attrs.converters import optional
 from . import abc
 from ._converters import as_aware_datetime, as_enum, as_uuid
 from ._enums import JobOutcome
-from ._structures import JobResult
+from ._structures import Job, JobResult
 from ._utils import qualified_name
 
 
@@ -226,6 +226,25 @@ class JobAcquired(SchedulerEvent):
 
     job_id: UUID = attrs.field(converter=as_uuid)
     scheduler_id: str
+    task_id: str
+    schedule_id: str | None = None
+
+    @classmethod
+    def from_job(cls, job: Job, scheduler_id: str) -> JobAcquired:
+        """
+        Create a new job-acquired event from a job and a scheduler ID.
+
+        :param job: the job that was acquired
+        :param scheduler_id: the ID of the scheduler that acquired the job
+        :return: a new job-acquired event
+
+        """
+        return cls(
+            job_id=job.id,
+            scheduler_id=scheduler_id,
+            task_id=job.task_id,
+            schedule_id=job.schedule_id,
+        )
 
 
 @attrs.define(kw_only=True, frozen=True)
@@ -246,13 +265,24 @@ class JobReleased(SchedulerEvent):
 
     job_id: UUID = attrs.field(converter=as_uuid)
     scheduler_id: str
+    task_id: str
+    schedule_id: str | None = None
     outcome: JobOutcome = attrs.field(converter=as_enum(JobOutcome))
     exception_type: str | None = None
     exception_message: str | None = None
     exception_traceback: list[str] | None = None
 
     @classmethod
-    def from_result(cls, result: JobResult, scheduler_id: str) -> JobReleased:
+    def from_result(cls, job: Job, result: JobResult, scheduler_id: str) -> JobReleased:
+        """
+        Create a new job-released event from a job, the job result and a scheduler ID.
+
+        :param job: the job that was acquired
+        :param result: the result of the job
+        :param scheduler_id: the ID of the scheduler that acquired the job
+        :return: a new job-released event
+
+        """
         if result.exception is not None:
             exception_type: str | None = qualified_name(result.exception.__class__)
             exception_message: str | None = str(result.exception)
@@ -265,6 +295,8 @@ class JobReleased(SchedulerEvent):
         return cls(
             job_id=result.job_id,
             scheduler_id=scheduler_id,
+            task_id=job.task_id,
+            schedule_id=job.schedule_id,
             outcome=result.outcome,
             exception_type=exception_type,
             exception_message=exception_message,

@@ -885,7 +885,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         # Publish the appropriate events
         for job in acquired_jobs:
             await self._event_broker.publish(
-                JobAcquired(job_id=job.id, scheduler_id=scheduler_id)
+                JobAcquired.from_job(job, scheduler_id=scheduler_id)
             )
 
         return acquired_jobs

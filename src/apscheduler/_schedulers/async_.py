@@ -951,7 +951,7 @@ class AsyncScheduler:
                 )
                 await self.data_store.release_job(self.identity, job.task_id, result)
                 await self.event_broker.publish(
-                    JobReleased.from_result(result, self.identity)
+                    JobReleased.from_result(job, result, self.identity)
                 )
                 return
 
@@ -974,7 +974,7 @@ class AsyncScheduler:
                         self.identity, job.task_id, result
                     )
                     await self.event_broker.publish(
-                        JobReleased.from_result(result, self.identity)
+                        JobReleased.from_result(job, result, self.identity)
                     )
             except BaseException as exc:
                 if isinstance(exc, Exception):
@@ -995,7 +995,7 @@ class AsyncScheduler:
                     result,
                 )
                 await self.event_broker.publish(
-                    JobReleased.from_result(result, self.identity)
+                    JobReleased.from_result(job, result, self.identity)
                 )
                 if not isinstance(exc, Exception):
                     raise
@@ -1008,7 +1008,7 @@ class AsyncScheduler:
                 )
                 await self.data_store.release_job(self.identity, job.task_id, result)
                 await self.event_broker.publish(
-                    JobReleased.from_result(result, self.identity)
+                    JobReleased.from_result(job, result, self.identity)
                 )
             finally:
                 current_job.reset(token)

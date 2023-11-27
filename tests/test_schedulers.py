@@ -264,10 +264,14 @@ class TestAsyncScheduler:
                 event = await receive.receive()
                 assert isinstance(event, JobAcquired)
                 assert event.job_id == job_id
+                assert event.task_id == f"{__name__}:dummy_async_job"
+                assert event.schedule_id is None
 
                 event = await receive.receive()
                 assert isinstance(event, JobReleased)
                 assert event.job_id == job_id
+                assert event.task_id == f"{__name__}:dummy_async_job"
+                assert event.schedule_id is None
                 assert event.outcome is JobOutcome.success
 
                 result = await scheduler.get_job_result(job_id)
@@ -307,12 +311,16 @@ class TestAsyncScheduler:
                 event = await receive.receive()
                 assert isinstance(event, JobAcquired)
                 assert event.job_id == job_id
+                assert event.task_id == f"{__name__}:dummy_async_job"
+                assert event.schedule_id is None
                 assert event.scheduler_id == scheduler.identity
 
                 # The scheduler released the job
                 event = await receive.receive()
                 assert isinstance(event, JobReleased)
                 assert event.job_id == job_id
+                assert event.task_id == f"{__name__}:dummy_async_job"
+                assert event.schedule_id is None
                 assert event.scheduler_id == scheduler.identity
 
         # The scheduler was stopped
@@ -418,13 +426,15 @@ class TestAsyncScheduler:
                 event = await receive.receive()
                 assert isinstance(event, JobAcquired)
                 job_id = event.job_id
-                # assert event.schedule_id == "foo"
-                # assert event.task_id == "test_schedulers:dummy_async_job"
+                assert event.task_id == "test_schedulers:dummy_async_job"
+                assert event.schedule_id == "foo"
 
                 # The new job was released
                 event = await receive.receive()
                 assert isinstance(event, JobReleased)
                 assert event.job_id == job_id
+                assert event.task_id == "test_schedulers:dummy_async_job"
+                assert event.schedule_id == "foo"
                 assert event.outcome is JobOutcome.missed_start_deadline
 
         # The scheduler was stopped
@@ -598,10 +608,14 @@ class TestAsyncScheduler:
                 event = await receive.receive()
                 assert isinstance(event, JobAcquired)
                 assert event.job_id == job_id
+                assert event.task_id == "test_schedulers:dummy_async_job"
+                assert event.schedule_id is None
 
                 event = await receive.receive()
                 assert isinstance(event, JobReleased)
                 assert event.job_id == job_id
+                assert event.task_id == "test_schedulers:dummy_async_job"
+                assert event.schedule_id is None
 
             with pytest.raises(JobLookupError):
                 await scheduler.get_job_result(job_id, wait=False)
@@ -931,10 +945,14 @@ class TestSyncScheduler:
             event = queue.get(timeout=1)
             assert isinstance(event, JobAcquired)
             assert event.job_id == job_id
+            assert event.task_id == f"{__name__}:dummy_sync_job"
+            assert event.schedule_id is None
 
             event = queue.get(timeout=1)
             assert isinstance(event, JobReleased)
             assert event.job_id == job_id
+            assert event.task_id == f"{__name__}:dummy_sync_job"
+            assert event.schedule_id is None
             assert event.outcome is JobOutcome.success
 
             result = scheduler.get_job_result(job_id)
