@@ -9,20 +9,10 @@ from uuid import UUID
 import attrs
 from attrs.converters import optional
 
-from . import abc
 from ._converters import as_aware_datetime, as_enum, as_uuid
 from ._enums import JobOutcome
 from ._structures import Job, JobResult
 from ._utils import qualified_name
-
-
-def serialize(inst, field, value):
-    if isinstance(value, frozenset):
-        return list(value)
-    elif isinstance(value, JobOutcome):
-        return value.name
-
-    return value
 
 
 @attrs.define(kw_only=True, frozen=True)
@@ -30,18 +20,18 @@ class Event:
     """
     Base class for all events.
 
-    :ivar timestamp: the time when the event occurrent
+    :ivar timestamp: the time when the event occurred
     """
 
     timestamp: datetime = attrs.field(
         factory=partial(datetime.now, timezone.utc), converter=as_aware_datetime
     )
 
-    def marshal(self, serializer: abc.Serializer) -> dict[str, Any]:
-        return attrs.asdict(self, value_serializer=serialize)
+    def marshal(self) -> dict[str, Any]:
+        return attrs.asdict(self)
 
     @classmethod
-    def unmarshal(cls, serializer: abc.Serializer, marshalled: dict[str, Any]) -> Event:
+    def unmarshal(cls, marshalled: dict[str, Any]) -> Event:
         return cls(**marshalled)
 
 
@@ -303,6 +293,6 @@ class JobReleased(SchedulerEvent):
             exception_traceback=exception_traceback,
         )
 
-    def marshal(self, serializer: abc.Serializer) -> dict[str, Any]:
-        marshalled = super().marshal(serializer)
+    def marshal(self) -> dict[str, Any]:
+        marshalled = super().marshal()
         return marshalled

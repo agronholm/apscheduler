@@ -22,6 +22,6 @@ from apscheduler.abc import Serializer
     ],
 )
 def test_serialize_event(event: Event, serializer: Serializer) -> None:
-    payload = serializer.serialize(event.marshal(serializer))
-    deserialized = type(event).unmarshal(serializer, serializer.deserialize(payload))
+    payload = serializer.serialize(event.marshal())
+    deserialized = type(event).unmarshal(serializer.deserialize(payload))
     assert deserialized == event
