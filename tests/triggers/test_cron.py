@@ -89,10 +89,14 @@ def test_cron_trigger_1(timezone, serializer):
         start_time=start_time,
         timezone=timezone,
     )
+
+    # since `next` is modifying the trigger, we call it before serializing
+    # to make sure the serialization works correctly also for modified triggers
+    assert trigger.next() == datetime(2009, 1, 5, tzinfo=timezone)
+
     if serializer:
         trigger = serializer.deserialize(serializer.serialize(trigger))
 
-    assert trigger.next() == datetime(2009, 1, 5, tzinfo=timezone)
     assert trigger.next() == datetime(2009, 1, 6, tzinfo=timezone)
     assert trigger.next() == datetime(2009, 4, 5, tzinfo=timezone)
     assert trigger.next() == datetime(2009, 4, 6, tzinfo=timezone)

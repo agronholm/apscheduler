@@ -68,7 +68,7 @@ class CronTrigger(Trigger):
     end_time: datetime | None = attrs.field(converter=as_aware_datetime, default=None)
     timezone: tzinfo = attrs.field(converter=as_timezone, factory=get_localzone)
     _fields: list[BaseField] = attrs.field(init=False, eq=False, factory=list)
-    _last_fire_time: datetime | None = attrs.field(init=False, eq=False, default=None)
+    _last_fire_time: datetime | None = attrs.field(converter=as_aware_datetime, init=False, eq=False, default=None)
 
     def __attrs_post_init__(self) -> None:
         self._set_fields(
