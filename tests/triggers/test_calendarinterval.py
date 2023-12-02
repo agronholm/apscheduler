@@ -72,10 +72,11 @@ def test_nonexistent_days(timezone, serializer):
     trigger = CalendarIntervalTrigger(
         months=1, start_date=date(2016, 3, 31), timezone=timezone
     )
+    assert trigger.next() == datetime(2016, 3, 31, tzinfo=timezone)
+
     if serializer:
         trigger = serializer.deserialize(serializer.serialize(trigger))
 
-    assert trigger.next() == datetime(2016, 3, 31, tzinfo=timezone)
     assert trigger.next() == datetime(2016, 5, 31, tzinfo=timezone)
 
 

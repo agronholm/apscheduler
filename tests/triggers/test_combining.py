@@ -68,10 +68,12 @@ class TestOrTrigger:
         date1 = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         date2 = datetime(2020, 5, 18, 15, 1, 53, 940564, tzinfo=timezone)
         trigger = OrTrigger([DateTrigger(date1), DateTrigger(date2)])
+
+        assert trigger.next() == date1
+
         if serializer:
             trigger = serializer.deserialize(serializer.serialize(trigger))
 
-        assert trigger.next() == date1
         assert trigger.next() == date2
         assert trigger.next() is None
 

@@ -28,10 +28,11 @@ def test_end_time(timezone, serializer):
     trigger = IntervalTrigger(
         start_time=start_time, end_time=end_time, hours=1, seconds=6
     )
+    assert trigger.next() == start_time
+
     if serializer:
         trigger = serializer.deserialize(serializer.serialize(trigger))
 
-    assert trigger.next() == start_time
     assert trigger.next() == start_time + interval
     assert trigger.next() == start_time + interval * 2
     assert trigger.next() is None

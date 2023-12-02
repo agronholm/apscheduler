@@ -42,7 +42,9 @@ class IntervalTrigger(Trigger):
     )
     end_time: datetime | None = attrs.field(converter=as_aware_datetime, default=None)
     _interval: timedelta = attrs.field(init=False, eq=False, repr=False)
-    _last_fire_time: datetime | None = attrs.field(init=False, eq=False, default=None)
+    _last_fire_time: datetime | None = attrs.field(
+        init=False, eq=False, converter=as_aware_datetime, default=None
+    )
 
     def __attrs_post_init__(self) -> None:
         self._interval = timedelta(

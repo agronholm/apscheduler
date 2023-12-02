@@ -17,6 +17,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   ``acquire_jobs()`` method
 - Fixed large parts of ``MongoDBDataStore`` still calling blocking functions in the
   event loop thread
+- Fixed JSON serialization of triggers that had been used at least once
 
 **4.0.0a4**
 

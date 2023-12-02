@@ -6,6 +6,7 @@ from typing import Any
 
 import attrs
 
+from .._converters import as_aware_datetime, list_converter
 from .._exceptions import MaxIterationsReached
 from .._marshalling import marshal_object, unmarshal_object
 from .._validators import as_timedelta, require_state_version
@@ -16,7 +17,7 @@ from ..abc import Trigger
 class BaseCombiningTrigger(Trigger):
     triggers: list[Trigger]
     _next_fire_times: list[datetime | None] = attrs.field(
-        init=False, eq=False, factory=list
+        init=False, eq=False, converter=list_converter(as_aware_datetime), factory=list
     )
 
     def __getstate__(self) -> dict[str, Any]:

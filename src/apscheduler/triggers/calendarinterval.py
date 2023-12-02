@@ -5,6 +5,7 @@ from typing import Any
 
 import attrs
 
+from .._converters import as_aware_datetime
 from .._utils import timezone_repr
 from .._validators import as_date, as_timezone, require_state_version
 from ..abc import Trigger
@@ -70,7 +71,9 @@ class CalendarIntervalTrigger(Trigger):
     end_date: date | None = attrs.field(converter=as_date, default=None)
     timezone: tzinfo = attrs.field(converter=as_timezone, default="local")
     _time: time = attrs.field(init=False, eq=False)
-    _last_fire_date: date | None = attrs.field(init=False, eq=False, default=None)
+    _last_fire_date: date | None = attrs.field(
+        init=False, eq=False, converter=as_aware_datetime, default=None
+    )
 
     def __attrs_post_init__(self) -> None:
         self._time = time(self.hour, self.minute, self.second, tzinfo=self.timezone)
