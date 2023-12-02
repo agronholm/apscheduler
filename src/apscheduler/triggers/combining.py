@@ -6,10 +6,10 @@ from typing import Any
 
 import attrs
 
-from .._converters import as_aware_datetime, list_converter
+from .._converters import as_aware_datetime, as_timedelta, list_converter
 from .._exceptions import MaxIterationsReached
 from .._marshalling import marshal_object, unmarshal_object
-from .._validators import as_timedelta, require_state_version
+from .._validators import require_state_version
 from ..abc import Trigger
 
 

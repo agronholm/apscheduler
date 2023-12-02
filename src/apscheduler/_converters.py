@@ -1,17 +1,24 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, TypeVar
 from uuid import UUID
+
+from tzlocal import get_localzone
+
+if sys.version_info >= (3, 9):
+    from zoneinfo import ZoneInfo
+else:
+    from backports.zoneinfo import ZoneInfo
 
 TEnum = TypeVar("TEnum", bound=Enum)
 T = TypeVar("T")
 
 
 def as_aware_datetime(value: Any) -> Any:
-    """Convert the value from a string to a timezone aware datetime."""
     if isinstance(value, str):
         # Before Python 3.11, fromisoformat() could not handle the "Z" suffix
         if value.upper().endswith("Z"):
@@ -22,8 +29,26 @@ def as_aware_datetime(value: Any) -> Any:
     return value
 
 
+def as_date(value: Any) -> Any:
+    if isinstance(value, str):
+        return date.fromisoformat(value)
+
+    return value
+
+
+def as_timezone(value: Any) -> Any:
+    if isinstance(value, str):
+        if value is None or value == "local":
+            return get_localzone()
+
+        return ZoneInfo(value)
+    elif value is timezone.utc:
+        return ZoneInfo("UTC")
+
+    return value
+
+
 def as_uuid(value: Any) -> Any:
-    """Convert a string-formatted UUID to a UUID instance."""
     if isinstance(value, str):
         return UUID(value)
 

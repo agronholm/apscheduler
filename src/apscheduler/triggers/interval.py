@@ -5,7 +5,8 @@ from typing import Any
 
 import attrs
 
-from .._validators import as_aware_datetime, require_state_version
+from .._converters import as_aware_datetime
+from .._validators import require_state_version
 from ..abc import Trigger
 
 

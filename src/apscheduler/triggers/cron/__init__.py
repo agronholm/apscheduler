@@ -6,8 +6,9 @@ from typing import Any, ClassVar, Sequence
 import attrs
 from tzlocal import get_localzone
 
+from ..._converters import as_aware_datetime, as_timezone
 from ..._utils import timezone_repr
-from ..._validators import as_aware_datetime, as_timezone, require_state_version
+from ..._validators import require_state_version
 from ...abc import Trigger
 from .fields import (
     DEFAULT_VALUES,
