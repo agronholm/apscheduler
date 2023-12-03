@@ -396,8 +396,7 @@ class TestAsyncScheduler:
         self, raw_datastore: DataStore, timezone: ZoneInfo
     ) -> None:
         send, receive = create_memory_object_stream[Event](4)
-        now = datetime.now(timezone)
-        trigger = DateTrigger(now)
+        trigger = DateTrigger(datetime.now(timezone) - timedelta(seconds=1))
         async with AsyncScheduler(data_store=raw_datastore) as scheduler:
             await scheduler.add_schedule(
                 dummy_async_job, trigger, misfire_grace_time=0, id="foo"

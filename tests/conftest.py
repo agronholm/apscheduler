@@ -5,7 +5,7 @@ import sys
 from collections.abc import Generator
 from contextlib import AsyncExitStack
 from logging import Logger
-from tempfile import TemporaryDirectory
+from pathlib import Path
 from typing import Any, AsyncGenerator, cast
 
 import pytest
@@ -133,21 +133,6 @@ def mongodb_store() -> Generator[DataStore, None, None]:
 
 
 @pytest.fixture
-def sqlite_store() -> Generator[DataStore, None, None]:
-    from sqlalchemy import create_engine
-
-    from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
-
-    with TemporaryDirectory("sqlite_") as tempdir:
-        engine = create_engine(f"sqlite:///{tempdir}/test.db")
-        try:
-            yield SQLAlchemyDataStore(engine)
-            assert "Current Checked out connections: 0" in engine.pool.status()
-        finally:
-            engine.dispose()
-
-
-@pytest.fixture
 async def psycopg_async_store() -> AsyncGenerator[DataStore, None]:
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
@@ -203,17 +188,16 @@ def pymysql_store() -> Generator[DataStore, None, None]:
 
 
 @pytest.fixture
-async def aiosqlite_store() -> AsyncGenerator[DataStore, None]:
+async def aiosqlite_store(tmp_path: Path) -> AsyncGenerator[DataStore, None]:
     from sqlalchemy.ext.asyncio import create_async_engine
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 
-    with TemporaryDirectory("sqlite_") as tempdir:
-        engine = create_async_engine(f"sqlite+aiosqlite:///{tempdir}/test.db")
-        try:
-            yield SQLAlchemyDataStore(engine)
-        finally:
-            await engine.dispose()
+    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path}/test.db")
+    try:
+        yield SQLAlchemyDataStore(engine)
+    finally:
+        await engine.dispose()
 
 
 @pytest.fixture
