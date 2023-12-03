@@ -143,11 +143,11 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     def __attrs_post_init__(self) -> None:
         # Generate the table definitions
         prefix = f"{self.schema}." if self.schema else ""
-        self._supports_tzaware_timestamps = self.engine.dialect in (
+        self._supports_tzaware_timestamps = self.engine.dialect.name in (
             "postgresql",
             "oracle",
         )
-        self._supports_native_interval = self.engine.dialect == "postgresql"
+        self._supports_native_interval = self.engine.dialect.name == "postgresql"
         self._metadata = self.get_table_definitions()
         self._t_metadata = self._metadata.tables[prefix + "metadata"]
         self._t_tasks = self._metadata.tables[prefix + "tasks"]
@@ -227,7 +227,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     @property
     def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:
         # SQlite does not use the network, so it doesn't have "temporary" failures
-        if self.engine.dialect == "sqlite":
+        if self.engine.dialect.name == "sqlite":
             return ()
 
         return InterfaceError, OSError
