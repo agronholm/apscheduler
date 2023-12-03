@@ -4,9 +4,10 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import attrs
+from attr.validators import instance_of, optional
 
 from .._converters import as_aware_datetime
-from .._validators import require_state_version
+from .._utils import require_state_version
 from ..abc import Trigger
 
 
@@ -39,9 +40,15 @@ class IntervalTrigger(Trigger):
     seconds: float = 0
     microseconds: float = 0
     start_time: datetime = attrs.field(
-        converter=as_aware_datetime, factory=datetime.now
+        converter=as_aware_datetime,
+        factory=datetime.now,
+        validator=instance_of(datetime),
     )
-    end_time: datetime | None = attrs.field(converter=as_aware_datetime, default=None)
+    end_time: datetime | None = attrs.field(
+        converter=as_aware_datetime,
+        validator=optional(instance_of(datetime)),
+        default=None,
+    )
     _interval: timedelta = attrs.field(init=False, eq=False, repr=False)
     _last_fire_time: datetime | None = attrs.field(
         init=False, eq=False, converter=as_aware_datetime, default=None

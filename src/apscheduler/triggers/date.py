@@ -4,9 +4,10 @@ from datetime import datetime
 from typing import Any
 
 import attrs
+from attr.validators import instance_of
 
 from .._converters import as_aware_datetime
-from .._validators import require_state_version
+from .._utils import require_state_version
 from ..abc import Trigger
 
 
@@ -18,7 +19,9 @@ class DateTrigger(Trigger):
     :param run_time: the date/time to run the job at
     """
 
-    run_time: datetime = attrs.field(converter=as_aware_datetime)
+    run_time: datetime = attrs.field(
+        converter=as_aware_datetime, validator=instance_of(datetime)
+    )
     _completed: bool = attrs.field(init=False, eq=False, default=False)
 
     def next(self) -> datetime | None:

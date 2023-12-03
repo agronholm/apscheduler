@@ -20,7 +20,7 @@ def test_invalid_expression():
 
 def test_invalid_step():
     exc = pytest.raises(ValueError, CronTrigger, year="2009/0")
-    exc.match("Step must be higher than 0")
+    exc.match("step must be positive, got: 0")
 
 
 def test_invalid_range():

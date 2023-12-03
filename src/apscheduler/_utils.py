@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime, tzinfo
-from typing import NoReturn, TypeVar
+from typing import Any, NoReturn, TypeVar
+
+from ._exceptions import DeserializationError
+from .abc import Trigger
 
 if sys.version_info >= (3, 9):
     from zoneinfo import ZoneInfo
@@ -51,3 +54,21 @@ def qualified_name(cls: type) -> str:
         return cls.__qualname__
     else:
         return f"{module}.{cls.__qualname__}"
+
+
+def require_state_version(
+    trigger: Trigger, state: dict[str, Any], max_version: int
+) -> None:
+    try:
+        if state["version"] > max_version:
+            raise DeserializationError(
+                f"{trigger.__class__.__name__} received a serialized state with "
+                f'version {state["version"]}, but it only supports up to version '
+                f"{max_version}. This can happen when an older version of APScheduler "
+                f"is being used with a data store that was previously used with a "
+                f"newer APScheduler version."
+            )
+    except KeyError as exc:
+        raise DeserializationError(
+            'Missing "version" key in the serialized state'
+        ) from exc

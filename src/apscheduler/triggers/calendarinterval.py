@@ -4,10 +4,10 @@ from datetime import date, datetime, time, timedelta, tzinfo
 from typing import Any
 
 import attrs
+from attr.validators import instance_of, optional
 
 from .._converters import as_aware_datetime, as_date, as_timezone
-from .._utils import timezone_repr
-from .._validators import require_state_version
+from .._utils import require_state_version, timezone_repr
 from ..abc import Trigger
 
 
@@ -67,9 +67,15 @@ class CalendarIntervalTrigger(Trigger):
     hour: int = 0
     minute: int = 0
     second: int = 0
-    start_date: date = attrs.field(converter=as_date, factory=date.today)
-    end_date: date | None = attrs.field(converter=as_date, default=None)
-    timezone: tzinfo = attrs.field(converter=as_timezone, default="local")
+    start_date: date = attrs.field(
+        converter=as_date, validator=instance_of(date), factory=date.today
+    )
+    end_date: date | None = attrs.field(
+        converter=as_date, validator=optional(instance_of(date)), default=None
+    )
+    timezone: tzinfo = attrs.field(
+        converter=as_timezone, validator=instance_of(tzinfo), default="local"
+    )
     _time: time = attrs.field(init=False, eq=False)
     _last_fire_date: date | None = attrs.field(
         init=False, eq=False, converter=as_aware_datetime, default=None

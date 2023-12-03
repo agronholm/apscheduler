@@ -4,11 +4,11 @@ from datetime import datetime, timedelta, tzinfo
 from typing import Any, ClassVar, Sequence
 
 import attrs
+from attr.validators import instance_of, optional
 from tzlocal import get_localzone
 
 from ..._converters import as_aware_datetime, as_timezone
-from ..._utils import timezone_repr
-from ..._validators import require_state_version
+from ..._utils import require_state_version, timezone_repr
 from ...abc import Trigger
 from .fields import (
     DEFAULT_VALUES,
@@ -64,10 +64,18 @@ class CronTrigger(Trigger):
     minute: int | str | None = None
     second: int | str | None = None
     start_time: datetime = attrs.field(
-        converter=as_aware_datetime, factory=datetime.now
+        converter=as_aware_datetime,
+        validator=instance_of(datetime),
+        factory=datetime.now,
     )
-    end_time: datetime | None = attrs.field(converter=as_aware_datetime, default=None)
-    timezone: tzinfo = attrs.field(converter=as_timezone, factory=get_localzone)
+    end_time: datetime | None = attrs.field(
+        converter=as_aware_datetime,
+        validator=optional(instance_of(datetime)),
+        default=None,
+    )
+    timezone: tzinfo = attrs.field(
+        converter=as_timezone, validator=instance_of(tzinfo), factory=get_localzone
+    )
     _fields: list[BaseField] = attrs.field(init=False, eq=False, factory=list)
     _last_fire_time: datetime | None = attrs.field(
         converter=as_aware_datetime, init=False, eq=False, default=None

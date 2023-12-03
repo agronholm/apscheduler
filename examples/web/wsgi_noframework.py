@@ -35,7 +35,7 @@ def application(environ, start_response):
     return [response_body]
 
 
-engine = create_engine("postgresql+psycopg://postgres:secret@localhost/testdb")
+engine = create_engine("mysql+pymysql://root:secret@localhost/testdb")
 data_store = SQLAlchemyDataStore(engine)
 event_broker = RedisEventBroker.from_url("redis://localhost")
 scheduler = Scheduler(data_store, event_broker)

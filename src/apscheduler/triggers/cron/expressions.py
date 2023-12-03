@@ -4,9 +4,13 @@ from __future__ import annotations
 import re
 from calendar import monthrange
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar, Pattern
 
-from ..._validators import as_int
+import attrs
+from attr.validators import instance_of, optional
+
+from ..._converters import as_int
+from ..._validators import non_negative_number, positive_number
 
 if TYPE_CHECKING:
     from .fields import BaseField
@@ -35,15 +39,15 @@ def get_weekday_index(weekday: str) -> int:
         raise ValueError(f"Invalid weekday name {weekday!r}") from None
 
 
+@attrs.define(slots=True)
 class AllExpression:
-    __slots__ = "step"
+    value_re: ClassVar[Pattern] = re.compile(r"\*(?:/(?P<step>\d+))?$")
 
-    value_re = re.compile(r"\*(?:/(?P<step>\d+))?$")
-
-    def __init__(self, step: str | int | None = None):
-        self.step = as_int(step)
-        if self.step == 0:
-            raise ValueError("Step must be higher than 0")
+    step: int | None = attrs.field(
+        converter=as_int,
+        validator=optional([instance_of(int), positive_number]),
+        default=None,
+    )
 
     def validate_range(self, field_name: str, min_value: int, max_value: int) -> None:
         value_range = max_value - min_value
@@ -71,23 +75,25 @@ class AllExpression:
         return f"*/{self.step}" if self.step else "*"
 
 
+@attrs.define(kw_only=True, slots=True)
 class RangeExpression(AllExpression):
-    __slots__ = "first", "last"
+    value_re: ClassVar[Pattern] = re.compile(
+        r"(?P<first>\d+)(?:-(?P<last>\d+))?(?:/(?P<step>\d+))?$"
+    )
 
-    value_re = re.compile(r"(?P<first>\d+)(?:-(?P<last>\d+))?(?:/(?P<step>\d+))?$")
+    first: int = attrs.field(
+        converter=as_int, validator=[instance_of(int), non_negative_number]
+    )
+    last: int = attrs.field(
+        converter=as_int,
+        validator=optional([instance_of(int), non_negative_number]),
+        default=None,
+    )
 
-    def __init__(
-        self,
-        first: str | int,
-        last: str | int | None = None,
-        step: str | int | None = None,
-    ):
-        super().__init__(step)
-        self.first = as_int(first)
-        self.last = as_int(last)
-
+    def __attrs_post_init__(self) -> None:
         if self.last is None and self.step is None:
             self.last = self.first
+
         if self.last is not None and self.first > self.last:
             raise ValueError(
                 "The minimum value in a range must not be higher than the maximum"
@@ -141,10 +147,11 @@ class RangeExpression(AllExpression):
         return rangeval
 
 
+# @attrs.define(kw_only=True, slots=True)
 class MonthRangeExpression(RangeExpression):
-    __slots__ = ()
-
-    value_re = re.compile(r"(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?", re.IGNORECASE)
+    value_re: ClassVar[Pattern] = re.compile(
+        r"(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?", re.IGNORECASE
+    )
 
     def __init__(self, first: str, last: str | None = None):
         try:
@@ -160,7 +167,7 @@ class MonthRangeExpression(RangeExpression):
         else:
             last_num = None
 
-        super().__init__(first_num, last_num)
+        super().__init__(first=first_num, last=last_num)
 
     def __str__(self) -> str:
         if self.last != self.first and self.last is not None:
@@ -169,15 +176,16 @@ class MonthRangeExpression(RangeExpression):
         return MONTHS[self.first - 1]
 
 
+@attrs.define(kw_only=True, slots=True)
 class WeekdayRangeExpression(RangeExpression):
-    __slots__ = ()
-
-    value_re = re.compile(r"(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?", re.IGNORECASE)
+    value_re: ClassVar[Pattern] = re.compile(
+        r"(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?", re.IGNORECASE
+    )
 
     def __init__(self, first: str, last: str | None = None):
         first_num = get_weekday_index(first)
         last_num = get_weekday_index(last) if last else None
-        super().__init__(first_num, last_num)
+        self.__attrs_init__(first=first_num, last=last_num)
 
     def __str__(self) -> str:
         if self.last != self.first and self.last is not None:
@@ -186,22 +194,25 @@ class WeekdayRangeExpression(RangeExpression):
         return WEEKDAYS[self.first]
 
 
+@attrs.define(kw_only=True, slots=True)
 class WeekdayPositionExpression(AllExpression):
-    __slots__ = "option_num", "weekday"
-
-    options = ["1st", "2nd", "3rd", "4th", "5th", "last"]
-    value_re = re.compile(
+    options: ClassVar[tuple[str, ...]] = ("1st", "2nd", "3rd", "4th", "5th", "last")
+    value_re: ClassVar[Pattern] = re.compile(
         r"(?P<option_name>%s) +(?P<weekday_name>(?:\d+|\w+))" % "|".join(options),
         re.IGNORECASE,
     )
 
-    def __init__(self, option_name: str, weekday_name: str):
-        super().__init__(None)
-        self.option_num = self.options.index(option_name.lower())
+    option_num: int
+    weekday: int
+
+    def __init__(self, *, option_name: str, weekday_name: str):
+        option_num = self.options.index(option_name.lower())
         try:
-            self.weekday = WEEKDAYS.index(weekday_name.lower())
+            weekday = WEEKDAYS.index(weekday_name.lower())
         except ValueError:
             raise ValueError(f"Invalid weekday name {weekday_name!r}") from None
+
+        self.__attrs_init__(option_num=option_num, weekday=weekday)
 
     def get_next_value(self, dateval: datetime, field: BaseField) -> int | None:
         # Figure out the weekday of the month's first day and the number of days in that
@@ -229,9 +240,7 @@ class WeekdayPositionExpression(AllExpression):
 
 
 class LastDayOfMonthExpression(AllExpression):
-    __slots__ = ()
-
-    value_re = re.compile(r"last", re.IGNORECASE)
+    value_re: ClassVar[Pattern] = re.compile(r"last", re.IGNORECASE)
 
     def __init__(self) -> None:
         super().__init__(None)

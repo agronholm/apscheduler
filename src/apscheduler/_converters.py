@@ -3,8 +3,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
-from enum import Enum
-from typing import Any, TypeVar
+from typing import Any
 from uuid import UUID
 
 from tzlocal import get_localzone
@@ -14,8 +13,12 @@ if sys.version_info >= (3, 9):
 else:
     from backports.zoneinfo import ZoneInfo
 
-TEnum = TypeVar("TEnum", bound=Enum)
-T = TypeVar("T")
+
+def as_int(value: Any) -> Any:
+    if isinstance(value, str):
+        return int(value)
+
+    return value
 
 
 def as_aware_datetime(value: Any) -> Any:
@@ -25,6 +28,9 @@ def as_aware_datetime(value: Any) -> Any:
             value = value[:-1] + "+00:00"
 
         value = datetime.fromisoformat(value)
+
+    if isinstance(value, datetime) and value.tzinfo is None:
+        value = value.astimezone(get_localzone())
 
     return value
 
