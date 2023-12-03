@@ -26,9 +26,9 @@ jobs:
     - name: Install the project and its dependencies
       run: pip install -e .[test]
     - name: Test with pytest
-      run: |
-        coverage run -m pytest -v
-        coverage xml
+      run: coverage run -m pytest -v
+    - name: Generate coverage report
+      run: coverage xml
     - name: Upload Coverage
       uses: coverallsapp/github-action@v2
       with:
@@ -71,9 +71,9 @@ jobs:
     - name: Install the project and its dependencies
       run: pip install -e .[test]
     - name: Test with pytest
-      run: |
-        coverage run -m pytest -v -m "not external_service"
-        coverage xml
+      run: coverage run -m pytest -v -m "not external_service"
+    - name: Generate coverage report
+      run: coverage xml
     - name: Upload Coverage
       uses: coverallsapp/github-action@v2
       with:
