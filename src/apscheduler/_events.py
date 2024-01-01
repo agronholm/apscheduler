@@ -242,6 +242,13 @@ class JobReleased(SchedulerEvent):
     """
     Signals that a scheduler has finished processing of a job.
 
+    .. note:: The exception message and traceback (if any) may be abbreviated to
+        fit through less accommodating transports (such as PostgreSQL notifications).
+
+        To get the return value or the full-length exception traceback of a finished
+        job, you need to use the :meth:`Scheduler.get_job_result method`. Note that for
+        that to work, the job results must not have expired.
+
     :param uuid.UUID job_id: the ID of the job that was released
     :param scheduler_id: the ID of the scheduler that released the job
     :param outcome: the outcome of the job
@@ -279,6 +286,14 @@ class JobReleased(SchedulerEvent):
             exception_traceback: list[str] | None = format_tb(
                 result.exception.__traceback__
             )
+
+            # Ellipsize the exception message if it's too long
+            if len(exception_message) >= 200:
+                exception_message = exception_message[:199] + "…"
+
+            # Ellipsize the formatted exception traceback if too long
+            if len(exception_traceback) >= 4000:
+                exception_traceback = "…" + exception_message[-4000:]
         else:
             exception_type = exception_message = exception_traceback = None
 

@@ -11,8 +11,6 @@ basic web app at http://localhost:8000.
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from fastapi import FastAPI
 from fastapi.middleware import Middleware
 from fastapi.requests import Request
@@ -27,7 +25,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 
 def tick():
-    print("Hello, the time is", datetime.now())
+    raise ValueError("aaasfsdafsghw45hj6tr5wj6rthewh" * 1000)
+    # print("Hello, the time is", datetime.now())
 
 
 class SchedulerMiddleware:
