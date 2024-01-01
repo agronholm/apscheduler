@@ -27,7 +27,7 @@ from apscheduler.abc import Serializer
                 schedule_id="schedule",
                 outcome=JobOutcome.success,
             ),
-            id="job_added",
+            id="job_released",
         ),
     ],
 )
