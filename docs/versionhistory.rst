@@ -19,6 +19,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   event loop thread
 - Fixed JSON serialization of triggers that had been used at least once
 - Fixed dialect name checks in the SQLAlchemy job store
+- Fixed JSON and CBOR serializers unable to serialize enums
 
 **4.0.0a4**
 

@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from apscheduler import Event, JobAdded
+from apscheduler import Event, JobAdded, JobOutcome, JobReleased
 from apscheduler.abc import Serializer
 
 
@@ -18,7 +18,17 @@ from apscheduler.abc import Serializer
                 schedule_id="schedule",
             ),
             id="job_added",
-        )
+        ),
+        pytest.param(
+            JobReleased(
+                job_id=uuid4(),
+                scheduler_id="testscheduler",
+                task_id="task",
+                schedule_id="schedule",
+                outcome=JobOutcome.success,
+            ),
+            id="job_added",
+        ),
     ],
 )
 def test_serialize_event(event: Event, serializer: Serializer) -> None:

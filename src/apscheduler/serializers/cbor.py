@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta, tzinfo
+from enum import Enum
 from typing import Any
 
 import attrs
@@ -38,6 +39,8 @@ class CBORSerializer(Serializer):
             encoder.encode(value.total_seconds())
         elif isinstance(value, tzinfo):
             encoder.encode(marshal_timezone(value))
+        elif isinstance(value, Enum):
+            encoder.encode(value.name)
         elif hasattr(value, "__getstate__"):
             marshalled = marshal_object(value)
             encoder.encode(CBORTag(self.type_tag, marshalled))

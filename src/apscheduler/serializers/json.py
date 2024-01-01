@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta, tzinfo
+from enum import Enum
 from json import dumps, loads
 from typing import Any
 from uuid import UUID
@@ -47,6 +48,8 @@ class JSONSerializer(Serializer):
             return marshal_timezone(obj)
         elif isinstance(obj, UUID):
             return str(obj)
+        elif isinstance(obj, Enum):
+            return obj.name
         elif hasattr(obj, "__getstate__"):
             cls_ref, state = marshal_object(obj)
             return {self.magic_key: [cls_ref, state]}
