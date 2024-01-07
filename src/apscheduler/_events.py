@@ -292,8 +292,14 @@ class JobReleased(SchedulerEvent):
                 exception_message = exception_message[:199] + "…"
 
             # Ellipsize the formatted exception traceback if too long
-            if len(exception_traceback) >= 4000:
-                exception_traceback = "…" + exception_message[-4000:]
+            traceback_length = 0
+            for index, text in enumerate(exception_traceback):
+                if traceback_length + len(text) > 4000:
+                    exception_traceback[index] = "…"
+                    del exception_traceback[index + 1 :]
+                    break
+
+                traceback_length += len(text)
         else:
             exception_type = exception_message = exception_traceback = None
 
