@@ -524,10 +524,9 @@ class AsyncScheduler:
             Either the ID of a pre-existing task, or a function/method. If a function is
             given, a task will be created with the fully qualified name of the function
             as the task ID (unless that task already exists of course).
-        :param job_executor: name of the job executor to run the job with
         :param args: positional arguments to call the target callable with
         :param kwargs: keyword arguments to call the target callable with
-        :param job_executor: name of the job executor to run the task with
+        :param job_executor: name of the job executor to run the job with
         :param result_expiration_time: the minimum time (as seconds, or timedelta) to
             keep the result of the job available for fetching (the result won't be
             saved at all if that time is 0)
