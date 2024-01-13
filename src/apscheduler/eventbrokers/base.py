@@ -11,7 +11,7 @@ from anyio import CapacityLimiter, create_task_group, to_thread
 from anyio.abc import TaskGroup
 
 from .. import _events
-from .._events import Event
+from .._events import Event, T_Event
 from .._exceptions import DeserializationError
 from .._retry import RetryMixin
 from ..abc import EventBroker, Serializer, Subscription
@@ -47,8 +47,8 @@ class BaseEventBroker(EventBroker):
 
     def subscribe(
         self,
-        callback: Callable[[Event], Any],
-        event_types: Iterable[type[Event]] | None = None,
+        callback: Callable[[T_Event], Any],
+        event_types: Iterable[type[T_Event]] | None = None,
         *,
         is_async: bool = True,
         one_shot: bool = False,

@@ -38,6 +38,7 @@ from .._events import (
     SchedulerStarted,
     SchedulerStopped,
     ScheduleUpdated,
+    T_Event,
 )
 from .._exceptions import (
     CallableLookupError,
@@ -216,8 +217,8 @@ class AsyncScheduler:
 
     def subscribe(
         self,
-        callback: Callable[[Event], Any],
-        event_types: type[Event] | Iterable[type[Event]] | None = None,
+        callback: Callable[[T_Event], Any],
+        event_types: type[T_Event] | Iterable[type[T_Event]] | None = None,
         *,
         one_shot: bool = False,
         is_async: bool = True,

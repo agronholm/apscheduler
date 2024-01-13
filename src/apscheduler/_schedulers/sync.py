@@ -15,7 +15,8 @@ from uuid import UUID
 
 from anyio.from_thread import BlockingPortal, start_blocking_portal
 
-from .. import Event, current_scheduler
+from .. import current_scheduler
+from .._events import T_Event
 from .._enums import CoalescePolicy, ConflictPolicy, RunState, SchedulerRole
 from .._structures import Job, JobResult, Schedule, Task
 from .._utils import UnsetValue, unset
@@ -157,8 +158,8 @@ class Scheduler:
 
     def subscribe(
         self,
-        callback: Callable[[Event], Any],
-        event_types: Iterable[type[Event]] | None = None,
+        callback: Callable[[T_Event], Any],
+        event_types: Iterable[type[T_Event]] | None = None,
         *,
         one_shot: bool = False,
     ) -> Subscription:
