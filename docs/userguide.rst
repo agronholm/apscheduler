@@ -38,7 +38,7 @@ the schedule's trigger_ to calculate run times up to the present. The scheduler 
 creates one or more jobs (controllable by configuration) based on these run times and
 adds them to the data store.
 
-The second role of the scheduler is running `jobs <job>`_ The scheduler asks the
+The second role of the scheduler is running `jobs <job>`_. The scheduler asks the
 `data store`_ for jobs, and then starts running those jobs. If the data store signals
 that it has new jobs, the scheduler will try to acquire those jobs if it is capable of
 accommodating more. When a scheduler completes a job, it will then also ask the data
