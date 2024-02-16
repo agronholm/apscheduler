@@ -68,8 +68,8 @@ async def redis_broker(serializer: Serializer) -> EventBroker:
 
 @pytest.fixture
 def mqtt_broker(serializer: Serializer) -> EventBroker:
-    from paho.mqtt.enums import CallbackAPIVersion
     from paho.mqtt.client import Client
+    from paho.mqtt.enums import CallbackAPIVersion
 
     from apscheduler.eventbrokers.mqtt import MQTTEventBroker
 
