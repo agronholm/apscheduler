@@ -69,8 +69,8 @@ class MQTTEventBroker(BaseExternalEventBroker):
         self._logger.error("%s: Connection failed (%s)", self.__class__.__name__, exc)
 
     def _on_disconnect(self, *args: Any) -> None:
-        # NOTE: paho-mqtt compat: 1.x callbacks receive either 3 (MQTTv3) or 4 (MQTTv5) pos args,
-        #   2.x style always receive 5.
+        # NOTE: paho-mqtt compat: 1.x callbacks receive either 3 (MQTTv3)
+        #   or 4 (MQTTv5) pos args, 2.x style always receive 5.
         rc = args[3] if len(args) == 5 else args[2]
         self._logger.error("%s: Disconnected (code: %s)", self.__class__.__name__, rc)
 
