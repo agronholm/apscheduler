@@ -11,7 +11,7 @@ from functools import partial
 from inspect import isbuiltin, isclass, ismethod, ismodule
 from logging import Logger, getLogger
 from types import TracebackType
-from typing import Any, Callable, Iterable, Mapping, cast
+from typing import Any, Callable, Iterable, Mapping, cast, overload
 from uuid import UUID, uuid4
 
 import anyio
@@ -214,6 +214,28 @@ class AsyncScheduler:
         """Clean up expired job results and finished schedules."""
         await self.data_store.cleanup()
         self.logger.info("Cleaned up expired job results and finished schedules")
+
+    @overload
+    def subscribe(
+        self,
+        callback: Callable[[T_Event], Any],
+        event_types: type[T_Event],
+        *,
+        one_shot: bool = ...,
+        is_async: bool = ...,
+    ) -> Subscription:
+        ...
+
+    @overload
+    def subscribe(
+        self,
+        callback: Callable[[Event], Any],
+        event_types: Iterable[type[Event]] | None = None,
+        *,
+        one_shot: bool = False,
+        is_async: bool = True,
+    ) -> Subscription:
+        ...
 
     def subscribe(
         self,

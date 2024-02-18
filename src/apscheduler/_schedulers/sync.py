@@ -10,14 +10,14 @@ from datetime import timedelta
 from functools import partial
 from logging import Logger
 from types import TracebackType
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, overload
 from uuid import UUID
 
 from anyio.from_thread import BlockingPortal, start_blocking_portal
 
 from .. import current_scheduler
 from .._enums import CoalescePolicy, ConflictPolicy, RunState, SchedulerRole
-from .._events import T_Event
+from .._events import Event, T_Event
 from .._structures import Job, JobResult, Schedule, Task
 from .._utils import UnsetValue, unset
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
@@ -156,10 +156,30 @@ class Scheduler:
         self._ensure_services_ready()
         return self._portal.call(self._async_scheduler.cleanup)
 
+    @overload
     def subscribe(
         self,
         callback: Callable[[T_Event], Any],
-        event_types: Iterable[type[T_Event]] | None = None,
+        event_types: type[T_Event],
+        *,
+        one_shot: bool = ...,
+    ) -> Subscription:
+        ...
+
+    @overload
+    def subscribe(
+        self,
+        callback: Callable[[Event], Any],
+        event_types: Iterable[type[Event]] | None = None,
+        *,
+        one_shot: bool = False,
+    ) -> Subscription:
+        ...
+
+    def subscribe(
+        self,
+        callback: Callable[[T_Event], Any],
+        event_types: type[T_Event] | Iterable[type[T_Event]] | None = None,
         *,
         one_shot: bool = False,
     ) -> Subscription:
