@@ -4,7 +4,6 @@ import logging
 import sys
 from collections.abc import Generator
 from contextlib import AsyncExitStack
-from importlib.metadata import version
 from logging import Logger
 from pathlib import Path
 from typing import Any, AsyncGenerator, cast
@@ -70,17 +69,11 @@ async def redis_broker(serializer: Serializer) -> EventBroker:
 @pytest.fixture
 def mqtt_broker(serializer: Serializer) -> EventBroker:
     from paho.mqtt.client import Client
+    from paho.mqtt.enums import CallbackAPIVersion
 
     from apscheduler.eventbrokers.mqtt import MQTTEventBroker
 
-    if version("paho-mqtt").startswith("1"):
-        client = Client()
-    else:
-        from paho.mqtt.enums import CallbackAPIVersion
-
-        client = Client(CallbackAPIVersion.VERSION2)
-
-    return MQTTEventBroker(client, serializer=serializer)
+    return MQTTEventBroker(Client(CallbackAPIVersion.VERSION1), serializer=serializer)
 
 
 @pytest.fixture
