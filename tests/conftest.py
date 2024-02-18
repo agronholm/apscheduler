@@ -73,7 +73,7 @@ def mqtt_broker(serializer: Serializer) -> EventBroker:
 
     from apscheduler.eventbrokers.mqtt import MQTTEventBroker
 
-    return MQTTEventBroker(Client(CallbackAPIVersion.VERSION1), serializer=serializer)
+    return MQTTEventBroker(Client(CallbackAPIVersion.VERSION2), serializer=serializer)
 
 
 @pytest.fixture

@@ -9,9 +9,9 @@ from typing import Any
 import attrs
 from anyio import to_thread
 from anyio.from_thread import BlockingPortal
-from paho.mqtt.client import Client, MQTTMessage
+from paho.mqtt.client import Client, ConnectFlags, DisconnectFlags, MQTTMessage
 from paho.mqtt.properties import Properties
-from paho.mqtt.reasoncodes import ReasonCodes
+from paho.mqtt.reasoncodes import ReasonCode
 
 from .._events import Event
 from .base import BaseExternalEventBroker
@@ -62,9 +62,9 @@ class MQTTEventBroker(BaseExternalEventBroker):
         self,
         client: Client,
         userdata: Any,
-        flags: dict[str, Any],
-        rc: ReasonCodes | int,
-        properties: Properties | None = None,
+        flags: ConnectFlags,
+        reason_code: ReasonCode,
+        properties: Properties | None,
     ) -> None:
         self._logger.info("%s: Connected", self.__class__.__name__)
         try:
@@ -81,13 +81,21 @@ class MQTTEventBroker(BaseExternalEventBroker):
         self,
         client: Client,
         userdata: Any,
-        rc: ReasonCodes | int,
-        properties: Properties | None = None,
+        flags: DisconnectFlags,
+        reason_code: ReasonCode,
+        properties: Properties | None,
     ) -> None:
-        self._logger.error("%s: Disconnected (code: %s)", self.__class__.__name__, rc)
+        self._logger.error(
+            "%s: Disconnected (code: %s)", self.__class__.__name__, reason_code
+        )
 
     def _on_subscribe(
-        self, client: Client, userdata: Any, mid: int, granted_qos: list[int]
+        self,
+        client: Client,
+        userdata: Any,
+        mid: int,
+        reason_codes: list[ReasonCode],
+        properties: Properties | None,
     ) -> None:
         self._logger.info("%s: Subscribed", self.__class__.__name__)
         self._ready_future.set_result(None)
