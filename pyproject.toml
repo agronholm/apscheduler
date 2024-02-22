@@ -91,7 +91,7 @@ source = ["apscheduler"]
 show_missing = true
 
 [tool.ruff]
-select = [
+lint.select = [
     "ASYNC",        # flake8-async
     "E", "F", "W",  # default Flake8
     "G",            # flake8-logging-format
@@ -103,7 +103,7 @@ select = [
 ]
 src = ["src"]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 "required-imports" = ["from __future__ import annotations"]
 
 [tool.mypy]
