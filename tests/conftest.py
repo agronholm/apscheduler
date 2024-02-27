@@ -10,7 +10,7 @@ from typing import Any, AsyncGenerator, cast
 
 import pytest
 from _pytest.fixtures import SubRequest
-from pytest_lazyfixture import lazy_fixture
+from pytest_lazy_fixtures import lf
 
 from apscheduler.abc import DataStore, EventBroker, Serializer
 from apscheduler.datastores.memory import MemoryDataStore
@@ -66,13 +66,21 @@ async def redis_broker(serializer: Serializer) -> EventBroker:
     return broker
 
 
-@pytest.fixture
-def mqtt_broker(serializer: Serializer) -> EventBroker:
+@pytest.fixture(
+    params=[
+        pytest.param(1, id="callback_api_v1"),
+        pytest.param(2, id="callback_api_v2"),
+    ]
+)
+def mqtt_broker(request: SubRequest, serializer: Serializer) -> EventBroker:
     from paho.mqtt.client import Client
+    from paho.mqtt.enums import CallbackAPIVersion
 
     from apscheduler.eventbrokers.mqtt import MQTTEventBroker
 
-    return MQTTEventBroker(Client(), serializer=serializer)
+    callback_api_version = CallbackAPIVersion(request.param)
+
+    return MQTTEventBroker(Client(callback_api_version), serializer=serializer)
 
 
 @pytest.fixture
@@ -88,19 +96,19 @@ async def asyncpg_broker(serializer: Serializer) -> EventBroker:
 
 @pytest.fixture(
     params=[
-        pytest.param(lazy_fixture("local_broker"), id="local"),
+        pytest.param(lf("local_broker"), id="local"),
         pytest.param(
-            lazy_fixture("asyncpg_broker"),
+            lf("asyncpg_broker"),
             id="asyncpg",
             marks=[pytest.mark.external_service],
         ),
         pytest.param(
-            lazy_fixture("redis_broker"),
+            lf("redis_broker"),
             id="redis",
             marks=[pytest.mark.external_service],
         ),
         pytest.param(
-            lazy_fixture("mqtt_broker"), id="mqtt", marks=[pytest.mark.external_service]
+            lf("mqtt_broker"), id="mqtt", marks=[pytest.mark.external_service]
         ),
     ]
 )
@@ -255,40 +263,40 @@ async def asyncmy_store() -> AsyncGenerator[DataStore, None]:
 @pytest.fixture(
     params=[
         pytest.param(
-            lazy_fixture("memory_store"),
+            lf("memory_store"),
             id="memory",
         ),
         pytest.param(
-            lazy_fixture("aiosqlite_store"),
+            lf("aiosqlite_store"),
             id="aiosqlite",
         ),
         pytest.param(
-            lazy_fixture("asyncpg_store"),
+            lf("asyncpg_store"),
             id="asyncpg",
             marks=[pytest.mark.external_service],
         ),
         pytest.param(
-            lazy_fixture("asyncmy_store"),
+            lf("asyncmy_store"),
             id="asyncmy",
             marks=[pytest.mark.external_service],
         ),
         pytest.param(
-            lazy_fixture("psycopg_async_store"),
+            lf("psycopg_async_store"),
             id="psycopg_async",
             marks=[pytest.mark.external_service],
         ),
         pytest.param(
-            lazy_fixture("psycopg_sync_store"),
+            lf("psycopg_sync_store"),
             id="psycopg_sync",
             marks=[pytest.mark.external_service],
         ),
         pytest.param(
-            lazy_fixture("pymysql_store"),
+            lf("pymysql_store"),
             id="pymysql",
             marks=[pytest.mark.external_service],
         ),
         pytest.param(
-            lazy_fixture("mongodb_store"),
+            lf("mongodb_store"),
             id="mongodb",
             marks=[pytest.mark.external_service],
         ),
