@@ -33,12 +33,12 @@ schedule.
 
 The *scheduler* is the user-facing interface of the system. When it's running, it does
 two things concurrently. The first is processing *schedules*. From its *data store*,
-it fetches `schedules <schedule>`_ due to be run. For each such schedule, it then uses
+it fetches :ref:`schedules <schedule>` due to be run. For each such schedule, it then uses
 the schedule's trigger_ to calculate run times up to the present. The scheduler then
 creates one or more jobs (controllable by configuration) based on these run times and
 adds them to the data store.
 
-The second role of the scheduler is running `jobs <job>`_. The scheduler asks the
+The second role of the scheduler is running :ref:`jobs <job>`. The scheduler asks the
 `data store`_ for jobs, and then starts running those jobs. If the data store signals
 that it has new jobs, the scheduler will try to acquire those jobs if it is capable of
 accommodating more. When a scheduler completes a job, it will then also ask the data
@@ -90,8 +90,8 @@ they directly request a task_ to be run.
 
 .. _data store:
 
-A *data store* is used to store `schedules <schedule>`_ and `jobs <job>`_, and to keep
-track of `tasks <task>`_.
+A *data store* is used to store :ref:`schedules <schedule>` and :ref:`jobs <job>`, and to keep
+track of :ref:`tasks <task>`.
 
 .. _job executor:
 
@@ -103,15 +103,15 @@ even some external service.
 
 An *event broker* delivers published events to all interested parties. It facilitates
 the cooperation between schedulers by notifying them of new or updated
-`schedules <schedule>`_ and `jobs <job>`_.
+:ref:`schedules <schedule>` and :ref:`jobs <job>`.
 
 .. _scheduler:
 
 A *scheduler* is the main interface of this library. It houses both a `data store`_ and
-an `event broker`_, plus one or more `job executors <job executor>`_. It contains
+an `event broker`_, plus one or more :ref:`job executors <job executor>`. It contains
 methods users can use to work with tasks, schedules and jobs. Behind the scenes, it also
 processes due schedules, spawning jobs and updating the next run times. It also
-processes available jobs, making the appropriate `job executors <job executor>`_ to run
+processes available jobs, making the appropriate :ref:`job executors <job executor>` to run
 them, and then sending back the results to the `data store`_.
 
 Running the scheduler
@@ -119,8 +119,8 @@ Running the scheduler
 
 The scheduler_ comes in two flavors: synchronous and asynchronous. The synchronous
 scheduler actually runs an asynchronous scheduler behind the scenes in a dedicated
-thread, so if your app runs on :mod:`asyncio` or Trio_, you should prefer the
-asynchronous scheduler.
+thread, so if your app runs on :mod:`asyncio` or `Trio <https://trio.readthedocs.io/en/stable/>`_,
+you should prefer the asynchronous scheduler.
 
 The scheduler can run either in the foreground, blocking on a call to
 :meth:`~Scheduler.run_until_stopped`, or in the background where it does its work while
@@ -133,7 +133,7 @@ of the program.
 
 In almost all cases, the scheduler should be used as a context manager. This initializes
 the underlying `data store`_ and `event broker`_, allowing you to use the scheduler for
-manipulating `tasks <task>`_, `schedules <schedule>`_ and jobs prior to starting the
+manipulating :ref:`tasks <task>`, :ref:`schedules <schedule>` and jobs prior to starting the
 processing of schedules and jobs. Exiting the context manager will shut down the
 scheduler and its underlying services. This mode of operation is mandatory for the
 asynchronous scheduler when running it in the background, but it is preferred for the
@@ -206,7 +206,7 @@ of the scheduler before the process terminates.
 Configuring tasks
 =================
 
-In order to add `schedules <schedule>`_ or `jobs <job>`_ to the `data store`_, you need
+In order to add :ref:`schedules <schedule>` or :ref:`jobs <job>` to the `data store`_, you need
 to have a task_ that defines which callable_ will be called when each job_ is run.
 
 In most cases, you don't need to go through this step, and instead have a task_
