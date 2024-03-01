@@ -119,8 +119,8 @@ Running the scheduler
 
 The scheduler_ comes in two flavors: synchronous and asynchronous. The synchronous
 scheduler actually runs an asynchronous scheduler behind the scenes in a dedicated
-thread, so if your app runs on :mod:`asyncio` or `Trio <https://trio.readthedocs.io/en/stable/>`_,
-you should prefer the asynchronous scheduler.
+thread, so if your app runs on :mod:`asyncio` or Trio_, you should prefer the asynchronous
+scheduler.
 
 The scheduler can run either in the foreground, blocking on a call to
 :meth:`~Scheduler.run_until_stopped`, or in the background where it does its work while
@@ -145,6 +145,7 @@ scenario, the scheduler adds an :mod:`atexit` hook that will perform an orderly 
 of the scheduler before the process terminates.
 
 .. _WSGI: https://wsgi.readthedocs.io/en/latest/what.html
+.. _Trio: https://trio.readthedocs.io/en/stable/
 
 .. warning:: If you start the scheduler in the background and let the script finish
    execution, the scheduler will automatically shut down as well.
