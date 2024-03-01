@@ -10,8 +10,6 @@ import attrs
 from anyio import to_thread
 from anyio.from_thread import BlockingPortal
 from paho.mqtt.client import Client, MQTTMessage
-from paho.mqtt.properties import Properties
-from paho.mqtt.reasoncodes import ReasonCodes
 
 from .._events import Event
 from .base import BaseExternalEventBroker
@@ -58,14 +56,7 @@ class MQTTEventBroker(BaseExternalEventBroker):
         await to_thread.run_sync(self._ready_future.result, 10)
         exit_stack.push_async_callback(to_thread.run_sync, self.client.disconnect)
 
-    def _on_connect(
-        self,
-        client: Client,
-        userdata: Any,
-        flags: dict[str, Any],
-        rc: ReasonCodes | int,
-        properties: Properties | None = None,
-    ) -> None:
+    def _on_connect(self, client: Client, *_: Any) -> None:
         self._logger.info("%s: Connected", self.__class__.__name__)
         try:
             client.subscribe(self.topic, qos=self.subscribe_qos)
@@ -73,26 +64,21 @@ class MQTTEventBroker(BaseExternalEventBroker):
             self._ready_future.set_exception(exc)
             raise
 
-    def _on_connect_fail(self, client: Client, userdata: Any) -> None:
+    def _on_connect_fail(self, *_: Any) -> None:
         exc = sys.exc_info()[1]
         self._logger.error("%s: Connection failed (%s)", self.__class__.__name__, exc)
 
-    def _on_disconnect(
-        self,
-        client: Client,
-        userdata: Any,
-        rc: ReasonCodes | int,
-        properties: Properties | None = None,
-    ) -> None:
-        self._logger.error("%s: Disconnected (code: %s)", self.__class__.__name__, rc)
+    def _on_disconnect(self, *args: Any) -> None:
+        reason_code = args[3] if len(args) == 5 else args[2]
+        self._logger.error(
+            "%s: Disconnected (code: %s)", self.__class__.__name__, reason_code
+        )
 
-    def _on_subscribe(
-        self, client: Client, userdata: Any, mid: int, granted_qos: list[int]
-    ) -> None:
+    def _on_subscribe(self, *_: Any) -> None:
         self._logger.info("%s: Subscribed", self.__class__.__name__)
         self._ready_future.set_result(None)
 
-    def _on_message(self, client: Client, userdata: Any, msg: MQTTMessage) -> None:
+    def _on_message(self, _: Any, __: Any, msg: MQTTMessage) -> None:
         event = self.reconstitute_event(msg.payload)
         if event is not None:
             self._portal.call(self.publish_local, event)

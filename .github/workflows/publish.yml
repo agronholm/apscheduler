@@ -24,7 +24,7 @@ jobs:
     - name: Create packages
       run: python -m build
     - name: Archive packages
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dist
         path: dist
@@ -38,7 +38,7 @@ jobs:
       id-token: write
     steps:
     - name: Retrieve packages
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
     - name: Upload packages
       uses: pypa/gh-action-pypi-publish@release/v1
 
