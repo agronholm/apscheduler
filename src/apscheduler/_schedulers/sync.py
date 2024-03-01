@@ -124,9 +124,9 @@ class Scheduler:
 
     def __exit__(
         self,
-        exc_type: type[BaseException],
-        exc_val: BaseException,
-        exc_tb: TracebackType,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         if self._exit_stack:
             self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
