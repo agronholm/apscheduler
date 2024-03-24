@@ -52,7 +52,7 @@ class RetryMixin:
         return ()
 
     def _retry(self) -> AsyncRetrying:
-        def after_attempt(self, retry_state: RetryCallState) -> None:
+        def after_attempt(retry_state: RetryCallState) -> None:
             self._logger.warning(
                 "Temporary data store error (attempt %d): %s",
                 retry_state.attempt_number,
