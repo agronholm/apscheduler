@@ -1,4 +1,5 @@
 """This module contains the expressions applicable for CronTrigger's fields."""
+
 from __future__ import annotations
 
 import re
