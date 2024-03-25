@@ -917,7 +917,11 @@ class AsyncScheduler:
             task_group = await exit_stack.enter_async_context(create_task_group())
 
             # Fetch new jobs every time
-            exit_stack.enter_context(self.event_broker.subscribe(check_queue_capacity, {JobAdded, JobReleased}))
+            exit_stack.enter_context(
+                self.event_broker.subscribe(
+                    check_queue_capacity, {JobAdded, JobReleased}
+                )
+            )
 
             # Signal that we are ready, and wait for the scheduler start event
             task_status.started()
