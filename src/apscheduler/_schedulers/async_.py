@@ -905,7 +905,7 @@ class AsyncScheduler:
     async def _process_jobs(self, *, task_status: TaskStatus) -> None:
         wakeup_event = anyio.Event()
 
-        async def job_added(event: Event) -> None:
+        async def check_queue_capacity(event: Event) -> None:
             if len(self._running_jobs) < self.max_concurrent_jobs:
                 wakeup_event.set()
 
@@ -917,7 +917,7 @@ class AsyncScheduler:
             task_group = await exit_stack.enter_async_context(create_task_group())
 
             # Fetch new jobs every time
-            exit_stack.enter_context(self.event_broker.subscribe(job_added, {JobAdded}))
+            exit_stack.enter_context(self.event_broker.subscribe(check_queue_capacity, {JobAdded, JobReleased}))
 
             # Signal that we are ready, and wait for the scheduler start event
             task_status.started()
