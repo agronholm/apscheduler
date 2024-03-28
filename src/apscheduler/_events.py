@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from functools import partial
 from traceback import format_tb
-from typing import Any
+from typing import Any, TypeVar
 from uuid import UUID
 
 import attrs
@@ -13,6 +13,8 @@ from ._converters import as_aware_datetime, as_enum, as_uuid
 from ._enums import JobOutcome
 from ._structures import Job, JobResult
 from ._utils import qualified_name
+
+T_Event = TypeVar("T_Event", bound="Event")
 
 
 @attrs.define(kw_only=True, frozen=True)
