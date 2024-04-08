@@ -698,7 +698,9 @@ class TestAsyncScheduler:
             await scheduler.start_in_background()
 
             # Add a job whose result expires after 1 ms
-            job_id = await scheduler.add_job(dummy_async_job, result_expiration_time=0.001)
+            job_id = await scheduler.add_job(
+                dummy_async_job, result_expiration_time=0.001
+            )
             with fail_after(3):
                 await event.wait()
 
