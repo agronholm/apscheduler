@@ -689,13 +689,16 @@ class TestAsyncScheduler:
 
     async def test_explicit_cleanup(self, raw_datastore: DataStore) -> None:
         send, receive = create_memory_object_stream[Event](1)
-        async with AsyncScheduler(cleanup_interval=None) as scheduler:
+        async with AsyncScheduler(raw_datastore, cleanup_interval=None) as scheduler:
             scheduler.subscribe(send.send, {ScheduleRemoved})
+            event = anyio.Event()
+
+            scheduler.subscribe(lambda _: event.set(), {JobReleased}, one_shot=True)
+
             await scheduler.start_in_background()
 
             # Add a job whose result expires after 1 ms
-            event = anyio.Event()
-            job_id = await scheduler.add_job(event.set, result_expiration_time=0.001)
+            job_id = await scheduler.add_job(dummy_async_job, result_expiration_time=0.001)
             with fail_after(3):
                 await event.wait()
 
@@ -708,8 +711,11 @@ class TestAsyncScheduler:
 
             # Add a schedule to immediately set the event
             event = anyio.Event()
+
+            scheduler.subscribe(lambda _: event.set(), {JobReleased}, one_shot=True)
+
             await scheduler.add_schedule(
-                event.set, DateTrigger(datetime.now(timezone.utc)), id="event_set"
+                dummy_async_job, DateTrigger(datetime.now(timezone.utc)), id="event_set"
             )
             with fail_after(3):
                 await event.wait()
