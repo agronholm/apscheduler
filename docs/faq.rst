@@ -118,6 +118,7 @@ incomplete list:
 * django_apscheduler_
 * apschedulerweb_
 * `Nextdoor scheduler`_
+* `apscheduler-webui`_
 
 .. _django_apscheduler: https://pypi.org/project/django-apscheduler/
 .. _Flask-APScheduler: https://pypi.org/project/flask-apscheduler/
@@ -125,3 +126,4 @@ incomplete list:
 .. _aiohttp: https://pypi.org/project/aiohttp/
 .. _apschedulerweb: https://github.com/marwinxxii/apschedulerweb
 .. _Nextdoor scheduler: https://github.com/Nextdoor/ndscheduler
+.. _apscheduler-webui: https://github.com/Dragon-GCS/apscheduler-webui
