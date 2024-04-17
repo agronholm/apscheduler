@@ -223,8 +223,7 @@ class AsyncScheduler:
         *,
         one_shot: bool = ...,
         is_async: bool = ...,
-    ) -> Subscription:
-        ...
+    ) -> Subscription: ...
 
     @overload
     def subscribe(
@@ -234,8 +233,7 @@ class AsyncScheduler:
         *,
         one_shot: bool = False,
         is_async: bool = True,
-    ) -> Subscription:
-        ...
+    ) -> Subscription: ...
 
     def subscribe(
         self,

@@ -163,8 +163,7 @@ class Scheduler:
         event_types: type[T_Event],
         *,
         one_shot: bool = ...,
-    ) -> Subscription:
-        ...
+    ) -> Subscription: ...
 
     @overload
     def subscribe(
@@ -173,8 +172,7 @@ class Scheduler:
         event_types: Iterable[type[Event]] | None = None,
         *,
         one_shot: bool = False,
-    ) -> Subscription:
-        ...
+    ) -> Subscription: ...
 
     def subscribe(
         self,
