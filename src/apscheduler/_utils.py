@@ -1,4 +1,5 @@
 """This module contains several handy functions primarily meant for internal use."""
+
 from __future__ import annotations
 
 import sys

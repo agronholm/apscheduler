@@ -652,35 +652,49 @@ class MongoDBDataStore(BaseExternalDataStore):
             with attempt, self.client.start_session() as session:
                 # Purge expired job results
                 now = datetime.now(timezone.utc).timestamp()
+
                 await to_thread.run_sync(
                     lambda: self._jobs_results.delete_many(
-                        {"expired_at": {"$lte": now}}, session=session
+                        {"expires_at": {"$lte": now}}, session=session
                     )
                 )
 
                 # Find finished schedules
                 async with await AsyncCursor.create(
                     lambda: self._schedules.find(
-                        {"next_fire_time": None}, projection=["_id"], session=session
+                        {"next_fire_time": None},
+                        projection=["_id", "task_id"],
+                        session=session,
                     )
                 ) as cursor:
-                    if finished_schedule_ids := {item["_id"] async for item in cursor}:
+                    if finished_schedules := {
+                        item["_id"]: item["task_id"] async for item in cursor
+                    }:
                         # Find distinct schedule IDs of jobs associated with these
                         # schedules
                         for schedule_id in await to_thread.run_sync(
                             lambda: self._jobs.distinct(
                                 "schedule_id",
-                                {"schedule_id": {"$in": list(finished_schedule_ids)}},
+                                {"schedule_id": {"$in": list(finished_schedules)}},
                                 session=session,
                             )
                         ):
-                            finished_schedule_ids.discard(schedule_id)
+                            finished_schedules.pop(schedule_id)
 
                 # Delete finished schedules that not having any associated jobs
-                if finished_schedule_ids:
+                if finished_schedules:
                     await to_thread.run_sync(
-                        lambda: self._jobs_results.delete_many(
-                            {"schedule_id": {"$in": list(finished_schedule_ids)}},
+                        lambda: self._schedules.delete_many(
+                            {"_id": {"$in": list(finished_schedules)}},
                             session=session,
+                        )
+                    )
+
+                for schedule_id, task_id in finished_schedules.items():
+                    await self._event_broker.publish(
+                        ScheduleRemoved(
+                            schedule_id=schedule_id,
+                            task_id=task_id,
+                            finished=True,
                         )
                     )
