@@ -692,9 +692,7 @@ class TestAsyncScheduler:
         async with AsyncScheduler(raw_datastore, cleanup_interval=None) as scheduler:
             scheduler.subscribe(send.send, {ScheduleRemoved})
             event = anyio.Event()
-
             scheduler.subscribe(lambda _: event.set(), {JobReleased}, one_shot=True)
-
             await scheduler.start_in_background()
 
             # Add a job whose result expires after 1 ms
@@ -713,9 +711,7 @@ class TestAsyncScheduler:
 
             # Add a schedule to immediately set the event
             event = anyio.Event()
-
             scheduler.subscribe(lambda _: event.set(), {JobReleased}, one_shot=True)
-
             await scheduler.add_schedule(
                 dummy_async_job, DateTrigger(datetime.now(timezone.utc)), id="event_set"
             )
