@@ -100,3 +100,10 @@ def test_repr(timezone, serializer):
         "time='03:00:08', start_date='2016-03-05', end_date='2020-12-25', "
         "timezone='Europe/Berlin')"
     )
+
+
+def test_utc_timezone(utc_timezone):
+    trigger = CalendarIntervalTrigger(
+        days=1, hour=1, start_date=date(2016, 3, 31), timezone=utc_timezone
+    )
+    assert trigger.next() == datetime(2016, 3, 31, 1, tzinfo=utc_timezone)
