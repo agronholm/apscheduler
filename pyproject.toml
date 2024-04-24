@@ -54,6 +54,7 @@ test = [
     "anyio[trio]",
     "asyncmy >= 0.2.5; python_implementation == 'CPython'",
     "coverage >= 7",
+    "greenlet >= 3",
     "paho-mqtt >= 2.0",
     "psycopg",
     "pymongo >= 4",
