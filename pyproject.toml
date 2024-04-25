@@ -46,7 +46,7 @@ cbor = ["cbor2 >= 5.0"]
 mongodb = ["pymongo >= 4"]
 mqtt = ["paho-mqtt >= 2.0"]
 redis = ["redis >= 4.4.0"]
-sqlalchemy = ["sqlalchemy >= 2.0.19"]
+sqlalchemy = ["sqlalchemy[asyncio] >= 2.0.19"]
 test = [
     "APScheduler[cbor,mongodb,mqtt,redis,sqlalchemy]",
     "asyncpg >= 0.20; python_implementation == 'CPython'",
@@ -54,7 +54,6 @@ test = [
     "anyio[trio]",
     "asyncmy >= 0.2.5; python_implementation == 'CPython'",
     "coverage >= 7",
-    "greenlet >= 3",
     "paho-mqtt >= 2.0",
     "psycopg",
     "pymongo >= 4",
