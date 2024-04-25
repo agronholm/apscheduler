@@ -118,7 +118,7 @@ class CalendarIntervalTrigger(Trigger):
             next_time = datetime.fromtimestamp(timestamp, self.timezone)
 
             # Check if the time is off due to normalization and a forward DST shift
-            if next_time.time() != self._time:
+            if next_time.timetz() != self._time:
                 previous_date = next_time.date()
             else:
                 self._last_fire_date = next_date
