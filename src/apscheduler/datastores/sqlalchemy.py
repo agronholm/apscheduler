@@ -963,7 +963,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     results = await self._execute(conn, query)
                     if finished_schedule_ids := dict(results.all()):
                         delete = self._t_schedules.delete().where(
-                            ~self._t_schedules.c.id.in_(finished_schedule_ids)
+                            self._t_schedules.c.id.in_(finished_schedule_ids)
                         )
                         await self._execute(conn, delete)
 
