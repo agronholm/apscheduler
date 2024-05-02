@@ -30,7 +30,13 @@ from attr.validators import instance_of, optional
 from .. import JobAdded, SerializationError, TaskLookupError
 from .._context import current_async_scheduler, current_job
 from .._converters import as_enum, as_timedelta
-from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState, SchedulerRole
+from .._enums import (
+    CoalescePolicy,
+    ConflictPolicy,
+    JobOutcome,
+    RunState,
+    SchedulerRole,
+)
 from .._events import (
     Event,
     JobReleased,
@@ -389,6 +395,7 @@ class AsyncScheduler:
         id: str | None = None,
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
+        paused: bool = False,
         job_executor: str | UnsetValue = unset,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
@@ -406,6 +413,7 @@ class AsyncScheduler:
             based ID will be assigned)
         :param args: positional arguments to be passed to the task function
         :param kwargs: keyword arguments to be passed to the task function
+        :param paused: whether the schedule is paused
         :param job_executor: name of the job executor to run the task with
         :param coalesce: determines what to do when processing the schedule if multiple
             fire times have become due for this schedule since the last processing
@@ -457,6 +465,7 @@ class AsyncScheduler:
             trigger=trigger,
             args=args,
             kwargs=kwargs,
+            paused=paused,
             coalesce=coalesce,
             misfire_grace_time=task.misfire_grace_time
             if misfire_grace_time is unset
@@ -507,6 +516,21 @@ class AsyncScheduler:
         """
         self._check_initialized()
         await self.data_store.remove_schedules({id})
+
+    async def pause_schedule(self, id: str) -> None:
+        """Pause the specified schedule."""
+        self._check_initialized()
+        await self.data_store.pause_schedules({id})
+
+    async def unpause_schedule(self, id: str) -> None:
+        """Unpause the specified schedule.
+
+        Scheduled runs that would have occurred while the schedule was paused are not
+        considered misfires. The next schedule run will occur at the next time in the
+        future the schedule would have run if it had never been paused.
+        """
+        self._check_initialized()
+        await self.data_store.unpause_schedules({id})
 
     async def add_job(
         self,

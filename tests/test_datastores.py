@@ -4,7 +4,7 @@ import platform
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from logging import Logger
-from typing import TYPE_CHECKING, AsyncGenerator
+from typing import TYPE_CHECKING, AsyncGenerator, Literal
 
 import anyio
 import pytest
@@ -28,6 +28,7 @@ from apscheduler import (
 )
 from apscheduler.abc import DataStore, EventBroker
 from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 if TYPE_CHECKING:
     from time_machine import TimeMachineFixture
@@ -557,3 +558,164 @@ async def test_next_schedule_run_time(datastore: DataStore, schedules: list[Sche
 
     next_schedule_run_time = await datastore.get_next_schedule_run_time()
     assert next_schedule_run_time == datetime(2020, 9, 13, tzinfo=timezone.utc)
+
+
+async def test_pause_and_unpause_schedule(
+    datastore: DataStore,
+    schedules: list[Schedule],
+):
+    trigger_datetime = datetime(2020, 9, 16, tzinfo=timezone.utc)
+    async with capture_events(datastore, 3, {ScheduleUpdated}) as events:
+        for schedule in schedules:
+            await datastore.add_schedule(schedule, ConflictPolicy.exception)
+
+        trigger = DateTrigger(trigger_datetime)
+        next_fire_time = trigger.next()
+        schedule = Schedule(
+            id="s3",
+            task_id="foo",
+            trigger=trigger,
+            args=(),
+            kwargs={},
+            coalesce=CoalescePolicy.earliest,
+            misfire_grace_time=None,
+        )
+        schedule.next_fire_time = next_fire_time
+        await datastore.add_schedule(schedule, ConflictPolicy.replace)
+
+        schedules = await datastore.get_schedules({schedule.id})
+        assert schedules[0].task_id == "foo"
+        assert schedules[0].next_fire_time == next_fire_time
+        assert schedules[0].args == ()
+        assert schedules[0].kwargs == {}
+        assert schedules[0].paused is False
+        assert schedules[0].coalesce is CoalescePolicy.earliest
+        assert schedules[0].misfire_grace_time is None
+
+        await datastore.pause_schedules({schedule.id})
+        schedules = await datastore.get_schedules({schedule.id})
+        assert schedules[0].paused is True
+        assert schedules[0].next_fire_time == next_fire_time
+
+        await datastore.unpause_schedules({schedule.id})
+        schedules = await datastore.get_schedules({schedule.id})
+        assert schedules[0].paused is False
+        assert schedules[0].next_fire_time == next_fire_time
+
+    event_1 = events.pop(0)
+    assert event_1.schedule_id == "s3"
+    assert event_1.task_id == "foo"
+    assert event_1.next_fire_time == trigger_datetime
+
+    event_2 = events.pop(0)
+    assert event_2.schedule_id == "s3"
+    assert event_2.task_id == "foo"
+    assert event_2.next_fire_time == trigger_datetime
+
+    event_3 = events.pop(0)
+    assert event_3.schedule_id == "s3"
+    assert event_3.task_id == "foo"
+    assert event_3.next_fire_time == trigger_datetime
+
+    assert not events
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
+async def test_acquire_paused_schedules(
+    datastore: DataStore,
+    schedules: list[Schedule],
+    time_machine: TimeMachineFixture,
+) -> None:
+    time_machine.move_to(datetime(2020, 9, 14, tzinfo=timezone.utc))
+
+    event_types = {ScheduleRemoved, ScheduleUpdated}
+    async with capture_events(datastore, 3, event_types) as events:
+        for schedule in schedules:
+            await datastore.add_schedule(schedule, ConflictPolicy.exception)
+        await datastore.pause_schedules({x.id for x in schedules})
+
+        acquired_schedules = await datastore.acquire_schedules("dummy-id", 3)
+        assert len(acquired_schedules) == 0
+        # Check that the first schedule has not had its next fire time nullified
+        schedules = await datastore.get_schedules()
+        assert len(schedules) == 3
+        schedules.sort(key=lambda s: s.id)
+        assert schedules[0].id == "s1"
+        assert schedules[0].next_fire_time is not None
+        assert schedules[1].id == "s2"
+        assert schedules[2].id == "s3"
+
+    received_event = events.pop(0)
+    assert isinstance(received_event, ScheduleUpdated)
+    assert received_event.schedule_id == "s1"
+    assert received_event.next_fire_time == datetime(2020, 9, 13, tzinfo=timezone.utc)
+
+    received_event = events.pop(0)
+    assert isinstance(received_event, ScheduleUpdated)
+    assert received_event.schedule_id == "s2"
+    assert received_event.next_fire_time == datetime(2020, 9, 14, tzinfo=timezone.utc)
+
+    received_event = events.pop(0)
+    assert isinstance(received_event, ScheduleUpdated)
+    assert received_event.schedule_id == "s3"
+    assert received_event.next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
+
+    assert not events
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
+@pytest.mark.parametrize(
+    ("resume_from", "expected_next_fire_time"),
+    (
+        (
+            "now",
+            datetime(2020, 9, 14, 6, tzinfo=timezone.utc),
+        ),
+        (
+            datetime(2020, 9, 14, tzinfo=timezone.utc),
+            datetime(2020, 9, 14, tzinfo=timezone.utc),
+        ),
+        (
+            datetime(2020, 9, 14, 8, tzinfo=timezone.utc),
+            datetime(2020, 9, 14, 12, tzinfo=timezone.utc),
+        ),
+        (
+            datetime(2120, 9, 14, 8, tzinfo=timezone.utc),
+            datetime(2120, 9, 14, 12, tzinfo=timezone.utc),
+        ),
+        (
+            None,
+            datetime(2020, 9, 14, tzinfo=timezone.utc),
+        ),
+    ),
+    ids=(
+        "resume_from_now",
+        "resume_from_exactly_now",
+        "resume_from_later",
+        "resume_from_much_later",
+        "resume_from_none",
+    ),
+)
+async def test_resume_paused_schedules(
+    datastore: DataStore,
+    time_machine: TimeMachineFixture,
+    resume_from: datetime | Literal["now"] | None,
+    expected_next_fire_time: datetime,
+) -> None:
+    time_machine.move_to(datetime(2020, 9, 14, tzinfo=timezone.utc))
+
+    trigger = IntervalTrigger(hours=6.0)
+    schedule = Schedule(id="s1", task_id="task1", trigger=trigger, paused=True)
+    schedule.next_fire_time = trigger.next()
+    await datastore.add_schedule(schedule, ConflictPolicy.exception)
+
+    await datastore.unpause_schedules({schedule.id}, resume_from=resume_from)
+    schedule = next(iter(await datastore.get_schedules({schedule.id})))
+    assert schedule.paused is False
+    assert schedule.next_fire_time.astimezone(timezone.utc) == expected_next_fire_time

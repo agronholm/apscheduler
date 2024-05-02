@@ -16,7 +16,12 @@ from uuid import UUID
 from anyio.from_thread import BlockingPortal, start_blocking_portal
 
 from .. import Event, current_scheduler
-from .._enums import CoalescePolicy, ConflictPolicy, RunState, SchedulerRole
+from .._enums import (
+    CoalescePolicy,
+    ConflictPolicy,
+    RunState,
+    SchedulerRole,
+)
 from .._structures import Job, JobResult, Schedule, Task
 from .._utils import UnsetValue, unset
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
@@ -219,6 +224,7 @@ class Scheduler:
         id: str | None = None,
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
+        paused: bool = False,
         job_executor: str | UnsetValue = unset,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
@@ -235,6 +241,7 @@ class Scheduler:
                 id=id,
                 args=args,
                 kwargs=kwargs,
+                paused=paused,
                 job_executor=job_executor,
                 coalesce=coalesce,
                 misfire_grace_time=misfire_grace_time,
@@ -255,6 +262,14 @@ class Scheduler:
     def remove_schedule(self, id: str) -> None:
         self._ensure_services_ready()
         self._portal.call(self._async_scheduler.remove_schedule, id)
+
+    def pause_schedule(self, id: str) -> None:
+        self._ensure_services_ready()
+        self._portal.call(self._async_scheduler.pause_schedule, id)
+
+    def unpause_schedule(self, id: str) -> None:
+        self._ensure_services_ready()
+        self._portal.call(self._async_scheduler.unpause_schedule, id)
 
     def add_job(
         self,
