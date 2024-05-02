@@ -30,13 +30,7 @@ from attr.validators import instance_of, optional
 from .. import JobAdded, SerializationError, TaskLookupError
 from .._context import current_async_scheduler, current_job
 from .._converters import as_enum, as_timedelta
-from .._enums import (
-    CoalescePolicy,
-    ConflictPolicy,
-    JobOutcome,
-    RunState,
-    SchedulerRole,
-)
+from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState, SchedulerRole
 from .._events import (
     Event,
     JobReleased,
