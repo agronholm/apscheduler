@@ -29,6 +29,11 @@ def timezone() -> ZoneInfo:
     return ZoneInfo("Europe/Berlin")
 
 
+@pytest.fixture(scope="session")
+def utc_timezone() -> ZoneInfo:
+    return ZoneInfo("UTC")
+
+
 @pytest.fixture(
     params=[
         pytest.param(PickleSerializer, id="pickle"),

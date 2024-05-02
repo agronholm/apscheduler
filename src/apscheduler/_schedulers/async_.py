@@ -11,7 +11,7 @@ from functools import partial
 from inspect import isbuiltin, isclass, ismethod, ismodule
 from logging import Logger, getLogger
 from types import TracebackType
-from typing import Any, Callable, Iterable, Mapping, cast
+from typing import Any, Callable, Iterable, Mapping, cast, overload
 from uuid import UUID, uuid4
 
 import anyio
@@ -44,6 +44,7 @@ from .._events import (
     SchedulerStarted,
     SchedulerStopped,
     ScheduleUpdated,
+    T_Event,
 )
 from .._exceptions import (
     CallableLookupError,
@@ -220,10 +221,30 @@ class AsyncScheduler:
         await self.data_store.cleanup()
         self.logger.info("Cleaned up expired job results and finished schedules")
 
+    @overload
+    def subscribe(
+        self,
+        callback: Callable[[T_Event], Any],
+        event_types: type[T_Event],
+        *,
+        one_shot: bool = ...,
+        is_async: bool = ...,
+    ) -> Subscription: ...
+
+    @overload
     def subscribe(
         self,
         callback: Callable[[Event], Any],
-        event_types: type[Event] | Iterable[type[Event]] | None = None,
+        event_types: Iterable[type[Event]] | None = None,
+        *,
+        one_shot: bool = False,
+        is_async: bool = True,
+    ) -> Subscription: ...
+
+    def subscribe(
+        self,
+        callback: Callable[[T_Event], Any],
+        event_types: type[T_Event] | Iterable[type[T_Event]] | None = None,
         *,
         one_shot: bool = False,
         is_async: bool = True,
@@ -443,14 +464,14 @@ class AsyncScheduler:
         # For instance methods, use the unbound function as the function, and  the
         # "self" argument as the first positional argument
         if ismethod(func_or_task_id):
-            args = (func_or_task_id.__self__,) + args
+            args = (func_or_task_id.__self__, *args)
             func_or_task_id = func_or_task_id.__func__
         elif (
             isbuiltin(func_or_task_id)
             and func_or_task_id.__self__ is not None
             and not ismodule(func_or_task_id.__self__)
         ):
-            args = (func_or_task_id.__self__,) + args
+            args = (func_or_task_id.__self__, *args)
             method_class = type(func_or_task_id.__self__)
             func_or_task_id = getattr(method_class, func_or_task_id.__name__)
 
@@ -570,14 +591,14 @@ class AsyncScheduler:
         # For instance methods, use the unbound function as the function, and  the
         # "self" argument as the first positional argument
         if ismethod(func_or_task_id):
-            args = (func_or_task_id.__self__,) + args
+            args = (func_or_task_id.__self__, *args)
             func_or_task_id = func_or_task_id.__func__
         elif (
             isbuiltin(func_or_task_id)
             and func_or_task_id.__self__ is not None
             and not ismodule(func_or_task_id.__self__)
         ):
-            args = (func_or_task_id.__self__,) + args
+            args = (func_or_task_id.__self__, *args)
             method_class = type(func_or_task_id.__self__)
             func_or_task_id = getattr(method_class, func_or_task_id.__name__)
 

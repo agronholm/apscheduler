@@ -15,7 +15,7 @@ else:
 
 if TYPE_CHECKING:
     from ._enums import ConflictPolicy
-    from ._events import Event
+    from ._events import Event, T_Event
     from ._structures import Job, JobResult, Schedule, Task
 
 
@@ -135,8 +135,8 @@ class EventBroker(metaclass=ABCMeta):
     @abstractmethod
     def subscribe(
         self,
-        callback: Callable[[Event], Any],
-        event_types: Iterable[type[Event]] | None = None,
+        callback: Callable[[T_Event], Any],
+        event_types: Iterable[type[T_Event]] | None = None,
         *,
         is_async: bool = True,
         one_shot: bool = False,
