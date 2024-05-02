@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import platform
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -712,6 +713,10 @@ async def test_resume_paused_schedules(
 
     trigger = IntervalTrigger(hours=6.0)
     schedule = Schedule(id="s1", task_id="task1", trigger=trigger, paused=True)
+
+    # Ensure the next fire time is not the same as the start time when using "now"
+    await asyncio.sleep(0.1)
+
     schedule.next_fire_time = trigger.next()
     await datastore.add_schedule(schedule, ConflictPolicy.exception)
 
