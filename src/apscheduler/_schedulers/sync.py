@@ -6,11 +6,11 @@ import sys
 import threading
 from collections.abc import MutableMapping, Sequence
 from contextlib import ExitStack
-from datetime import timedelta
+from datetime import datetime, timedelta
 from functools import partial
 from logging import Logger
 from types import TracebackType
-from typing import Any, Callable, Iterable, Mapping, overload
+from typing import Any, Callable, Iterable, Literal, Mapping, overload
 from uuid import UUID
 
 from anyio.from_thread import BlockingPortal, start_blocking_portal
@@ -286,9 +286,20 @@ class Scheduler:
         self._ensure_services_ready()
         self._portal.call(self._async_scheduler.pause_schedule, id)
 
-    def unpause_schedule(self, id: str) -> None:
+    def unpause_schedule(
+        self,
+        id: str,
+        *,
+        resume_from: datetime | Literal["now"] | None = None,
+    ) -> None:
         self._ensure_services_ready()
-        self._portal.call(self._async_scheduler.unpause_schedule, id)
+        self._portal.call(
+            partial(
+                self._async_scheduler.unpause_schedule,
+                id,
+                resume_from=resume_from,
+            )
+        )
 
     def add_job(
         self,

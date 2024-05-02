@@ -11,7 +11,7 @@ from functools import partial
 from inspect import isbuiltin, isclass, ismethod, ismodule
 from logging import Logger, getLogger
 from types import TracebackType
-from typing import Any, Callable, Iterable, Mapping, cast, overload
+from typing import Any, Callable, Iterable, Literal, Mapping, cast, overload
 from uuid import UUID, uuid4
 
 import anyio
@@ -543,15 +543,23 @@ class AsyncScheduler:
         self._check_initialized()
         await self.data_store.pause_schedules({id})
 
-    async def unpause_schedule(self, id: str) -> None:
+    async def unpause_schedule(
+        self,
+        id: str,
+        *,
+        resume_from: datetime | Literal["now"] | None = None,
+    ) -> None:
         """Unpause the specified schedule.
 
-        Scheduled runs that would have occurred while the schedule was paused are not
-        considered misfires. The next schedule run will occur at the next time in the
-        future the schedule would have run if it had never been paused.
+        By default, the schedule will be resumed as if it had never been paused, and all
+        missed runs will be considered misfires. The ``resume_from`` parameter can be
+        used to specify a different time from which to resume the schedule. The string
+        ``'now'`` can be used as shorthand for ``datetime.now(tz=UTC)``. If
+        ``resume_from`` is not ``None``, then the trigger will be repeatedly advanced
+        until the next fire time is at or after the specified time.
         """
         self._check_initialized()
-        await self.data_store.unpause_schedules({id})
+        await self.data_store.unpause_schedules({id}, resume_from=resume_from)
 
     async def add_job(
         self,
