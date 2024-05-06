@@ -32,6 +32,7 @@ from sqlalchemy import (
     Uuid,
     and_,
     bindparam,
+    false,
     or_,
     select,
 )
@@ -602,7 +603,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             and_(
                                 self._t_schedules.c.next_fire_time.isnot(None),
                                 comparison,
-                                self._t_schedules.c.paused.is_(False),
+                                self._t_schedules.c.paused == false(),
                                 or_(
                                     self._t_schedules.c.acquired_until.is_(None),
                                     self._t_schedules.c.acquired_until < now,
@@ -757,7 +758,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             select(*columns)
             .where(
                 self._t_schedules.c.next_fire_time.isnot(None),
-                self._t_schedules.c.paused.is_(False),
+                self._t_schedules.c.paused == false(),
             )
             .order_by(self._t_schedules.c.next_fire_time)
             .limit(1)

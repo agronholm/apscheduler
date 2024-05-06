@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractmethod
 from contextlib import AsyncExitStack
 from datetime import datetime
 from logging import Logger
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, Literal
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
 from uuid import UUID
 
 if sys.version_info >= (3, 11):
@@ -243,30 +243,6 @@ class DataStore(metaclass=ABCMeta):
         Remove schedules from the data store.
 
         :param ids: a specific set of schedule IDs to remove
-        """
-
-    @abstractmethod
-    async def pause_schedules(self, ids: Iterable[str]) -> None:
-        """
-        Pause the specified schedules.
-
-        :param ids: a specific set of schedule IDs to pause
-        """
-
-    @abstractmethod
-    async def unpause_schedules(
-        self,
-        ids: Iterable[str],
-        *,
-        resume_from: datetime | Literal["now"] | None = None,
-    ) -> None:
-        """
-        Unpause the specified schedules.
-
-        :param ids: a specific set of schedule IDs to unpause
-        :param resume_from: the time to resume the schedules from, or ``'now'`` as a
-            shorthand for ``datetime.now(tz=UTC)`` or ``None`` to resume from where the
-            schedule left off which may cause it to misfire
         """
 
     @abstractmethod

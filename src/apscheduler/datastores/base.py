@@ -1,15 +1,11 @@
 from __future__ import annotations
 
 from contextlib import AsyncExitStack
-from datetime import datetime, timezone
 from logging import Logger
-from typing import Iterable, Literal
 
 import attrs
 
-from .._enums import ConflictPolicy
 from .._retry import RetryMixin
-from .._structures import Schedule
 from ..abc import DataStore, EventBroker, Serializer
 from ..serializers.pickle import PickleSerializer
 
@@ -32,53 +28,6 @@ class BaseDataStore(DataStore):
     ) -> None:
         self._event_broker = event_broker
         self._logger = logger
-
-    async def pause_schedules(self, ids: Iterable[str]) -> None:
-        for schedule in await self.get_schedules(ids):
-            await self.add_schedule(
-                attrs.evolve(schedule, paused=True),
-                ConflictPolicy.replace,
-            )
-
-    def _get_unpaused_next_fire_time(
-        self,
-        schedule: Schedule,
-        resume_from: datetime | Literal["now"] | None,
-    ) -> datetime | None:
-        if resume_from is None:
-            return schedule.next_fire_time
-        if resume_from == "now":
-            resume_from = datetime.now(tz=timezone.utc)
-        if (
-            schedule.next_fire_time is not None
-            and schedule.next_fire_time >= resume_from
-        ):
-            return schedule.next_fire_time
-        try:
-            while (next_fire_time := schedule.trigger.next()) < resume_from:
-                pass  # Advance `next_fire_time` until its at or past `resume_from`
-        except TypeError:  # The trigger is exhausted
-            return None
-        return next_fire_time
-
-    async def unpause_schedules(
-        self,
-        ids: Iterable[str],
-        *,
-        resume_from: datetime | Literal["now"] | None = None,
-    ) -> None:
-        for schedule in await self.get_schedules(ids):
-            await self.add_schedule(
-                attrs.evolve(
-                    schedule,
-                    paused=False,
-                    next_fire_time=self._get_unpaused_next_fire_time(
-                        schedule,
-                        resume_from,
-                    ),
-                ),
-                ConflictPolicy.replace,
-            )
 
 
 @attrs.define(kw_only=True)

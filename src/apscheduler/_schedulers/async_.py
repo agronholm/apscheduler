@@ -532,28 +532,63 @@ class AsyncScheduler:
         self._check_initialized()
         await self.data_store.remove_schedules({id})
 
-    async def pause_schedule(self, id: str) -> None:
+    async def pause_schedule(self, schedule_id: str) -> None:
         """Pause the specified schedule."""
         self._check_initialized()
-        await self.data_store.pause_schedules({id})
+        await self.data_store.add_schedule(
+            schedule=attrs.evolve(await self.get_schedule(schedule_id), paused=True),
+            conflict_policy=ConflictPolicy.replace,
+        )
+
+    def _get_unpaused_next_fire_time(
+        self,
+        schedule: Schedule,
+        resume_from: datetime | Literal["now"] | None,
+    ) -> datetime | None:
+        if resume_from is None:
+            return schedule.next_fire_time
+        if resume_from == "now":
+            resume_from = datetime.now(tz=timezone.utc)
+        if (
+            schedule.next_fire_time is not None
+            and schedule.next_fire_time >= resume_from
+        ):
+            return schedule.next_fire_time
+        try:
+            while (next_fire_time := schedule.trigger.next()) < resume_from:
+                pass  # Advance `next_fire_time` until its at or past `resume_from`
+        except TypeError:  # The trigger is exhausted
+            return None
+        return next_fire_time
 
     async def unpause_schedule(
         self,
-        id: str,
+        schedule_id: str,
         *,
         resume_from: datetime | Literal["now"] | None = None,
     ) -> None:
-        """Unpause the specified schedule.
+        """
+        Unpause the specified schedule.
 
-        By default, the schedule will be resumed as if it had never been paused, and all
-        missed runs will be considered misfires. The ``resume_from`` parameter can be
-        used to specify a different time from which to resume the schedule. The string
-        ``'now'`` can be used as shorthand for ``datetime.now(tz=UTC)``. If
-        ``resume_from`` is not ``None``, then the trigger will be repeatedly advanced
-        until the next fire time is at or after the specified time.
+
+        :param resume_from: the time to resume the schedules from, or ``'now'`` as a
+            shorthand for ``datetime.now(tz=UTC)`` or ``None`` to resume from where the
+            schedule left off which may cause it to misfire
+
         """
         self._check_initialized()
-        await self.data_store.unpause_schedules({id}, resume_from=resume_from)
+        schedule = await self.get_schedule(schedule_id)
+        await self.data_store.add_schedule(
+            schedule=attrs.evolve(
+                schedule,
+                paused=False,
+                next_fire_time=self._get_unpaused_next_fire_time(
+                    schedule,
+                    resume_from,
+                ),
+            ),
+            conflict_policy=ConflictPolicy.replace,
+        )
 
     async def add_job(
         self,

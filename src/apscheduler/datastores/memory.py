@@ -207,8 +207,9 @@ class MemoryDataStore(BaseDataStore):
         schedules: list[Schedule] = []
         for state in self._schedules:
             if state.next_fire_time is None or state.next_fire_time > now:
-                # The schedule is either exhausted or not yet due
-                continue
+                # The schedule is either exhausted or not yet due. There will be no
+                # schedules that are due after this one, so we can stop here.
+                break
             elif state.schedule.paused:
                 # The schedule is paused
                 continue
