@@ -17,6 +17,7 @@ import tenacity
 from anyio import CancelScope, to_thread
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     DateTime,
     Enum,
@@ -31,6 +32,7 @@ from sqlalchemy import (
     Uuid,
     and_,
     bindparam,
+    false,
     or_,
     select,
 )
@@ -293,6 +295,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("trigger", LargeBinary),
             Column("args", LargeBinary),
             Column("kwargs", LargeBinary),
+            Column("paused", Boolean, nullable=False, server_default=literal(False)),
             Column("coalesce", Enum(CoalescePolicy), nullable=False),
             Column("misfire_grace_time", interval_type),
             Column("max_jitter", interval_type),
@@ -600,6 +603,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             and_(
                                 self._t_schedules.c.next_fire_time.isnot(None),
                                 comparison,
+                                self._t_schedules.c.paused == false(),
                                 or_(
                                     self._t_schedules.c.acquired_until.is_(None),
                                     self._t_schedules.c.acquired_until < now,
@@ -752,7 +756,10 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
         statenent = (
             select(*columns)
-            .where(self._t_schedules.c.next_fire_time.isnot(None))
+            .where(
+                self._t_schedules.c.next_fire_time.isnot(None),
+                self._t_schedules.c.paused == false(),
+            )
             .order_by(self._t_schedules.c.next_fire_time)
             .limit(1)
         )

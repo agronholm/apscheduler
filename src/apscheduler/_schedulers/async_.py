@@ -11,7 +11,7 @@ from functools import partial
 from inspect import isbuiltin, isclass, ismethod, ismodule
 from logging import Logger, getLogger
 from types import TracebackType
-from typing import Any, Callable, Iterable, Mapping, cast, overload
+from typing import Any, Callable, Iterable, Literal, Mapping, cast, overload
 from uuid import UUID, uuid4
 
 import anyio
@@ -410,6 +410,7 @@ class AsyncScheduler:
         id: str | None = None,
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
+        paused: bool = False,
         job_executor: str | UnsetValue = unset,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
@@ -427,6 +428,7 @@ class AsyncScheduler:
             based ID will be assigned)
         :param args: positional arguments to be passed to the task function
         :param kwargs: keyword arguments to be passed to the task function
+        :param paused: whether the schedule is paused
         :param job_executor: name of the job executor to run the task with
         :param coalesce: determines what to do when processing the schedule if multiple
             fire times have become due for this schedule since the last processing
@@ -478,6 +480,7 @@ class AsyncScheduler:
             trigger=trigger,
             args=args,
             kwargs=kwargs,
+            paused=paused,
             coalesce=coalesce,
             misfire_grace_time=task.misfire_grace_time
             if misfire_grace_time is unset
@@ -528,6 +531,58 @@ class AsyncScheduler:
         """
         self._check_initialized()
         await self.data_store.remove_schedules({id})
+
+    async def pause_schedule(self, id: str) -> None:
+        """Pause the specified schedule."""
+        self._check_initialized()
+        await self.data_store.add_schedule(
+            schedule=attrs.evolve(await self.get_schedule(id), paused=True),
+            conflict_policy=ConflictPolicy.replace,
+        )
+
+    async def unpause_schedule(
+        self,
+        id: str,
+        *,
+        resume_from: datetime | Literal["now"] | None = None,
+    ) -> None:
+        """
+        Unpause the specified schedule.
+
+
+        :param resume_from: the time to resume the schedules from, or ``'now'`` as a
+            shorthand for ``datetime.now(tz=UTC)`` or ``None`` to resume from where the
+            schedule left off which may cause it to misfire
+
+        """
+        self._check_initialized()
+        schedule = await self.get_schedule(id)
+
+        if resume_from == "now":
+            resume_from = datetime.now(tz=timezone.utc)
+
+        if resume_from is None:
+            next_fire_time = schedule.next_fire_time
+        elif (
+            schedule.next_fire_time is not None
+            and schedule.next_fire_time >= resume_from
+        ):
+            next_fire_time = schedule.next_fire_time
+        else:
+            # Advance `next_fire_time` until its at or past `resume_from`, or until it's
+            # exhausted
+            while next_fire_time := schedule.trigger.next():
+                if next_fire_time is None or next_fire_time >= resume_from:
+                    break
+
+        await self.data_store.add_schedule(
+            schedule=attrs.evolve(
+                schedule,
+                paused=False,
+                next_fire_time=next_fire_time,
+            ),
+            conflict_policy=ConflictPolicy.replace,
+        )
 
     async def add_job(
         self,

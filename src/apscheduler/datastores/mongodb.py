@@ -366,9 +366,19 @@ class MongoDBDataStore(BaseExternalDataStore):
                     lambda: self._schedules.find(
                         {
                             "next_fire_time": {"$lte": now},
-                            "$or": [
-                                {"acquired_until": {"$exists": False}},
-                                {"acquired_until": {"$lt": now}},
+                            "$and": [
+                                {
+                                    "$or": [
+                                        {"paused": {"$exists": False}},
+                                        {"paused": False},
+                                    ]
+                                },
+                                {
+                                    "$or": [
+                                        {"acquired_until": {"$exists": False}},
+                                        {"acquired_until": {"$lt": now}},
+                                    ]
+                                },
                             ],
                         },
                         session=session,
