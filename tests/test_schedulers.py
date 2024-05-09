@@ -15,7 +15,13 @@ from types import ModuleType
 
 import anyio
 import pytest
-from anyio import WouldBlock, create_memory_object_stream, fail_after, sleep
+from anyio import (
+    Lock,
+    WouldBlock,
+    create_memory_object_stream,
+    fail_after,
+    sleep,
+)
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture, MockFixture
 
@@ -818,6 +824,28 @@ class TestAsyncScheduler:
 
         # This should be a no-op
         await scheduler.wait_until_stopped()
+
+    async def test_max_concurrent_jobs(self) -> None:
+        lock = Lock()
+        scheduler = AsyncScheduler(max_concurrent_jobs=1)
+        tasks_done = 0
+
+        async def acquire_release() -> None:
+            nonlocal tasks_done
+            lock.acquire_nowait()
+            await sleep(0.1)
+            tasks_done += 1
+            if tasks_done == 2:
+                await scheduler.stop()
+
+            lock.release()
+
+        with fail_after(3):
+            async with scheduler:
+                await scheduler.configure_task("dummyjob", func=acquire_release)
+                await scheduler.add_job("dummyjob")
+                await scheduler.add_job("dummyjob")
+                await scheduler.run_until_stopped()
 
 
 class TestSyncScheduler:
