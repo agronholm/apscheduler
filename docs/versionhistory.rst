@@ -22,6 +22,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed dialect name checks in the SQLAlchemy job store
 - Fixed JSON and CBOR serializers unable to serialize enums
 - Fixed infinite loop in CalendarIntervalTrigger with UTC timezone (PR by unights)
+- Fixed scheduler not resuming job processing when ``max_concurrent_jobs`` had been
+  reached and then a job was completed, thus making job processing possible again
+  (PR by MohammadAmin Vahedinia)
 
 **4.0.0a4**
 
