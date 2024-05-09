@@ -558,22 +558,22 @@ class AsyncScheduler:
         self._check_initialized()
         schedule = await self.get_schedule(id)
 
-        if resume_from is None:
-            next_fire_time = schedule.next_fire_time
-        elif resume_from == "now":
+        if resume_from == "now":
             resume_from = datetime.now(tz=timezone.utc)
 
-        if (
+        if resume_from is None:
+            next_fire_time = schedule.next_fire_time
+        elif (
             schedule.next_fire_time is not None
             and schedule.next_fire_time >= resume_from
         ):
             next_fire_time = schedule.next_fire_time
-
-        # Advance `next_fire_time` until its at or past `resume_from`, or until it's
-        # exhausted
-        while next_fire_time := schedule.trigger.next():
-            if next_fire_time is None or next_fire_time >= resume_from:
-                break
+        else:
+            # Advance `next_fire_time` until its at or past `resume_from`, or until it's
+            # exhausted
+            while next_fire_time := schedule.trigger.next():
+                if next_fire_time is None or next_fire_time >= resume_from:
+                    break
 
         await self.data_store.add_schedule(
             schedule=attrs.evolve(
