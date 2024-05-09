@@ -73,7 +73,15 @@ async def redis_broker(serializer: Serializer) -> EventBroker:
 
 @pytest.fixture(
     params=[
-        pytest.param(1, id="callback_api_v1"),
+        pytest.param(
+            1,
+            id="callback_api_v1",
+            marks=[
+                pytest.mark.filterwarnings(
+                    "ignore:Callback API version 1 is deprecated:DeprecationWarning"
+                )
+            ],
+        ),
         pytest.param(2, id="callback_api_v2"),
     ]
 )
@@ -84,7 +92,6 @@ def mqtt_broker(request: SubRequest, serializer: Serializer) -> EventBroker:
     from apscheduler.eventbrokers.mqtt import MQTTEventBroker
 
     callback_api_version = CallbackAPIVersion(request.param)
-
     return MQTTEventBroker(Client(callback_api_version), serializer=serializer)
 
 
