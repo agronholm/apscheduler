@@ -540,27 +540,6 @@ class AsyncScheduler:
             conflict_policy=ConflictPolicy.replace,
         )
 
-    def _get_unpaused_next_fire_time(
-        self,
-        schedule: Schedule,
-        resume_from: datetime | Literal["now"] | None,
-    ) -> datetime | None:
-        if resume_from is None:
-            return schedule.next_fire_time
-        if resume_from == "now":
-            resume_from = datetime.now(tz=timezone.utc)
-        if (
-            schedule.next_fire_time is not None
-            and schedule.next_fire_time >= resume_from
-        ):
-            return schedule.next_fire_time
-        try:
-            while (next_fire_time := schedule.trigger.next()) < resume_from:
-                pass  # Advance `next_fire_time` until its at or past `resume_from`
-        except TypeError:  # The trigger is exhausted
-            return None
-        return next_fire_time
-
     async def unpause_schedule(
         self,
         schedule_id: str,
@@ -578,14 +557,29 @@ class AsyncScheduler:
         """
         self._check_initialized()
         schedule = await self.get_schedule(schedule_id)
+
+        if resume_from is None:
+            next_fire_time = schedule.next_fire_time
+        elif resume_from == "now":
+            resume_from = datetime.now(tz=timezone.utc)
+
+        if (
+            schedule.next_fire_time is not None
+            and schedule.next_fire_time >= resume_from
+        ):
+            next_fire_time = schedule.next_fire_time
+
+        # Advance `next_fire_time` until its at or past `resume_from`, or until it's
+        # exhausted
+        while next_fire_time := schedule.trigger.next():
+            if next_fire_time is None or next_fire_time >= resume_from:
+                break
+
         await self.data_store.add_schedule(
             schedule=attrs.evolve(
                 schedule,
                 paused=False,
-                next_fire_time=self._get_unpaused_next_fire_time(
-                    schedule,
-                    resume_from,
-                ),
+                next_fire_time=next_fire_time,
             ),
             conflict_policy=ConflictPolicy.replace,
         )
