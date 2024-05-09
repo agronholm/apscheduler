@@ -277,13 +277,13 @@ class Scheduler:
         self._ensure_services_ready()
         self._portal.call(self._async_scheduler.remove_schedule, id)
 
-    def pause_schedule(self, schedule_id: str) -> None:
+    def pause_schedule(self, id: str) -> None:
         self._ensure_services_ready()
-        self._portal.call(self._async_scheduler.pause_schedule, schedule_id)
+        self._portal.call(self._async_scheduler.pause_schedule, id)
 
     def unpause_schedule(
         self,
-        schedule_id: str,
+        id: str,
         *,
         resume_from: datetime | Literal["now"] | None = None,
     ) -> None:
@@ -291,7 +291,7 @@ class Scheduler:
         self._portal.call(
             partial(
                 self._async_scheduler.unpause_schedule,
-                schedule_id,
+                id,
                 resume_from=resume_from,
             )
         )

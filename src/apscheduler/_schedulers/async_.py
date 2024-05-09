@@ -532,17 +532,17 @@ class AsyncScheduler:
         self._check_initialized()
         await self.data_store.remove_schedules({id})
 
-    async def pause_schedule(self, schedule_id: str) -> None:
+    async def pause_schedule(self, id: str) -> None:
         """Pause the specified schedule."""
         self._check_initialized()
         await self.data_store.add_schedule(
-            schedule=attrs.evolve(await self.get_schedule(schedule_id), paused=True),
+            schedule=attrs.evolve(await self.get_schedule(id), paused=True),
             conflict_policy=ConflictPolicy.replace,
         )
 
     async def unpause_schedule(
         self,
-        schedule_id: str,
+        id: str,
         *,
         resume_from: datetime | Literal["now"] | None = None,
     ) -> None:
@@ -556,7 +556,7 @@ class AsyncScheduler:
 
         """
         self._check_initialized()
-        schedule = await self.get_schedule(schedule_id)
+        schedule = await self.get_schedule(id)
 
         if resume_from is None:
             next_fire_time = schedule.next_fire_time
