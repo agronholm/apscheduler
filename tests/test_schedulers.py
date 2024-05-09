@@ -192,10 +192,10 @@ class TestAsyncScheduler:
             assert isinstance(event, TaskUpdated)
             assert event.task_id == "mytask"
 
-    async def test_add_remove_schedule(
+    async def test_add_pause_unpause_remove_schedule(
         self, raw_datastore: DataStore, timezone: ZoneInfo
     ) -> None:
-        send, receive = create_memory_object_stream[Event](3)
+        send, receive = create_memory_object_stream[Event](5)
         async with AsyncScheduler(data_store=raw_datastore) as scheduler:
             scheduler.subscribe(send.send)
             now = datetime.now(timezone)
@@ -210,6 +210,16 @@ class TestAsyncScheduler:
             assert schedules[0].id == "foo"
             assert schedules[0].task_id == f"{__name__}:dummy_async_job"
 
+            await scheduler.pause_schedule("foo")
+            schedule = await scheduler.get_schedule("foo")
+            assert schedule.paused
+            assert schedule.next_fire_time == now
+
+            await scheduler.unpause_schedule("foo")
+            schedule = await scheduler.get_schedule("foo")
+            assert not schedule.paused
+            assert schedule.next_fire_time == now
+
             await scheduler.remove_schedule(schedule_id)
             assert not await scheduler.get_schedules()
 
@@ -220,6 +230,18 @@ class TestAsyncScheduler:
 
             event = await receive.receive()
             assert isinstance(event, ScheduleAdded)
+            assert event.schedule_id == "foo"
+            assert event.task_id == f"{__name__}:dummy_async_job"
+            assert event.next_fire_time == now
+
+            event = await receive.receive()
+            assert isinstance(event, ScheduleUpdated)
+            assert event.schedule_id == "foo"
+            assert event.task_id == f"{__name__}:dummy_async_job"
+            assert event.next_fire_time == now
+
+            event = await receive.receive()
+            assert isinstance(event, ScheduleUpdated)
             assert event.schedule_id == "foo"
             assert event.task_id == f"{__name__}:dummy_async_job"
             assert event.next_fire_time == now

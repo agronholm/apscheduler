@@ -332,6 +332,31 @@ the schedule you want to remove as an argument. This is the ID you got from
 Note that removing a schedule does not cancel any jobs derived from it, but does prevent
 further jobs from being created from that schedule.
 
+Pausing schedules
+-----------------
+
+To pause a schedule, call :meth:`~Scheduler.pause_schedule`. Pass the identifier of the
+schedule you want to pause as an argument. This is the ID you got from
+:meth:`~Scheduler.add_schedule`.
+
+Pausing a schedule prevents any new jobs from being created from it, but does not cancel
+any jobs that have already been created from that schedule.
+
+The schedule can be unpaused by calling :meth:`~Scheduler.unpause_schedule` with the
+identifier of the schedule you want to unpause.
+
+By default the schedule will retain the next fire time it had when it was paused, which
+may result in the schedule being considered to have misfired when it is unpaused,
+resulting in whatever misfire behavior it has configured
+(see :ref:`controlling-how-much-a-job-can-be-started-late` for more details).
+
+The ``resume_from`` parameter can be used to specify the time from which the schedule
+should be resumed. This can be used to avoid the misfire behavior mentioned above. It
+can be either a datetime object, or the string ``"now"`` as a convenient shorthand for
+the current datetime. If this parameter is provided, the schedules trigger will be
+repeatedly advanced to determine a next fire time that is at or after the specified time
+to resume from.
+
 Limiting the number of concurrently executing instances of a job
 ----------------------------------------------------------------
 
@@ -343,6 +368,8 @@ still running, the later job is terminated with the outcome of
 
 To allow more jobs to be concurrently running for a task, pass the desired maximum
 number as the ``max_running_jobs`` keyword argument to :meth:`~Scheduler.add_schedule`.
+
+.. _controlling-how-much-a-job-can-be-started-late:
 
 Controlling how much a job can be started late
 ----------------------------------------------

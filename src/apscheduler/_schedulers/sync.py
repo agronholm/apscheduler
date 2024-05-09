@@ -6,11 +6,11 @@ import sys
 import threading
 from collections.abc import MutableMapping, Sequence
 from contextlib import ExitStack
-from datetime import timedelta
+from datetime import datetime, timedelta
 from functools import partial
 from logging import Logger
 from types import TracebackType
-from typing import Any, Callable, Iterable, Mapping, overload
+from typing import Any, Callable, Iterable, Literal, Mapping, overload
 from uuid import UUID
 
 from anyio.from_thread import BlockingPortal, start_blocking_portal
@@ -238,6 +238,7 @@ class Scheduler:
         id: str | None = None,
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
+        paused: bool = False,
         job_executor: str | UnsetValue = unset,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
@@ -254,6 +255,7 @@ class Scheduler:
                 id=id,
                 args=args,
                 kwargs=kwargs,
+                paused=paused,
                 job_executor=job_executor,
                 coalesce=coalesce,
                 misfire_grace_time=misfire_grace_time,
@@ -274,6 +276,25 @@ class Scheduler:
     def remove_schedule(self, id: str) -> None:
         self._ensure_services_ready()
         self._portal.call(self._async_scheduler.remove_schedule, id)
+
+    def pause_schedule(self, id: str) -> None:
+        self._ensure_services_ready()
+        self._portal.call(self._async_scheduler.pause_schedule, id)
+
+    def unpause_schedule(
+        self,
+        id: str,
+        *,
+        resume_from: datetime | Literal["now"] | None = None,
+    ) -> None:
+        self._ensure_services_ready()
+        self._portal.call(
+            partial(
+                self._async_scheduler.unpause_schedule,
+                id,
+                resume_from=resume_from,
+            )
+        )
 
     def add_job(
         self,

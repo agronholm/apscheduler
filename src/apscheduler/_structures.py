@@ -74,6 +74,7 @@ class Schedule:
     :var str task_id: unique identifier of the task to be run on this schedule
     :var tuple args: positional arguments to pass to the task callable
     :var dict[str, Any] kwargs: keyword arguments to pass to the task callable
+    :var bool paused: whether the schedule is paused
     :var CoalescePolicy coalesce: determines what to do when processing the schedule if
         multiple fire times have become due for this schedule since the last processing
     :var ~datetime.timedelta | None misfire_grace_time: maximum number of seconds the
@@ -105,6 +106,7 @@ class Schedule:
     kwargs: dict[str, Any] = attrs.field(
         eq=False, order=False, converter=dict, default=()
     )
+    paused: bool = attrs.field(eq=False, order=False, default=False)
     coalesce: CoalescePolicy = attrs.field(
         eq=False,
         order=False,

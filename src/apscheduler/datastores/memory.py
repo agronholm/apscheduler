@@ -207,8 +207,12 @@ class MemoryDataStore(BaseDataStore):
         schedules: list[Schedule] = []
         for state in self._schedules:
             if state.next_fire_time is None or state.next_fire_time > now:
-                # The schedule is either paused or not yet due
+                # The schedule is either exhausted or not yet due. There will be no
+                # schedules that are due after this one, so we can stop here.
                 break
+            elif state.schedule.paused:
+                # The schedule is paused
+                continue
             elif state.acquired_by is not None:
                 if state.acquired_by != scheduler_id and now <= state.acquired_until:
                     # The schedule has been acquired by another scheduler and the
