@@ -15,6 +15,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** Made publishing ``JobReleased`` events the responsibility of the
   ``DataStore`` implementation, rather than the scheduler, for consistency with the
   ``acquire_jobs()`` method
+- Added the ability to pause and unpause schedules (PR by @WillDaSilva)
 - Fixed large parts of ``MongoDBDataStore`` still calling blocking functions in the
   event loop thread
 - Fixed JSON serialization of triggers that had been used at least once
