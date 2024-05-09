@@ -25,7 +25,7 @@ services:
     ports:
       - 127.0.0.1:1883:1883
 
-  redis:
-    image: redis
+  valkey:
+    image: valkey/valkey:7.2
     ports:
       - 127.0.0.1:6379:6379
