@@ -25,6 +25,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed scheduler not resuming job processing when ``max_concurrent_jobs`` had been
   reached and then a job was completed, thus making job processing possible again
   (PR by MohammadAmin Vahedinia)
+- Fixed the shutdown procedure of the Redis event broker
 
 **4.0.0a4**
 
