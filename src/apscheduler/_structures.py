@@ -211,9 +211,6 @@ class Job:
         converter=as_aware_datetime,
         factory=partial(datetime.now, timezone.utc),
     )
-    started_at: datetime | None = attrs.field(
-        eq=False, order=False, converter=as_aware_datetime, default=None
-    )
     acquired_by: str | None = attrs.field(eq=False, order=False, default=None)
     acquired_until: datetime | None = attrs.field(
         eq=False, order=False, converter=as_aware_datetime, default=None
@@ -251,7 +248,10 @@ class JobResult:
 
     :var ~uuid.UUID job_id: the unique identifier of the job
     :var JobOutcome outcome: indicates how the job ended
-    :var ~datetime.datetime finished_at: the time when the job ended
+    :var ~datetime.datetime started_at: the time when the job was submitted to the
+        executor (``None`` if the job never started in the first place)
+    :var ~datetime.datetime finished_at: the time when the job ended (``None`` if the
+        job never started in the first place)
     :var BaseException | None exception: the exception object if the job ended due to an
         exception being raised
     :var return_value: the return value from the task function (if the job ran to
@@ -262,11 +262,15 @@ class JobResult:
     outcome: JobOutcome = attrs.field(
         eq=False, order=False, converter=as_enum(JobOutcome)
     )
+    started_at: datetime | None = attrs.field(
+        eq=False,
+        order=False,
+        converter=as_aware_datetime,
+    )
     finished_at: datetime = attrs.field(
         eq=False,
         order=False,
         converter=as_aware_datetime,
-        factory=partial(datetime.now, timezone.utc),
     )
     expires_at: datetime = attrs.field(
         eq=False, converter=as_aware_datetime, order=False
@@ -281,6 +285,7 @@ class JobResult:
         outcome: JobOutcome,
         *,
         finished_at: datetime | None = None,
+        started_at: datetime | None = None,
         exception: BaseException | None = None,
         return_value: Any = None,
     ) -> JobResult:
@@ -289,6 +294,7 @@ class JobResult:
         return cls(
             job_id=job.id,
             outcome=outcome,
+            started_at=started_at,
             finished_at=real_finished_at,
             expires_at=expires_at,
             exception=exception,

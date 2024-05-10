@@ -294,12 +294,16 @@ class TestAsyncScheduler:
                 assert event.job_id == job_id
                 assert event.task_id == f"{__name__}:dummy_async_job"
                 assert event.schedule_id is None
+                assert event.scheduled_start is None
+                acquired_at = event.timestamp
 
                 event = await receive.receive()
                 assert isinstance(event, JobReleased)
                 assert event.job_id == job_id
                 assert event.task_id == f"{__name__}:dummy_async_job"
                 assert event.schedule_id is None
+                assert event.scheduled_start is None
+                assert event.started_at > acquired_at
                 assert event.outcome is JobOutcome.success
 
                 result = await scheduler.get_job_result(job_id)
@@ -341,7 +345,9 @@ class TestAsyncScheduler:
                 assert event.job_id == job_id
                 assert event.task_id == f"{__name__}:dummy_async_job"
                 assert event.schedule_id is None
+                assert event.scheduled_start is None
                 assert event.scheduler_id == scheduler.identity
+                acquired_at = event.timestamp
 
                 # The scheduler released the job
                 event = await receive.receive()
@@ -349,6 +355,8 @@ class TestAsyncScheduler:
                 assert event.job_id == job_id
                 assert event.task_id == f"{__name__}:dummy_async_job"
                 assert event.schedule_id is None
+                assert event.scheduled_start is None
+                assert event.started_at > acquired_at
                 assert event.scheduler_id == scheduler.identity
 
         # The scheduler was stopped
@@ -424,7 +432,8 @@ class TestAsyncScheduler:
         self, raw_datastore: DataStore, timezone: ZoneInfo
     ) -> None:
         send, receive = create_memory_object_stream[Event](4)
-        trigger = DateTrigger(datetime.now(timezone) - timedelta(seconds=1))
+        one_second_in_past = datetime.now(timezone) - timedelta(seconds=1)
+        trigger = DateTrigger(one_second_in_past)
         async with AsyncScheduler(data_store=raw_datastore) as scheduler:
             await scheduler.add_schedule(
                 dummy_async_job, trigger, misfire_grace_time=0, id="foo"
@@ -462,6 +471,8 @@ class TestAsyncScheduler:
                 assert event.job_id == job_id
                 assert event.task_id == "test_schedulers:dummy_async_job"
                 assert event.schedule_id == "foo"
+                assert event.scheduled_start == one_second_in_past
+                assert event.started_at is None
                 assert event.outcome is JobOutcome.missed_start_deadline
 
         # The scheduler was stopped

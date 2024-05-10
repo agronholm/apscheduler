@@ -214,12 +214,17 @@ class JobAcquired(SchedulerEvent):
 
     :param job_id: the ID of the job that was acquired
     :param scheduler_id: the ID of the scheduler that acquired the job
+    :param task_id: ID of the task the job belongs to
+    :param schedule_id: ID of the schedule that
+    :param scheduled_start: the time the job was scheduled to start via a schedule (if
+        any)
     """
 
     job_id: UUID = attrs.field(converter=as_uuid)
     scheduler_id: str
     task_id: str
     schedule_id: str | None = None
+    scheduled_start: datetime | None = attrs.field(converter=as_aware_datetime)
 
     @classmethod
     def from_job(cls, job: Job, scheduler_id: str) -> JobAcquired:
@@ -236,6 +241,7 @@ class JobAcquired(SchedulerEvent):
             scheduler_id=scheduler_id,
             task_id=job.task_id,
             schedule_id=job.schedule_id,
+            scheduled_start=job.scheduled_fire_time,
         )
 
 
@@ -246,6 +252,10 @@ class JobReleased(SchedulerEvent):
 
     :param uuid.UUID job_id: the ID of the job that was released
     :param scheduler_id: the ID of the scheduler that released the job
+    :param scheduled_start: the time the job was scheduled to start via a schedule (if
+        any)
+    :param started_at: the time the executor actually started running the job (``None``
+        if the job was skipped due to missing its start deadline)
     :param outcome: the outcome of the job
     :param exception_type: the fully qualified name of the exception if ``outcome`` is
         :attr:`JobOutcome.error`
@@ -259,6 +269,8 @@ class JobReleased(SchedulerEvent):
     scheduler_id: str
     task_id: str
     schedule_id: str | None = None
+    scheduled_start: datetime | None = attrs.field(converter=as_aware_datetime)
+    started_at: datetime | None = attrs.field(converter=as_aware_datetime)
     outcome: JobOutcome = attrs.field(converter=as_enum(JobOutcome))
     exception_type: str | None = None
     exception_message: str | None = None
@@ -285,11 +297,14 @@ class JobReleased(SchedulerEvent):
             exception_type = exception_message = exception_traceback = None
 
         return cls(
+            timestamp=result.finished_at,
             job_id=result.job_id,
             scheduler_id=scheduler_id,
             task_id=job.task_id,
             schedule_id=job.schedule_id,
             outcome=result.outcome,
+            scheduled_start=job.scheduled_fire_time,
+            started_at=result.started_at,
             exception_type=exception_type,
             exception_message=exception_message,
             exception_traceback=exception_traceback,

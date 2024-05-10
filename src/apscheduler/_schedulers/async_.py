@@ -1024,9 +1024,7 @@ class AsyncScheduler:
             start_time = datetime.now(timezone.utc)
             if job.start_deadline is not None and start_time > job.start_deadline:
                 result = JobResult.from_job(
-                    job,
-                    outcome=JobOutcome.missed_start_deadline,
-                    finished_at=start_time,
+                    job, JobOutcome.missed_start_deadline, finished_at=start_time
                 )
                 await self.data_store.release_job(self.identity, job, result)
                 return
@@ -1043,8 +1041,7 @@ class AsyncScheduler:
                 self.logger.info("Job %s was cancelled", job.id)
                 with CancelScope(shield=True):
                     result = JobResult.from_job(
-                        job,
-                        outcome=JobOutcome.cancelled,
+                        job, JobOutcome.cancelled, started_at=start_time
                     )
                     await self.data_store.release_job(self.identity, job, result)
             except BaseException as exc:
@@ -1058,6 +1055,7 @@ class AsyncScheduler:
                 result = JobResult.from_job(
                     job,
                     JobOutcome.error,
+                    started_at=start_time,
                     exception=exc,
                 )
                 await self.data_store.release_job(self.identity, job, result)
@@ -1068,6 +1066,7 @@ class AsyncScheduler:
                 result = JobResult.from_job(
                     job,
                     JobOutcome.success,
+                    started_at=start_time,
                     return_value=retval,
                 )
                 await self.data_store.release_job(self.identity, job, result)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
@@ -26,6 +27,8 @@ from apscheduler.abc import Serializer
                 task_id="task",
                 schedule_id="schedule",
                 outcome=JobOutcome.success,
+                scheduled_start=datetime.now(timezone.utc),
+                started_at=datetime.now(timezone.utc),
             ),
             id="job_released",
         ),
