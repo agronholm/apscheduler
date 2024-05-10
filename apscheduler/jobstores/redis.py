@@ -82,7 +82,7 @@ class RedisJobStore(BaseJobStore):
                                                           self.pickle_protocol))
             if job.next_run_time:
                 pipe.zadd(self.run_times_key,
-                          {job.id: datetime_to_utc_timestamp(job.next_run_time)})
+                          **{job.id: datetime_to_utc_timestamp(job.next_run_time)})
 
             pipe.execute()
 
@@ -95,7 +95,7 @@ class RedisJobStore(BaseJobStore):
                                                           self.pickle_protocol))
             if job.next_run_time:
                 pipe.zadd(self.run_times_key,
-                          {job.id: datetime_to_utc_timestamp(job.next_run_time)})
+                          **{job.id: datetime_to_utc_timestamp(job.next_run_time)})
             else:
                 pipe.zrem(self.run_times_key, job.id)
 
