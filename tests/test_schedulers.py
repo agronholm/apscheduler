@@ -1051,8 +1051,7 @@ class TestQtScheduler(SchedulerImplementationTestBase):
         return qt.QtScheduler()
 
     def wait_event(self, queue):
-        from PySide6.QtCore import QCoreApplication
-
+        QCoreApplication = pytest.importorskip('PySide6.QtCore.QCoreApplication')
         while queue.empty():
             QCoreApplication.processEvents()
         return queue.get_nowait()
