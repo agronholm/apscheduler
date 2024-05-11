@@ -29,6 +29,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   reached and then a job was completed, thus making job processing possible again
   (PR by MohammadAmin Vahedinia)
 - Fixed the shutdown procedure of the Redis event broker
+- Fixed ``SQLAlchemyDataStore`` not respecting custom schema name when creating enums
 
 **4.0.0a4**
 
