@@ -55,7 +55,6 @@ test = [
     "anyio[trio]",
     "asyncmy >= 0.2.5; python_implementation == 'CPython'",
     "coverage >= 7",
-    "paho-mqtt >= 1.5",
     "psycopg",
     "pymongo >= 4",
     "pymysql[rsa]",
@@ -138,7 +137,4 @@ commands = pyright --verifytypes apscheduler
 [testenv:docs]
 extras = doc
 commands = sphinx-build -n docs build/sphinx
-
-[testenv:paho-mqtt-v1]
-deps = paho-mqtt~=1.5
 """

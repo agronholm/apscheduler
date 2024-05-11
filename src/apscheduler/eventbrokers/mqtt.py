@@ -20,7 +20,7 @@ class MQTTEventBroker(BaseExternalEventBroker):
     """
     An event broker that uses an MQTT (v3.1 or v5) broker to broadcast events.
 
-    Requires the paho-mqtt_ library to be installed.
+    Requires the paho-mqtt_ library (v2.0 or later) to be installed.
 
     .. _paho-mqtt: https://pypi.org/project/paho-mqtt/
 
