@@ -472,6 +472,7 @@ class AsyncScheduler:
         task = await self.configure_task(
             func_or_task_id,
             job_executor=job_executor,
+            misfire_grace_time=misfire_grace_time,
             max_running_jobs=max_running_jobs,
         )
         schedule = Schedule(
