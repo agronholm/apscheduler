@@ -491,7 +491,7 @@ class AsyncScheduler:
         await self.data_store.add_schedule(schedule, conflict_policy)
         self.logger.info(
             "Added new schedule (task=%r, trigger=%r); next run time at %s",
-            task,
+            task.id,
             trigger,
             schedule.next_fire_time,
         )
