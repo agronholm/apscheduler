@@ -131,7 +131,7 @@ class AsyncScheduler:
 
     _state: RunState = attrs.field(init=False, default=RunState.stopped)
     _services_task_group: TaskGroup | None = attrs.field(init=False, default=None)
-    _exit_stack: AsyncExitStack = attrs.field(init=False)
+    _exit_stack: AsyncExitStack = attrs.field(init=False, factory=AsyncExitStack)
     _services_initialized: bool = attrs.field(init=False, default=False)
     _scheduler_cancel_scope: CancelScope | None = attrs.field(init=False, default=None)
     _running_jobs: set[UUID] = attrs.field(init=False, factory=set)
@@ -158,13 +158,11 @@ class AsyncScheduler:
             )
 
     async def __aenter__(self) -> Self:
-        async with AsyncExitStack() as exit_stack:
-            await self._ensure_services_initialized(exit_stack)
-            self._services_task_group = await exit_stack.enter_async_context(
-                create_task_group()
-            )
-            exit_stack.callback(setattr, self, "_services_task_group", None)
-            self._exit_stack = exit_stack.pop_all()
+        await self._ensure_services_initialized(self._exit_stack)
+        self._services_task_group = await self._exit_stack.enter_async_context(
+            create_task_group()
+        )
+        self._exit_stack.callback(setattr, self, "_services_task_group", None)
 
         return self
 
