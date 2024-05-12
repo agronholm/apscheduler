@@ -30,6 +30,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   (PR by MohammadAmin Vahedinia)
 - Fixed the shutdown procedure of the Redis event broker
 - Fixed ``SQLAlchemyDataStore`` not respecting custom schema name when creating enums
+- Refactored ``AsyncScheduler`` to create ``AsyncExitStack`` using ``attrs`` factory
+  (PR by Justin Su)
 
 **4.0.0a4**
 
