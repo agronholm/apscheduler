@@ -4,7 +4,7 @@ MariaDB in a simple asyncio app.
 
 Requires the "mysql" service to be running.
 To install prerequisites: pip install sqlalchemy asyncmy
-To run: python async_postgres.py
+To run: python async_mysql.py
 
 It should print a line on the console on a one-second interval.
 """
