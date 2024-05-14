@@ -65,12 +65,11 @@ class TestAndTrigger:
         )
 
     @pytest.mark.parametrize(
-        "left_kwargs,right_kwargs,start_time,expected_datetimes",
+        "left_trigger,right_trigger,expected_datetimes",
         [
             (
-                {"_class": "IntervalTrigger", "hours": 6},
-                {"_class": "IntervalTrigger", "hours": 12},
-                datetime(2024, 5, 1, 0, 0, 0, tzinfo=timezone.utc),
+                IntervalTrigger(hours=6, start_time=datetime(2024, 5, 1, tzinfo=timezone.utc)),
+                IntervalTrigger(hours=12, start_time=datetime(2024, 5, 1, tzinfo=timezone.utc)),
                 [
                     datetime(2024, 5, 1, 0, 0, 0, tzinfo=timezone.utc),
                     datetime(2024, 5, 1, 12, 0, 0, tzinfo=timezone.utc),
@@ -78,9 +77,8 @@ class TestAndTrigger:
                 ],
             ),
             (
-                {"_class": "IntervalTrigger", "days": 1},
-                {"_class": "IntervalTrigger", "weeks": 1},
-                datetime(2024, 5, 1, 0, 0, 0, tzinfo=timezone.utc),
+                IntervalTrigger(days=1, start_time=datetime(2024, 5, 1, tzinfo=timezone.utc)),
+                IntervalTrigger(weeks=1, start_time=datetime(2024, 5, 1, tzinfo=timezone.utc)),
                 [
                     datetime(2024, 5, 1, 0, 0, 0, tzinfo=timezone.utc),
                     datetime(2024, 5, 8, 0, 0, 0, tzinfo=timezone.utc),
@@ -88,14 +86,13 @@ class TestAndTrigger:
                 ],
             ),
             (
-                {
-                    "_class": "CronTrigger",
-                    "day_of_week": "mon-fri",
-                    "hour": "*",
-                    "timezone": timezone.utc,
-                },
-                {"_class": "IntervalTrigger", "hours": 12},
-                datetime(2024, 5, 3, 0, 0, 0, tzinfo=timezone.utc),
+                CronTrigger(
+                    day_of_week = "mon-fri",
+                    hour = "*",
+                    timezone = timezone.utc,
+                    start_time = datetime(2024, 5, 3, tzinfo=timezone.utc)
+                ),
+                IntervalTrigger(hours=12, start_time=datetime(2024, 5, 3, tzinfo=timezone.utc)),
                 [
                     datetime(2024, 5, 3, 0, 0, 0, tzinfo=timezone.utc),
                     datetime(2024, 5, 3, 12, 0, 0, tzinfo=timezone.utc),
@@ -103,13 +100,12 @@ class TestAndTrigger:
                 ],
             ),
             (
-                {
-                    "_class": "CronTrigger",
-                    "day_of_week": "mon-fri",
-                    "timezone": timezone.utc,
-                },
-                {"_class": "IntervalTrigger", "days": 4},
-                datetime(2024, 5, 13, 0, 0, 0, tzinfo=timezone.utc),
+                CronTrigger(
+                    day_of_week = "mon-fri",
+                    timezone = timezone.utc,
+                    start_time = datetime(2024, 5, 13, tzinfo=timezone.utc),
+                ),
+                IntervalTrigger(days=4, start_time=datetime(2024, 5, 13, tzinfo=timezone.utc)),
                 [
                     datetime(2024, 5, 13, 0, 0, 0, tzinfo=timezone.utc),
                     datetime(2024, 5, 17, 0, 0, 0, tzinfo=timezone.utc),
@@ -118,17 +114,16 @@ class TestAndTrigger:
                 ],
             ),
             (
-                {
-                    "_class": "CalendarIntervalTrigger",
-                    "months": 1,
-                    "timezone": timezone.utc,
-                },
-                {
-                    "_class": "CronTrigger",
-                    "day_of_week": "mon-fri",
-                    "timezone": timezone.utc,
-                },
-                datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+                CalendarIntervalTrigger(
+                    months = 1,
+                    timezone = timezone.utc,
+                    start_date = datetime(2024, 1, 1, tzinfo=timezone.utc),
+                ),
+                CronTrigger(
+                    day_of_week = "mon-fri",
+                    timezone = timezone.utc,
+                    start_time = datetime(2024, 1, 1, tzinfo=timezone.utc),
+                ),
                 [
                     datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                     datetime(2024, 2, 1, 0, 0, 0, tzinfo=timezone.utc),
@@ -143,43 +138,11 @@ class TestAndTrigger:
             ),
         ],
     )
-    def test_overlapping_triggers(
-        self, left_kwargs, right_kwargs, start_time, expected_datetimes
-    ):
+    def test_overlapping_triggers(self, left_trigger, right_trigger, expected_datetimes):
         """
         Verify that the `AndTrigger` fires at the intersection of two triggers.
         """
-        trigger_classes = {
-            "CronTrigger": CronTrigger,
-            "IntervalTrigger": IntervalTrigger,
-            "CalendarIntervalTrigger": CalendarIntervalTrigger,
-        }
-        left_trigger_class = trigger_classes[left_kwargs.pop("_class")]
-        right_trigger_class = trigger_classes[right_kwargs.pop("_class")]
-
-        left_kwargs.update(
-            {
-                (
-                    "start_time"
-                    if left_trigger_class is not CalendarIntervalTrigger
-                    else "start_date"
-                ): start_time,
-            }
-        )
-        right_kwargs.update(
-            {
-                (
-                    "start_time"
-                    if right_trigger_class is not CalendarIntervalTrigger
-                    else "start_date"
-                ): start_time,
-            }
-        )
-
-        left_trigger = left_trigger_class(**left_kwargs)
-        right_trigger = right_trigger_class(**right_kwargs)
         and_trigger = AndTrigger([left_trigger, right_trigger])
-
         for expected_datetime in expected_datetimes:
             next_datetime = and_trigger.next()
             assert next_datetime == expected_datetime
