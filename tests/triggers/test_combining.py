@@ -7,9 +7,9 @@ import pytest
 from apscheduler import MaxIterationsReached
 from apscheduler.triggers.calendarinterval import CalendarIntervalTrigger
 from apscheduler.triggers.combining import AndTrigger, OrTrigger
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.triggers.cron import CronTrigger
 
 
 class TestAndTrigger:
@@ -150,12 +150,12 @@ class TestAndTrigger:
         Verify that the `AndTrigger` fires at the intersection of two triggers.
         """
         trigger_classes = {
-            'CronTrigger': CronTrigger,
-            'IntervalTrigger': IntervalTrigger,
-            'CalendarIntervalTrigger': CalendarIntervalTrigger,
+            "CronTrigger": CronTrigger,
+            "IntervalTrigger": IntervalTrigger,
+            "CalendarIntervalTrigger": CalendarIntervalTrigger,
         }
-        left_trigger_class = trigger_classes[left_kwargs.pop('_class')]
-        right_trigger_class = trigger_classes[right_kwargs.pop('_class')]
+        left_trigger_class = trigger_classes[left_kwargs.pop("_class")]
+        right_trigger_class = trigger_classes[right_kwargs.pop("_class")]
 
         left_kwargs.update(
             {
