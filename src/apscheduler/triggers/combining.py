@@ -87,7 +87,6 @@ class AndTrigger(BaseCombiningTrigger):
 
             # If all the fire times were within the threshold, return the earliest one
             if latest_fire_time - earliest_fire_time <= self.threshold:
-                self._next_fire_times = [t.next() for t in self.triggers]
                 return earliest_fire_time
         else:
             raise MaxIterationsReached
