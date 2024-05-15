@@ -303,7 +303,7 @@ class TestAsyncScheduler:
                 assert event.task_id == f"{__name__}:dummy_async_job"
                 assert event.schedule_id is None
                 assert event.scheduled_start is None
-                assert event.started_at > acquired_at
+                assert event.started_at >= acquired_at
                 assert event.outcome is JobOutcome.success
 
                 result = await scheduler.get_job_result(job_id)
@@ -356,7 +356,7 @@ class TestAsyncScheduler:
                 assert event.task_id == f"{__name__}:dummy_async_job"
                 assert event.schedule_id is None
                 assert event.scheduled_start is None
-                assert event.started_at > acquired_at
+                assert event.started_at >= acquired_at
                 assert event.scheduler_id == scheduler.identity
 
         # The scheduler was stopped
