@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from collections import defaultdict
 from collections.abc import AsyncGenerator, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -15,6 +14,7 @@ import attrs
 import sniffio
 import tenacity
 from anyio import CancelScope, to_thread
+from attr.validators import instance_of
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -32,6 +32,7 @@ from sqlalchemy import (
     Uuid,
     and_,
     bindparam,
+    create_engine,
     false,
     or_,
     select,
@@ -41,6 +42,7 @@ from sqlalchemy.exc import (
     CompileError,
     IntegrityError,
     InterfaceError,
+    InvalidRequestError,
     ProgrammingError,
 )
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
@@ -69,11 +71,6 @@ from .._exceptions import ConflictingIdError, SerializationError, TaskLookupErro
 from .._structures import Job, JobResult, Schedule, Task
 from ..abc import EventBroker
 from .base import BaseExternalDataStore
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class EmulatedTimestampTZ(TypeDecorator[datetime]):
@@ -123,15 +120,22 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
      * MySQL (asyncmy driver)
      * aiosqlite
 
-    :param engine: an asynchronous SQLAlchemy engine
+    :param engine_or_url: a SQLAlchemy URL or engine (preferably asynchronous, but can
+        be synchronous)
     :param schema: a database schema name to use, if not the default
+
+    .. note:: The data store will not manage the life cycle of any engine instance
+        passed to it, so you need to close the engine afterwards when you're done with
+        it.
     """
 
-    engine: Engine | AsyncEngine
-    schema: str | None = attrs.field(default=None)
-    max_poll_time: float | None = attrs.field(default=1)
-    max_idle_time: float = attrs.field(default=60)
+    engine_or_url: str | URL | Engine | AsyncEngine = attrs.field(
+        validator=instance_of((str, URL, Engine, AsyncEngine))
+    )
+    schema: str | None = attrs.field(kw_only=True, default=None)
 
+    _engine: Engine | AsyncEngine = attrs.field(init=False)
+    _close_on_exit: bool = attrs.field(init=False, default=False)
     _supports_update_returning: bool = attrs.field(init=False, default=False)
     _supports_tzaware_timestamps: bool = attrs.field(init=False, default=False)
     _supports_native_interval: bool = attrs.field(init=False, default=False)
@@ -143,33 +147,29 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     _t_job_results: Table = attrs.field(init=False)
 
     def __attrs_post_init__(self) -> None:
+        if isinstance(self.engine_or_url, (str, URL)):
+            try:
+                self._engine = create_async_engine(self.engine_or_url)
+            except InvalidRequestError:
+                self._engine = create_engine(self.engine_or_url)
+
+            self._close_on_exit = True
+        else:
+            self._engine = self.engine_or_url
+
         # Generate the table definitions
         prefix = f"{self.schema}." if self.schema else ""
-        self._supports_tzaware_timestamps = self.engine.dialect.name in (
+        self._supports_tzaware_timestamps = self._engine.dialect.name in (
             "postgresql",
             "oracle",
         )
-        self._supports_native_interval = self.engine.dialect.name == "postgresql"
+        self._supports_native_interval = self._engine.dialect.name == "postgresql"
         self._metadata = self.get_table_definitions()
         self._t_metadata = self._metadata.tables[prefix + "metadata"]
         self._t_tasks = self._metadata.tables[prefix + "tasks"]
         self._t_schedules = self._metadata.tables[prefix + "schedules"]
         self._t_jobs = self._metadata.tables[prefix + "jobs"]
         self._t_job_results = self._metadata.tables[prefix + "job_results"]
-
-    @classmethod
-    def from_url(cls: type[Self], url: str | URL, **options) -> Self:
-        """
-        Create a new asynchronous SQLAlchemy data store.
-
-        :param url: an SQLAlchemy URL to pass to :func:`~sqlalchemy.create_engine`
-            (must use an async dialect like ``asyncpg`` or ``asyncmy``)
-        :param options: keyword arguments to pass to the initializer of this class
-        :return: the newly created data store
-
-        """
-        engine = create_async_engine(url, future=True)
-        return cls(engine, **options)
 
     def _retry(self) -> tenacity.AsyncRetrying:
         def after_attempt(retry_state: tenacity.RetryCallState) -> None:
@@ -196,13 +196,13 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         # A shielded cancel scope is injected to the exit stack to allow finalization
         # to occur even when the surrounding cancel scope is cancelled
         async with AsyncExitStack() as exit_stack:
-            if isinstance(self.engine, AsyncEngine):
-                async_cm = self.engine.begin()
+            if isinstance(self._engine, AsyncEngine):
+                async_cm = self._engine.begin()
                 conn = await async_cm.__aenter__()
                 exit_stack.enter_context(CancelScope(shield=True))
                 exit_stack.push_async_exit(async_cm.__aexit__)
             else:
-                cm = self.engine.begin()
+                cm = self._engine.begin()
                 conn = await to_thread.run_sync(cm.__enter__)
                 exit_stack.enter_context(CancelScope(shield=True))
                 exit_stack.push_async_exit(partial(to_thread.run_sync, cm.__exit__))
@@ -229,7 +229,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     @property
     def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:
         # SQlite does not use the network, so it doesn't have "temporary" failures
-        if self.engine.dialect.name == "sqlite":
+        if self._engine.dialect.name == "sqlite":
             return ()
 
         return InterfaceError, OSError
@@ -336,12 +336,16 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     async def start(
         self, exit_stack: AsyncExitStack, event_broker: EventBroker, logger: Logger
     ) -> None:
-        await super().start(exit_stack, event_broker, logger)
         asynclib = sniffio.current_async_library() or "(unknown)"
         if asynclib != "asyncio":
             raise RuntimeError(
                 f"This data store requires asyncio; currently running: {asynclib}"
             )
+
+        if self._close_on_exit:
+            exit_stack.push_async_callback(self._engine.dispose)
+
+        await super().start(exit_stack, event_broker, logger)
 
         # Verify that the schema is in place
         async for attempt in self._retry():

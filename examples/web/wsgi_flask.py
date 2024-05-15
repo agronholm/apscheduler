@@ -35,7 +35,7 @@ def hello_world():
 
 engine = create_engine("postgresql+psycopg://postgres:secret@localhost/testdb")
 data_store = SQLAlchemyDataStore(engine)
-event_broker = RedisEventBroker.from_url("redis://localhost")
+event_broker = RedisEventBroker("redis://localhost")
 scheduler = Scheduler(data_store, event_broker)
 scheduler.add_schedule(tick, IntervalTrigger(seconds=1), id="tick")
 scheduler.start_in_background()

@@ -59,40 +59,20 @@ def local_broker() -> EventBroker:
 
 @pytest.fixture
 async def redis_broker(serializer: Serializer) -> EventBroker:
-    from redis.asyncio import Redis
-
     from apscheduler.eventbrokers.redis import RedisEventBroker
 
-    broker = RedisEventBroker.from_url(
+    broker = RedisEventBroker(
         "redis://localhost:6379", serializer=serializer, stop_check_interval=0.05
     )
-    assert isinstance(broker.client, Redis)
-    await broker.client.flushdb()
+    await broker._client.flushdb()
     return broker
 
 
-@pytest.fixture(
-    params=[
-        pytest.param(
-            1,
-            id="callback_api_v1",
-            marks=[
-                pytest.mark.filterwarnings(
-                    "ignore:Callback API version 1 is deprecated:DeprecationWarning"
-                )
-            ],
-        ),
-        pytest.param(2, id="callback_api_v2"),
-    ]
-)
-def mqtt_broker(request: SubRequest, serializer: Serializer) -> EventBroker:
-    from paho.mqtt.client import Client
-    from paho.mqtt.enums import CallbackAPIVersion
-
+@pytest.fixture
+def mqtt_broker(serializer: Serializer) -> EventBroker:
     from apscheduler.eventbrokers.mqtt import MQTTEventBroker
 
-    callback_api_version = CallbackAPIVersion(request.param)
-    return MQTTEventBroker(Client(callback_api_version), serializer=serializer)
+    return MQTTEventBroker(serializer=serializer)
 
 
 @pytest.fixture

@@ -16,6 +16,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   ``DataStore`` implementation, rather than the scheduler, for consistency with the
   ``acquire_jobs()`` method
 - **BREAKING** The ``started_at`` field was moved from ``Job`` to ``JobResult``
+- **BREAKING** Removed the ``from_url()`` class methods of ``SQLAlchemyDataStore``,
+  ``MongoDBDataStore`` and ``RedisEventBroker`` in favor of the ability to pass a
+  connection url to the initializer
 - Added the ability to pause and unpause schedules (PR by @WillDaSilva)
 - Added the ``scheduled_start`` field to the ``JobAcquired`` event
 - Added the ``scheduled_start`` and ``started_at`` fields to the ``JobReleased`` event
@@ -32,6 +35,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``SQLAlchemyDataStore`` not respecting custom schema name when creating enums
 - Fixed skipped intervals with overlapping schedules in ``AndTrigger``
   (#911 <https://github.com/agronholm/apscheduler/issues/911>_; PR by Bennett Meares)
+- Fixed implicitly created client instances in data stores and event brokers not being
+  closed along with the store/broker
 
 **4.0.0a4**
 

@@ -138,17 +138,27 @@ class MongoDBDataStore(BaseExternalDataStore):
     Operations are retried (in accordance to ``retry_settings``) when an operation
     raises :exc:`pymongo.errors.ConnectionFailure`.
 
-    :param client: a PyMongo client
+    :param client_or_uri: a PyMongo client or a MongoDB connection URI
     :param database: name of the database to use
+
+    .. note:: The data store will not manage the life cycle of any client instance
+        passed to it, so you need to close the client afterwards when you're done with
+        it.
 
     .. note:: Datetimes are stored as integers along with their UTC offsets instead of
         BSON datetimes due to the BSON datetimes only being accurate to the millisecond
         while Python datetimes are accurate to the microsecond.
     """
 
-    client: MongoClient = attrs.field(validator=instance_of(MongoClient))
-    database: str = attrs.field(default="apscheduler", kw_only=True)
+    client_or_uri: MongoClient | str = attrs.field(
+        validator=instance_of((MongoClient, str))
+    )
+    database: str = attrs.field(
+        default="apscheduler", kw_only=True, validator=instance_of(str)
+    )
 
+    _client: MongoClient = attrs.field(init=False)
+    _close_on_exit: bool = attrs.field(init=False, default=False)
     _task_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Task)]
     _schedule_attrs: ClassVar[list[str]] = [
         field.name for field in attrs.fields(Schedule)
@@ -164,6 +174,12 @@ class MongoDBDataStore(BaseExternalDataStore):
         return (ConnectionFailure,)
 
     def __attrs_post_init__(self) -> None:
+        if isinstance(self.client_or_uri, str):
+            self._client = MongoClient(self.client_or_uri)
+            self._close_on_exit = True
+        else:
+            self._client = self.client_or_uri
+
         type_registry = TypeRegistry(
             [
                 CustomEncoder(timedelta, timedelta.total_seconds),
@@ -176,19 +192,14 @@ class MongoDBDataStore(BaseExternalDataStore):
             type_registry=type_registry,
             uuid_representation=UuidRepresentation.STANDARD,
         )
-        database = self.client.get_database(self.database, codec_options=codec_options)
+        database = self._client.get_database(self.database, codec_options=codec_options)
         self._tasks = database["tasks"]
         self._schedules = database["schedules"]
         self._jobs = database["jobs"]
         self._jobs_results = database["job_results"]
 
-    @classmethod
-    def from_url(cls, uri: str, **options) -> MongoDBDataStore:
-        client = MongoClient(uri)
-        return cls(client, **options)
-
     def _initialize(self) -> None:
-        with self.client.start_session() as session:
+        with self._client.start_session() as session:
             if self.start_from_scratch:
                 self._tasks.delete_many({}, session=session)
                 self._schedules.delete_many({}, session=session)
@@ -205,8 +216,11 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def start(
         self, exit_stack: AsyncExitStack, event_broker: EventBroker, logger: Logger
     ) -> None:
+        if self._close_on_exit:
+            exit_stack.push_async_callback(to_thread.run_sync, self._client.close)
+
         await super().start(exit_stack, event_broker, logger)
-        server_info = await to_thread.run_sync(self.client.server_info)
+        server_info = await to_thread.run_sync(self._client.server_info)
         if server_info["versionArray"] < [4, 0]:
             raise RuntimeError(
                 f"MongoDB server must be at least v4.0; current version = "
@@ -340,7 +354,7 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def remove_schedules(self, ids: Iterable[str]) -> None:
         filters = {"_id": {"$in": list(ids)}} if ids is not None else {}
         async for attempt in self._retry():
-            with attempt, self.client.start_session() as session:
+            with attempt, self._client.start_session() as session:
                 async with await AsyncCursor.create(
                     lambda: self._schedules.find(
                         filters, projection=["_id", "task_id"], session=session
@@ -359,7 +373,7 @@ class MongoDBDataStore(BaseExternalDataStore):
 
     async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
         async for attempt in self._retry():
-            with attempt, self.client.start_session() as session:
+            with attempt, self._client.start_session() as session:
                 schedules: list[Schedule] = []
                 now = datetime.now(timezone.utc).timestamp()
                 async with await AsyncCursor.create(
@@ -443,7 +457,7 @@ class MongoDBDataStore(BaseExternalDataStore):
 
         if requests:
             async for attempt in self._retry():
-                with attempt, self.client.start_session() as session:
+                with attempt, self._client.start_session() as session:
                     await to_thread.run_sync(
                         lambda: self._schedules.bulk_write(
                             requests, ordered=False, session=session
@@ -525,7 +539,7 @@ class MongoDBDataStore(BaseExternalDataStore):
         self, scheduler_id: str, limit: int | None = None
     ) -> list[Job]:
         async for attempt in self._retry():
-            with attempt, self.client.start_session() as session:
+            with attempt, self._client.start_session() as session:
                 now = datetime.now(timezone.utc)
                 async with await AsyncCursor.create(
                     lambda: self._jobs.find(
@@ -613,7 +627,7 @@ class MongoDBDataStore(BaseExternalDataStore):
 
     async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
         async for attempt in self._retry():
-            with attempt, self.client.start_session() as session:
+            with attempt, self._client.start_session() as session:
                 # Record the job result
                 if result.expires_at > result.finished_at:
                     document = result.marshal(self.serializer)
@@ -659,7 +673,7 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def cleanup(self) -> None:
         # Clean up expired job results
         async for attempt in self._retry():
-            with attempt, self.client.start_session() as session:
+            with attempt, self._client.start_session() as session:
                 # Purge expired job results
                 now = datetime.now(timezone.utc).timestamp()
 
