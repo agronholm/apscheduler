@@ -75,9 +75,9 @@ class TestAndTrigger:
                     hours=12, start_time=datetime(2024, 5, 1, tzinfo=timezone.utc)
                 ),
                 [
-                    datetime(2024, 5, 1, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 5, 1, 12, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 5, 2, 0, 0, 0, tzinfo=timezone.utc),
+                    datetime(2024, 5, 1, 0, tzinfo=timezone.utc),
+                    datetime(2024, 5, 1, 12, tzinfo=timezone.utc),
+                    datetime(2024, 5, 2, 0, tzinfo=timezone.utc),
                 ],
             ),
             (
@@ -88,9 +88,9 @@ class TestAndTrigger:
                     weeks=1, start_time=datetime(2024, 5, 1, tzinfo=timezone.utc)
                 ),
                 [
-                    datetime(2024, 5, 1, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 5, 8, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 5, 15, 0, 0, 0, tzinfo=timezone.utc),
+                    datetime(2024, 5, 1, tzinfo=timezone.utc),
+                    datetime(2024, 5, 8, tzinfo=timezone.utc),
+                    datetime(2024, 5, 15, tzinfo=timezone.utc),
                 ],
             ),
             (
@@ -104,9 +104,9 @@ class TestAndTrigger:
                     hours=12, start_time=datetime(2024, 5, 3, tzinfo=timezone.utc)
                 ),
                 [
-                    datetime(2024, 5, 3, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 5, 3, 12, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 5, 6, 0, 0, 0, tzinfo=timezone.utc),
+                    datetime(2024, 5, 3, 0, tzinfo=timezone.utc),
+                    datetime(2024, 5, 3, 12, tzinfo=timezone.utc),
+                    datetime(2024, 5, 6, 0, tzinfo=timezone.utc),
                 ],
             ),
             (
@@ -119,10 +119,10 @@ class TestAndTrigger:
                     days=4, start_time=datetime(2024, 5, 13, tzinfo=timezone.utc)
                 ),
                 [
-                    datetime(2024, 5, 13, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 5, 17, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 5, 21, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 5, 29, 0, 0, 0, tzinfo=timezone.utc),
+                    datetime(2024, 5, 13, tzinfo=timezone.utc),
+                    datetime(2024, 5, 17, tzinfo=timezone.utc),
+                    datetime(2024, 5, 21, tzinfo=timezone.utc),
+                    datetime(2024, 5, 29, tzinfo=timezone.utc),
                 ],
             ),
             (
@@ -137,15 +137,15 @@ class TestAndTrigger:
                     start_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
                 ),
                 [
-                    datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 2, 1, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 3, 1, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 4, 1, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 5, 1, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 7, 1, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 8, 1, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 10, 1, 0, 0, 0, tzinfo=timezone.utc),
-                    datetime(2024, 11, 1, 0, 0, 0, tzinfo=timezone.utc),
+                    datetime(2024, 1, 1, tzinfo=timezone.utc),
+                    datetime(2024, 2, 1, tzinfo=timezone.utc),
+                    datetime(2024, 3, 1, tzinfo=timezone.utc),
+                    datetime(2024, 4, 1, tzinfo=timezone.utc),
+                    datetime(2024, 5, 1, tzinfo=timezone.utc),
+                    datetime(2024, 7, 1, tzinfo=timezone.utc),
+                    datetime(2024, 8, 1, tzinfo=timezone.utc),
+                    datetime(2024, 10, 1, tzinfo=timezone.utc),
+                    datetime(2024, 11, 1, tzinfo=timezone.utc),
                 ],
             ),
         ],
