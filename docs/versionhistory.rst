@@ -30,6 +30,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   (PR by MohammadAmin Vahedinia)
 - Fixed the shutdown procedure of the Redis event broker
 - Fixed ``SQLAlchemyDataStore`` not respecting custom schema name when creating enums
+- Fixed skipped intervals with overlapping schedules in ``AndTrigger``
+  (#911 <https://github.com/agronholm/apscheduler/issues/911>_; PR by Bennett Meares)
 
 **4.0.0a4**
 
