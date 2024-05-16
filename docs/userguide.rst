@@ -211,7 +211,7 @@ In order to add :ref:`schedules <schedule>` or :ref:`jobs <job>` to the `data st
 to have a task_ that defines which callable_ will be called when each job_ is run.
 
 In most cases, you don't need to go through this step, and instead have a task_
-implicitly created for you by the methods that add `schedules or jobs.
+implicitly created for you by the methods that add schedules or jobs.
 
 Explicitly configuring a task is generally only necessary in the following cases:
 
