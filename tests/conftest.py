@@ -86,12 +86,28 @@ async def asyncpg_broker(serializer: Serializer) -> EventBroker:
     return broker
 
 
+@pytest.fixture
+async def psycopg_broker(serializer: Serializer) -> EventBroker:
+    pytest.importorskip("psycopg", reason="psycopg is not installed")
+    from apscheduler.eventbrokers.psycopg import PsycopgEventBroker
+
+    broker = PsycopgEventBroker(
+        "postgres://postgres:secret@localhost:5432/testdb", serializer=serializer
+    )
+    return broker
+
+
 @pytest.fixture(
     params=[
         pytest.param(lf("local_broker"), id="local"),
         pytest.param(
             lf("asyncpg_broker"),
             id="asyncpg",
+            marks=[pytest.mark.external_service],
+        ),
+        pytest.param(
+            lf("psycopg_broker"),
+            id="psycopg",
             marks=[pytest.mark.external_service],
         ),
         pytest.param(

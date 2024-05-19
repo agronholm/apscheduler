@@ -39,6 +39,7 @@ Event brokers
 .. autoclass:: apscheduler.abc.Subscription
 .. autoclass:: apscheduler.eventbrokers.local.LocalEventBroker
 .. autoclass:: apscheduler.eventbrokers.asyncpg.AsyncpgEventBroker
+.. autoclass:: apscheduler.eventbrokers.psycopg.PsycopgEventBroker
 .. autoclass:: apscheduler.eventbrokers.mqtt.MQTTEventBroker
 .. autoclass:: apscheduler.eventbrokers.redis.RedisEventBroker
 

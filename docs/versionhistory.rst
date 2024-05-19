@@ -4,6 +4,10 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+**UNRELEASED**
+
+- Added the ``psycopg`` event broker
+
 **4.0.0a5**
 
 - **BREAKING** Added the ``cleanup()`` scheduler method and a configuration option
