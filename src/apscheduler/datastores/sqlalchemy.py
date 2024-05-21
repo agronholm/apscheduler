@@ -301,7 +301,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("max_jitter", interval_type),
             *next_fire_time_tzoffset_columns,
             Column("last_fire_time", timestamp_type),
-            Column("acquired_by", Unicode(500)),
+            Column("acquired_by", Unicode(500), index=True),
             Column("acquired_until", timestamp_type),
         )
         Table(
@@ -317,7 +317,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("start_deadline", timestamp_type),
             Column("result_expiration_time", interval_type),
             Column("created_at", timestamp_type, nullable=False),
-            Column("acquired_by", Unicode(500)),
+            Column("acquired_by", Unicode(500), index=True),
             Column("acquired_until", timestamp_type),
         )
         Table(
@@ -326,7 +326,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("job_id", Uuid, primary_key=True),
             Column("outcome", Enum(JobOutcome, metadata=metadata), nullable=False),
             Column("started_at", timestamp_type, index=True),
-            Column("finished_at", timestamp_type, nullable=False, index=True),
+            Column("finished_at", timestamp_type, nullable=False),
             Column("expires_at", timestamp_type, nullable=False, index=True),
             Column("exception", LargeBinary),
             Column("return_value", LargeBinary),

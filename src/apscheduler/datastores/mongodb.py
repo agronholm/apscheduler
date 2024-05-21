@@ -206,11 +206,12 @@ class MongoDBDataStore(BaseExternalDataStore):
                 self._jobs.delete_many({}, session=session)
                 self._jobs_results.delete_many({}, session=session)
 
+            self._schedules.create_index("task_id", session=session)
             self._schedules.create_index("next_fire_time", session=session)
+            self._schedules.create_index("acquired_by", session=session)
             self._jobs.create_index("task_id", session=session)
             self._jobs.create_index("schedule_id", session=session)
-            self._jobs.create_index("created_at", session=session)
-            self._jobs_results.create_index("finished_at", session=session)
+            self._jobs.create_index("acquired_by", session=session)
             self._jobs_results.create_index("expires_at", session=session)
 
     async def start(
