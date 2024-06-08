@@ -72,6 +72,7 @@ class Schedule:
 
     :var str id: the unique identifier of this schedule
     :var str task_id: unique identifier of the task to be run on this schedule
+    :var Trigger trigger: the trigger that determines when the task will be run
     :var tuple args: positional arguments to pass to the task callable
     :var dict[str, Any] kwargs: keyword arguments to pass to the task callable
     :var bool paused: whether the schedule is paused
@@ -82,8 +83,6 @@ class Schedule:
         run time
     :var ~datetime.timedelta | None max_jitter: maximum number of seconds to randomly
         add to the scheduled time for each job created from this schedule
-    :var ConflictPolicy conflict_policy: determines what to do if a schedule with the
-        same ID already exists in the data store
     :var ~datetime.datetime next_fire_time: the next time the task will be run
     :var ~datetime.datetime | None last_fire_time: the last time the task was scheduled
         to run
@@ -178,8 +177,6 @@ class Job:
     :var ~datetime.timedelta result_expiration_time: minimum amount of time to keep the
         result available for fetching in the data store
     :var ~datetime.datetime created_at: the time at which the job was created
-    :var ~datetime.datetime | None started_at: the time at which the execution of the
-        job was started
     :var str | None acquired_by: the unique identifier of the scheduler that has
         acquired the job for execution
     :var str | None acquired_until: the time after which other schedulers are free to
@@ -252,6 +249,7 @@ class JobResult:
         executor (``None`` if the job never started in the first place)
     :var ~datetime.datetime finished_at: the time when the job ended (``None`` if the
         job never started in the first place)
+    :var ~datetime.datetime expires_at: the time when the result will expire
     :var BaseException | None exception: the exception object if the job ended due to an
         exception being raised
     :var return_value: the return value from the task function (if the job ran to
