@@ -4,7 +4,6 @@ from collections.abc import AsyncGenerator, Mapping
 from contextlib import AsyncExitStack, asynccontextmanager
 from logging import Logger
 from typing import TYPE_CHECKING, Any, NoReturn
-from urllib.parse import urlunparse
 
 import attrs
 from anyio import (
@@ -85,16 +84,10 @@ class PsycopgEventBroker(BaseExternalEventBroker):
                 f"{engine.dialect.driver})"
             )
 
-        conninfo = urlunparse(
-            [
-                "postgres",
-                engine.url.username,
-                engine.url.password,
-                engine.url.host,
-                engine.url.database,
-            ]
+        conninfo = engine.url.render_as_string(hide_password=False).replace(
+            "+psycopg", ""
         )
-        opts = dict(options, autocommit=True)
+        opts = dict(options or {}, autocommit=True)
         return cls(conninfo, opts, **kwargs)
 
     @property
