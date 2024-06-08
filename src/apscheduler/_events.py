@@ -253,8 +253,8 @@ class JobReleased(SchedulerEvent):
     :param uuid.UUID job_id: the ID of the job that was released
     :param scheduler_id: the ID of the scheduler that released the job
     :param task_id: ID of the task run by the job
-    :param schedule_id: ID of the schedule that created the job
-    :param scheduled_start: the time the job was scheduled to start via a schedule (if
+    :param schedule_id: ID of the schedule (if any) that created the job
+    :param scheduled_start: the time the job was scheduled to start via the schedule (if
         any)
     :param started_at: the time the executor actually started running the job (``None``
         if the job was skipped due to missing its start deadline)
