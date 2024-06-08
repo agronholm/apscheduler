@@ -140,8 +140,8 @@ def test_asyncpg_broker_from_async_engine() -> None:
     engine = create_async_engine(url)
     broker = AsyncpgEventBroker.from_async_sqla_engine(engine)
     assert isinstance(broker, AsyncpgEventBroker)
-    assert broker.conninfo == (
-        "postgresql://myuser:c %2F%%40@localhost:7654/dbname?opt1=foo&opt2=bar"
+    assert broker.dsn == (
+        "postgresql://myuser:c %2F%25%40@localhost:7654/dbname?opt1=foo&opt2=bar"
     )
 
 
@@ -165,5 +165,5 @@ def test_psycopg_broker_from_async_engine() -> None:
     broker = PsycopgEventBroker.from_async_sqla_engine(engine)
     assert isinstance(broker, PsycopgEventBroker)
     assert broker.conninfo == (
-        "postgresql://myuser:c %2F%%40@localhost:7654/dbname?opt1=foo&opt2=bar"
+        "postgresql://myuser:c %2F%25%40@localhost:7654/dbname?opt1=foo&opt2=bar"
     )

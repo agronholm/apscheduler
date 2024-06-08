@@ -6,6 +6,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- **BREAKING** Refactored ``AsyncpgEventBroker`` to directly accept a connection string,
+  thus eliminating the need for the ``AsyncpgEventBroker.from_dsn()`` class method
 - Added the ``psycopg`` event broker
 - Added useful indexes and removed useless ones in ``SQLAlchemyDatastore`` and
   ``MongoDBDataStore``
