@@ -119,3 +119,51 @@ async def test_cancel_stop(raw_event_broker: EventBroker, logger: Logger) -> Non
         async with AsyncExitStack() as exit_stack:
             await raw_event_broker.start(exit_stack, logger)
             scope.cancel()
+
+
+def test_asyncpg_broker_from_async_engine() -> None:
+    pytest.importorskip("asyncpg", reason="asyncpg is not installed")
+    from sqlalchemy import URL
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
+
+    url = URL(
+        "postgresql+asyncpg",
+        "myuser",
+        "c /%@",
+        "localhost",
+        7654,
+        "dbname",
+        {"opt1": "foo", "opt2": "bar"},
+    )
+    engine = create_async_engine(url)
+    broker = AsyncpgEventBroker.from_async_sqla_engine(engine)
+    assert isinstance(broker, AsyncpgEventBroker)
+    assert broker.dsn == (
+        "postgresql://myuser:c %2F%25%40@localhost:7654/dbname?opt1=foo&opt2=bar"
+    )
+
+
+def test_psycopg_broker_from_async_engine() -> None:
+    pytest.importorskip("psycopg", reason="psycopg is not installed")
+    from sqlalchemy import URL
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from apscheduler.eventbrokers.psycopg import PsycopgEventBroker
+
+    url = URL(
+        "postgresql+psycopg",
+        "myuser",
+        "c /%@",
+        "localhost",
+        7654,
+        "dbname",
+        {"opt1": "foo", "opt2": "bar"},
+    )
+    engine = create_async_engine(url)
+    broker = PsycopgEventBroker.from_async_sqla_engine(engine)
+    assert isinstance(broker, PsycopgEventBroker)
+    assert broker.conninfo == (
+        "postgresql://myuser:c %2F%25%40@localhost:7654/dbname?opt1=foo&opt2=bar"
+    )

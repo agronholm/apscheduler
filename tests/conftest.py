@@ -80,7 +80,7 @@ async def asyncpg_broker(serializer: Serializer) -> EventBroker:
     pytest.importorskip("asyncpg", reason="asyncpg is not installed")
     from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
 
-    broker = AsyncpgEventBroker.from_dsn(
+    broker = AsyncpgEventBroker(
         "postgres://postgres:secret@localhost:5432/testdb", serializer=serializer
     )
     return broker

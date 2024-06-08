@@ -4,7 +4,6 @@ from collections.abc import AsyncGenerator, Mapping
 from contextlib import AsyncExitStack, asynccontextmanager
 from logging import Logger
 from typing import TYPE_CHECKING, Any, NoReturn
-from urllib.parse import urlunparse
 
 import attrs
 from anyio import (
@@ -40,6 +39,8 @@ class PsycopgEventBroker(BaseExternalEventBroker):
 
     :param conninfo: a libpq connection string (e.g.
         ``postgres://user:pass@host:port/dbname``)
+    :param options: extra keyword arguments passed to
+        :meth:`psycopg.AsyncConnection.connect`
     :param channel: the ``NOTIFY`` channel to use
     :param max_idle_time: maximum time (in seconds) to let the connection go idle,
         before sending a ``SELECT 1`` query to prevent a connection timeout
@@ -71,10 +72,10 @@ class PsycopgEventBroker(BaseExternalEventBroker):
         The engine will only be used to create the appropriate options for
         :meth:`psycopg.AsyncConnection.connect`.
 
-        :param engine: an asynchronous SQLAlchemy engine using asyncpg as the driver
+        :param engine: an asynchronous SQLAlchemy engine using psycopg as the driver
         :type engine: ~sqlalchemy.ext.asyncio.AsyncEngine
-        :param options: extra keyword arguments passed to :func:`asyncpg.connect` (will
-            override any automatically generated arguments based on the engine)
+        :param options: extra keyword arguments passed to
+            :meth:`psycopg.AsyncConnection.connect`
         :param kwargs: keyword arguments to pass to the initializer of this class
         :return: the newly created event broker
 
@@ -85,17 +86,10 @@ class PsycopgEventBroker(BaseExternalEventBroker):
                 f"{engine.dialect.driver})"
             )
 
-        conninfo = urlunparse(
-            [
-                "postgres",
-                engine.url.username,
-                engine.url.password,
-                engine.url.host,
-                engine.url.database,
-            ]
+        conninfo = engine.url.render_as_string(hide_password=False).replace(
+            "+psycopg", ""
         )
-        opts = dict(options, autocommit=True)
-        return cls(conninfo, opts, **kwargs)
+        return cls(conninfo, options or {}, **kwargs)
 
     @property
     def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:
@@ -109,7 +103,8 @@ class PsycopgEventBroker(BaseExternalEventBroker):
                 try:
                     yield conn
                 finally:
-                    await conn.close()
+                    with move_on_after(5, shield=True):
+                        await conn.close()
 
     async def start(self, exit_stack: AsyncExitStack, logger: Logger) -> None:
         await super().start(exit_stack, logger)
