@@ -110,6 +110,7 @@ class CronTrigger(Trigger):
 
             field = field_class(field_name, exprs)
             self._fields.append(field)
+            setattr(self, field_name, field)
 
     @classmethod
     def from_crontab(cls, expr: str, timezone: str | tzinfo = "local") -> CronTrigger:
