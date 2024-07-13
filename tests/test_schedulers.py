@@ -7,6 +7,7 @@ import sysconfig
 import threading
 import time
 from collections.abc import Callable
+from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from pathlib import Path
@@ -55,6 +56,7 @@ from apscheduler.eventbrokers.local import LocalEventBroker
 from apscheduler.executors.async_ import AsyncJobExecutor
 from apscheduler.executors.subprocess import ProcessPoolJobExecutor
 from apscheduler.executors.thread import ThreadPoolJobExecutor
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -857,6 +859,63 @@ class TestAsyncScheduler:
                 await scheduler.add_job("dummyjob")
                 await scheduler.add_job("dummyjob")
                 await scheduler.run_until_stopped()
+
+    @pytest.mark.parametrize(
+        "trigger_type, run_job",
+        [
+            pytest.param("cron", False, id="cron"),
+            pytest.param("date", True, id="date"),
+        ],
+    )
+    async def test_pause_unpause_schedule(
+        self,
+        raw_datastore: DataStore,
+        timezone: ZoneInfo,
+        trigger_type: str,
+        run_job: bool,
+    ) -> None:
+        if trigger_type == "cron":
+            trigger = CronTrigger()
+        else:
+            trigger = DateTrigger(datetime.now(timezone))
+
+        async with AsyncExitStack() as exit_stack:
+            send, receive = create_memory_object_stream[Event](4)
+            exit_stack.enter_context(send)
+            exit_stack.enter_context(receive)
+            scheduler = await exit_stack.enter_async_context(
+                AsyncScheduler(data_store=raw_datastore, role=SchedulerRole.scheduler)
+            )
+            schedule_id = await scheduler.add_schedule(
+                dummy_async_job, trigger, id="foo"
+            )
+            scheduler.subscribe(send.send, {ScheduleUpdated, JobAdded})
+
+            # Pause the schedule and wait for the schedule update event
+            await scheduler.pause_schedule(schedule_id)
+            schedule = await scheduler.get_schedule(schedule_id)
+            assert schedule.paused
+            event = await receive.receive()
+            assert isinstance(event, ScheduleUpdated)
+
+            if run_job:
+                # Make sure that no jobs are added when the scheduler is started
+                await scheduler.start_in_background()
+                assert not await scheduler.get_jobs()
+
+            # Unpause the schedule and wait for the schedule update event
+            await scheduler.unpause_schedule(schedule_id)
+            schedule = await scheduler.get_schedule(schedule_id)
+            assert not schedule.paused
+            event = await receive.receive()
+            assert isinstance(event, ScheduleUpdated)
+
+            if run_job:
+                with fail_after(3):
+                    job_added_event = await receive.receive()
+
+                assert isinstance(job_added_event, JobAdded)
+                assert job_added_event.schedule_id == schedule_id
 
 
 class TestSyncScheduler:

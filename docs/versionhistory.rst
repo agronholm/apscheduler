@@ -11,6 +11,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Added the ``psycopg`` event broker
 - Added useful indexes and removed useless ones in ``SQLAlchemyDatastore`` and
   ``MongoDBDataStore``
+- Fixed serialization error with ``CronTrigger`` when pausing a schedule
+  (`#923 <https://github.com/agronholm/apscheduler/issues/923>`_)
 
 **4.0.0a5**
 
