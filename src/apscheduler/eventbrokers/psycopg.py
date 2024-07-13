@@ -12,7 +12,7 @@ from anyio import (
     move_on_after,
 )
 from anyio.abc import TaskStatus
-from anyio.streams.memory import MemoryObjectSendStream
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from attr.validators import instance_of
 from psycopg import AsyncConnection, InterfaceError
 
@@ -108,10 +108,15 @@ class PsycopgEventBroker(BaseExternalEventBroker):
 
     async def start(self, exit_stack: AsyncExitStack, logger: Logger) -> None:
         await super().start(exit_stack, logger)
-        await self._task_group.start(self._listen_notifications)
-        exit_stack.callback(self._task_group.cancel_scope.cancel)
-        self._send = await self._task_group.start(self._publish_notifications)
-        await exit_stack.enter_async_context(self._send)
+        self._send, receive = create_memory_object_stream[str](100)
+        try:
+            await exit_stack.enter_async_context(self._send)
+            await self._task_group.start(self._listen_notifications)
+            exit_stack.callback(self._task_group.cancel_scope.cancel)
+            await self._task_group.start(self._publish_notifications, receive)
+        except BaseException:
+            receive.close()
+            raise
 
     async def _listen_notifications(self, *, task_status: TaskStatus[None]) -> None:
         task_started_sent = False
@@ -132,15 +137,14 @@ class PsycopgEventBroker(BaseExternalEventBroker):
                     self._logger.error("Connection error: %s", exc)
 
     async def _publish_notifications(
-        self, *, task_status: TaskStatus[MemoryObjectSendStream[str]]
+        self, receive: MemoryObjectReceiveStream[str], *, task_status: TaskStatus[None]
     ) -> NoReturn:
-        send, receive = create_memory_object_stream[str](100)
         task_started_sent = False
         with receive:
             while True:
                 async with self._connect() as conn:
                     if not task_started_sent:
-                        task_status.started(send)
+                        task_status.started()
                         task_started_sent = True
 
                     self._logger.debug("Publish connection established")

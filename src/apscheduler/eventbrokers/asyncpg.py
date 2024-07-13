@@ -3,17 +3,17 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator, Mapping
 from contextlib import AsyncExitStack, asynccontextmanager
 from logging import Logger
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import asyncpg
 import attrs
 from anyio import (
-    TASK_STATUS_IGNORED,
     EndOfStream,
     create_memory_object_stream,
     move_on_after,
 )
-from anyio.streams.memory import MemoryObjectSendStream
+from anyio.abc import TaskStatus
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from asyncpg import Connection, InterfaceError
 from attr.validators import instance_of
 
@@ -96,13 +96,13 @@ class AsyncpgEventBroker(BaseExternalEventBroker):
 
     async def start(self, exit_stack: AsyncExitStack, logger: Logger) -> None:
         await super().start(exit_stack, logger)
-        self._send = cast(
-            MemoryObjectSendStream[str],
-            await self._task_group.start(self._listen_notifications),
-        )
+        self._send, receive = create_memory_object_stream[str](100)
         await exit_stack.enter_async_context(self._send)
+        await self._task_group.start(self._listen_notifications, receive)
 
-    async def _listen_notifications(self, *, task_status=TASK_STATUS_IGNORED) -> None:
+    async def _listen_notifications(
+        self, receive: MemoryObjectReceiveStream[str], *, task_status: TaskStatus[None]
+    ) -> None:
         conn: Connection
 
         def listen_callback(
@@ -118,35 +118,37 @@ class AsyncpgEventBroker(BaseExternalEventBroker):
                     await conn.remove_listener(self.channel, listen_callback)
 
         task_started_sent = False
-        send, receive = create_memory_object_stream[str](100)
-        while True:
-            async with AsyncExitStack() as exit_stack:
-                conn = await exit_stack.enter_async_context(self._connect())
-                self._logger.info("Connection established")
-                try:
-                    await conn.add_listener(self.channel, listen_callback)
-                    exit_stack.push_async_callback(unsubscribe)
-                    if not task_started_sent:
-                        task_status.started(send)
-                        task_started_sent = True
+        with receive:
+            while True:
+                async with AsyncExitStack() as exit_stack:
+                    conn = await exit_stack.enter_async_context(self._connect())
+                    self._logger.info("Connection established")
+                    try:
+                        await conn.add_listener(self.channel, listen_callback)
+                        exit_stack.push_async_callback(unsubscribe)
+                        if not task_started_sent:
+                            task_status.started()
+                            task_started_sent = True
 
-                    while True:
-                        notification: str | None = None
-                        with move_on_after(self.max_idle_time):
-                            try:
-                                notification = await receive.receive()
-                            except EndOfStream:
-                                self._logger.info("Stream finished")
-                                return
+                        while True:
+                            notification: str | None = None
+                            with move_on_after(self.max_idle_time):
+                                try:
+                                    notification = await receive.receive()
+                                except EndOfStream:
+                                    self._logger.info("Stream finished")
+                                    return
 
-                        if notification:
-                            await conn.execute(
-                                "SELECT pg_notify($1, $2)", self.channel, notification
-                            )
-                        else:
-                            await conn.execute("SELECT 1")
-                except InterfaceError as exc:
-                    self._logger.error("Connection error: %s", exc)
+                            if notification:
+                                await conn.execute(
+                                    "SELECT pg_notify($1, $2)",
+                                    self.channel,
+                                    notification,
+                                )
+                            else:
+                                await conn.execute("SELECT 1")
+                    except InterfaceError as exc:
+                        self._logger.error("Connection error: %s", exc)
 
     async def publish(self, event: Event) -> None:
         notification = self.generate_notification_str(event)
