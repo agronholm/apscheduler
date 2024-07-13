@@ -343,7 +343,10 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             )
 
         if self._close_on_exit:
-            exit_stack.push_async_callback(self._engine.dispose)
+            if isinstance(self._engine, AsyncEngine):
+                exit_stack.push_async_callback(self._engine.dispose)
+            else:
+                exit_stack.callback(self._engine.dispose)
 
         await super().start(exit_stack, event_broker, logger)
 

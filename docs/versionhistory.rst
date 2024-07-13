@@ -13,6 +13,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   ``MongoDBDataStore``
 - Fixed serialization error with ``CronTrigger`` when pausing a schedule
   (`#923 <https://github.com/agronholm/apscheduler/issues/923>`_)
+- Fixed ``TypeError: object NoneType can't be used in 'await' expression`` at teardown
+  of ``SQLAlchemyDataStore`` when it was passed a URL that implicitly created a
+  synchronous engine
 
 **4.0.0a5**
 
