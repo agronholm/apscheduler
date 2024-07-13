@@ -28,7 +28,7 @@ license = {text = "MIT"}
 requires-python = ">= 3.8"
 dependencies = [
     "anyio ~= 4.0",
-    "attrs >= 21.3",
+    "attrs >= 22.1",
     "tenacity ~= 8.0",
     "tzlocal >= 3.0",
     "typing_extensions >= 4.0; python_version < '3.11'"
@@ -98,7 +98,6 @@ extend-select = [
     "ISC",          # flake8-implicit-str-concat
     "PGH",          # pygrep-hooks
     "RUF",          # ruff specific rules
-    "TRIO",         # trio/anyio rules
     "UP",           # pyupgrade
     "W",            # pycodestyle warnings
 ]

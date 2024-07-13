@@ -139,7 +139,7 @@ class Schedule:
     )
 
     def marshal(self, serializer: Serializer) -> dict[str, Any]:
-        marshalled = attrs.asdict(self, value_serializer=serialize)
+        marshalled = attrs.asdict(self, recurse=False, value_serializer=serialize)
         marshalled["trigger"] = serializer.serialize(self.trigger)
         marshalled["args"] = serializer.serialize(self.args)
         marshalled["kwargs"] = serializer.serialize(self.kwargs)
@@ -222,7 +222,7 @@ class Job:
         return self.scheduled_fire_time - self.jitter
 
     def marshal(self, serializer: Serializer) -> dict[str, Any]:
-        marshalled = attrs.asdict(self, value_serializer=serialize)
+        marshalled = attrs.asdict(self, recurse=False, value_serializer=serialize)
         marshalled["args"] = serializer.serialize(self.args)
         marshalled["kwargs"] = serializer.serialize(self.kwargs)
         if not self.acquired_by:
