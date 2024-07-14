@@ -479,13 +479,12 @@ When **distributed** event brokers (that is, other than the default one) are bei
 events other than the ones relating to the life cycles of schedulers and workers, will
 be sent to all schedulers and workers connected to that event broker.
 
-Clean-up of expired jobs and schedules
-======================================
+Clean-up of expired jobs, job results and schedules
+===================================================
 
-Expired job results and finished schedules are, by default, automatically cleaned up by
-each running scheduler on 15 minute intervals (counting from the scheduler's start
-time). This can be adjusted (or disabled entirely) through the ``cleanup_interval``
-configuration option.
+Each scheduler runs the data store's :meth:`~DataStore.cleanup` method periodically,
+configurable via the ``cleanup_interval`` scheduler parameter. This ensures that the
+data store doesn't get filled with unused data over time.
 
 Deployment
 ==========

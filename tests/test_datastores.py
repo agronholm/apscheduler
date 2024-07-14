@@ -557,3 +557,92 @@ async def test_next_schedule_run_time(datastore: DataStore, schedules: list[Sche
 
     next_schedule_run_time = await datastore.get_next_schedule_run_time()
     assert next_schedule_run_time == datetime(2020, 9, 13, tzinfo=timezone.utc)
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
+async def test_extend_acquired_schedule_leases(
+    datastore: DataStore, time_machine: TimeMachineFixture, schedules: list[Schedule]
+) -> None:
+    """
+    Test that the leases on acquired schedules are updated to prevent other schedulers
+    from acquiring them.
+
+    """
+    time_machine.move_to(datetime(2020, 9, 14, tzinfo=timezone.utc))
+
+    # Add a schedule to the data store
+    await datastore.add_schedule(schedules[0], ConflictPolicy.exception)
+
+    # Acquire the schedule
+    schedules = await datastore.acquire_schedules("scheduler_id", 1)
+    assert len(schedules) == 1
+
+    # Move 20 seconds forward, then call extend_acquired_schedule_leases(). This should
+    # set the acquired_until timestamp to 30 seconds from the new current time.
+    time_machine.shift(20)
+    await datastore.extend_acquired_schedule_leases("scheduler_id", {schedules[0].id})
+
+    # The schedule was acquired by scheduler_id so scheduler2_id should not be able to
+    # acquire it, as it's still within the original lock expiration delay
+    assert not await datastore.acquire_schedules("scheduler2_id", 1)
+
+    # Move 20 more seconds forward (beyond the initial lock expiration delay), then try
+    # to have the second scheduler acquire the schedule again. This should also fail.
+    time_machine.shift(20)
+    assert not await datastore.acquire_schedules("scheduler2_id", 1)
+
+    # Move 20 more seconds forward - this time the schedule should be available
+    time_machine.shift(20)
+    schedules = await datastore.acquire_schedules("scheduler2_id", 1)
+    assert len(schedules) == 1
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
+async def test_extend_acquired_job_leases(
+    datastore: DataStore, time_machine: TimeMachineFixture
+) -> None:
+    """
+    Test that the leases on acquired jobs are updated to prevent them from being cleaned
+    up as if they had been abandoned.
+
+    """
+    time_machine.move_to(datetime(2020, 9, 14, tzinfo=timezone.utc))
+
+    # Add a task to the data store
+    task = Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    await datastore.add_task(task)
+
+    # Add a job to the data store
+    job = Job(task_id="task1")
+    await datastore.add_job(job)
+
+    # Acquire the job
+    jobs = await datastore.acquire_jobs("scheduler_id", 1)
+    assert len(jobs) == 1
+
+    # Move 20 seconds forward, then call extend_acquired_job_leases(). This should set
+    # the acquired_until timestamp to 30 seconds from the new current time.
+    time_machine.shift(20)
+    await datastore.extend_acquired_job_leases("scheduler_id", {job.id})
+
+    # The job was acquired by scheduler_id so scheduler2_id should not be able to
+    # acquire it
+    assert not await datastore.acquire_jobs("scheduler2_id", 1)
+
+    # Move 20 more seconds forward (beyond the initial lock expiration delay), then make
+    # sure that the job is still within the data store.
+    time_machine.shift(20)
+    await datastore.cleanup()
+    jobs = await datastore.get_jobs({job.id})
+    assert len(jobs) == 1
+
+    # Move 20 more seconds forward - this time the job's lease will have expired
+    time_machine.shift(20)
+    await datastore.cleanup()
+    assert not await datastore.get_jobs({job.id})

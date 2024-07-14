@@ -55,6 +55,7 @@ from sqlalchemy.sql.type_api import TypeEngine
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome
 from .._events import (
     DataStoreEvent,
+    Event,
     JobAcquired,
     JobAdded,
     JobDeserializationFailed,
@@ -596,7 +597,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             with attempt:
                 async with self._begin_transaction() as conn:
                     now = datetime.now(timezone.utc)
-                    acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
+                    acquired_until = now + self.lock_expiration_delay
                     if self._supports_tzaware_timestamps:
                         comparison = self._t_schedules.c.next_fire_time <= now
                     else:
@@ -819,7 +820,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             with attempt:
                 async with self._begin_transaction() as conn:
                     now = datetime.now(timezone.utc)
-                    acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
+                    acquired_until = now + self.lock_expiration_delay
                     query = (
                         self._t_jobs.select()
                         .join(
@@ -905,34 +906,42 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
         return acquired_jobs
 
+    async def _release_job(
+        self,
+        conn: Connection | AsyncConnection,
+        scheduler_id: str,
+        job: Job,
+        result: JobResult,
+    ) -> JobReleased:
+        # Record the job result
+        if result.expires_at > result.finished_at:
+            marshalled = result.marshal(self.serializer)
+            insert = self._t_job_results.insert().values(**marshalled)
+            await self._execute(conn, insert)
+
+        # Decrement the number of running jobs for this task
+        update = (
+            self._t_tasks.update()
+            .values(running_jobs=self._t_tasks.c.running_jobs - 1)
+            .where(self._t_tasks.c.id == job.task_id)
+        )
+        await self._execute(conn, update)
+
+        # Delete the job
+        delete = self._t_jobs.delete().where(self._t_jobs.c.id == result.job_id)
+        await self._execute(conn, delete)
+
+        # Create the event, to be sent after commit
+        return JobReleased.from_result(job, result, scheduler_id)
+
     async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
-                    # Record the job result
-                    if result.expires_at > result.finished_at:
-                        marshalled = result.marshal(self.serializer)
-                        insert = self._t_job_results.insert().values(**marshalled)
-                        await self._execute(conn, insert)
-
-                    # Decrement the number of running jobs for this task
-                    update = (
-                        self._t_tasks.update()
-                        .values(running_jobs=self._t_tasks.c.running_jobs - 1)
-                        .where(self._t_tasks.c.id == job.task_id)
-                    )
-                    await self._execute(conn, update)
-
-                    # Delete the job
-                    delete = self._t_jobs.delete().where(
-                        self._t_jobs.c.id == result.job_id
-                    )
-                    await self._execute(conn, delete)
+                    event = await self._release_job(conn, scheduler_id, job, result)
 
         # Notify other schedulers
-        await self._event_broker.publish(
-            JobReleased.from_result(job, result, scheduler_id)
-        )
+        await self._event_broker.publish(event)
 
     async def get_job_result(self, job_id: UUID) -> JobResult | None:
         async for attempt in self._retry():
@@ -952,15 +961,69 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
         return JobResult.unmarshal(self.serializer, row._asdict()) if row else None
 
+    async def extend_acquired_schedule_leases(
+        self, scheduler_id: str, schedule_ids: set[str]
+    ) -> None:
+        async for attempt in self._retry():
+            with attempt:
+                async with self._begin_transaction() as conn:
+                    new_acquired_until = (
+                        datetime.now(timezone.utc) + self.lock_expiration_delay
+                    )
+                    update = (
+                        self._t_schedules.update()
+                        .values(acquired_until=new_acquired_until)
+                        .where(
+                            self._t_schedules.c.acquired_by == scheduler_id,
+                            self._t_schedules.c.id.in_(schedule_ids),
+                        )
+                    )
+                    await self._execute(conn, update)
+
+    async def extend_acquired_job_leases(
+        self, scheduler_id: str, job_ids: set[UUID]
+    ) -> None:
+        async for attempt in self._retry():
+            with attempt:
+                async with self._begin_transaction() as conn:
+                    new_acquired_until = (
+                        datetime.now(timezone.utc) + self.lock_expiration_delay
+                    )
+                    update = (
+                        self._t_jobs.update()
+                        .values(acquired_until=new_acquired_until)
+                        .where(
+                            self._t_jobs.c.acquired_by == scheduler_id,
+                            self._t_jobs.c.id.in_(job_ids),
+                        )
+                    )
+                    await self._execute(conn, update)
+
     async def cleanup(self) -> None:
         async for attempt in self._retry():
             with attempt:
+                events: list[Event] = []
                 async with self._begin_transaction() as conn:
                     # Purge expired job results
                     delete = self._t_job_results.delete().where(
                         self._t_job_results.c.expires_at <= datetime.now(timezone.utc)
                     )
                     await self._execute(conn, delete)
+
+                    # Finish any jobs whose leases have expired
+                    now = datetime.now(timezone.utc)
+                    query = select(self._t_jobs).where(
+                        self._t_jobs.c.acquired_until < now
+                    )
+                    results = await self._execute(conn, query)
+                    jobs = await self._deserialize_jobs(results)
+                    for job in jobs:
+                        result = JobResult.from_job(
+                            job, outcome=JobOutcome.cancelled, finished_at=now
+                        )
+                        events.append(
+                            await self._release_job(conn, job.acquired_by, job, result)
+                        )
 
                     # Clean up finished schedules that have no running jobs
                     query = (
@@ -981,11 +1044,15 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         )
                         await self._execute(conn, delete)
 
-                for schedule_id, task_id in finished_schedule_ids.items():
-                    await self._event_broker.publish(
-                        ScheduleRemoved(
-                            schedule_id=schedule_id,
-                            task_id=task_id,
-                            finished=True,
+                    for schedule_id, task_id in finished_schedule_ids.items():
+                        events.append(
+                            ScheduleRemoved(
+                                schedule_id=schedule_id,
+                                task_id=task_id,
+                                finished=True,
+                            )
                         )
-                    )
+
+                # Publish any events produced from the operations
+                for event in events:
+                    await self._event_broker.publish(event)

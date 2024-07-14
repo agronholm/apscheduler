@@ -330,11 +330,39 @@ class DataStore(metaclass=ABCMeta):
         :return: the result, or ``None`` if the result was not found
         """
 
+    async def extend_acquired_schedule_leases(
+        self, scheduler_id: str, schedule_ids: set[str]
+    ) -> None:
+        """
+        Extend the leases of specified schedules acquired by the given scheduler.
+
+        :param scheduler_id: unique identifier of the scheduler
+        :param schedule_ids: the identifiers of the schedules the scheduler is currently
+            processing
+        """
+
+    async def extend_acquired_job_leases(
+        self, scheduler_id: str, job_ids: set[UUID]
+    ) -> None:
+        """
+        Extend the leases of specified jobs acquired by the given scheduler.
+
+        :param scheduler_id: unique identifier of the scheduler
+        :param job_ids: the identifiers of the jobs the scheduler is running
+        """
+
     @abstractmethod
     async def cleanup(self) -> None:
         """
-        Purge expired job results and finished schedules that have no running jobs
-        associated with them.
+        Perform clean-up operations on the data store.
+
+        This method must perform the following operations (in this order):
+
+        * Purge expired job results (where ``expires_at`` is less or equal to the
+          current time)
+        * Release jobs with expired leases with the ``cancelled`` outcome
+        * Purge finished schedules (where ``next_run_time`` is ``None``) that have no
+          running jobs associated with them
         """
 
 

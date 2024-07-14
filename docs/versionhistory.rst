@@ -8,11 +8,22 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - **BREAKING** Refactored ``AsyncpgEventBroker`` to directly accept a connection string,
   thus eliminating the need for the ``AsyncpgEventBroker.from_dsn()`` class method
+- **BREAKING** Added the ``extend_acquired_schedule_leases()`` data store method to
+  prevent other schedulers from acquiring schedules already being processed by a
+  scheduler, if that's taking unexpectedly long for some reason
+- **BREAKING** Added the ``extend_acquired_job_leases()`` data store method to prevent
+  jobs from being cleaned up as if they had been abandoned
+  (`#864 <https://github.com/agronholm/apscheduler/issues/864>`_)
+- **BREAKING** Changed the ``cleanup()`` data store method to also be responsible for
+  releasing jobs whose leases have expired (so the schedulers responsible for them have
+  probably died)
 - Added the ``psycopg`` event broker
 - Added useful indexes and removed useless ones in ``SQLAlchemyDatastore`` and
   ``MongoDBDataStore``
+- Changed the ``lock_expiration_delay`` parameter of built-in data stores to accept a
+  ``timedelta`` as well as ``int`` or ``float``
 - Fixed serialization error with ``CronTrigger`` when pausing a schedule
-  (`#923 <https://github.com/agronholm/apscheduler/issues/923>`_)
+  (`#864 <https://github.com/agronholm/apscheduler/issues/864>`_)
 - Fixed ``TypeError: object NoneType can't be used in 'await' expression`` at teardown
   of ``SQLAlchemyDataStore`` when it was passed a URL that implicitly created a
   synchronous engine

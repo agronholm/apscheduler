@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from contextlib import AsyncExitStack
+from datetime import timedelta
 from logging import Logger
 
 import attrs
 
+from .._converters import as_timedelta
 from .._retry import RetryMixin
 from ..abc import DataStore, EventBroker, Serializer
 from ..serializers.pickle import PickleSerializer
@@ -19,7 +21,7 @@ class BaseDataStore(DataStore):
         can keep a lock on a schedule or task
     """
 
-    lock_expiration_delay: float = 30
+    lock_expiration_delay: timedelta = attrs.field(converter=as_timedelta, default=30)
     _event_broker: EventBroker = attrs.field(init=False)
     _logger: Logger = attrs.field(init=False)
 

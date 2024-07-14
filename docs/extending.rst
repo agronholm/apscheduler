@@ -135,6 +135,9 @@ several abstract methods:
 * :meth:`~abc.DataStore.acquire_jobs`
 * :meth:`~abc.DataStore.release_job`
 * :meth:`~abc.DataStore.get_job_result`
+* :meth:`~abc.DataStore.extend_acquired_schedule_leases`
+* :meth:`~abc.DataStore.extend_acquired_job_leases`
+* :meth:`~abc.DataStore.cleanup`
 
 The :meth:`~abc.DataStore.start` method is where your implementation can perform any
 initialization, including starting any background tasks. This method is called with two

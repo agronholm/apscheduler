@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from bisect import bisect_left, bisect_right, insort_right
 from collections import defaultdict
-from datetime import MAXYEAR, datetime, timedelta, timezone
+from datetime import MAXYEAR, datetime, timezone
 from functools import partial
 from typing import Iterable
 from uuid import UUID
 
 import attrs
 
+from .. import JobOutcome
 from .._enums import ConflictPolicy
 from .._events import (
     JobAcquired,
@@ -213,7 +214,7 @@ class MemoryDataStore(BaseDataStore):
             elif state.schedule.paused:
                 # The schedule is paused
                 continue
-            elif state.acquired_by is not None:
+            elif state.acquired_until is not None:
                 if state.acquired_by != scheduler_id and now <= state.acquired_until:
                     # The schedule has been acquired by another scheduler and the
                     # timeout has not expired yet
@@ -221,7 +222,7 @@ class MemoryDataStore(BaseDataStore):
 
             schedules.append(state.schedule)
             state.acquired_by = scheduler_id
-            state.acquired_until = now + timedelta(seconds=self.lock_expiration_delay)
+            state.acquired_until = now + self.lock_expiration_delay
             if len(schedules) == limit:
                 break
 
@@ -296,9 +297,7 @@ class MemoryDataStore(BaseDataStore):
             # Mark the job as acquired by this worker
             jobs.append(job_state.job)
             job_state.acquired_by = scheduler_id
-            job_state.acquired_until = now + timedelta(
-                seconds=self.lock_expiration_delay
-            )
+            job_state.acquired_until = now + self.lock_expiration_delay
 
             # Increment the number of running jobs for this task
             task_state.running_jobs += 1
@@ -353,6 +352,25 @@ class MemoryDataStore(BaseDataStore):
     async def get_job_result(self, job_id: UUID) -> JobResult | None:
         return self._job_results.pop(job_id, None)
 
+    async def extend_acquired_schedule_leases(
+        self, scheduler_id: str, schedule_ids: set[str]
+    ) -> None:
+        new_acquired_until = datetime.now(timezone.utc) + self.lock_expiration_delay
+        for schedule_state in self._schedules:
+            if (
+                schedule_state.acquired_by == scheduler_id
+                and schedule_state.schedule.id in schedule_ids
+            ):
+                schedule_state.acquired_until = new_acquired_until
+
+    async def extend_acquired_job_leases(
+        self, scheduler_id: str, job_ids: set[UUID]
+    ) -> None:
+        new_acquired_until = datetime.now(timezone.utc) + self.lock_expiration_delay
+        for job_state in self._jobs:
+            if job_state.acquired_by == scheduler_id and job_state.job.id in job_ids:
+                job_state.acquired_until = new_acquired_until
+
     async def cleanup(self) -> None:
         # Clean up expired job results
         now = datetime.now(timezone.utc)
@@ -363,6 +381,14 @@ class MemoryDataStore(BaseDataStore):
         ]
         for job_id in expired_job_ids:
             del self._job_results[job_id]
+
+        # Finish any jobs whose leases have expired
+        for job_state in self._jobs:
+            if job_state.acquired_until is not None and job_state.acquired_until < now:
+                result = JobResult.from_job(
+                    job=job_state.job, outcome=JobOutcome.cancelled, finished_at=now
+                )
+                await self.release_job(job_state.acquired_by, job_state.job, result)
 
         # Clean up finished schedules that have no running jobs
         finished_schedule_ids = [
