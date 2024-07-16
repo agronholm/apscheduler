@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import attrs
+from attr.setters import frozen
 from attrs.validators import and_, gt, instance_of, matches_re, min_len, optional
 
 from ._converters import as_aware_datetime, as_enum, as_timedelta
@@ -20,7 +21,7 @@ def serialize(inst: Any, field: attrs.Attribute, value: Any) -> Any:
     return value
 
 
-@attrs.define(kw_only=True)
+@attrs.define(kw_only=True, order=False)
 class Task:
     """
     Represents a callable and its surrounding configuration parameters.
@@ -36,26 +37,24 @@ class Task:
         scheduled run time
     """
 
-    id: str = attrs.field(validator=[instance_of(str), min_len(1)])
+    id: str = attrs.field(validator=[instance_of(str), min_len(1)], on_setattr=frozen)
     func: str | None = attrs.field(
-        eq=False,
-        order=False,
         validator=optional(and_(instance_of(str), matches_re(r".+:.+"))),
+        on_setattr=frozen,
     )
-    job_executor: str = attrs.field(eq=False, validator=instance_of(str))
+    job_executor: str = attrs.field(validator=instance_of(str), on_setattr=frozen)
     max_running_jobs: int | None = attrs.field(
-        eq=False,
-        order=False,
         default=None,
         validator=optional(and_(instance_of(int), gt(0))),
+        on_setattr=frozen,
     )
     misfire_grace_time: timedelta | None = attrs.field(
-        eq=False,
-        order=False,
         default=None,
         converter=as_timedelta,
         validator=optional(instance_of(timedelta)),
+        on_setattr=frozen,
     )
+    running_jobs: int | None = attrs.field(default=0)
 
     def marshal(self, serializer: Serializer) -> dict[str, Any]:
         return attrs.asdict(self, value_serializer=serialize)
@@ -64,8 +63,23 @@ class Task:
     def unmarshal(cls, serializer: Serializer, marshalled: dict[str, Any]) -> Task:
         return cls(**marshalled)
 
+    def __hash__(self) -> int:
+        return hash(self.id)
 
-@attrs.define(kw_only=True)
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Task):
+            return self.id == other.id
+
+        return NotImplemented
+
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, Task):
+            return self.id < other.id
+
+        return NotImplemented
+
+
+@attrs.define(kw_only=True, order=False)
 class Schedule:
     """
     Represents a schedule on which a task will be run.
@@ -92,50 +106,46 @@ class Schedule:
         acquire the schedule for processing even if it is still marked as acquired
     """
 
-    id: str = attrs.field(validator=[instance_of(str), min_len(1)])
+    id: str = attrs.field(validator=[instance_of(str), min_len(1)], on_setattr=frozen)
     task_id: str = attrs.field(
-        eq=False, order=False, validator=[instance_of(str), min_len(1)]
+        validator=[instance_of(str), min_len(1)], on_setattr=frozen
     )
     trigger: Trigger = attrs.field(
-        eq=False,
-        order=False,
         validator=instance_of(Trigger),  # type: ignore[type-abstract]
+        on_setattr=frozen,
     )
-    args: tuple = attrs.field(eq=False, order=False, converter=tuple, default=())
-    kwargs: dict[str, Any] = attrs.field(
-        eq=False, order=False, converter=dict, default=()
-    )
-    paused: bool = attrs.field(eq=False, order=False, default=False)
+    args: tuple = attrs.field(converter=tuple, default=())
+    kwargs: dict[str, Any] = attrs.field(converter=dict, default=())
+    paused: bool = attrs.field(default=False)
     coalesce: CoalescePolicy = attrs.field(
-        eq=False,
-        order=False,
         default=CoalescePolicy.latest,
         converter=as_enum(CoalescePolicy),
         validator=instance_of(CoalescePolicy),
+        on_setattr=frozen,
     )
     misfire_grace_time: timedelta | None = attrs.field(
-        eq=False,
-        order=False,
         default=None,
         converter=as_timedelta,
         validator=optional(instance_of(timedelta)),
+        on_setattr=frozen,
     )
     max_jitter: timedelta | None = attrs.field(
-        eq=False,
-        order=False,
         converter=as_timedelta,
         default=None,
         validator=optional(instance_of(timedelta)),
+        on_setattr=frozen,
     )
     next_fire_time: datetime | None = attrs.field(
-        eq=False, order=False, converter=as_aware_datetime, default=None
+        converter=as_aware_datetime,
+        default=None,
     )
     last_fire_time: datetime | None = attrs.field(
-        eq=False, order=False, converter=as_aware_datetime, default=None
+        converter=as_aware_datetime,
+        default=None,
     )
-    acquired_by: str | None = attrs.field(eq=False, order=False, default=None)
+    acquired_by: str | None = attrs.field(default=None)
     acquired_until: datetime | None = attrs.field(
-        eq=False, order=False, converter=as_aware_datetime, default=None
+        converter=as_aware_datetime, default=None
     )
 
     def marshal(self, serializer: Serializer) -> dict[str, Any]:
@@ -156,8 +166,51 @@ class Schedule:
         marshalled["kwargs"] = serializer.deserialize(marshalled["kwargs"])
         return cls(**marshalled)
 
+    def __hash__(self) -> int:
+        return hash(self.id)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Schedule):
+            return self.id == other.id
+
+        return NotImplemented
+
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, Schedule):
+            # Sort by next_fire_time first, exhausted schedules last
+            if self.next_fire_time is not None and other.next_fire_time is not None:
+                return self.next_fire_time < other.next_fire_time
+            elif self.next_fire_time is None:
+                return False
+            elif other.next_fire_time is None:
+                return True
+
+            # In all other cases, sort by schedule ID
+            return self.id < other.id
+
+        return NotImplemented
+
 
 @attrs.define(kw_only=True, frozen=True)
+class ScheduleResult:
+    """
+    Represents a result of a schedule processing operation.
+
+    :ivar schedule_id: ID of the schedule
+    :ivar task_id: ID of the schedule's task
+    :ivar trigger: the schedule's trigger
+    :ivar last_fire_time: the schedule's trigger
+    :ivar next_fire_time: the next
+    """
+
+    schedule_id: str
+    task_id: str
+    trigger: Trigger
+    last_fire_time: datetime
+    next_fire_time: datetime | None
+
+
+@attrs.define(kw_only=True, order=False)
 class Job:
     """
     Represents a queued request to run a task.
@@ -183,34 +236,32 @@ class Job:
         acquire the job for processing even if it is still marked as acquired
     """
 
-    id: UUID = attrs.field(factory=uuid4)
-    task_id: str = attrs.field(eq=False, order=False)
-    args: tuple = attrs.field(eq=False, order=False, converter=tuple, default=())
-    kwargs: dict[str, Any] = attrs.field(
-        eq=False, order=False, converter=dict, default=()
-    )
-    schedule_id: str | None = attrs.field(eq=False, order=False, default=None)
+    id: UUID = attrs.field(factory=uuid4, on_setattr=frozen)
+    task_id: str = attrs.field(on_setattr=frozen)
+    args: tuple = attrs.field(converter=tuple, default=(), on_setattr=frozen)
+    kwargs: dict[str, Any] = attrs.field(converter=dict, default=(), on_setattr=frozen)
+    schedule_id: str | None = attrs.field(default=None, on_setattr=frozen)
     scheduled_fire_time: datetime | None = attrs.field(
-        eq=False, order=False, converter=as_aware_datetime, default=None
+        converter=as_aware_datetime, default=None, on_setattr=frozen
     )
     jitter: timedelta = attrs.field(
-        eq=False, order=False, converter=as_timedelta, factory=timedelta
+        converter=as_timedelta, factory=timedelta, on_setattr=frozen
     )
     start_deadline: datetime | None = attrs.field(
-        eq=False, order=False, converter=as_aware_datetime, default=None
+        converter=as_aware_datetime, default=None, on_setattr=frozen
     )
     result_expiration_time: timedelta = attrs.field(
-        eq=False, order=False, converter=as_timedelta, default=timedelta()
+        converter=as_timedelta, default=timedelta(), on_setattr=frozen
     )
     created_at: datetime = attrs.field(
-        eq=False,
         order=False,
         converter=as_aware_datetime,
         factory=partial(datetime.now, timezone.utc),
+        on_setattr=frozen,
     )
-    acquired_by: str | None = attrs.field(eq=False, order=False, default=None)
+    acquired_by: str | None = attrs.field(default=None)
     acquired_until: datetime | None = attrs.field(
-        eq=False, order=False, converter=as_aware_datetime, default=None
+        converter=as_aware_datetime, default=None
     )
 
     @property
@@ -236,6 +287,15 @@ class Job:
         marshalled["args"] = serializer.deserialize(marshalled["args"])
         marshalled["kwargs"] = serializer.deserialize(marshalled["kwargs"])
         return cls(**marshalled)
+
+    def __hash__(self) -> int:
+        return hash(self.id)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Job):
+            return self.id == other.id
+
+        return NotImplemented
 
 
 @attrs.define(kw_only=True, frozen=True)

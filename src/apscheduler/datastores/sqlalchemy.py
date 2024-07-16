@@ -69,7 +69,7 @@ from .._events import (
     TaskUpdated,
 )
 from .._exceptions import ConflictingIdError, SerializationError, TaskLookupError
-from .._structures import Job, JobResult, Schedule, Task
+from .._structures import Job, JobResult, Schedule, ScheduleResult, Task
 from ..abc import EventBroker
 from .base import BaseExternalDataStore
 
@@ -644,11 +644,11 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         return schedules
 
     async def release_schedules(
-        self, scheduler_id: str, schedules: list[Schedule]
+        self, scheduler_id: str, results: Sequence[ScheduleResult]
     ) -> None:
-        task_ids = {schedule.id: schedule.task_id for schedule in schedules}
+        task_ids = {result.schedule_id: result.task_id for result in results}
         next_fire_times = {
-            schedule.id: schedule.next_fire_time for schedule in schedules
+            result.schedule_id: result.next_fire_time for result in results
         }
         async for attempt in self._retry():
             with attempt:
@@ -656,35 +656,35 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     update_events: list[ScheduleUpdated] = []
                     finished_schedule_ids: list[str] = []
                     update_args: list[dict[str, Any]] = []
-                    for schedule in schedules:
+                    for result in results:
                         try:
                             serialized_trigger = self.serializer.serialize(
-                                schedule.trigger
+                                result.trigger
                             )
                         except SerializationError:
                             self._logger.exception(
                                 "Error serializing trigger for schedule %r – "
                                 "removing from data store",
-                                schedule.id,
+                                result.schedule_id,
                             )
-                            finished_schedule_ids.append(schedule.id)
+                            finished_schedule_ids.append(result.schedule_id)
                             continue
 
                         if self._supports_tzaware_timestamps:
                             update_args.append(
                                 {
-                                    "p_id": schedule.id,
+                                    "p_id": result.schedule_id,
                                     "p_trigger": serialized_trigger,
-                                    "p_next_fire_time": schedule.next_fire_time,
+                                    "p_next_fire_time": result.next_fire_time,
                                 }
                             )
                         else:
-                            if schedule.next_fire_time is not None:
+                            if result.next_fire_time is not None:
                                 timestamp = int(
-                                    schedule.next_fire_time.timestamp() * 1000_000
+                                    result.next_fire_time.timestamp() * 1000_000
                                 )
                                 utcoffset = (
-                                    schedule.next_fire_time.utcoffset().total_seconds()
+                                    result.next_fire_time.utcoffset().total_seconds()
                                     // 60
                                 )
                             else:
@@ -692,7 +692,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
                             update_args.append(
                                 {
-                                    "p_id": schedule.id,
+                                    "p_id": result.schedule_id,
                                     "p_trigger": serialized_trigger,
                                     "p_next_fire_time": timestamp,
                                     "p_next_fire_time_utcoffset": utcoffset,

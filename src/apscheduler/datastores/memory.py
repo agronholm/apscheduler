@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from bisect import bisect_left, bisect_right, insort_right
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import MAXYEAR, datetime, timezone
 from functools import partial
 from typing import Iterable
@@ -23,68 +24,10 @@ from .._events import (
     TaskUpdated,
 )
 from .._exceptions import ConflictingIdError, TaskLookupError
-from .._structures import Job, JobResult, Schedule, Task
+from .._structures import Job, JobResult, Schedule, ScheduleResult, Task
 from .base import BaseDataStore
 
 max_datetime = datetime(MAXYEAR, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
-
-
-@attrs.define
-class TaskState:
-    task: Task
-    running_jobs: int = 0
-
-
-@attrs.define
-class ScheduleState:
-    schedule: Schedule
-    next_fire_time: datetime | None = attrs.field(init=False, eq=False)
-    acquired_by: str | None = attrs.field(init=False, eq=False, default=None)
-    acquired_until: datetime | None = attrs.field(init=False, eq=False, default=None)
-
-    def __attrs_post_init__(self):
-        self.next_fire_time = self.schedule.next_fire_time
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, ScheduleState):
-            return self.schedule.id == other.schedule.id
-
-        return NotImplemented
-
-    def __lt__(self, other: object) -> bool:
-        if isinstance(other, ScheduleState):
-            if self.next_fire_time is None:
-                return False
-            elif other.next_fire_time is None:
-                return self.next_fire_time is not None
-            elif self.next_fire_time != other.next_fire_time:
-                return self.next_fire_time < other.next_fire_time
-            else:
-                return self.schedule.id < other.schedule.id
-
-        return NotImplemented
-
-    def __hash__(self) -> int:
-        return hash(self.schedule.id)
-
-
-@attrs.define(order=True)
-class JobState:
-    job: Job = attrs.field(order=False)
-    created_at: datetime = attrs.field(
-        init=False, factory=partial(datetime.now, timezone.utc)
-    )
-    acquired_by: str | None = attrs.field(eq=False, order=False, default=None)
-    acquired_until: datetime | None = attrs.field(eq=False, order=False, default=None)
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, JobState):
-            return self.job.id == other.job.id
-
-        return NotImplemented
-
-    def __hash__(self) -> int:
-        return hash(self.job.id)
 
 
 @attrs.define(eq=False)
@@ -95,42 +38,35 @@ class MemoryDataStore(BaseDataStore):
     Can be shared between multiple schedulers within the same event loop.
     """
 
-    _tasks: dict[str, TaskState] = attrs.Factory(dict)
-    _schedules: list[ScheduleState] = attrs.Factory(list)
-    _schedules_by_id: dict[str, ScheduleState] = attrs.Factory(dict)
-    _schedules_by_task_id: dict[str, set[ScheduleState]] = attrs.Factory(
+    _tasks: dict[str, Task] = attrs.Factory(dict)
+    _schedules: list[Schedule] = attrs.Factory(list)
+    _schedules_by_id: dict[str, Schedule] = attrs.Factory(dict)
+    _schedules_by_task_id: dict[str, set[Schedule]] = attrs.Factory(
         partial(defaultdict, set)
     )
-    _jobs: list[JobState] = attrs.Factory(list)
-    _jobs_by_id: dict[UUID, JobState] = attrs.Factory(dict)
-    _jobs_by_task_id: dict[str, set[JobState]] = attrs.Factory(
-        partial(defaultdict, set)
-    )
-    _jobs_by_schedule_id: dict[str, set[JobState]] = attrs.Factory(
-        partial(defaultdict, set)
-    )
+    _jobs_by_id: dict[UUID, Job] = attrs.Factory(dict)
+    _jobs_by_task_id: dict[str, set[Job]] = attrs.Factory(partial(defaultdict, set))
+    _jobs_by_schedule_id: dict[str, set[Job]] = attrs.Factory(partial(defaultdict, set))
     _job_results: dict[UUID, JobResult] = attrs.Factory(dict)
 
-    def _find_schedule_index(self, state: ScheduleState) -> int | None:
-        left_index = bisect_left(self._schedules, state)
-        right_index = bisect_right(self._schedules, state)
-        return self._schedules.index(state, left_index, right_index + 1)
-
-    def _find_job_index(self, state: JobState) -> int | None:
-        left_index = bisect_left(self._jobs, state)
-        right_index = bisect_right(self._jobs, state)
-        return self._jobs.index(state, left_index, right_index + 1)
+    def _find_schedule_index(self, schedule: Schedule) -> int | None:
+        left_index = bisect_left(self._schedules, schedule)
+        right_index = bisect_right(self._schedules, schedule)
+        return self._schedules.index(schedule, left_index, right_index + 1)
 
     async def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
+        if ids is None:
+            return self._schedules.copy()
+
         return [
-            state.schedule
-            for state in self._schedules
-            if ids is None or state.schedule.id in ids
+            schedule
+            for schedule in self._schedules
+            if ids is None or schedule.id in ids
         ]
 
     async def add_task(self, task: Task) -> None:
         task_exists = task.id in self._tasks
-        self._tasks[task.id] = TaskState(task)
+        self._tasks[task.id] = task
         if task_exists:
             await self._event_broker.publish(TaskUpdated(task_id=task.id))
         else:
@@ -146,35 +82,32 @@ class MemoryDataStore(BaseDataStore):
 
     async def get_task(self, task_id: str) -> Task:
         try:
-            return self._tasks[task_id].task
+            return self._tasks[task_id]
         except KeyError:
             raise TaskLookupError(task_id) from None
 
     async def get_tasks(self) -> list[Task]:
-        return sorted(
-            (state.task for state in self._tasks.values()), key=lambda task: task.id
-        )
+        return sorted(self._tasks.values())
 
     async def add_schedule(
         self, schedule: Schedule, conflict_policy: ConflictPolicy
     ) -> None:
-        old_state = self._schedules_by_id.get(schedule.id)
-        if old_state is not None:
+        old_schedule = self._schedules_by_id.get(schedule.id)
+        if old_schedule is not None:
             if conflict_policy is ConflictPolicy.do_nothing:
                 return
             elif conflict_policy is ConflictPolicy.exception:
                 raise ConflictingIdError(schedule.id)
 
-            index = self._find_schedule_index(old_state)
+            index = self._find_schedule_index(old_schedule)
             del self._schedules[index]
-            self._schedules_by_task_id[old_state.schedule.task_id].remove(old_state)
+            self._schedules_by_task_id[old_schedule.task_id].remove(old_schedule)
 
-        state = ScheduleState(schedule)
-        self._schedules_by_id[schedule.id] = state
-        self._schedules_by_task_id[schedule.task_id].add(state)
-        insort_right(self._schedules, state)
+        self._schedules_by_id[schedule.id] = schedule
+        self._schedules_by_task_id[schedule.task_id].add(schedule)
+        insort_right(self._schedules, schedule)
 
-        if old_state is not None:
+        if old_schedule is not None:
             event = ScheduleUpdated(
                 schedule_id=schedule.id,
                 task_id=schedule.task_id,
@@ -193,12 +126,12 @@ class MemoryDataStore(BaseDataStore):
         self, ids: Iterable[str], *, finished: bool = False
     ) -> None:
         for schedule_id in ids:
-            state = self._schedules_by_id.pop(schedule_id, None)
-            if state:
-                self._schedules.remove(state)
+            schedule = self._schedules_by_id.pop(schedule_id, None)
+            if schedule:
+                self._schedules.remove(schedule)
                 event = ScheduleRemoved(
-                    schedule_id=state.schedule.id,
-                    task_id=state.schedule.task_id,
+                    schedule_id=schedule.id,
+                    task_id=schedule.task_id,
                     finished=finished,
                 )
                 await self._event_broker.publish(event)
@@ -206,45 +139,50 @@ class MemoryDataStore(BaseDataStore):
     async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
         now = datetime.now(timezone.utc)
         schedules: list[Schedule] = []
-        for state in self._schedules:
-            if state.next_fire_time is None or state.next_fire_time > now:
+        for schedule in self._schedules:
+            if schedule.next_fire_time is None or schedule.next_fire_time > now:
                 # The schedule is either exhausted or not yet due. There will be no
                 # schedules that are due after this one, so we can stop here.
                 break
-            elif state.schedule.paused:
+            elif schedule.paused:
                 # The schedule is paused
                 continue
-            elif state.acquired_until is not None:
-                if state.acquired_by != scheduler_id and now <= state.acquired_until:
+            elif schedule.acquired_until is not None:
+                if (
+                    schedule.acquired_by != scheduler_id
+                    and now <= schedule.acquired_until
+                ):
                     # The schedule has been acquired by another scheduler and the
                     # timeout has not expired yet
                     continue
 
-            schedules.append(state.schedule)
-            state.acquired_by = scheduler_id
-            state.acquired_until = now + self.lock_expiration_delay
+            schedules.append(schedule)
+            schedule.acquired_by = scheduler_id
+            schedule.acquired_until = now + self.lock_expiration_delay
             if len(schedules) == limit:
                 break
 
         return schedules
 
     async def release_schedules(
-        self, scheduler_id: str, schedules: list[Schedule]
+        self, scheduler_id: str, results: Sequence[ScheduleResult]
     ) -> None:
         # Send update events for schedules
-        for s in schedules:
+        for result in results:
             # Remove the schedule
-            schedule_state = self._schedules_by_id.get(s.id)
-            index = self._find_schedule_index(schedule_state)
+            schedule = self._schedules_by_id.get(result.schedule_id)
+            index = self._find_schedule_index(schedule)
             del self._schedules[index]
 
             # Re-add the schedule to its new position
-            schedule_state.next_fire_time = s.next_fire_time
-            schedule_state.acquired_by = None
-            schedule_state.acquired_until = None
-            insort_right(self._schedules, schedule_state)
+            schedule.next_fire_time = result.next_fire_time
+            schedule.acquired_by = None
+            schedule.acquired_until = None
+            insort_right(self._schedules, schedule)
             event = ScheduleUpdated(
-                schedule_id=s.id, task_id=s.task_id, next_fire_time=s.next_fire_time
+                schedule_id=result.schedule_id,
+                task_id=schedule.task_id,
+                next_fire_time=result.next_fire_time,
             )
             await self._event_broker.publish(event)
 
@@ -252,12 +190,10 @@ class MemoryDataStore(BaseDataStore):
         return self._schedules[0].next_fire_time if self._schedules else None
 
     async def add_job(self, job: Job) -> None:
-        state = JobState(job)
-        self._jobs.append(state)
-        self._jobs_by_id[job.id] = state
-        self._jobs_by_task_id[job.task_id].add(state)
+        self._jobs_by_id[job.id] = job
+        self._jobs_by_task_id[job.task_id].add(job)
         if job.schedule_id is not None:
-            self._jobs_by_schedule_id[job.schedule_id].add(state)
+            self._jobs_by_schedule_id[job.schedule_id].add(job)
 
         event = JobAdded(
             job_id=job.id,
@@ -270,37 +206,42 @@ class MemoryDataStore(BaseDataStore):
         if ids is not None:
             ids = frozenset(ids)
 
-        return [state.job for state in self._jobs if ids is None or state.job.id in ids]
+        if ids is None:
+            return list(self._jobs_by_id.values())
+
+        return [
+            job for job in self._jobs_by_id.values() if ids is None or job.id in ids
+        ]
 
     async def acquire_jobs(
         self, scheduler_id: str, limit: int | None = None
     ) -> list[Job]:
         now = datetime.now(timezone.utc)
         jobs: list[Job] = []
-        for _index, job_state in enumerate(self._jobs):
-            task_state = self._tasks[job_state.job.task_id]
+        for job in self._jobs_by_id.values():
+            task = self._tasks[job.task_id]
 
             # Skip already acquired jobs (unless the acquisition lock has expired)
-            if job_state.acquired_by is not None:
-                if job_state.acquired_until >= now:
+            if job.acquired_by is not None:
+                if job.acquired_until >= now:
                     continue
                 else:
-                    task_state.running_jobs -= 1
+                    task.running_jobs -= 1
 
             # Check if the task allows one more job to be started
             if (
-                task_state.task.max_running_jobs is not None
-                and task_state.running_jobs >= task_state.task.max_running_jobs
+                task.max_running_jobs is not None
+                and task.running_jobs >= task.max_running_jobs
             ):
                 continue
 
             # Mark the job as acquired by this worker
-            jobs.append(job_state.job)
-            job_state.acquired_by = scheduler_id
-            job_state.acquired_until = now + self.lock_expiration_delay
+            jobs.append(job)
+            job.acquired_by = scheduler_id
+            job.acquired_until = now + self.lock_expiration_delay
 
             # Increment the number of running jobs for this task
-            task_state.running_jobs += 1
+            task.running_jobs += 1
 
             # Exit the loop if enough jobs have been acquired
             if len(jobs) == limit:
@@ -320,16 +261,14 @@ class MemoryDataStore(BaseDataStore):
             self._job_results[result.job_id] = result
 
         # Decrement the number of running jobs for this task
-        task_state = self._tasks.get(job.task_id)
-        if task_state is not None:
-            task_state.running_jobs -= 1
+        self._tasks[job.task_id].running_jobs -= 1
 
         # Delete the job
-        job_state = self._jobs_by_id.pop(result.job_id)
+        job = self._jobs_by_id.pop(result.job_id)
 
         # Remove the job from the jobs belonging to its task
         task_jobs = self._jobs_by_task_id[job.task_id]
-        task_jobs.remove(job_state)
+        task_jobs.remove(job)
         if not task_jobs:
             del self._jobs_by_task_id[job.task_id]
 
@@ -337,12 +276,9 @@ class MemoryDataStore(BaseDataStore):
         # this schedule
         if job.schedule_id:
             schedule_jobs = self._jobs_by_schedule_id[job.schedule_id]
-            schedule_jobs.remove(job_state)
+            schedule_jobs.remove(job)
             if not schedule_jobs:
                 del self._jobs_by_schedule_id[job.schedule_id]
-
-        index = self._find_job_index(job_state)
-        del self._jobs[index]
 
         # Notify other schedulers
         await self._event_broker.publish(
@@ -356,20 +292,17 @@ class MemoryDataStore(BaseDataStore):
         self, scheduler_id: str, schedule_ids: set[str]
     ) -> None:
         new_acquired_until = datetime.now(timezone.utc) + self.lock_expiration_delay
-        for schedule_state in self._schedules:
-            if (
-                schedule_state.acquired_by == scheduler_id
-                and schedule_state.schedule.id in schedule_ids
-            ):
-                schedule_state.acquired_until = new_acquired_until
+        for schedule in self._schedules:
+            if schedule.acquired_by == scheduler_id and schedule.id in schedule_ids:
+                schedule.acquired_until = new_acquired_until
 
     async def extend_acquired_job_leases(
         self, scheduler_id: str, job_ids: set[UUID]
     ) -> None:
         new_acquired_until = datetime.now(timezone.utc) + self.lock_expiration_delay
-        for job_state in self._jobs:
-            if job_state.acquired_by == scheduler_id and job_state.job.id in job_ids:
-                job_state.acquired_until = new_acquired_until
+        for job in self._jobs_by_id.values():
+            if job.acquired_by == scheduler_id and job.id in job_ids:
+                job.acquired_until = new_acquired_until
 
     async def cleanup(self) -> None:
         # Clean up expired job results
@@ -383,18 +316,22 @@ class MemoryDataStore(BaseDataStore):
             del self._job_results[job_id]
 
         # Finish any jobs whose leases have expired
-        for job_state in self._jobs:
-            if job_state.acquired_until is not None and job_state.acquired_until < now:
-                result = JobResult.from_job(
-                    job=job_state.job, outcome=JobOutcome.cancelled, finished_at=now
-                )
-                await self.release_job(job_state.acquired_by, job_state.job, result)
+        expired_jobs = [
+            job
+            for job in self._jobs_by_id.values()
+            if job.acquired_until is not None and job.acquired_until < now
+        ]
+        for job in expired_jobs:
+            result = JobResult.from_job(
+                job=job, outcome=JobOutcome.cancelled, finished_at=now
+            )
+            await self.release_job(job.acquired_by, job, result)
 
         # Clean up finished schedules that have no running jobs
         finished_schedule_ids = [
             schedule_id
-            for schedule_id, state in self._schedules_by_id.items()
-            if state.next_fire_time is None
+            for schedule_id, schedule in self._schedules_by_id.items()
+            if schedule.next_fire_time is None
             and schedule_id not in self._jobs_by_schedule_id
         ]
         await self.remove_schedules(finished_schedule_ids, finished=True)

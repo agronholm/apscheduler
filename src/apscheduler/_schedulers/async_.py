@@ -49,7 +49,7 @@ from .._exceptions import (
     ScheduleLookupError,
 )
 from .._marshalling import callable_from_ref, callable_to_ref
-from .._structures import Job, JobResult, Schedule, Task
+from .._structures import Job, JobResult, Schedule, ScheduleResult, Task
 from .._utils import UnsetValue, unset
 from .._validators import non_negative_number
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
@@ -365,27 +365,30 @@ class AsyncScheduler:
             )
             modified = True
         else:
+            changes: dict[str, Any] = {}
             if func is not unset and task.func != func_ref:
-                task.func = func_ref
+                changes["func"] = func_ref
                 modified = True
 
             if job_executor is not unset and task.job_executor != job_executor:
-                task.job_executor = job_executor
+                changes["job_executor"] = job_executor
                 modified = True
 
             if (
                 max_running_jobs is not unset
                 and task.max_running_jobs != max_running_jobs
             ):
-                task.max_running_jobs = max_running_jobs
+                changes["max_running_jobs"] = max_running_jobs
                 modified = True
 
             if (
                 misfire_grace_time is not unset
                 and task.misfire_grace_time != misfire_grace_time
             ):
-                task.misfire_grace_time = misfire_grace_time
+                changes["misfire_grace_time"] = misfire_grace_time
                 modified = True
+
+            task = attrs.evolve(task, **changes)
 
         if modified:
             await self.data_store.add_task(task)
@@ -853,6 +856,7 @@ class AsyncScheduler:
             while self._state is RunState.started:
                 schedules = await self.data_store.acquire_schedules(self.identity, 100)
                 now = datetime.now(timezone.utc)
+                results: list[ScheduleResult] = []
                 for schedule in schedules:
                     # Calculate a next fire time for the schedule, if possible
                     fire_times = [schedule.next_fire_time]
@@ -871,7 +875,7 @@ class AsyncScheduler:
 
                         # Stop if the calculated fire time is in the future
                         if fire_time is None or fire_time > now:
-                            schedule.next_fire_time = fire_time
+                            next_fire_time = fire_time
                             break
 
                         # Only keep all the fire times if coalesce policy = "all"
@@ -891,18 +895,18 @@ class AsyncScheduler:
                         jitter = _zero_timedelta
                         if max_jitter:
                             if i + 1 < len(fire_times):
-                                next_fire_time = fire_times[i + 1]
+                                following_fire_time = fire_times[i + 1]
                             else:
-                                next_fire_time = schedule.next_fire_time
+                                following_fire_time = next_fire_time
 
-                            if next_fire_time is not None:
+                            if following_fire_time is not None:
                                 # Jitter must never be so high that it would cause a
                                 # fire time to equal or exceed the next fire time
                                 max_jitter = min(
                                     [
                                         max_jitter,
                                         (
-                                            next_fire_time
+                                            following_fire_time
                                             - fire_time
                                             - _microsecond_delta
                                         ).total_seconds(),
@@ -917,7 +921,6 @@ class AsyncScheduler:
                         else:
                             start_deadline = fire_time + schedule.misfire_grace_time
 
-                        schedule.last_fire_time = fire_time
                         job = Job(
                             task_id=schedule.task_id,
                             args=schedule.args,
@@ -929,8 +932,18 @@ class AsyncScheduler:
                         )
                         await self.data_store.add_job(job)
 
+                    results.append(
+                        ScheduleResult(
+                            schedule_id=schedule.id,
+                            task_id=schedule.task_id,
+                            trigger=schedule.trigger,
+                            last_fire_time=fire_times[-1],
+                            next_fire_time=next_fire_time,
+                        )
+                    )
+
                 # Update the schedules (and release the scheduler's claim on them)
-                await self.data_store.release_schedules(self.identity, schedules)
+                await self.data_store.release_schedules(self.identity, results)
 
                 # If we received fewer schedules than the maximum amount, sleep
                 # until the next schedule is due or the scheduler is explicitly

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from abc import ABCMeta, abstractmethod
+from collections.abc import Sequence
 from contextlib import AsyncExitStack
 from datetime import datetime
 from logging import Logger
@@ -16,7 +17,7 @@ else:
 if TYPE_CHECKING:
     from ._enums import ConflictPolicy
     from ._events import Event, T_Event
-    from ._structures import Job, JobResult, Schedule, Task
+    from ._structures import Job, JobResult, Schedule, ScheduleResult, Task
 
 
 class Trigger(Iterator[datetime], metaclass=ABCMeta):
@@ -260,13 +261,22 @@ class DataStore(metaclass=ABCMeta):
 
     @abstractmethod
     async def release_schedules(
-        self, scheduler_id: str, schedules: list[Schedule]
+        self, scheduler_id: str, results: Sequence[ScheduleResult]
     ) -> None:
         """
         Release the claims on the given schedules and update them on the store.
 
+        The data store is responsible for updating the following fields on stored
+        schedules:
+
+        * ``last_fire_time``
+        * ``next_fire_time``
+        * ``trigger``
+        * ``acquired_by`` (must beset to ``None``)
+        * ``acquired_until`` (must be set to ``None``)
+
         :param scheduler_id: unique identifier of the scheduler
-        :param schedules: the previously claimed schedules
+        :param results: list of schedule processing results
         """
 
     @abstractmethod

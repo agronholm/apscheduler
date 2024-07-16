@@ -26,6 +26,7 @@ from apscheduler import (
     TaskLookupError,
     TaskUpdated,
 )
+from apscheduler._structures import ScheduleResult
 from apscheduler.abc import DataStore, EventBroker
 from apscheduler.triggers.date import DateTrigger
 
@@ -210,12 +211,30 @@ async def test_acquire_release_schedules(
 
         # Update the schedules and check that the job store actually deletes the
         # first one and updates the second one
-        schedules1[0].next_fire_time = None
-        schedules2[0].next_fire_time = datetime(2020, 9, 15, tzinfo=timezone.utc)
+        results1: list[ScheduleResult] = []
+        results2: list[ScheduleResult] = []
+        results1.append(
+            ScheduleResult(
+                schedule_id=schedules1[0].id,
+                task_id=schedules1[0].task_id,
+                trigger=schedules1[0].trigger,
+                last_fire_time=datetime(2020, 9, 14, tzinfo=timezone.utc),
+                next_fire_time=None,
+            )
+        )
+        results2.append(
+            ScheduleResult(
+                schedule_id=schedules2[0].id,
+                task_id=schedules2[0].task_id,
+                trigger=schedules1[0].trigger,
+                last_fire_time=datetime(2020, 9, 14, tzinfo=timezone.utc),
+                next_fire_time=datetime(2020, 9, 15, tzinfo=timezone.utc),
+            )
+        )
 
         # Release all the schedules
-        await datastore.release_schedules("dummy-id1", schedules1)
-        await datastore.release_schedules("dummy-id2", schedules2)
+        await datastore.release_schedules("dummy-id1", results1)
+        await datastore.release_schedules("dummy-id2", results2)
 
         # Check that the first schedule has its next fire time nullified
         schedules = await datastore.get_schedules()
@@ -249,8 +268,16 @@ async def test_release_schedule_two_identical_fire_times(datastore: DataStore) -
         await datastore.add_schedule(schedule, ConflictPolicy.exception)
 
     schedules = await datastore.acquire_schedules("foo", 3)
-    schedules[0].next_fire_time = None
-    await datastore.release_schedules("foo", schedules)
+    results = [
+        ScheduleResult(
+            schedule_id=schedules[0].id,
+            task_id=schedules[0].task_id,
+            trigger=schedules[0].trigger,
+            last_fire_time=datetime(2020, 9, 10, tzinfo=timezone.utc),
+            next_fire_time=None,
+        ),
+    ]
+    await datastore.release_schedules("foo", results)
 
     remaining = await datastore.get_schedules({s.id for s in schedules})
     assert len(remaining) == 2
@@ -270,7 +297,16 @@ async def test_release_two_schedules_at_once(datastore: DataStore) -> None:
         await datastore.add_schedule(schedule, ConflictPolicy.exception)
 
     schedules = await datastore.acquire_schedules("foo", 3)
-    await datastore.release_schedules("foo", schedules)
+    results = [
+        ScheduleResult(
+            schedule_id=schedules[0].id,
+            task_id=schedules[0].task_id,
+            trigger=schedules[0].trigger,
+            last_fire_time=datetime(2020, 9, 10, tzinfo=timezone.utc),
+            next_fire_time=None,
+        ),
+    ]
+    await datastore.release_schedules("foo", results)
 
     remaining = await datastore.get_schedules({s.id for s in schedules})
     assert len(remaining) == 2
@@ -500,8 +536,9 @@ async def test_acquire_jobs_max_number_exceeded(datastore: DataStore) -> None:
         await datastore.add_job(job)
 
     # Check that only 2 jobs are returned from acquire_jobs() even though the limit
-    # wqas 3
+    # was 3
     acquired_jobs = await datastore.acquire_jobs("worker1", 3)
+    assert len(acquired_jobs) == 2
     assert [job.id for job in acquired_jobs] == [job.id for job in jobs[:2]]
 
     # Release one job, and the worker should be able to acquire the third job

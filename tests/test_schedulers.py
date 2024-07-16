@@ -448,41 +448,47 @@ class TestAsyncScheduler:
     ) -> None:
         one_second_in_past = datetime.now(timezone) - timedelta(seconds=1)
         trigger = DateTrigger(one_second_in_past)
-        send, receive = create_memory_object_stream[Event](4)
-        with send, receive:
-            async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+        scheduler_send, scheduler_receive = create_memory_object_stream[Event](4)
+        worker_send, worker_receive = create_memory_object_stream[Event](2)
+        with scheduler_send, scheduler_receive, worker_send, worker_receive:
+            async with AsyncExitStack() as exit_stack:
+                scheduler = await exit_stack.enter_async_context(
+                    AsyncScheduler(data_store=raw_datastore)
+                )
                 await scheduler.add_schedule(
                     dummy_async_job, trigger, misfire_grace_time=0, id="foo"
                 )
-                scheduler.subscribe(send.send)
                 await scheduler.start_in_background()
-
+                exit_stack.enter_context(
+                    scheduler.subscribe(
+                        scheduler_send.send, {JobAdded, ScheduleUpdated}
+                    )
+                )
+                exit_stack.enter_context(
+                    scheduler.subscribe(worker_send.send, {JobAcquired, JobReleased})
+                )
                 with fail_after(3):
-                    # The scheduler was started
-                    event = await receive.receive()
-                    assert isinstance(event, SchedulerStarted)
-
                     # The schedule was processed and a job was added for it
-                    event = await receive.receive()
+                    event = await scheduler_receive.receive()
                     assert isinstance(event, JobAdded)
                     assert event.schedule_id == "foo"
                     assert event.task_id == "test_schedulers:dummy_async_job"
 
                     # The schedule was updated with a null next fire time
-                    event = await receive.receive()
+                    event = await scheduler_receive.receive()
                     assert isinstance(event, ScheduleUpdated)
                     assert event.schedule_id == "foo"
                     assert event.next_fire_time is None
 
                     # The new job was acquired
-                    event = await receive.receive()
+                    event = await worker_receive.receive()
                     assert isinstance(event, JobAcquired)
                     job_id = event.job_id
                     assert event.task_id == "test_schedulers:dummy_async_job"
                     assert event.schedule_id == "foo"
 
                     # The new job was released
-                    event = await receive.receive()
+                    event = await worker_receive.receive()
                     assert isinstance(event, JobReleased)
                     assert event.job_id == job_id
                     assert event.task_id == "test_schedulers:dummy_async_job"
@@ -491,13 +497,9 @@ class TestAsyncScheduler:
                     assert event.started_at is None
                     assert event.outcome is JobOutcome.missed_start_deadline
 
-            # The scheduler was stopped
-            event = await receive.receive()
-            assert isinstance(event, SchedulerStopped)
-
             # There should be no more events on the list
             with pytest.raises(WouldBlock):
-                receive.receive_nowait()
+                scheduler_receive.receive_nowait()
 
     @pytest.mark.parametrize(
         "coalesce, expected_jobs, first_fire_time_delta",

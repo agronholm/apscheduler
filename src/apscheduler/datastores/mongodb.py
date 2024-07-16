@@ -3,7 +3,7 @@ from __future__ import annotations
 import operator
 import sys
 from collections import defaultdict
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger
@@ -41,7 +41,7 @@ from .._exceptions import (
     SerializationError,
     TaskLookupError,
 )
-from .._structures import Job, JobResult, Schedule, Task
+from .._structures import Job, JobResult, Schedule, ScheduleResult, Task
 from ..abc import EventBroker
 from .base import BaseExternalDataStore
 
@@ -239,10 +239,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                 previous = await to_thread.run_sync(
                     lambda: self._tasks.find_one_and_update(
                         {"_id": task.id},
-                        {
-                            "$set": task.marshal(self.serializer),
-                            "$setOnInsert": {"running_jobs": 0},
-                        },
+                        {"$set": task.marshal(self.serializer)},
                         upsert=True,
                     )
                 )
@@ -423,24 +420,24 @@ class MongoDBDataStore(BaseExternalDataStore):
         return schedules
 
     async def release_schedules(
-        self, scheduler_id: str, schedules: list[Schedule]
+        self, scheduler_id: str, results: Sequence[ScheduleResult]
     ) -> None:
         updated_schedules: list[tuple[str, datetime]] = []
         finished_schedule_ids: list[str] = []
-        task_ids = {schedule.id: schedule.task_id for schedule in schedules}
+        task_ids = {result.schedule_id: result.task_id for result in results}
 
         requests = []
-        for schedule in schedules:
-            filters = {"_id": schedule.id, "acquired_by": scheduler_id}
+        for result in results:
+            filters = {"_id": result.schedule_id, "acquired_by": scheduler_id}
             try:
-                serialized_trigger = self.serializer.serialize(schedule.trigger)
+                serialized_trigger = self.serializer.serialize(result.trigger)
             except SerializationError:
                 self._logger.exception(
                     "Error serializing schedule %r – removing from data store",
-                    schedule.id,
+                    result.schedule_id,
                 )
                 requests.append(DeleteOne(filters))
-                finished_schedule_ids.append(schedule.id)
+                finished_schedule_ids.append(result.schedule_id)
                 continue
 
             update = {
@@ -451,11 +448,11 @@ class MongoDBDataStore(BaseExternalDataStore):
                 },
                 "$set": {
                     "trigger": serialized_trigger,
-                    **marshal_timestamp(schedule.next_fire_time, "next_fire_time"),
+                    **marshal_timestamp(result.next_fire_time, "next_fire_time"),
                 },
             }
             requests.append(UpdateOne(filters, update))
-            updated_schedules.append((schedule.id, schedule.next_fire_time))
+            updated_schedules.append((result.schedule_id, result.next_fire_time))
 
         if requests:
             async for attempt in self._retry():

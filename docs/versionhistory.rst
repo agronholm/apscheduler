@@ -17,6 +17,11 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** Changed the ``cleanup()`` data store method to also be responsible for
   releasing jobs whose leases have expired (so the schedulers responsible for them have
   probably died)
+- **BREAKING** Changed most attributes in ``Task`` and ``Schedule`` classes to be
+  read-only
+- **BREAKING** Refactored the ``release_schedules()`` data store method to take a
+  sequence of ``ScheduleResult`` instances instead of a sequence of schedules, to enable
+  the memory data store to handle schedule updates more efficiently
 - Added the ``psycopg`` event broker
 - Added useful indexes and removed useless ones in ``SQLAlchemyDatastore`` and
   ``MongoDBDataStore``
