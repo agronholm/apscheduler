@@ -98,6 +98,8 @@ class AsyncScheduler:
     :param default_job_executor: name of the default job executor
     :param cleanup_interval: interval (as seconds or timedelta) between automatic
         calls to :meth:`cleanup` – ``None`` to disable automatic clean-up
+    :param lease_duration: maximum amount of time (as seconds or timedelta) that
+        the scheduler can keep a lock on a schedule or task
     :param logger: the logger instance used to log events from the scheduler, data store
         and event broker
     """
@@ -127,6 +129,7 @@ class AsyncScheduler:
         validator=optional(instance_of(timedelta)),
         default=timedelta(minutes=15),
     )
+    lease_duration: timedelta = attrs.field(converter=as_timedelta, default=30)
     logger: Logger = attrs.field(kw_only=True, default=getLogger(__name__))
 
     _state: RunState = attrs.field(init=False, default=RunState.stopped)
@@ -134,7 +137,7 @@ class AsyncScheduler:
     _exit_stack: AsyncExitStack = attrs.field(init=False)
     _services_initialized: bool = attrs.field(init=False, default=False)
     _scheduler_cancel_scope: CancelScope | None = attrs.field(init=False, default=None)
-    _running_jobs: set[UUID] = attrs.field(init=False, factory=set)
+    _running_jobs: set[Job] = attrs.field(init=False, factory=set)
     _task_callables: dict[str, Callable] = attrs.field(init=False, factory=dict)
 
     def __attrs_post_init__(self) -> None:
@@ -845,6 +848,14 @@ class AsyncScheduler:
                 )
                 wakeup_event.set()
 
+        async def extend_schedule_leases(schedules: Sequence[Schedule]) -> None:
+            schedule_ids = {schedule.id for schedule in schedules}
+            while True:
+                await sleep(self.lease_duration.total_seconds() / 2)
+                await self.data_store.extend_acquired_schedule_leases(
+                    self.identity, schedule_ids, self.lease_duration
+                )
+
         subscription = self.event_broker.subscribe(
             schedule_added_or_modified, {ScheduleAdded, ScheduleUpdated}
         )
@@ -854,93 +865,102 @@ class AsyncScheduler:
             await self.get_next_event(SchedulerStarted)
 
             while self._state is RunState.started:
-                schedules = await self.data_store.acquire_schedules(self.identity, 100)
-                now = datetime.now(timezone.utc)
-                results: list[ScheduleResult] = []
-                for schedule in schedules:
-                    # Calculate a next fire time for the schedule, if possible
-                    fire_times = [schedule.next_fire_time]
-                    calculate_next = schedule.trigger.next
-                    while True:
-                        try:
-                            fire_time = calculate_next()
-                        except Exception:
-                            self.logger.exception(
-                                "Error computing next fire time for schedule %r of "
-                                "task %r – removing schedule",
-                                schedule.id,
-                                schedule.task_id,
-                            )
-                            break
+                schedules = await self.data_store.acquire_schedules(
+                    self.identity, self.lease_duration, 100
+                )
+                async with AsyncExitStack() as exit_stack:
+                    tg = await exit_stack.enter_async_context(create_task_group())
+                    tg.start_soon(extend_schedule_leases, schedules)
+                    exit_stack.callback(tg.cancel_scope.cancel)
 
-                        # Stop if the calculated fire time is in the future
-                        if fire_time is None or fire_time > now:
-                            next_fire_time = fire_time
-                            break
-
-                        # Only keep all the fire times if coalesce policy = "all"
-                        if schedule.coalesce is CoalescePolicy.all:
-                            fire_times.append(fire_time)
-                        elif schedule.coalesce is CoalescePolicy.latest:
-                            fire_times[0] = fire_time
-
-                    # Add one or more jobs to the job queue
-                    max_jitter = (
-                        schedule.max_jitter.total_seconds()
-                        if schedule.max_jitter
-                        else 0
-                    )
-                    for i, fire_time in enumerate(fire_times):
-                        # Calculate a jitter if max_jitter > 0
-                        jitter = _zero_timedelta
-                        if max_jitter:
-                            if i + 1 < len(fire_times):
-                                following_fire_time = fire_times[i + 1]
-                            else:
-                                following_fire_time = next_fire_time
-
-                            if following_fire_time is not None:
-                                # Jitter must never be so high that it would cause a
-                                # fire time to equal or exceed the next fire time
-                                max_jitter = min(
-                                    [
-                                        max_jitter,
-                                        (
-                                            following_fire_time
-                                            - fire_time
-                                            - _microsecond_delta
-                                        ).total_seconds(),
-                                    ]
+                    now = datetime.now(timezone.utc)
+                    results: list[ScheduleResult] = []
+                    for schedule in schedules:
+                        # Calculate a next fire time for the schedule, if possible
+                        fire_times = [schedule.next_fire_time]
+                        calculate_next = schedule.trigger.next
+                        while True:
+                            try:
+                                fire_time = calculate_next()
+                            except Exception:
+                                self.logger.exception(
+                                    "Error computing next fire time for schedule %r of "
+                                    "task %r – removing schedule",
+                                    schedule.id,
+                                    schedule.task_id,
                                 )
+                                break
 
-                            jitter = timedelta(seconds=random.uniform(0, max_jitter))
-                            fire_time += jitter
+                            # Stop if the calculated fire time is in the future
+                            if fire_time is None or fire_time > now:
+                                next_fire_time = fire_time
+                                break
 
-                        if schedule.misfire_grace_time is None:
-                            start_deadline = None
-                        else:
-                            start_deadline = fire_time + schedule.misfire_grace_time
+                            # Only keep all the fire times if coalesce policy = "all"
+                            if schedule.coalesce is CoalescePolicy.all:
+                                fire_times.append(fire_time)
+                            elif schedule.coalesce is CoalescePolicy.latest:
+                                fire_times[0] = fire_time
 
-                        job = Job(
-                            task_id=schedule.task_id,
-                            args=schedule.args,
-                            kwargs=schedule.kwargs,
-                            schedule_id=schedule.id,
-                            scheduled_fire_time=fire_time,
-                            jitter=jitter,
-                            start_deadline=start_deadline,
+                        # Add one or more jobs to the job queue
+                        max_jitter = (
+                            schedule.max_jitter.total_seconds()
+                            if schedule.max_jitter
+                            else 0
                         )
-                        await self.data_store.add_job(job)
+                        for i, fire_time in enumerate(fire_times):
+                            # Calculate a jitter if max_jitter > 0
+                            jitter = _zero_timedelta
+                            if max_jitter:
+                                if i + 1 < len(fire_times):
+                                    following_fire_time = fire_times[i + 1]
+                                else:
+                                    following_fire_time = next_fire_time
 
-                    results.append(
-                        ScheduleResult(
-                            schedule_id=schedule.id,
-                            task_id=schedule.task_id,
-                            trigger=schedule.trigger,
-                            last_fire_time=fire_times[-1],
-                            next_fire_time=next_fire_time,
+                                if following_fire_time is not None:
+                                    # Jitter must never be so high that it would cause a
+                                    # fire time to equal or exceed the next fire time
+                                    max_jitter = min(
+                                        [
+                                            max_jitter,
+                                            (
+                                                following_fire_time
+                                                - fire_time
+                                                - _microsecond_delta
+                                            ).total_seconds(),
+                                        ]
+                                    )
+
+                                jitter = timedelta(
+                                    seconds=random.uniform(0, max_jitter)
+                                )
+                                fire_time += jitter
+
+                            if schedule.misfire_grace_time is None:
+                                start_deadline = None
+                            else:
+                                start_deadline = fire_time + schedule.misfire_grace_time
+
+                            job = Job(
+                                task_id=schedule.task_id,
+                                args=schedule.args,
+                                kwargs=schedule.kwargs,
+                                schedule_id=schedule.id,
+                                scheduled_fire_time=fire_time,
+                                jitter=jitter,
+                                start_deadline=start_deadline,
+                            )
+                            await self.data_store.add_job(job)
+
+                        results.append(
+                            ScheduleResult(
+                                schedule_id=schedule.id,
+                                task_id=schedule.task_id,
+                                trigger=schedule.trigger,
+                                last_fire_time=fire_times[-1],
+                                next_fire_time=next_fire_time,
+                            )
                         )
-                    )
 
                 # Update the schedules (and release the scheduler's claim on them)
                 await self.data_store.release_schedules(self.identity, results)
@@ -998,12 +1018,21 @@ class AsyncScheduler:
             if len(self._running_jobs) < self.max_concurrent_jobs:
                 wakeup_event.set()
 
+        async def extend_job_leases() -> None:
+            while self._state is RunState.started:
+                await sleep(self.lease_duration.total_seconds() / 2)
+                job_ids = {job.id for job in self._running_jobs}
+                await self.data_store.extend_acquired_job_leases(
+                    self.identity, job_ids, self.lease_duration
+                )
+
         async with AsyncExitStack() as exit_stack:
             # Start the job executors
             for job_executor in self.job_executors.values():
                 await job_executor.start(exit_stack)
 
-            task_group = await exit_stack.enter_async_context(create_task_group())
+            outer_tg = await exit_stack.enter_async_context(create_task_group())
+            outer_tg.start_soon(extend_job_leases)
 
             # Fetch new jobs every time
             exit_stack.enter_context(
@@ -1019,14 +1048,23 @@ class AsyncScheduler:
             while self._state is RunState.started:
                 limit = self.max_concurrent_jobs - len(self._running_jobs)
                 if limit > 0:
-                    jobs = await self.data_store.acquire_jobs(self.identity, limit)
-                    for job in jobs:
-                        task = await self.data_store.get_task(job.task_id)
-                        func = self._get_task_callable(task)
-                        self._running_jobs.add(job.id)
-                        task_group.start_soon(
-                            self._run_job, job, func, task.job_executor
+                    jobs = await self.data_store.acquire_jobs(
+                        self.identity, self.lease_duration, limit
+                    )
+                    async with AsyncExitStack() as inner_exit_stack:
+                        inner_tg = await inner_exit_stack.enter_async_context(
+                            create_task_group()
                         )
+                        inner_exit_stack.callback(inner_tg.cancel_scope.cancel)
+                        inner_tg.start_soon(extend_job_leases)
+
+                        for job in jobs:
+                            task = await self.data_store.get_task(job.task_id)
+                            func = self._get_task_callable(task)
+                            self._running_jobs.add(job)
+                            outer_tg.start_soon(
+                                self._run_job, job, func, task.job_executor
+                            )
 
                 await wakeup_event.wait()
                 wakeup_event = anyio.Event()
@@ -1086,4 +1124,4 @@ class AsyncScheduler:
             finally:
                 current_job.reset(token)
         finally:
-            self._running_jobs.remove(job.id)
+            self._running_jobs.remove(job)

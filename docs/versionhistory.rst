@@ -22,6 +22,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** Refactored the ``release_schedules()`` data store method to take a
   sequence of ``ScheduleResult`` instances instead of a sequence of schedules, to enable
   the memory data store to handle schedule updates more efficiently
+- **BREAKING** Replaced the data store ``lock_expiration_delay`` parameter with a new
+  scheduler-level parameter, ``lease_duration`` which is then used to call the various
+  data store methods
 - Added the ``psycopg`` event broker
 - Added useful indexes and removed useless ones in ``SQLAlchemyDatastore`` and
   ``MongoDBDataStore``

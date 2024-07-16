@@ -592,12 +592,14 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
         return await self._deserialize_schedules(result)
 
-    async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
+    async def acquire_schedules(
+        self, scheduler_id: str, lease_duration: timedelta, limit: int
+    ) -> list[Schedule]:
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
                     now = datetime.now(timezone.utc)
-                    acquired_until = now + self.lock_expiration_delay
+                    acquired_until = now + lease_duration
                     if self._supports_tzaware_timestamps:
                         comparison = self._t_schedules.c.next_fire_time <= now
                     else:
@@ -814,13 +816,13 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         return await self._deserialize_jobs(result)
 
     async def acquire_jobs(
-        self, scheduler_id: str, limit: int | None = None
+        self, scheduler_id: str, lease_duration: timedelta, limit: int | None = None
     ) -> list[Job]:
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
                     now = datetime.now(timezone.utc)
-                    acquired_until = now + self.lock_expiration_delay
+                    acquired_until = now + lease_duration
                     query = (
                         self._t_jobs.select()
                         .join(
@@ -962,14 +964,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         return JobResult.unmarshal(self.serializer, row._asdict()) if row else None
 
     async def extend_acquired_schedule_leases(
-        self, scheduler_id: str, schedule_ids: set[str]
+        self, scheduler_id: str, schedule_ids: set[str], duration: timedelta
     ) -> None:
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
-                    new_acquired_until = (
-                        datetime.now(timezone.utc) + self.lock_expiration_delay
-                    )
+                    new_acquired_until = datetime.now(timezone.utc) + duration
                     update = (
                         self._t_schedules.update()
                         .values(acquired_until=new_acquired_until)
@@ -981,14 +981,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     await self._execute(conn, update)
 
     async def extend_acquired_job_leases(
-        self, scheduler_id: str, job_ids: set[UUID]
+        self, scheduler_id: str, job_ids: set[UUID], duration: timedelta
     ) -> None:
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
-                    new_acquired_until = (
-                        datetime.now(timezone.utc) + self.lock_expiration_delay
-                    )
+                    new_acquired_until = datetime.now(timezone.utc) + duration
                     update = (
                         self._t_jobs.update()
                         .values(acquired_until=new_acquired_until)

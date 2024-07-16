@@ -370,7 +370,9 @@ class MongoDBDataStore(BaseExternalDataStore):
                 )
             )
 
-    async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
+    async def acquire_schedules(
+        self, scheduler_id: str, lease_duration: timedelta, limit: int
+    ) -> list[Schedule]:
         async for attempt in self._retry():
             with attempt, self._client.start_session() as session:
                 schedules: list[Schedule] = []
@@ -407,7 +409,7 @@ class MongoDBDataStore(BaseExternalDataStore):
 
                 if schedules:
                     now = datetime.now(timezone.utc)
-                    acquired_until = now + self.lock_expiration_delay
+                    acquired_until = now + lease_duration
                     filters = {"_id": {"$in": [schedule.id for schedule in schedules]}}
                     update = {
                         "$set": {
@@ -535,7 +537,7 @@ class MongoDBDataStore(BaseExternalDataStore):
         return jobs
 
     async def acquire_jobs(
-        self, scheduler_id: str, limit: int | None = None
+        self, scheduler_id: str, lease_duration: timedelta, limit: int | None = None
     ) -> list[Job]:
         async for attempt in self._retry():
             with attempt, self._client.start_session() as session:
@@ -592,7 +594,7 @@ class MongoDBDataStore(BaseExternalDataStore):
 
                 if acquired_jobs:
                     now = datetime.now(timezone.utc)
-                    acquired_until = now + self.lock_expiration_delay
+                    acquired_until = now + lease_duration
                     filters = {"_id": {"$in": [job.id for job in acquired_jobs]}}
                     update = {
                         "$set": {
@@ -672,13 +674,11 @@ class MongoDBDataStore(BaseExternalDataStore):
             return None
 
     async def extend_acquired_schedule_leases(
-        self, scheduler_id: str, schedule_ids: set[str]
+        self, scheduler_id: str, schedule_ids: set[str], duration: timedelta
     ) -> None:
         async for attempt in self._retry():
             with attempt, self._client.start_session() as session:
-                new_acquired_until = (
-                    datetime.now(timezone.utc) + self.lock_expiration_delay
-                ).timestamp()
+                new_acquired_until = (datetime.now(timezone.utc) + duration).timestamp()
                 await to_thread.run_sync(
                     lambda: self._schedules.update_many(
                         filter={
@@ -691,13 +691,11 @@ class MongoDBDataStore(BaseExternalDataStore):
                 )
 
     async def extend_acquired_job_leases(
-        self, scheduler_id: str, job_ids: set[UUID]
+        self, scheduler_id: str, job_ids: set[UUID], duration: timedelta
     ) -> None:
         async for attempt in self._retry():
             with attempt, self._client.start_session() as session:
-                new_acquired_until = (
-                    datetime.now(timezone.utc) + self.lock_expiration_delay
-                ).timestamp()
+                new_acquired_until = (datetime.now(timezone.utc) + duration).timestamp()
                 await to_thread.run_sync(
                     lambda: self._jobs.update_many(
                         filter={

@@ -196,17 +196,27 @@ async def test_acquire_release_schedules(
             await datastore.add_schedule(schedule, ConflictPolicy.exception)
 
         # The first scheduler gets the first due schedule
-        schedules1 = await datastore.acquire_schedules("dummy-id1", 1)
+        schedules1 = await datastore.acquire_schedules(
+            "dummy-id1", timedelta(seconds=30), 1
+        )
         assert len(schedules1) == 1
         assert schedules1[0].id == "s1"
 
         # The second scheduler gets the second due schedule
-        schedules2 = await datastore.acquire_schedules("dummy-id2", 1)
+        schedules2 = await datastore.acquire_schedules(
+            "dummy-id2",
+            timedelta(seconds=30),
+            1,
+        )
         assert len(schedules2) == 1
         assert schedules2[0].id == "s2"
 
         # The third scheduler gets nothing
-        schedules3 = await datastore.acquire_schedules("dummy-id3", 1)
+        schedules3 = await datastore.acquire_schedules(
+            "dummy-id3",
+            timedelta(seconds=30),
+            1,
+        )
         assert not schedules3
 
         # Update the schedules and check that the job store actually deletes the
@@ -267,7 +277,11 @@ async def test_release_schedule_two_identical_fire_times(datastore: DataStore) -
         schedule.next_fire_time = trigger.next()
         await datastore.add_schedule(schedule, ConflictPolicy.exception)
 
-    schedules = await datastore.acquire_schedules("foo", 3)
+    schedules = await datastore.acquire_schedules(
+        "foo",
+        timedelta(seconds=30),
+        3,
+    )
     results = [
         ScheduleResult(
             schedule_id=schedules[0].id,
@@ -296,7 +310,7 @@ async def test_release_two_schedules_at_once(datastore: DataStore) -> None:
         schedule.next_fire_time = trigger.next()
         await datastore.add_schedule(schedule, ConflictPolicy.exception)
 
-    schedules = await datastore.acquire_schedules("foo", 3)
+    schedules = await datastore.acquire_schedules("foo", timedelta(seconds=30), 3)
     results = [
         ScheduleResult(
             schedule_id=schedules[0].id,
@@ -330,19 +344,31 @@ async def test_acquire_schedules_lock_timeout(
     await datastore.add_schedule(schedules[0], ConflictPolicy.exception)
 
     # First, one scheduler acquires the first available schedule
-    acquired1 = await datastore.acquire_schedules("dummy-id1", 1)
+    acquired1 = await datastore.acquire_schedules(
+        "dummy-id1",
+        timedelta(seconds=30),
+        1,
+    )
     assert len(acquired1) == 1
     assert acquired1[0].id == "s1"
 
     # Try to acquire the schedule just at the threshold (now == acquired_until).
     # This should not yield any schedules.
     time_machine.shift(30)
-    acquired2 = await datastore.acquire_schedules("dummy-id2", 1)
+    acquired2 = await datastore.acquire_schedules(
+        "dummy-id2",
+        timedelta(seconds=30),
+        1,
+    )
     assert not acquired2
 
     # Right after that, the schedule should be available
     time_machine.shift(1)
-    acquired3 = await datastore.acquire_schedules("dummy-id2", 1)
+    acquired3 = await datastore.acquire_schedules(
+        "dummy-id2",
+        timedelta(seconds=30),
+        1,
+    )
     assert len(acquired3) == 1
     assert acquired3[0].id == "s1"
 
@@ -356,17 +382,17 @@ async def test_acquire_multiple_workers(datastore: DataStore) -> None:
         await datastore.add_job(job)
 
     # The first worker gets the first job in the queue
-    jobs1 = await datastore.acquire_jobs("worker1", 1)
+    jobs1 = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
     assert len(jobs1) == 1
     assert jobs1[0].id == jobs[0].id
 
     # The second worker gets the second job
-    jobs2 = await datastore.acquire_jobs("worker2", 1)
+    jobs2 = await datastore.acquire_jobs("worker2", timedelta(seconds=30), 1)
     assert len(jobs2) == 1
     assert jobs2[0].id == jobs[1].id
 
     # The third worker gets nothing
-    jobs3 = await datastore.acquire_jobs("worker3", 1)
+    jobs3 = await datastore.acquire_jobs("worker3", timedelta(seconds=30), 1)
     assert not jobs3
 
 
@@ -377,7 +403,7 @@ async def test_job_release_success(datastore: DataStore) -> None:
     job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
     await datastore.add_job(job)
 
-    acquired = await datastore.acquire_jobs("worker_id", 2)
+    acquired = await datastore.acquire_jobs("worker_id", timedelta(seconds=30), 2)
     assert len(acquired) == 1
     assert acquired[0].id == job.id
 
@@ -407,7 +433,7 @@ async def test_job_release_failure(datastore: DataStore) -> None:
     job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
     await datastore.add_job(job)
 
-    acquired = await datastore.acquire_jobs("worker_id", 2)
+    acquired = await datastore.acquire_jobs("worker_id", timedelta(seconds=30), 2)
     assert len(acquired) == 1
     assert acquired[0].id == job.id
 
@@ -438,7 +464,7 @@ async def test_job_release_missed_deadline(datastore: DataStore):
     job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
     await datastore.add_job(job)
 
-    acquired = await datastore.acquire_jobs("worker_id", 2)
+    acquired = await datastore.acquire_jobs("worker_id", timedelta(seconds=30), 2)
     assert len(acquired) == 1
     assert acquired[0].id == job.id
 
@@ -467,7 +493,7 @@ async def test_job_release_cancelled(datastore: DataStore) -> None:
     job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
     await datastore.add_job(job)
 
-    acquired = await datastore.acquire_jobs("worker1", 2)
+    acquired = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 2)
     assert len(acquired) == 1
     assert acquired[0].id == job.id
 
@@ -506,18 +532,18 @@ async def test_acquire_jobs_lock_timeout(
 
     # First, one worker acquires the first available job
     time_machine.move_to(datetime.now(timezone.utc), tick=False)
-    acquired = await datastore.acquire_jobs("worker1", 1)
+    acquired = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
     assert len(acquired) == 1
     assert acquired[0].id == job.id
 
     # Try to acquire the job just at the threshold (now == acquired_until).
     # This should not yield any jobs.
     time_machine.shift(30)
-    assert not await datastore.acquire_jobs("worker2", 1)
+    assert not await datastore.acquire_jobs("worker2", timedelta(seconds=30), 1)
 
     # Right after that, the job should be available
     time_machine.shift(1)
-    acquired = await datastore.acquire_jobs("worker2", 1)
+    acquired = await datastore.acquire_jobs("worker2", timedelta(seconds=30), 1)
     assert len(acquired) == 1
     assert acquired[0].id == job.id
 
@@ -537,7 +563,7 @@ async def test_acquire_jobs_max_number_exceeded(datastore: DataStore) -> None:
 
     # Check that only 2 jobs are returned from acquire_jobs() even though the limit
     # was 3
-    acquired_jobs = await datastore.acquire_jobs("worker1", 3)
+    acquired_jobs = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 3)
     assert len(acquired_jobs) == 2
     assert [job.id for job in acquired_jobs] == [job.id for job in jobs[:2]]
 
@@ -551,7 +577,7 @@ async def test_acquire_jobs_max_number_exceeded(datastore: DataStore) -> None:
             return_value=None,
         ),
     )
-    acquired_jobs = await datastore.acquire_jobs("worker1", 3)
+    acquired_jobs = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 3)
     assert [job.id for job in acquired_jobs] == [jobs[2].id]
 
 
@@ -614,26 +640,44 @@ async def test_extend_acquired_schedule_leases(
     await datastore.add_schedule(schedules[0], ConflictPolicy.exception)
 
     # Acquire the schedule
-    schedules = await datastore.acquire_schedules("scheduler_id", 1)
+    schedules = await datastore.acquire_schedules(
+        "scheduler_id",
+        timedelta(seconds=30),
+        1,
+    )
     assert len(schedules) == 1
 
     # Move 20 seconds forward, then call extend_acquired_schedule_leases(). This should
     # set the acquired_until timestamp to 30 seconds from the new current time.
     time_machine.shift(20)
-    await datastore.extend_acquired_schedule_leases("scheduler_id", {schedules[0].id})
+    await datastore.extend_acquired_schedule_leases(
+        "scheduler_id", {schedules[0].id}, timedelta(seconds=30)
+    )
 
     # The schedule was acquired by scheduler_id so scheduler2_id should not be able to
     # acquire it, as it's still within the original lock expiration delay
-    assert not await datastore.acquire_schedules("scheduler2_id", 1)
+    assert not await datastore.acquire_schedules(
+        "scheduler2_id",
+        timedelta(seconds=30),
+        1,
+    )
 
     # Move 20 more seconds forward (beyond the initial lock expiration delay), then try
     # to have the second scheduler acquire the schedule again. This should also fail.
     time_machine.shift(20)
-    assert not await datastore.acquire_schedules("scheduler2_id", 1)
+    assert not await datastore.acquire_schedules(
+        "scheduler2_id",
+        timedelta(seconds=30),
+        1,
+    )
 
     # Move 20 more seconds forward - this time the schedule should be available
     time_machine.shift(20)
-    schedules = await datastore.acquire_schedules("scheduler2_id", 1)
+    schedules = await datastore.acquire_schedules(
+        "scheduler2_id",
+        timedelta(seconds=30),
+        1,
+    )
     assert len(schedules) == 1
 
 
@@ -660,17 +704,19 @@ async def test_extend_acquired_job_leases(
     await datastore.add_job(job)
 
     # Acquire the job
-    jobs = await datastore.acquire_jobs("scheduler_id", 1)
+    jobs = await datastore.acquire_jobs("scheduler_id", timedelta(seconds=30), 1)
     assert len(jobs) == 1
 
     # Move 20 seconds forward, then call extend_acquired_job_leases(). This should set
     # the acquired_until timestamp to 30 seconds from the new current time.
     time_machine.shift(20)
-    await datastore.extend_acquired_job_leases("scheduler_id", {job.id})
+    await datastore.extend_acquired_job_leases(
+        "scheduler_id", {job.id}, timedelta(seconds=30)
+    )
 
     # The job was acquired by scheduler_id so scheduler2_id should not be able to
     # acquire it
-    assert not await datastore.acquire_jobs("scheduler2_id", 1)
+    assert not await datastore.acquire_jobs("scheduler2_id", timedelta(seconds=30), 1)
 
     # Move 20 more seconds forward (beyond the initial lock expiration delay), then make
     # sure that the job is still within the data store.

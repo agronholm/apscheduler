@@ -3,7 +3,7 @@ from __future__ import annotations
 from bisect import bisect_left, bisect_right, insort_right
 from collections import defaultdict
 from collections.abc import Sequence
-from datetime import MAXYEAR, datetime, timezone
+from datetime import MAXYEAR, datetime, timedelta, timezone
 from functools import partial
 from typing import Iterable
 from uuid import UUID
@@ -136,8 +136,11 @@ class MemoryDataStore(BaseDataStore):
                 )
                 await self._event_broker.publish(event)
 
-    async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
+    async def acquire_schedules(
+        self, scheduler_id: str, lease_duration: timedelta, limit: int
+    ) -> list[Schedule]:
         now = datetime.now(timezone.utc)
+        acquired_until = now + lease_duration
         schedules: list[Schedule] = []
         for schedule in self._schedules:
             if schedule.next_fire_time is None or schedule.next_fire_time > now:
@@ -158,7 +161,7 @@ class MemoryDataStore(BaseDataStore):
 
             schedules.append(schedule)
             schedule.acquired_by = scheduler_id
-            schedule.acquired_until = now + self.lock_expiration_delay
+            schedule.acquired_until = acquired_until
             if len(schedules) == limit:
                 break
 
@@ -214,9 +217,10 @@ class MemoryDataStore(BaseDataStore):
         ]
 
     async def acquire_jobs(
-        self, scheduler_id: str, limit: int | None = None
+        self, scheduler_id: str, lease_duration: timedelta, limit: int | None = None
     ) -> list[Job]:
         now = datetime.now(timezone.utc)
+        acquired_until = now + lease_duration
         jobs: list[Job] = []
         for job in self._jobs_by_id.values():
             task = self._tasks[job.task_id]
@@ -238,7 +242,7 @@ class MemoryDataStore(BaseDataStore):
             # Mark the job as acquired by this worker
             jobs.append(job)
             job.acquired_by = scheduler_id
-            job.acquired_until = now + self.lock_expiration_delay
+            job.acquired_until = acquired_until
 
             # Increment the number of running jobs for this task
             task.running_jobs += 1
@@ -289,20 +293,20 @@ class MemoryDataStore(BaseDataStore):
         return self._job_results.pop(job_id, None)
 
     async def extend_acquired_schedule_leases(
-        self, scheduler_id: str, schedule_ids: set[str]
+        self, scheduler_id: str, schedule_ids: set[str], duration: timedelta
     ) -> None:
-        new_acquired_until = datetime.now(timezone.utc) + self.lock_expiration_delay
+        acquired_until = datetime.now(timezone.utc) + duration
         for schedule in self._schedules:
             if schedule.acquired_by == scheduler_id and schedule.id in schedule_ids:
-                schedule.acquired_until = new_acquired_until
+                schedule.acquired_until = acquired_until
 
     async def extend_acquired_job_leases(
-        self, scheduler_id: str, job_ids: set[UUID]
+        self, scheduler_id: str, job_ids: set[UUID], duration: timedelta
     ) -> None:
-        new_acquired_until = datetime.now(timezone.utc) + self.lock_expiration_delay
+        acquired_until = datetime.now(timezone.utc) + duration
         for job in self._jobs_by_id.values():
             if job.acquired_by == scheduler_id and job.id in job_ids:
-                job.acquired_until = new_acquired_until
+                job.acquired_until = acquired_until
 
     async def cleanup(self) -> None:
         # Clean up expired job results

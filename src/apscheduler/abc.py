@@ -4,7 +4,7 @@ import sys
 from abc import ABCMeta, abstractmethod
 from collections.abc import Sequence
 from contextlib import AsyncExitStack
-from datetime import datetime
+from datetime import datetime, timedelta
 from logging import Logger
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
 from uuid import UUID
@@ -247,7 +247,9 @@ class DataStore(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    async def acquire_schedules(self, scheduler_id: str, limit: int) -> list[Schedule]:
+    async def acquire_schedules(
+        self, scheduler_id: str, lease_duration: timedelta, limit: int
+    ) -> list[Schedule]:
         """
         Acquire unclaimed due schedules for processing.
 
@@ -255,6 +257,8 @@ class DataStore(metaclass=ABCMeta):
         scheduler and returns them.
 
         :param scheduler_id: unique identifier of the scheduler
+        :param lease_duration: the duration of the lease, after which the schedules can be
+            acquired by another scheduler even if ``acquired_by`` is not ``None``
         :param limit: maximum number of schedules to claim
         :return: the list of claimed schedules
         """
@@ -306,7 +310,7 @@ class DataStore(metaclass=ABCMeta):
 
     @abstractmethod
     async def acquire_jobs(
-        self, scheduler_id: str, limit: int | None = None
+        self, scheduler_id: str, lease_duration: timedelta, limit: int | None = None
     ) -> list[Job]:
         """
         Acquire unclaimed jobs for execution.
@@ -315,6 +319,8 @@ class DataStore(metaclass=ABCMeta):
         and returns them.
 
         :param scheduler_id: unique identifier of the scheduler
+        :param lease_duration: the duration of the lease, after which the jobs will be
+            considered to be dead if the scheduler doesn't extend the lease duration
         :param limit: maximum number of jobs to claim and return
         :return: the list of claimed jobs
         """
@@ -341,7 +347,7 @@ class DataStore(metaclass=ABCMeta):
         """
 
     async def extend_acquired_schedule_leases(
-        self, scheduler_id: str, schedule_ids: set[str]
+        self, scheduler_id: str, schedule_ids: set[str], duration: timedelta
     ) -> None:
         """
         Extend the leases of specified schedules acquired by the given scheduler.
@@ -349,16 +355,18 @@ class DataStore(metaclass=ABCMeta):
         :param scheduler_id: unique identifier of the scheduler
         :param schedule_ids: the identifiers of the schedules the scheduler is currently
             processing
+        :param duration: the duration by which to extend the leases
         """
 
     async def extend_acquired_job_leases(
-        self, scheduler_id: str, job_ids: set[UUID]
+        self, scheduler_id: str, job_ids: set[UUID], duration: timedelta
     ) -> None:
         """
         Extend the leases of specified jobs acquired by the given scheduler.
 
         :param scheduler_id: unique identifier of the scheduler
         :param job_ids: the identifiers of the jobs the scheduler is running
+        :param duration: the duration by which to extend the leases
         """
 
     @abstractmethod
