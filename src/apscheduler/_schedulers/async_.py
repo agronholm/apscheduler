@@ -422,6 +422,7 @@ class AsyncScheduler:
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
         max_jitter: float | timedelta | None = None,
         max_running_jobs: int | None | UnsetValue = unset,
+        job_result_expiration_time: float | timedelta = 0,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
     ) -> str:
         """
@@ -440,8 +441,10 @@ class AsyncScheduler:
             fire times have become due for this schedule since the last processing
         :param misfire_grace_time: maximum number of seconds the scheduled job's actual
             run time is allowed to be late, compared to the scheduled run time
-        :param max_jitter: maximum number of seconds to randomly add to the scheduled
-            time for each job created from this schedule
+        :param max_jitter: maximum time (in seconds, or as a timedelta) to randomly add
+            to the scheduled time for each job created from this schedule
+        :param job_result_expiration_time: minimum time (in seconds, or as a timedelta)
+            to keep the job results in storage from the jobs created by this schedule
         :param max_running_jobs: maximum number of instances of the task that are
             allowed to run concurrently (if not set, uses the default misfire grace time
             from the associated task, or ``None`` if there is no existing task)
@@ -492,6 +495,7 @@ class AsyncScheduler:
             if misfire_grace_time is unset
             else misfire_grace_time,
             max_jitter=max_jitter,
+            job_result_expiration_time=job_result_expiration_time,
         )
         schedule.next_fire_time = trigger.next()
         await self.data_store.add_schedule(schedule, conflict_policy)
@@ -683,6 +687,8 @@ class AsyncScheduler:
             else:
                 raise JobLookupError(job_id)
 
+        # TODO: this might return None if the job didn't save its result, so deal with
+        # that
         return await self.data_store.get_job_result(job_id)
 
     async def run_job(
@@ -950,6 +956,7 @@ class AsyncScheduler:
                                 scheduled_fire_time=fire_time,
                                 jitter=jitter,
                                 start_deadline=start_deadline,
+                                result_expiration_time=schedule.job_result_expiration_time,
                             )
                             await self.data_store.add_job(job)
 

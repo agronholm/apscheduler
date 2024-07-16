@@ -300,6 +300,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("coalesce", Enum(CoalescePolicy, metadata=metadata), nullable=False),
             Column("misfire_grace_time", interval_type),
             Column("max_jitter", interval_type),
+            Column("job_result_expiration_time", interval_type),
             *next_fire_time_tzoffset_columns,
             Column("last_fire_time", timestamp_type),
             Column("acquired_by", Unicode(500), index=True),

@@ -959,6 +959,34 @@ class TestAsyncScheduler:
                 assert isinstance(job_added_event, JobAdded)
                 assert job_added_event.schedule_id == schedule_id
 
+    async def test_schedule_job_result_expiration_time(
+        self, raw_datastore: DataStore, timezone: ZoneInfo
+    ) -> None:
+        trigger = DateTrigger(datetime.now(timezone))
+        send, receive = create_memory_object_stream[Event](4)
+        with send, receive:
+            async with AsyncExitStack() as exit_stack:
+                scheduler = await exit_stack.enter_async_context(
+                    AsyncScheduler(data_store=raw_datastore)
+                )
+                await scheduler.add_schedule(
+                    dummy_async_job, trigger, id="foo", job_result_expiration_time=10
+                )
+                exit_stack.enter_context(scheduler.subscribe(send.send, {JobAdded}))
+                await scheduler.start_in_background()
+
+                # Wait for the scheduled job to be added
+                with fail_after(3):
+                    event = await receive.receive()
+                    assert isinstance(event, JobAdded)
+                    assert event.schedule_id == "foo"
+
+                    # Get its result
+                    result = await scheduler.get_job_result(event.job_id)
+
+                assert result.outcome is JobOutcome.success
+                assert result.return_value == "returnvalue"
+
 
 class TestSyncScheduler:
     def test_configure(self) -> None:

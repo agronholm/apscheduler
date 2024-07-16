@@ -97,6 +97,8 @@ class Schedule:
         run time
     :var ~datetime.timedelta | None max_jitter: maximum number of seconds to randomly
         add to the scheduled time for each job created from this schedule
+    :var ~datetime.timedelta job_result_expiration_time: minimum time to keep the job
+        results in storage from the jobs created by this schedule
     :var ~datetime.datetime next_fire_time: the next time the task will be run
     :var ~datetime.datetime | None last_fire_time: the last time the task was scheduled
         to run
@@ -132,6 +134,12 @@ class Schedule:
     max_jitter: timedelta | None = attrs.field(
         converter=as_timedelta,
         default=None,
+        validator=optional(instance_of(timedelta)),
+        on_setattr=frozen,
+    )
+    job_result_expiration_time: timedelta = attrs.field(
+        default=0,
+        converter=as_timedelta,
         validator=optional(instance_of(timedelta)),
         on_setattr=frozen,
     )

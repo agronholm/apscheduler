@@ -25,6 +25,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** Replaced the data store ``lock_expiration_delay`` parameter with a new
   scheduler-level parameter, ``lease_duration`` which is then used to call the various
   data store methods
+- **BREAKING** Added the ``job_result_expiration_time`` field to the ``Schedule`` class,
+  to allow the job results from scheduled jobs to stay around for some time
+  (`#927 <https://github.com/agronholm/apscheduler/issues/927>`_)
 - Added the ``psycopg`` event broker
 - Added useful indexes and removed useless ones in ``SQLAlchemyDatastore`` and
   ``MongoDBDataStore``
