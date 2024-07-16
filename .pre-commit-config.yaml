@@ -31,10 +31,10 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies:
-          - attrs == 23.1.0
-          - pymongo == 4.6.0
-          - redis == 5.0.1
-          - sqlalchemy == 2.0.23
+          - attrs == 23.2.0
+          - pymongo == 4.8.0
+          - redis == 5.0.7
+          - sqlalchemy == 2.0.31
           - tzlocal == 5.2
         exclude: docs/conf.py
         stages: [manual]
