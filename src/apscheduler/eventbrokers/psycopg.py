@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator, Mapping
 from contextlib import AsyncExitStack, asynccontextmanager
 from logging import Logger
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, Any
 
 import attrs
 from anyio import (
@@ -131,14 +131,14 @@ class PsycopgEventBroker(BaseExternalEventBroker):
 
                     self._logger.debug("Listen connection established")
                     async for notify in conn.notifies():
-                        event = self.reconstitute_event_str(notify.payload)
-                        await self.publish_local(event)
+                        if event := self.reconstitute_event_str(notify.payload):
+                            await self.publish_local(event)
                 except InterfaceError as exc:
                     self._logger.error("Connection error: %s", exc)
 
     async def _publish_notifications(
         self, receive: MemoryObjectReceiveStream[str], *, task_status: TaskStatus[None]
-    ) -> NoReturn:
+    ) -> None:
         task_started_sent = False
         with receive:
             while True:

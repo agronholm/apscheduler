@@ -312,6 +312,7 @@ class TestAsyncScheduler:
                 assert event.task_id == f"{__name__}:dummy_async_job"
                 assert event.schedule_id is None
                 assert event.scheduled_start is None
+                assert event.started_at is not None
                 assert event.started_at >= acquired_at
                 assert event.outcome is JobOutcome.success
 
@@ -366,6 +367,7 @@ class TestAsyncScheduler:
                     assert event.task_id == f"{__name__}:dummy_async_job"
                     assert event.schedule_id is None
                     assert event.scheduled_start is None
+                    assert event.started_at is not None
                     assert event.started_at >= acquired_at
                     assert event.scheduler_id == scheduler.identity
 
@@ -1023,7 +1025,7 @@ class TestSyncScheduler:
         scheduler._exit_stack.close()
 
     def test_configure_task(self) -> None:
-        queue = Queue()
+        queue: Queue[Event] = Queue()
         with Scheduler() as scheduler:
             scheduler.subscribe(queue.put_nowait)
             scheduler.configure_task("mytask", func=dummy_sync_job)
@@ -1043,7 +1045,7 @@ class TestSyncScheduler:
         assert event.task_id == "mytask"
 
     def test_add_remove_schedule(self, timezone: ZoneInfo) -> None:
-        queue = Queue()
+        queue: Queue[Event] = Queue()
         with Scheduler() as scheduler:
             scheduler.subscribe(queue.put_nowait)
             now = datetime.now(timezone)
@@ -1077,7 +1079,7 @@ class TestSyncScheduler:
         assert not event.finished
 
     def test_add_job_wait_result(self) -> None:
-        queue = Queue()
+        queue: Queue[Event] = Queue()
         with Scheduler() as scheduler:
             assert scheduler.get_jobs() == []
 
@@ -1123,7 +1125,7 @@ class TestSyncScheduler:
             assert result.return_value == "returnvalue"
 
     def test_wait_until_stopped(self) -> None:
-        queue = Queue()
+        queue: Queue[Event] = Queue()
         with Scheduler() as scheduler:
             scheduler.configure_task("stop", func=scheduler.stop)
             scheduler.add_job("stop")
@@ -1162,7 +1164,7 @@ class TestSyncScheduler:
                 scheduler.get_schedule("event_set")
 
     def test_run_until_stopped(self) -> None:
-        queue = Queue()
+        queue: Queue[Event] = Queue()
         with Scheduler() as scheduler:
             scheduler.configure_task("stop", func=scheduler.stop)
             scheduler.add_job("stop")

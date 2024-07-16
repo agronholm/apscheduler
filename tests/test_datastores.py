@@ -121,6 +121,7 @@ async def test_add_schedules(datastore: DataStore, schedules: list[Schedule]) ->
         assert await datastore.get_schedules({"s3"}) == [schedules[2]]
 
     for event, schedule in zip(events, schedules):
+        assert isinstance(event, ScheduleAdded)
         assert event.schedule_id == schedule.id
         assert event.task_id == schedule.task_id
         assert event.next_fire_time == schedule.next_fire_time
@@ -156,6 +157,7 @@ async def test_replace_schedules(
         assert schedules[0].misfire_grace_time is None
 
     received_event = events.pop(0)
+    assert isinstance(received_event, ScheduleUpdated)
     assert received_event.schedule_id == "s3"
     assert received_event.task_id == "foo"
     assert received_event.next_fire_time == datetime(2020, 9, 16, tzinfo=timezone.utc)
@@ -173,9 +175,11 @@ async def test_remove_schedules(
         assert await datastore.get_schedules() == [schedules[2]]
 
     received_event = events.pop(0)
+    assert isinstance(received_event, ScheduleRemoved)
     assert received_event.schedule_id == "s1"
 
     received_event = events.pop(0)
+    assert isinstance(received_event, ScheduleRemoved)
     assert received_event.schedule_id == "s2"
 
     assert not events
@@ -417,6 +421,7 @@ async def test_job_release_success(datastore: DataStore) -> None:
         ),
     )
     result = await datastore.get_job_result(acquired[0].id)
+    assert result
     assert result.outcome is JobOutcome.success
     assert result.exception is None
     assert result.return_value == "foo"
@@ -447,6 +452,7 @@ async def test_job_release_failure(datastore: DataStore) -> None:
         ),
     )
     result = await datastore.get_job_result(acquired[0].id)
+    assert result
     assert result.outcome is JobOutcome.error
     assert isinstance(result.exception, ValueError)
     assert result.exception.args == ("foo",)
@@ -477,6 +483,7 @@ async def test_job_release_missed_deadline(datastore: DataStore):
         ),
     )
     result = await datastore.get_job_result(acquired[0].id)
+    assert result
     assert result.outcome is JobOutcome.missed_start_deadline
     assert result.exception is None
     assert result.return_value is None
@@ -503,6 +510,7 @@ async def test_job_release_cancelled(datastore: DataStore) -> None:
         JobResult.from_job(acquired[0], JobOutcome.cancelled),
     )
     result = await datastore.get_job_result(acquired[0].id)
+    assert result
     assert result.outcome is JobOutcome.cancelled
     assert result.exception is None
     assert result.return_value is None

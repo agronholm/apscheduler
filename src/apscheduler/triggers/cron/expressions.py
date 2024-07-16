@@ -76,7 +76,7 @@ class AllExpression:
         return f"*/{self.step}" if self.step else "*"
 
 
-@attrs.define(kw_only=True, slots=True)
+@attrs.define(kw_only=True)
 class RangeExpression(AllExpression):
     value_re: ClassVar[Pattern] = re.compile(
         r"(?P<first>\d+)(?:-(?P<last>\d+))?(?:/(?P<step>\d+))?$"
@@ -148,7 +148,6 @@ class RangeExpression(AllExpression):
         return rangeval
 
 
-# @attrs.define(kw_only=True, slots=True)
 class MonthRangeExpression(RangeExpression):
     value_re: ClassVar[Pattern] = re.compile(
         r"(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?", re.IGNORECASE
@@ -177,7 +176,7 @@ class MonthRangeExpression(RangeExpression):
         return MONTHS[self.first - 1]
 
 
-@attrs.define(kw_only=True, slots=True)
+@attrs.define(kw_only=True, init=False)
 class WeekdayRangeExpression(RangeExpression):
     value_re: ClassVar[Pattern] = re.compile(
         r"(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?", re.IGNORECASE
@@ -195,7 +194,7 @@ class WeekdayRangeExpression(RangeExpression):
         return WEEKDAYS[self.first]
 
 
-@attrs.define(kw_only=True, slots=True)
+@attrs.define(kw_only=True, init=False)
 class WeekdayPositionExpression(AllExpression):
     options: ClassVar[tuple[str, ...]] = ("1st", "2nd", "3rd", "4th", "5th", "last")
     value_re: ClassVar[Pattern] = re.compile(

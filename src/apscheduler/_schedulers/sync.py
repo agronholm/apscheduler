@@ -101,8 +101,12 @@ class Scheduler:
         return self._async_scheduler.max_concurrent_jobs
 
     @property
-    def cleanup_interval(self) -> timedelta:
+    def cleanup_interval(self) -> timedelta | None:
         return self._async_scheduler.cleanup_interval
+
+    @property
+    def lease_duration(self) -> timedelta:
+        return self._async_scheduler.lease_duration
 
     @property
     def job_executors(self) -> MutableMapping[str, JobExecutor]:
@@ -134,7 +138,9 @@ class Scheduler:
         if self._exit_stack:
             self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
 
-    def _ensure_services_ready(self, exit_stack: ExitStack | None = None) -> None:
+    def _ensure_services_ready(
+        self, exit_stack: ExitStack | None = None
+    ) -> BlockingPortal:
         """Ensure that the underlying asynchronous scheduler has been initialized."""
         with self._lock:
             if self._portal is None:
@@ -154,9 +160,11 @@ class Scheduler:
                     self._portal.wrap_async_context_manager(self._async_scheduler)
                 )
 
+        return self._portal
+
     def cleanup(self) -> None:
-        self._ensure_services_ready()
-        return self._portal.call(self._async_scheduler.cleanup)
+        portal = self._ensure_services_ready()
+        return portal.call(self._async_scheduler.cleanup)
 
     @overload
     def subscribe(
@@ -196,8 +204,8 @@ class Scheduler:
             event
 
         """
-        self._ensure_services_ready()
-        return self._portal.call(
+        portal = self._ensure_services_ready()
+        return portal.call(
             partial(
                 self._async_scheduler.subscribe,
                 callback,
@@ -216,8 +224,8 @@ class Scheduler:
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
         max_running_jobs: int | None | UnsetValue = unset,
     ) -> Task:
-        self._ensure_services_ready()
-        return self._portal.call(
+        portal = self._ensure_services_ready()
+        return portal.call(
             partial(
                 self._async_scheduler.configure_task,
                 func_or_task_id,
@@ -229,8 +237,8 @@ class Scheduler:
         )
 
     def get_tasks(self) -> Sequence[Task]:
-        self._ensure_services_ready()
-        return self._portal.call(self._async_scheduler.get_tasks)
+        portal = self._ensure_services_ready()
+        return portal.call(self._async_scheduler.get_tasks)
 
     def add_schedule(
         self,
@@ -248,8 +256,8 @@ class Scheduler:
         max_running_jobs: int | None | UnsetValue = unset,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
     ) -> str:
-        self._ensure_services_ready()
-        return self._portal.call(
+        portal = self._ensure_services_ready()
+        return portal.call(
             partial(
                 self._async_scheduler.add_schedule,
                 func_or_task_id,
@@ -268,20 +276,20 @@ class Scheduler:
         )
 
     def get_schedule(self, id: str) -> Schedule:
-        self._ensure_services_ready()
-        return self._portal.call(self._async_scheduler.get_schedule, id)
+        portal = self._ensure_services_ready()
+        return portal.call(self._async_scheduler.get_schedule, id)
 
     def get_schedules(self) -> list[Schedule]:
-        self._ensure_services_ready()
-        return self._portal.call(self._async_scheduler.get_schedules)
+        portal = self._ensure_services_ready()
+        return portal.call(self._async_scheduler.get_schedules)
 
     def remove_schedule(self, id: str) -> None:
-        self._ensure_services_ready()
-        self._portal.call(self._async_scheduler.remove_schedule, id)
+        portal = self._ensure_services_ready()
+        portal.call(self._async_scheduler.remove_schedule, id)
 
     def pause_schedule(self, id: str) -> None:
-        self._ensure_services_ready()
-        self._portal.call(self._async_scheduler.pause_schedule, id)
+        portal = self._ensure_services_ready()
+        portal.call(self._async_scheduler.pause_schedule, id)
 
     def unpause_schedule(
         self,
@@ -289,8 +297,8 @@ class Scheduler:
         *,
         resume_from: datetime | Literal["now"] | None = None,
     ) -> None:
-        self._ensure_services_ready()
-        self._portal.call(
+        portal = self._ensure_services_ready()
+        portal.call(
             partial(
                 self._async_scheduler.unpause_schedule,
                 id,
@@ -307,8 +315,8 @@ class Scheduler:
         job_executor: str | UnsetValue = unset,
         result_expiration_time: timedelta | float = 0,
     ) -> UUID:
-        self._ensure_services_ready()
-        return self._portal.call(
+        portal = self._ensure_services_ready()
+        return portal.call(
             partial(
                 self._async_scheduler.add_job,
                 func_or_task_id,
@@ -320,12 +328,12 @@ class Scheduler:
         )
 
     def get_jobs(self) -> Sequence[Job]:
-        self._ensure_services_ready()
-        return self._portal.call(self._async_scheduler.get_jobs)
+        portal = self._ensure_services_ready()
+        return portal.call(self._async_scheduler.get_jobs)
 
     def get_job_result(self, job_id: UUID, *, wait: bool = True) -> JobResult:
-        self._ensure_services_ready()
-        return self._portal.call(
+        portal = self._ensure_services_ready()
+        return portal.call(
             partial(self._async_scheduler.get_job_result, job_id, wait=wait)
         )
 
@@ -337,8 +345,8 @@ class Scheduler:
         kwargs: Mapping[str, Any] | None = None,
         job_executor: str | UnsetValue = unset,
     ) -> Any:
-        self._ensure_services_ready()
-        return self._portal.call(
+        portal = self._ensure_services_ready()
+        return portal.call(
             partial(
                 self._async_scheduler.run_job,
                 func_or_task_id,
@@ -367,8 +375,8 @@ class Scheduler:
                 "option for the scheduler to work."
             )
 
-        self._ensure_services_ready()
-        self._portal.call(self._async_scheduler.start_in_background)
+        portal = self._ensure_services_ready()
+        portal.call(self._async_scheduler.start_in_background)
 
     def stop(self) -> None:
         if self._portal is not None:
@@ -381,8 +389,8 @@ class Scheduler:
     def run_until_stopped(self) -> None:
         with ExitStack() as exit_stack:
             # Run the async scheduler
-            self._ensure_services_ready(exit_stack)
-            self._portal.call(self._async_scheduler.run_until_stopped)
+            portal = self._ensure_services_ready(exit_stack)
+            portal.call(self._async_scheduler.run_until_stopped)
 
 
 # Copy the docstrings from the async variant

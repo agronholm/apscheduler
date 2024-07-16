@@ -727,10 +727,11 @@ class AsyncScheduler:
             await job_complete_event.wait()
 
         result = await self.get_job_result(job_id)
+        if result.exception:
+            assert result.outcome is JobOutcome.error
+            raise result.exception
         if result.outcome is JobOutcome.success:
             return result.return_value
-        elif result.outcome is JobOutcome.error:
-            raise result.exception
         elif result.outcome is JobOutcome.missed_start_deadline:
             raise JobDeadlineMissed
         elif result.outcome is JobOutcome.cancelled:

@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator, Sequence
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger
-from typing import Any, Callable, ClassVar, Generic, Iterable, Mapping, TypeVar
+from typing import Any, Callable, ClassVar, Generic, Iterable, Mapping, TypeVar, cast
 from uuid import UUID
 
 import attrs
@@ -72,7 +72,8 @@ def marshal_timestamp(timestamp: datetime | None, key: str) -> Mapping[str, Any]
 
     return {
         key: timestamp.timestamp(),
-        key + "_utcoffset": timestamp.utcoffset().total_seconds() // 60,
+        key + "_utcoffset": cast(timedelta, timestamp.utcoffset()).total_seconds()
+        // 60,
     }
 
 
@@ -94,11 +95,9 @@ def unmarshal_timestamps(document: dict[str, Any]) -> None:
             document[key[:-10]] = datetime.fromtimestamp(time_micro, tzinfo)
 
 
+@attrs.define(eq=False, repr=False)
 class AsyncCursor(Generic[T]):
-    sentinel: ClassVar[object] = object()
-
-    def __init__(self, cursor: Cursor[T]):
-        self._cursor = cursor
+    cursor: Cursor[T]
 
     def __aiter__(self) -> AsyncIterator[T]:
         return self
@@ -107,20 +106,16 @@ class AsyncCursor(Generic[T]):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        await to_thread.run_sync(self._cursor.close)
+        await to_thread.run_sync(self.cursor.close)
 
-    def _get_next(self) -> T:
+    def __next__(self) -> T:
         try:
-            return next(self._cursor)
+            return next(self.cursor)
         except StopIteration:
-            return self.sentinel
+            raise StopAsyncIteration from None
 
     async def __anext__(self) -> T:
-        obj = await to_thread.run_sync(self._get_next)
-        if obj is self.sentinel:
-            raise StopAsyncIteration
-
-        return obj
+        return await to_thread.run_sync(next, self)
 
     @classmethod
     async def create(cls, func: Callable[..., Cursor[T]]) -> AsyncCursor[T]:
@@ -189,7 +184,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                 CustomEncoder(JobOutcome, operator.attrgetter("name")),
             ]
         )
-        codec_options = CodecOptions(
+        codec_options: CodecOptions = CodecOptions(
             type_registry=type_registry,
             uuid_representation=UuidRepresentation.STANDARD,
         )
@@ -359,11 +354,11 @@ class MongoDBDataStore(BaseExternalDataStore):
                         filters, projection=["_id", "task_id"], session=session
                     )
                 ) as cursor:
-                    ids = [(doc["_id"], doc["task_id"]) async for doc in cursor]
-                    if ids:
+                    new_ids = [(doc["_id"], doc["task_id"]) async for doc in cursor]
+                    if new_ids:
                         self._schedules.delete_many(filters, session=session)
 
-        for schedule_id, task_id in ids:
+        for schedule_id, task_id in new_ids:
             await self._event_broker.publish(
                 ScheduleRemoved(
                     schedule_id=schedule_id, task_id=task_id, finished=False
@@ -376,11 +371,11 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt, self._client.start_session() as session:
                 schedules: list[Schedule] = []
-                now = datetime.now(timezone.utc).timestamp()
+                now = datetime.now(timezone.utc)
                 async with await AsyncCursor.create(
                     lambda: self._schedules.find(
                         {
-                            "next_fire_time": {"$lte": now},
+                            "next_fire_time": {"$lte": now.timestamp()},
                             "$and": [
                                 {
                                     "$or": [
@@ -391,7 +386,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                                 {
                                     "$or": [
                                         {"acquired_until": {"$exists": False}},
-                                        {"acquired_until": {"$lt": now}},
+                                        {"acquired_until": {"$lt": now.timestamp()}},
                                     ]
                                 },
                             ],
@@ -424,11 +419,11 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def release_schedules(
         self, scheduler_id: str, results: Sequence[ScheduleResult]
     ) -> None:
-        updated_schedules: list[tuple[str, datetime]] = []
+        updated_schedules: list[tuple[str, datetime | None]] = []
         finished_schedule_ids: list[str] = []
         task_ids = {result.schedule_id: result.task_id for result in results}
 
-        requests = []
+        requests: list[UpdateOne | DeleteOne] = []
         for result in results:
             filters = {"_id": result.schedule_id, "acquired_by": scheduler_id}
             try:
@@ -708,14 +703,14 @@ class MongoDBDataStore(BaseExternalDataStore):
                 )
 
     async def cleanup(self) -> None:
-        events: list[DataStoreEvent] = []
+        events: list[JobReleased | ScheduleRemoved] = []
         async for attempt in self._retry():
             with attempt, self._client.start_session() as session:
                 # Purge expired job results
-                now = datetime.now(timezone.utc).timestamp()
+                now = datetime.now(timezone.utc)
                 await to_thread.run_sync(
                     lambda: self._jobs_results.delete_many(
-                        {"expires_at": {"$lte": now}}, session=session
+                        {"expires_at": {"$lte": now.timestamp()}}, session=session
                     )
                 )
 
@@ -742,7 +737,6 @@ class MongoDBDataStore(BaseExternalDataStore):
                             finished_schedules.pop(schedule_id)
 
                 # Finish any jobs whose leases have expired
-                now = datetime.now(timezone.utc)
                 filters = {"acquired_until": {"$lt": now.timestamp()}}
                 async with await AsyncCursor.create(
                     lambda: self._jobs.find(filters)
@@ -761,6 +755,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                         result = JobResult.from_job(
                             job, outcome=JobOutcome.cancelled, finished_at=now
                         )
+                        assert job.acquired_by is not None
                         events.append(
                             await self._release_job(
                                 session, job.acquired_by, job, result

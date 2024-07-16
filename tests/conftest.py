@@ -144,6 +144,7 @@ def mongodb_store() -> Generator[DataStore, None, None]:
 
     from apscheduler.datastores.mongodb import MongoDBDataStore
 
+    client: MongoClient
     with MongoClient(tz_aware=True, serverSelectionTimeoutMS=1000) as client:
         yield MongoDBDataStore(client, start_from_scratch=True)
 

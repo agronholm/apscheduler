@@ -49,7 +49,7 @@ class MemoryDataStore(BaseDataStore):
     _jobs_by_schedule_id: dict[str, set[Job]] = attrs.Factory(partial(defaultdict, set))
     _job_results: dict[UUID, JobResult] = attrs.Factory(dict)
 
-    def _find_schedule_index(self, schedule: Schedule) -> int | None:
+    def _find_schedule_index(self, schedule: Schedule) -> int:
         left_index = bisect_left(self._schedules, schedule)
         right_index = bisect_right(self._schedules, schedule)
         return self._schedules.index(schedule, left_index, right_index + 1)
@@ -107,6 +107,7 @@ class MemoryDataStore(BaseDataStore):
         self._schedules_by_task_id[schedule.task_id].add(schedule)
         insort_right(self._schedules, schedule)
 
+        event: ScheduleUpdated | ScheduleAdded
         if old_schedule is not None:
             event = ScheduleUpdated(
                 schedule_id=schedule.id,
@@ -173,7 +174,7 @@ class MemoryDataStore(BaseDataStore):
         # Send update events for schedules
         for result in results:
             # Remove the schedule
-            schedule = self._schedules_by_id.get(result.schedule_id)
+            schedule = self._schedules_by_id[result.schedule_id]
             index = self._find_schedule_index(schedule)
             del self._schedules[index]
 
@@ -329,6 +330,7 @@ class MemoryDataStore(BaseDataStore):
             result = JobResult.from_job(
                 job=job, outcome=JobOutcome.cancelled, finished_at=now
             )
+            assert job.acquired_by is not None
             await self.release_job(job.acquired_by, job, result)
 
         # Clean up finished schedules that have no running jobs
