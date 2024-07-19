@@ -254,6 +254,7 @@ class Scheduler:
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
         max_jitter: float | timedelta | None = None,
         max_running_jobs: int | None | UnsetValue = unset,
+        job_result_expiration_time: float | timedelta = 0,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
     ) -> str:
         portal = self._ensure_services_ready()
@@ -271,6 +272,7 @@ class Scheduler:
                 misfire_grace_time=misfire_grace_time,
                 max_jitter=max_jitter,
                 max_running_jobs=max_running_jobs,
+                job_result_expiration_time=job_result_expiration_time,
                 conflict_policy=conflict_policy,
             )
         )
