@@ -318,7 +318,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("jitter", interval_type),
             Column("start_deadline", timestamp_type),
             Column("result_expiration_time", interval_type),
-            Column("created_at", timestamp_type, nullable=False),
+            Column("created_at", timestamp_type, nullable=False, index=True),
             Column("acquired_by", Unicode(500), index=True),
             Column("acquired_until", timestamp_type),
         )

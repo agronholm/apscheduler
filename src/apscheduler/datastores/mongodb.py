@@ -207,6 +207,7 @@ class MongoDBDataStore(BaseExternalDataStore):
             self._schedules.create_index("acquired_by", session=session)
             self._jobs.create_index("task_id", session=session)
             self._jobs.create_index("schedule_id", session=session)
+            self._jobs.create_index("created_at", session=session)
             self._jobs.create_index("acquired_by", session=session)
             self._jobs_results.create_index("expires_at", session=session)
 

@@ -28,6 +28,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** Added the ``job_result_expiration_time`` field to the ``Schedule`` class,
   to allow the job results from scheduled jobs to stay around for some time
   (`#927 <https://github.com/agronholm/apscheduler/issues/927>`_)
+- **BREAKING** Added an index for the ``created_at`` job field, so acquiring jobs would
+  be faster when there are a lot of them
 - Added the ``psycopg`` event broker
 - Added useful indexes and removed useless ones in ``SQLAlchemyDatastore`` and
   ``MongoDBDataStore``
