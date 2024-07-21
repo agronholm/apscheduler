@@ -1018,7 +1018,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     jobs = await self._deserialize_jobs(results)
                     for job in jobs:
                         result = JobResult.from_job(
-                            job, outcome=JobOutcome.cancelled, finished_at=now
+                            job, outcome=JobOutcome.abandoned, finished_at=now
                         )
                         events.append(
                             await self._release_job(conn, job.acquired_by, job, result)

@@ -753,7 +753,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                             continue
 
                         result = JobResult.from_job(
-                            job, outcome=JobOutcome.cancelled, finished_at=now
+                            job, outcome=JobOutcome.abandoned, finished_at=now
                         )
                         assert job.acquired_by is not None
                         events.append(

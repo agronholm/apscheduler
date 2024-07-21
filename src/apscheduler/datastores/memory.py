@@ -328,7 +328,7 @@ class MemoryDataStore(BaseDataStore):
         ]
         for job in expired_jobs:
             result = JobResult.from_job(
-                job=job, outcome=JobOutcome.cancelled, finished_at=now
+                job=job, outcome=JobOutcome.abandoned, finished_at=now
             )
             assert job.acquired_by is not None
             await self.release_job(job.acquired_by, job, result)

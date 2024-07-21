@@ -708,7 +708,7 @@ async def test_extend_acquired_job_leases(
     await datastore.add_task(task)
 
     # Add a job to the data store
-    job = Job(task_id="task1")
+    job = Job(task_id="task1", result_expiration_time=timedelta(seconds=30))
     await datastore.add_job(job)
 
     # Acquire the job
@@ -737,3 +737,7 @@ async def test_extend_acquired_job_leases(
     time_machine.shift(20)
     await datastore.cleanup()
     assert not await datastore.get_jobs({job.id})
+
+    # Check that a result was recorded, with the "abandoned" outcome
+    result = await datastore.get_job_result(job.id)
+    assert result.outcome is JobOutcome.abandoned

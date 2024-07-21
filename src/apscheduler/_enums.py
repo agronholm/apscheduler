@@ -66,17 +66,24 @@ class JobOutcome(Enum):
 
     .. attribute:: missed_start_deadline
 
-        the job's execution was delayed enough for it to miss
+        the job's execution was delayed enough for it to miss its start deadline
+        (scheduled time + misfire grace time)
 
     .. attribute:: cancelled
 
         the job's execution was cancelled
+
+    .. attribute:: abandoned
+
+        the worker running the job stopped unexpectedly and the job was never marked
+        as done
     """
 
     success = auto()
     error = auto()
     missed_start_deadline = auto()
     cancelled = auto()
+    abandoned = auto()
 
 
 class ConflictPolicy(Enum):
