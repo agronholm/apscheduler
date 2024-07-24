@@ -279,13 +279,23 @@ class JobReleased(SchedulerEvent):
     exception_traceback: list[str] | None = None
 
     @classmethod
-    def from_result(cls, job: Job, result: JobResult, scheduler_id: str) -> JobReleased:
+    def from_result(
+        cls,
+        result: JobResult,
+        scheduler_id: str,
+        task_id: str,
+        schedule_id: str,
+        scheduled_fire_time: datetime | None = None,
+    ) -> JobReleased:
         """
         Create a new job-released event from a job, the job result and a scheduler ID.
 
-        :param job: the job that was acquired
         :param result: the result of the job
         :param scheduler_id: the ID of the scheduler that acquired the job
+        :param task_id: the job's task ID
+        :param schedule_id: ID of the schedule (if any) from which the job was spawned
+        :param scheduled_fire_time: the time the job was scheduled to start (if the job
+            was spawned from a schedule)
         :return: a new job-released event
 
         """
@@ -302,10 +312,10 @@ class JobReleased(SchedulerEvent):
             timestamp=result.finished_at,
             job_id=result.job_id,
             scheduler_id=scheduler_id,
-            task_id=job.task_id,
-            schedule_id=job.schedule_id,
+            task_id=task_id,
+            schedule_id=schedule_id,
             outcome=result.outcome,
-            scheduled_start=job.scheduled_fire_time,
+            scheduled_start=scheduled_fire_time,
             started_at=result.started_at,
             exception_type=exception_type,
             exception_message=exception_message,

@@ -246,30 +246,33 @@ class Job:
 
     id: UUID = attrs.field(factory=uuid4, on_setattr=frozen)
     task_id: str = attrs.field(on_setattr=frozen)
-    args: tuple = attrs.field(converter=tuple, default=(), on_setattr=frozen)
-    kwargs: dict[str, Any] = attrs.field(converter=dict, default=(), on_setattr=frozen)
+    args: tuple = attrs.field(
+        converter=tuple, default=(), repr=False, on_setattr=frozen
+    )
+    kwargs: dict[str, Any] = attrs.field(
+        converter=dict, factory=dict, repr=False, on_setattr=frozen
+    )
     schedule_id: str | None = attrs.field(default=None, on_setattr=frozen)
     scheduled_fire_time: datetime | None = attrs.field(
         converter=as_aware_datetime, default=None, on_setattr=frozen
     )
     jitter: timedelta = attrs.field(
-        converter=as_timedelta, factory=timedelta, on_setattr=frozen
+        converter=as_timedelta, factory=timedelta, repr=False, on_setattr=frozen
     )
     start_deadline: datetime | None = attrs.field(
-        converter=as_aware_datetime, default=None, on_setattr=frozen
+        converter=as_aware_datetime, default=None, repr=False, on_setattr=frozen
     )
     result_expiration_time: timedelta = attrs.field(
-        converter=as_timedelta, default=timedelta(), on_setattr=frozen
+        converter=as_timedelta, default=timedelta(), repr=False, on_setattr=frozen
     )
     created_at: datetime = attrs.field(
-        order=False,
         converter=as_aware_datetime,
         factory=partial(datetime.now, timezone.utc),
         on_setattr=frozen,
     )
-    acquired_by: str | None = attrs.field(default=None)
+    acquired_by: str | None = attrs.field(default=None, repr=False)
     acquired_until: datetime | None = attrs.field(
-        converter=as_aware_datetime, default=None
+        converter=as_aware_datetime, default=None, repr=False
     )
 
     @property
@@ -306,7 +309,7 @@ class Job:
         return NotImplemented
 
 
-@attrs.define(kw_only=True, frozen=True)
+@attrs.define(kw_only=True, frozen=True, eq=False)
 class JobResult:
     """
     Represents the result of running a job.
@@ -315,8 +318,8 @@ class JobResult:
     :var JobOutcome outcome: indicates how the job ended
     :var ~datetime.datetime started_at: the time when the job was submitted to the
         executor (``None`` if the job never started in the first place)
-    :var ~datetime.datetime finished_at: the time when the job ended (``None`` if the
-        job never started in the first place)
+    :var ~datetime.datetime finished_at: the time when the job finished running, or was
+        discarded during the job acquisition process
     :var ~datetime.datetime expires_at: the time when the result will expire
     :var BaseException | None exception: the exception object if the job ended due to an
         exception being raised
@@ -325,24 +328,12 @@ class JobResult:
     """
 
     job_id: UUID
-    outcome: JobOutcome = attrs.field(
-        eq=False, order=False, converter=as_enum(JobOutcome)
-    )
-    started_at: datetime | None = attrs.field(
-        eq=False,
-        order=False,
-        converter=as_aware_datetime,
-    )
-    finished_at: datetime = attrs.field(
-        eq=False,
-        order=False,
-        converter=as_aware_datetime,
-    )
-    expires_at: datetime = attrs.field(
-        eq=False, converter=as_aware_datetime, order=False
-    )
-    exception: BaseException | None = attrs.field(eq=False, order=False, default=None)
-    return_value: Any = attrs.field(eq=False, order=False, default=None)
+    outcome: JobOutcome = attrs.field(converter=as_enum(JobOutcome))
+    started_at: datetime | None = attrs.field(converter=as_aware_datetime, default=None)
+    finished_at: datetime = attrs.field(converter=as_aware_datetime)
+    expires_at: datetime = attrs.field(converter=as_aware_datetime, repr=False)
+    exception: BaseException | None = attrs.field(default=None, repr=False)
+    return_value: Any = attrs.field(default=None, repr=False)
 
     @classmethod
     def from_job(
@@ -391,3 +382,12 @@ class JobResult:
             )
 
         return cls(**marshalled)
+
+    def __hash__(self) -> int:
+        return hash(self.job_id)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, JobResult):
+            return self.job_id == other.job_id
+
+        return NotImplemented

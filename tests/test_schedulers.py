@@ -475,6 +475,7 @@ class TestAsyncScheduler:
                     assert isinstance(event, JobAdded)
                     assert event.schedule_id == "foo"
                     assert event.task_id == "test_schedulers:dummy_async_job"
+                    job_id = event.job_id
 
                     # The schedule was updated with a null next fire time
                     event = await scheduler_receive.receive()
@@ -483,13 +484,6 @@ class TestAsyncScheduler:
                     assert event.next_fire_time is None
 
                     # The new job was acquired
-                    event = await worker_receive.receive()
-                    assert isinstance(event, JobAcquired)
-                    job_id = event.job_id
-                    assert event.task_id == "test_schedulers:dummy_async_job"
-                    assert event.schedule_id == "foo"
-
-                    # The new job was released
                     event = await worker_receive.receive()
                     assert isinstance(event, JobReleased)
                     assert event.job_id == job_id

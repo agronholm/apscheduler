@@ -223,6 +223,7 @@ class MemoryDataStore(BaseDataStore):
         now = datetime.now(timezone.utc)
         acquired_until = now + lease_duration
         jobs: list[Job] = []
+        job_results: dict[Job, JobResult] = {}
         for job in self._jobs_by_id.values():
             task = self._tasks[job.task_id]
 
@@ -233,11 +234,26 @@ class MemoryDataStore(BaseDataStore):
                 else:
                     task.running_jobs -= 1
 
-            # Check if the task allows one more job to be started
+            # Discard the job if its start deadline has passed
+            if job.start_deadline and job.start_deadline < now:
+                job_results[job] = JobResult(
+                    job_id=job.id,
+                    outcome=JobOutcome.missed_start_deadline,
+                    finished_at=now,
+                    expires_at=now + job.result_expiration_time,
+                )
+                continue
+
+            # Skip the job if no more slots are available
             if (
                 task.max_running_jobs is not None
                 and task.running_jobs >= task.max_running_jobs
             ):
+                self._logger.debug(
+                    "Skipping job %s because task %r has the maximum number of %d jobs "
+                    "already running",
+                    task.running_jobs,
+                )
                 continue
 
             # Mark the job as acquired by this worker
@@ -258,6 +274,10 @@ class MemoryDataStore(BaseDataStore):
                 JobAcquired.from_job(job, scheduler_id=scheduler_id)
             )
 
+        # Discard the jobs that could not start
+        for job, result in job_results.items():
+            await self.release_job(scheduler_id, job, result)
+
         return jobs
 
     async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
@@ -266,7 +286,8 @@ class MemoryDataStore(BaseDataStore):
             self._job_results[result.job_id] = result
 
         # Decrement the number of running jobs for this task
-        self._tasks[job.task_id].running_jobs -= 1
+        if job.acquired_by:
+            self._tasks[job.task_id].running_jobs -= 1
 
         # Delete the job
         job = self._jobs_by_id.pop(result.job_id)
@@ -287,7 +308,13 @@ class MemoryDataStore(BaseDataStore):
 
         # Notify other schedulers
         await self._event_broker.publish(
-            JobReleased.from_result(job, result, scheduler_id)
+            JobReleased.from_result(
+                result,
+                scheduler_id,
+                job.task_id,
+                job.schedule_id,
+                job.scheduled_fire_time,
+            )
         )
 
     async def get_job_result(self, job_id: UUID) -> JobResult | None:

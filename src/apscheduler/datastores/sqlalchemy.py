@@ -68,7 +68,12 @@ from .._events import (
     TaskRemoved,
     TaskUpdated,
 )
-from .._exceptions import ConflictingIdError, SerializationError, TaskLookupError
+from .._exceptions import (
+    ConflictingIdError,
+    DeserializationError,
+    SerializationError,
+    TaskLookupError,
+)
 from .._structures import Job, JobResult, Schedule, ScheduleResult, Task
 from ..abc import EventBroker
 from .base import BaseExternalDataStore
@@ -102,6 +107,17 @@ class EmulatedInterval(TypeDecorator[timedelta]):
         self, value: int | None, dialect: Dialect
     ) -> timedelta | None:
         return timedelta(seconds=value / 1000000) if value is not None else None
+
+
+@attrs.define(eq=False, frozen=True)
+class _JobDiscard:
+    job_id: UUID
+    outcome: JobOutcome
+    task_id: str
+    schedule_id: str | None
+    scheduled_fire_time: datetime | None
+    result_expires_at: datetime
+    exception: Exception | None = None
 
 
 @attrs.define(eq=False)
@@ -465,13 +481,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         await self._event_broker.publish(TaskRemoved(task_id=task_id))
 
     async def get_task(self, task_id: str) -> Task:
-        query = select(
-            self._t_tasks.c.id,
-            self._t_tasks.c.func,
-            self._t_tasks.c.job_executor,
-            self._t_tasks.c.max_running_jobs,
-            self._t_tasks.c.misfire_grace_time,
-        ).where(self._t_tasks.c.id == task_id)
+        query = self._t_tasks.select().where(self._t_tasks.c.id == task_id)
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
@@ -484,13 +494,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             raise TaskLookupError(task_id)
 
     async def get_tasks(self) -> list[Task]:
-        query = select(
-            self._t_tasks.c.id,
-            self._t_tasks.c.func,
-            self._t_tasks.c.job_executor,
-            self._t_tasks.c.max_running_jobs,
-            self._t_tasks.c.misfire_grace_time,
-        ).order_by(self._t_tasks.c.id)
+        query = self._t_tasks.select().order_by(self._t_tasks.c.id)
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
@@ -770,6 +774,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             .where(
                 self._t_schedules.c.next_fire_time.isnot(None),
                 self._t_schedules.c.paused == false(),
+                self._t_schedules.c.acquired_by.is_(None),
             )
             .order_by(self._t_schedules.c.next_fire_time)
             .limit(1)
@@ -819,13 +824,18 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     async def acquire_jobs(
         self, scheduler_id: str, lease_duration: timedelta, limit: int | None = None
     ) -> list[Job]:
+        events: list[JobAcquired | JobReleased] = []
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
                     now = datetime.now(timezone.utc)
                     acquired_until = now + lease_duration
                     query = (
-                        self._t_jobs.select()
+                        select(
+                            self._t_jobs,
+                            self._t_tasks.c.max_running_jobs,
+                            self._t_tasks.c.running_jobs,
+                        )
                         .join(
                             self._t_tasks, self._t_tasks.c.id == self._t_jobs.c.task_id
                         )
@@ -836,7 +846,14 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             )
                         )
                         .order_by(self._t_jobs.c.created_at)
-                        .with_for_update(skip_locked=True)
+                        .with_for_update(
+                            skip_locked=True,
+                            of=[
+                                self._t_tasks.c.running_jobs,
+                                self._t_jobs.c.acquired_by,
+                                self._t_jobs.c.acquired_until,
+                            ],
+                        )
                         .limit(limit)
                     )
 
@@ -844,34 +861,75 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     if not result:
                         return []
 
-                    # Mark the jobs as acquired by this worker
-                    jobs = await self._deserialize_jobs(result)
-                    task_ids: set[str] = {job.task_id for job in jobs}
-
-                    # Retrieve the limits
-                    query = select(
-                        self._t_tasks.c.id,
-                        self._t_tasks.c.max_running_jobs - self._t_tasks.c.running_jobs,
-                    ).where(
-                        self._t_tasks.c.max_running_jobs.isnot(None),
-                        self._t_tasks.c.id.in_(task_ids),
-                    )
-                    result = await self._execute(conn, query)
-                    job_slots_left: dict[str, int] = dict(result.fetchall())
-
-                    # Filter out jobs that don't have free slots
                     acquired_jobs: list[Job] = []
-                    increments: dict[str, int] = defaultdict(lambda: 0)
-                    for job in jobs:
-                        # Don't acquire the job if there are no free slots left
-                        slots_left = job_slots_left.get(job.task_id)
-                        if slots_left == 0:
-                            continue
-                        elif slots_left is not None:
-                            job_slots_left[job.task_id] -= 1
+                    discarded_jobs: list[_JobDiscard] = []
+                    task_job_slots_left: dict[str, float] = defaultdict(
+                        lambda: float("inf")
+                    )
+                    running_job_count_increments: dict[str, int] = defaultdict(
+                        lambda: 0
+                    )
+                    for row in result:
+                        job_dict = row._asdict()
+                        task_max_running_jobs = job_dict.pop("max_running_jobs")
+                        task_running_jobs = job_dict.pop("running_jobs")
+                        if task_max_running_jobs is not None:
+                            task_job_slots_left.setdefault(
+                                row.task_id, task_max_running_jobs - task_running_jobs
+                            )
 
+                        # Deserialize the job
+                        try:
+                            job = Job.unmarshal(self.serializer, job_dict)
+                        except DeserializationError as exc:
+                            # Deserialization failed, so record the exception as the job
+                            # result
+                            discarded_jobs.append(
+                                _JobDiscard(
+                                    job_id=row.id,
+                                    outcome=JobOutcome.deserialization_failed,
+                                    task_id=row.task_id,
+                                    schedule_id=row.schedule_id,
+                                    scheduled_fire_time=row.scheduled_fire_time,
+                                    result_expires_at=now + row.result_expiration_time,
+                                    exception=exc,
+                                )
+                            )
+                            continue
+
+                        # Discard the job if its start deadline has passed
+                        if job.start_deadline and job.start_deadline < now:
+                            discarded_jobs.append(
+                                _JobDiscard(
+                                    job_id=row.id,
+                                    outcome=JobOutcome.missed_start_deadline,
+                                    task_id=row.task_id,
+                                    schedule_id=row.schedule_id,
+                                    scheduled_fire_time=row.scheduled_fire_time,
+                                    result_expires_at=now + row.result_expiration_time,
+                                )
+                            )
+                            continue
+
+                        # Skip the job if no more slots are available
+                        if not task_job_slots_left[job.task_id]:
+                            self._logger.debug(
+                                "Skipping job %s because task %r has the maximum "
+                                "number of %d jobs already running",
+                                job.id,
+                                job.task_id,
+                                task_max_running_jobs,
+                            )
+                            continue
+
+                        task_job_slots_left[job.task_id] -= 1
+                        running_job_count_increments[job.task_id] += 1
+                        job.acquired_by = scheduler_id
+                        job.acquired_until = acquired_until
                         acquired_jobs.append(job)
-                        increments[job.task_id] += 1
+                        events.append(
+                            JobAcquired.from_job(job, scheduler_id=scheduler_id)
+                        )
 
                     if acquired_jobs:
                         # Mark the acquired jobs as acquired by this worker
@@ -890,7 +948,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         p_increment: BindParameter = bindparam("p_increment")
                         params = [
                             {"p_id": task_id, "p_increment": increment}
-                            for task_id, increment in increments.items()
+                            for task_id, increment in running_job_count_increments.items()
                         ]
                         update = (
                             self._t_tasks.update()
@@ -901,20 +959,43 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         )
                         await self._execute(conn, update, params)
 
+                    # Discard the jobs that could not start
+                    for discard in discarded_jobs:
+                        result = JobResult(
+                            job_id=discard.job_id,
+                            outcome=discard.outcome,
+                            finished_at=now,
+                            expires_at=discard.result_expires_at,
+                            exception=discard.exception,
+                        )
+                        events.append(
+                            await self._release_job(
+                                conn,
+                                result,
+                                scheduler_id,
+                                discard.task_id,
+                                discard.schedule_id,
+                                discard.scheduled_fire_time,
+                                decrement_running_job_count=False,
+                            )
+                        )
+
         # Publish the appropriate events
-        for job in acquired_jobs:
-            await self._event_broker.publish(
-                JobAcquired.from_job(job, scheduler_id=scheduler_id)
-            )
+        for event in events:
+            await self._event_broker.publish(event)
 
         return acquired_jobs
 
     async def _release_job(
         self,
         conn: Connection | AsyncConnection,
-        scheduler_id: str,
-        job: Job,
         result: JobResult,
+        scheduler_id: str,
+        task_id: str,
+        schedule_id: str | None = None,
+        scheduled_fire_time: datetime | None = None,
+        *,
+        decrement_running_job_count: bool = True,
     ) -> JobReleased:
         # Record the job result
         if result.expires_at > result.finished_at:
@@ -923,25 +1004,35 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             await self._execute(conn, insert)
 
         # Decrement the number of running jobs for this task
-        update = (
-            self._t_tasks.update()
-            .values(running_jobs=self._t_tasks.c.running_jobs - 1)
-            .where(self._t_tasks.c.id == job.task_id)
-        )
-        await self._execute(conn, update)
+        if decrement_running_job_count:
+            update = (
+                self._t_tasks.update()
+                .values(running_jobs=self._t_tasks.c.running_jobs - 1)
+                .where(self._t_tasks.c.id == task_id)
+            )
+            await self._execute(conn, update)
 
         # Delete the job
         delete = self._t_jobs.delete().where(self._t_jobs.c.id == result.job_id)
         await self._execute(conn, delete)
 
         # Create the event, to be sent after commit
-        return JobReleased.from_result(job, result, scheduler_id)
+        return JobReleased.from_result(
+            result, scheduler_id, task_id, schedule_id, scheduled_fire_time
+        )
 
     async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
-                    event = await self._release_job(conn, scheduler_id, job, result)
+                    event = await self._release_job(
+                        conn,
+                        result,
+                        scheduler_id,
+                        job.task_id,
+                        job.schedule_id,
+                        job.scheduled_fire_time,
+                    )
 
         # Notify other schedulers
         await self._event_broker.publish(event)
@@ -1021,7 +1112,14 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             job, outcome=JobOutcome.abandoned, finished_at=now
                         )
                         events.append(
-                            await self._release_job(conn, job.acquired_by, job, result)
+                            await self._release_job(
+                                conn,
+                                result,
+                                job.acquired_by,
+                                job.task_id,
+                                job.schedule_id,
+                                job.scheduled_fire_time,
+                            )
                         )
 
                     # Clean up finished schedules that have no running jobs

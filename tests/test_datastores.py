@@ -37,6 +37,16 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
+async def datastore(
+    raw_datastore: DataStore, local_broker: EventBroker, logger: Logger
+) -> AsyncGenerator[DataStore, None]:
+    async with AsyncExitStack() as exit_stack:
+        await local_broker.start(exit_stack, logger)
+        await raw_datastore.start(exit_stack, local_broker, logger)
+        yield raw_datastore
+
+
+@pytest.fixture
 def schedules() -> list[Schedule]:
     trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
     schedule1 = Schedule(id="s1", task_id="task1", trigger=trigger)
@@ -565,6 +575,8 @@ async def test_acquire_jobs_max_number_exceeded(datastore: DataStore) -> None:
             max_running_jobs=2,
         )
     )
+    assert (await datastore.get_task("task1")).running_jobs == 0
+
     jobs = [Job(task_id="task1"), Job(task_id="task1"), Job(task_id="task1")]
     for job in jobs:
         await datastore.add_job(job)
@@ -574,6 +586,10 @@ async def test_acquire_jobs_max_number_exceeded(datastore: DataStore) -> None:
     acquired_jobs = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 3)
     assert len(acquired_jobs) == 2
     assert [job.id for job in acquired_jobs] == [job.id for job in jobs[:2]]
+    assert (await datastore.get_task("task1")).running_jobs == 2
+    for job in acquired_jobs:
+        assert job.acquired_by == "worker1"
+        assert job.acquired_until
 
     # Release one job, and the worker should be able to acquire the third job
     await datastore.release_job(
@@ -585,8 +601,13 @@ async def test_acquire_jobs_max_number_exceeded(datastore: DataStore) -> None:
             return_value=None,
         ),
     )
+    assert (await datastore.get_task("task1")).running_jobs == 1
+    remaining_jobs = await datastore.get_jobs()
+    assert len(remaining_jobs) == 2
+
     acquired_jobs = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 3)
     assert [job.id for job in acquired_jobs] == [jobs[2].id]
+    assert (await datastore.get_task("task1")).running_jobs == 2
 
 
 async def test_add_get_task(datastore: DataStore) -> None:

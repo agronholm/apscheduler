@@ -3,8 +3,8 @@ from __future__ import annotations
 import operator
 import sys
 from collections import defaultdict
-from collections.abc import AsyncIterator, Sequence
-from contextlib import AsyncExitStack
+from collections.abc import AsyncGenerator, AsyncIterator, Sequence
+from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from logging import Logger
 from typing import Any, Callable, ClassVar, Generic, Iterable, Mapping, TypeVar, cast
@@ -210,6 +210,14 @@ class MongoDBDataStore(BaseExternalDataStore):
             self._jobs.create_index("created_at", session=session)
             self._jobs.create_index("acquired_by", session=session)
             self._jobs_results.create_index("expires_at", session=session)
+
+    @asynccontextmanager
+    async def _get_session(self) -> AsyncGenerator[ClientSession, None]:
+        session = await to_thread.run_sync(self._client.start_session)
+        try:
+            yield session
+        finally:
+            await to_thread.run_sync(session.end_session)
 
     async def start(
         self, exit_stack: AsyncExitStack, event_broker: EventBroker, logger: Logger
@@ -535,8 +543,13 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def acquire_jobs(
         self, scheduler_id: str, lease_duration: timedelta, limit: int | None = None
     ) -> list[Job]:
+        events: list[JobAcquired | JobReleased] = []
         async for attempt in self._retry():
-            with attempt, self._client.start_session() as session:
+            async with AsyncExitStack() as exit_stack:
+                exit_stack.enter_context(attempt)
+                session = await exit_stack.enter_async_context(self._get_session())
+
+                # Fetch up to {limit} jobs
                 now = datetime.now(timezone.utc)
                 async with await AsyncCursor.create(
                     lambda: self._jobs.find(
@@ -553,70 +566,143 @@ class MongoDBDataStore(BaseExternalDataStore):
                 ) as cursor:
                     documents = [doc async for doc in cursor]
 
-                # Retrieve the limits
-                task_ids: set[str] = {document["task_id"] for document in documents}
-                task_limits = await to_thread.run_sync(
+                # Mark them as acquired by this scheduler
+                acquired_until = now + lease_duration
+                job_ids = [doc["_id"] for doc in documents]
+                result = await to_thread.run_sync(
+                    lambda: self._jobs.update_many(
+                        {
+                            "_id": {"$in": job_ids},
+                            "$or": [
+                                {"acquired_until": {"$exists": False}},
+                                {"acquired_until": {"$lt": now.timestamp()}},
+                            ],
+                        },
+                        {
+                            "$set": {
+                                "acquired_by": scheduler_id,
+                                **marshal_timestamp(acquired_until, "acquired_until"),
+                            }
+                        },
+                    )
+                )
+
+                # If the number of modified jobs was smaller than expected, manually
+                # check which jobs were successfully acquired
+                if result.modified_count != len(job_ids):
+                    async with await AsyncCursor.create(
+                        lambda: self._jobs.find(
+                            {
+                                "_id": {"$in": job_ids},
+                                "acquired_by": scheduler_id,
+                            },
+                            sort=[("created_at", ASCENDING)],
+                            projection=["_id"],
+                            session=session,
+                        )
+                    ) as cursor:
+                        acquired_job_ids = {doc["_id"] async for doc in cursor}
+                        documents = [
+                            doc for doc in documents if doc["_id"] in acquired_job_ids
+                        ]
+
+                # Get the number of available job slots per task
+                task_ids: set[str] = {doc["task_id"] for doc in documents}
+                async with await AsyncCursor.create(
                     lambda: self._tasks.find(
                         {
                             "_id": {"$in": list(task_ids)},
                             "max_running_jobs": {"$ne": None},
                         },
-                        projection=["max_running_jobs", "running_jobs"],
+                        projection=["_id", "max_running_jobs", "running_jobs"],
                         session=session,
                     )
-                )
-                job_slots_left = {
-                    doc["_id"]: doc["max_running_jobs"] - doc["running_jobs"]
-                    for doc in task_limits
-                }
+                ) as cursor:
+                    task_job_slots_left: dict[str, float] = defaultdict(
+                        lambda: float("inf")
+                    )
+                    async for doc in cursor:
+                        task_max_running_jobs = doc["max_running_jobs"]
+                        task_job_slots_left[doc["_id"]] = doc["max_running_jobs"]
 
-                # Filter out jobs that don't have free slots
                 acquired_jobs: list[Job] = []
-                increments: dict[str, int] = defaultdict(lambda: 0)
-                for document in documents:
-                    document["id"] = document.pop("_id")
-                    unmarshal_timestamps(document)
-                    job = Job.unmarshal(self.serializer, document)
-
-                    # Don't acquire the job if there are no free slots left
-                    slots_left = job_slots_left.get(job.task_id)
-                    if slots_left == 0:
+                skipped_job_ids: list[UUID] = []
+                running_job_count_increments: dict[str, int] = defaultdict(lambda: 0)
+                for doc in documents:
+                    # Deserialize the job
+                    doc["id"] = doc.pop("_id")
+                    unmarshal_timestamps(doc)
+                    try:
+                        job = Job.unmarshal(self.serializer, doc)
+                    except DeserializationError as exc:
+                        # Deserialization failed, so record the exception as the job
+                        # result
+                        result = JobResult(
+                            job_id=doc["_id"],
+                            outcome=JobOutcome.missed_start_deadline,
+                            finished_at=now,
+                            expires_at=now + doc["result_expiration_time"],
+                            exception=exc,
+                        )
+                        events.append(
+                            await self._release_job(session, scheduler_id, job, result)
+                        )
                         continue
-                    elif slots_left is not None:
-                        job_slots_left[job.task_id] -= 1
 
+                    # Discard the job if its start deadline has passed
+                    if job.start_deadline and job.start_deadline < now:
+                        result = JobResult.from_job(
+                            job,
+                            JobOutcome.missed_start_deadline,
+                            finished_at=now,
+                        )
+                        events.append(
+                            await self._release_job(session, scheduler_id, job, result)
+                        )
+                        continue
+
+                    # Skip and un-acquire the job if no more slots are available
+                    if not task_job_slots_left.get(job.task_id, float("inf")):
+                        self._logger.debug(
+                            "Skipping job %s because task %r has the maximum "
+                            "number of %d jobs already running",
+                            task_max_running_jobs,
+                        )
+                        skipped_job_ids.append(job.id)
+                        continue
+
+                    task_job_slots_left[job.task_id] -= 1
+                    running_job_count_increments[job.task_id] += 1
+                    job.acquired_by = scheduler_id
+                    job.acquired_until = now + lease_duration
                     acquired_jobs.append(job)
-                    increments[job.task_id] += 1
+                    events.append(JobAcquired.from_job(job, scheduler_id=scheduler_id))
 
-                if acquired_jobs:
-                    now = datetime.now(timezone.utc)
-                    acquired_until = now + lease_duration
-                    filters = {"_id": {"$in": [job.id for job in acquired_jobs]}}
-                    update = {
-                        "$set": {
-                            "acquired_by": scheduler_id,
-                            **marshal_timestamp(acquired_until, "acquired_until"),
-                        }
-                    }
+                # Increment the running_jobs field on the tasks of the acquired jobs
+                if writes := [
+                    UpdateOne({"_id": task_id}, {"$inc": {"running_jobs": amount}})
+                    for task_id, amount in running_job_count_increments.items()
+                ]:
+                    await to_thread.run_sync(self._tasks.bulk_write, writes)
+
+                # Release jobs skipped due to max job slots being reached
+                if skipped_job_ids:
                     await to_thread.run_sync(
-                        lambda: self._jobs.update_many(filters, update, session=session)
+                        lambda: self._jobs.update_many(
+                            {"_id": {"$in": skipped_job_ids}},
+                            {
+                                "$unset": {
+                                    "acquired_by": True,
+                                    "acquired_until": True,
+                                    "acquired_until_utcoffset": True,
+                                },
+                            },
+                        )
                     )
 
-                    # Increment the running job counters on each task
-                    for task_id, increment in increments.items():
-                        await to_thread.run_sync(
-                            lambda: self._tasks.find_one_and_update(
-                                {"_id": task_id},
-                                {"$inc": {"running_jobs": increment}},
-                                session=session,
-                            )
-                        )
-
         # Publish the appropriate events
-        for job in acquired_jobs:
-            await self._event_broker.publish(
-                JobAcquired.from_job(job, scheduler_id=scheduler_id)
-            )
+        for event in events:
+            await self._event_broker.publish(event)
 
         return acquired_jobs
 
@@ -630,22 +716,25 @@ class MongoDBDataStore(BaseExternalDataStore):
             marshal_document(document)
             self._jobs_results.insert_one(document, session=session)
 
-        # Decrement the running jobs counter
-        await to_thread.run_sync(
-            lambda: self._tasks.find_one_and_update(
-                {"_id": job.task_id},
-                {"$inc": {"running_jobs": -1}},
-                session=session,
-            )
-        )
-
         # Delete the job
         await to_thread.run_sync(
             lambda: self._jobs.delete_one({"_id": result.job_id}, session=session)
         )
 
+        # Decrement the running jobs counter if the job had been successfully acquired
+        if job.acquired_by:
+            await to_thread.run_sync(
+                lambda: self._tasks.find_one_and_update(
+                    {"_id": job.task_id},
+                    {"$inc": {"running_jobs": -1}},
+                    session=session,
+                )
+            )
+
         # Notify other schedulers
-        return JobReleased.from_result(job, result, scheduler_id)
+        return JobReleased.from_result(
+            result, scheduler_id, job.task_id, job.schedule_id, job.scheduled_fire_time
+        )
 
     async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
         async for attempt in self._retry():

@@ -318,13 +318,3 @@ async def raw_datastore(request: SubRequest) -> DataStore:
 @pytest.fixture(scope="session")
 def logger() -> Logger:
     return logging.getLogger("apscheduler")
-
-
-@pytest.fixture
-async def datastore(
-    raw_datastore: DataStore, local_broker: EventBroker, logger: Logger
-) -> AsyncGenerator[DataStore, Any]:
-    async with AsyncExitStack() as exit_stack:
-        await local_broker.start(exit_stack, logger)
-        await raw_datastore.start(exit_stack, local_broker, logger)
-        yield raw_datastore

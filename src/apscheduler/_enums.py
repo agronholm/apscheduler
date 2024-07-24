@@ -69,6 +69,10 @@ class JobOutcome(Enum):
         the job's execution was delayed enough for it to miss its start deadline
         (scheduled time + misfire grace time)
 
+    .. attribute:: deserialization_failed
+
+        the deserialization operation failed
+
     .. attribute:: cancelled
 
         the job's execution was cancelled
@@ -82,6 +86,7 @@ class JobOutcome(Enum):
     success = auto()
     error = auto()
     missed_start_deadline = auto()
+    deserialization_failed = auto()
     cancelled = auto()
     abandoned = auto()
 
