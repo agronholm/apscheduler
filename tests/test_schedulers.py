@@ -1223,7 +1223,7 @@ class TestSyncScheduler:
     def test_uwsgi_threads_error_subprocess(self) -> None:
         uwsgi_path = Path(sysconfig.get_path("scripts")) / "uwsgi"
         if not uwsgi_path.is_file():
-            pytest.skip("uwgsi is not installed")
+            pytest.skip("uwsgi is not installed")
 
         # This tests the error with a real uWSGI subprocess
         script_path = (
