@@ -333,7 +333,7 @@ class Scheduler:
         portal = self._ensure_services_ready()
         return portal.call(self._async_scheduler.get_jobs)
 
-    def get_job_result(self, job_id: UUID, *, wait: bool = True) -> JobResult:
+    def get_job_result(self, job_id: UUID, *, wait: bool = True) -> JobResult | None:
         portal = self._ensure_services_ready()
         return portal.call(
             partial(self._async_scheduler.get_job_result, job_id, wait=wait)

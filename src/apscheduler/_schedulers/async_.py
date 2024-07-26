@@ -600,7 +600,7 @@ class AsyncScheduler:
         *,
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
-        job_executor: str | None | UnsetValue = unset,
+        job_executor: str | UnsetValue = unset,
         result_expiration_time: timedelta | float = 0,
     ) -> UUID:
         """
@@ -658,13 +658,18 @@ class AsyncScheduler:
         self._check_initialized()
         return await self.data_store.get_jobs()
 
-    async def get_job_result(self, job_id: UUID, *, wait: bool = True) -> JobResult:
+    async def get_job_result(
+        self, job_id: UUID, *, wait: bool = True
+    ) -> JobResult | None:
         """
         Retrieve the result of a job.
 
         :param job_id: the ID of the job
         :param wait: if ``True``, wait until the job has ended (one way or another),
             ``False`` to raise an exception if the result is not yet available
+        :returns: the job result, or ``None`` if the job finished but didn't record a
+            result (``result_expiration_time`` was 0 or a similarly short time interval
+            that did not allow for the result to be fetched before it was deleted)
         :raises JobLookupError: if neither the job or its result exist in the data
             store, or the job exists but the result is not ready yet and ``wait=False``
             is set
@@ -687,8 +692,6 @@ class AsyncScheduler:
             else:
                 raise JobLookupError(job_id)
 
-        # TODO: this might return None if the job didn't save its result, so deal with
-        # that
         return await self.data_store.get_job_result(job_id)
 
     async def run_job(
