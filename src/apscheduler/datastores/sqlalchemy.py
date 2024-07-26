@@ -1047,13 +1047,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     query = self._t_job_results.select().where(
                         self._t_job_results.c.job_id == job_id
                     )
-                    row = (await self._execute(conn, query)).first()
-
-                    # Delete the result
-                    delete = self._t_job_results.delete().where(
-                        self._t_job_results.c.job_id == job_id
-                    )
-                    await self._execute(conn, delete)
+                    if row := (await self._execute(conn, query)).one_or_none():
+                        # Delete the result
+                        delete = self._t_job_results.delete().where(
+                            self._t_job_results.c.job_id == job_id
+                        )
+                        result = await self._execute(conn, delete)
 
         return JobResult.unmarshal(self.serializer, row._asdict()) if row else None
 
