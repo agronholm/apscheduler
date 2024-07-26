@@ -861,31 +861,36 @@ class MongoDBDataStore(BaseExternalDataStore):
                 # Finish any jobs whose leases have expired
                 filters = {"acquired_until": {"$lt": now.timestamp()}}
                 async with await AsyncCursor.create(
-                    lambda: self._jobs.find(filters)
+                    lambda: self._jobs.find(
+                        filters,
+                        projection=[
+                            "_id",
+                            "acquired_by",
+                            "task_id",
+                            "schedule_id",
+                            "scheduled_fire_time",
+                            "scheduled_fire_time_utcoffset",
+                            "result_expiration_time",
+                        ],
+                    )
                 ) as cursor:
-                    async for document in cursor:
-                        document["id"] = document.pop("_id")
-                        unmarshal_timestamps(document)
-                        try:
-                            job = Job.unmarshal(self.serializer, document)
-                        except DeserializationError:
-                            self._logger.warning(
-                                "Failed to deserialize job %r", document["id"]
-                            )
-                            continue
-
-                        result = JobResult.from_job(
-                            job, outcome=JobOutcome.abandoned, finished_at=now
+                    async for doc in cursor:
+                        unmarshal_timestamps(doc)
+                        result = JobResult(
+                            job_id=doc["_id"],
+                            outcome=JobOutcome.abandoned,
+                            finished_at=now,
+                            expires_at=now
+                            + timedelta(seconds=doc["result_expiration_time"]),
                         )
-                        assert job.acquired_by is not None
                         events.append(
                             await self._release_job(
                                 session,
                                 result,
-                                job.acquired_by,
-                                job.task_id,
-                                job.schedule_id,
-                                job.scheduled_fire_time,
+                                doc["acquired_by"],
+                                doc["task_id"],
+                                doc["schedule_id"],
+                                doc["scheduled_fire_time"],
                             )
                         )
 

@@ -1102,23 +1102,32 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
                     # Finish any jobs whose leases have expired
                     now = datetime.now(timezone.utc)
-                    query = select(self._t_jobs).where(
-                        self._t_jobs.c.acquired_until < now
+                    query = select(
+                        self._t_jobs.c.id,
+                        self._t_jobs.c.task_id,
+                        self._t_jobs.c.schedule_id,
+                        self._t_jobs.c.scheduled_fire_time,
+                        self._t_jobs.c.acquired_by,
+                        self._t_jobs.c.result_expiration_time,
+                    ).where(
+                        self._t_jobs.c.acquired_by.isnot(None),
+                        self._t_jobs.c.acquired_until < now,
                     )
-                    results = await self._execute(conn, query)
-                    jobs = await self._deserialize_jobs(results)
-                    for job in jobs:
-                        result = JobResult.from_job(
-                            job, outcome=JobOutcome.abandoned, finished_at=now
+                    for row in await self._execute(conn, query):
+                        result = JobResult(
+                            job_id=row.id,
+                            outcome=JobOutcome.abandoned,
+                            finished_at=now,
+                            expires_at=now + row.result_expiration_time,
                         )
                         events.append(
                             await self._release_job(
                                 conn,
                                 result,
-                                job.acquired_by,
-                                job.task_id,
-                                job.schedule_id,
-                                job.scheduled_fire_time,
+                                row.acquired_by,
+                                row.task_id,
+                                row.schedule_id,
+                                row.scheduled_fire_time,
                             )
                         )
 
