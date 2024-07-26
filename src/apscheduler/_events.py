@@ -284,7 +284,7 @@ class JobReleased(SchedulerEvent):
         result: JobResult,
         scheduler_id: str,
         task_id: str,
-        schedule_id: str,
+        schedule_id: str | None,
         scheduled_fire_time: datetime | None = None,
     ) -> JobReleased:
         """

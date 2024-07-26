@@ -6,7 +6,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from logging import Logger
-from typing import Any, Iterable
+from typing import Any, Iterable, cast
 from uuid import UUID
 
 import anyio
@@ -100,7 +100,7 @@ class EmulatedInterval(TypeDecorator[timedelta]):
 
     def process_bind_param(
         self, value: timedelta | None, dialect: Dialect
-    ) -> str | None:
+    ) -> float | None:
         return value.total_seconds() * 1000000 if value is not None else None
 
     def process_result_value(
@@ -288,7 +288,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             )
 
         if self._supports_native_interval:
-            interval_type = Interval(second_precision=6)
+            interval_type: TypeDecorator[timedelta] = Interval(second_precision=6)
         else:
             interval_type = EmulatedInterval()
 
@@ -687,11 +687,13 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             )
                         else:
                             if result.next_fire_time is not None:
-                                timestamp = int(
+                                timestamp: int | None = int(
                                     result.next_fire_time.timestamp() * 1000_000
                                 )
                                 utcoffset = (
-                                    result.next_fire_time.utcoffset().total_seconds()
+                                    cast(
+                                        timedelta, result.next_fire_time.utcoffset()
+                                    ).total_seconds()
                                     // 60
                                 )
                             else:
@@ -708,7 +710,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
                     # Update schedules
                     if update_args:
-                        extra_values = {}
+                        extra_values: dict[str, BindParameter] = {}
                         p_id: BindParameter = bindparam("p_id")
                         p_trigger: BindParameter = bindparam("p_trigger")
                         p_next_fire_time: BindParameter = bindparam("p_next_fire_time")

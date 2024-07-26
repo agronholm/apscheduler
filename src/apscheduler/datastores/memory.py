@@ -228,7 +228,7 @@ class MemoryDataStore(BaseDataStore):
             task = self._tasks[job.task_id]
 
             # Skip already acquired jobs (unless the acquisition lock has expired)
-            if job.acquired_by is not None:
+            if job.acquired_until is not None:
                 if job.acquired_until >= now:
                     continue
                 else:

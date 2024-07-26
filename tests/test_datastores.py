@@ -765,6 +765,7 @@ async def test_extend_acquired_job_leases(
 
     # Check that a result was recorded, with the "abandoned" outcome
     result = await datastore.get_job_result(job.id)
+    assert result
     assert result.outcome is JobOutcome.abandoned
 
 
@@ -783,6 +784,7 @@ async def test_acquire_jobs_deserialization_failure(
     await datastore.add_job(job)
 
     # Make the serializer fail deserialization
+    assert isinstance(datastore, BaseExternalDataStore)
     datastore.serializer = Mock(Serializer)
     datastore.serializer.deserialize.configure_mock(side_effect=DeserializationError)
 

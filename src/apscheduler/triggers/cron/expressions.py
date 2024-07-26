@@ -85,7 +85,7 @@ class RangeExpression(AllExpression):
     first: int = attrs.field(
         converter=as_int, validator=[instance_of(int), non_negative_number]
     )
-    last: int = attrs.field(
+    last: int | None = attrs.field(
         converter=as_int,
         validator=optional([instance_of(int), non_negative_number]),
         default=None,

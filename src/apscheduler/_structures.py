@@ -54,7 +54,7 @@ class Task:
         validator=optional(instance_of(timedelta)),
         on_setattr=frozen,
     )
-    running_jobs: int | None = attrs.field(default=0)
+    running_jobs: int = attrs.field(default=0)
 
     def marshal(self, serializer: Serializer) -> dict[str, Any]:
         return attrs.asdict(self, value_serializer=serialize)
