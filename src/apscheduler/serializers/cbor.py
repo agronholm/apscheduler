@@ -7,6 +7,7 @@ from typing import Any
 import attrs
 from cbor2 import CBORDecoder, CBOREncoder, CBOREncodeTypeError, CBORTag, dumps, loads
 
+from .. import DeserializationError, SerializationError
 from .._marshalling import marshal_object, marshal_timezone, unmarshal_object
 from ..abc import Serializer
 
@@ -57,7 +58,13 @@ class CBORSerializer(Serializer):
             return unmarshal_object(cls_ref, state)
 
     def serialize(self, obj: object) -> bytes:
-        return dumps(obj, **self.dump_options)
+        try:
+            return dumps(obj, **self.dump_options)
+        except Exception as exc:
+            raise SerializationError from exc
 
     def deserialize(self, serialized: bytes):
-        return loads(serialized, **self.load_options)
+        try:
+            return loads(serialized, **self.load_options)
+        except Exception as exc:
+            raise DeserializationError from exc

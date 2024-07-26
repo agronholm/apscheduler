@@ -8,6 +8,7 @@ from uuid import UUID
 
 import attrs
 
+from .. import DeserializationError, SerializationError
 from .._marshalling import (
     marshal_object,
     marshal_timezone,
@@ -66,7 +67,13 @@ class JSONSerializer(Serializer):
         return obj_state
 
     def serialize(self, obj: object) -> bytes:
-        return dumps(obj, ensure_ascii=False, **self.dump_options).encode("utf-8")
+        try:
+            return dumps(obj, ensure_ascii=False, **self.dump_options).encode("utf-8")
+        except Exception as exc:
+            raise SerializationError from exc
 
     def deserialize(self, serialized: bytes):
-        return loads(serialized, **self.load_options)
+        try:
+            return loads(serialized, **self.load_options)
+        except Exception as exc:
+            raise DeserializationError from exc

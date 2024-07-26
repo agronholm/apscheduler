@@ -40,6 +40,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``TypeError: object NoneType can't be used in 'await' expression`` at teardown
   of ``SQLAlchemyDataStore`` when it was passed a URL that implicitly created a
   synchronous engine
+- Fixed serializers raising their own exceptions instead of ``SerializationError`` and
+  ``DeserializationError`` as appropriate
 
 **4.0.0a5**
 
