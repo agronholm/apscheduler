@@ -776,7 +776,7 @@ class TestAsyncScheduler:
 
             # After the sleeping past the expiration time and performing a cleanup, the
             # result should not be there anymore
-            await sleep(0.001)
+            await sleep(0.1)
             await scheduler.cleanup()
             with pytest.raises(JobLookupError):
                 await scheduler.get_job_result(job_id)
