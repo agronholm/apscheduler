@@ -638,14 +638,23 @@ class MongoDBDataStore(BaseExternalDataStore):
                         # Deserialization failed, so record the exception as the job
                         # result
                         result = JobResult(
-                            job_id=doc["_id"],
+                            job_id=doc["id"],
                             outcome=JobOutcome.missed_start_deadline,
                             finished_at=now,
-                            expires_at=now + doc["result_expiration_time"],
+                            expires_at=now
+                            + timedelta(seconds=doc["result_expiration_time"]),
                             exception=exc,
                         )
                         events.append(
-                            await self._release_job(session, scheduler_id, job, result)
+                            await self._release_job(
+                                session,
+                                result,
+                                scheduler_id,
+                                doc["task_id"],
+                                doc["schedule_id"],
+                                doc["scheduled_fire_time"],
+                                decrement_running_job_count=False,
+                            )
                         )
                         continue
 
@@ -657,7 +666,15 @@ class MongoDBDataStore(BaseExternalDataStore):
                             finished_at=now,
                         )
                         events.append(
-                            await self._release_job(session, scheduler_id, job, result)
+                            await self._release_job(
+                                session,
+                                result,
+                                scheduler_id,
+                                job.task_id,
+                                job.schedule_id,
+                                job.scheduled_fire_time,
+                                decrement_running_job_count=False,
+                            )
                         )
                         continue
 
@@ -707,7 +724,15 @@ class MongoDBDataStore(BaseExternalDataStore):
         return acquired_jobs
 
     async def _release_job(
-        self, session: ClientSession, scheduler_id: str, job: Job, result: JobResult
+        self,
+        session: ClientSession,
+        result: JobResult,
+        scheduler_id: str,
+        task_id: str,
+        schedule_id: str | None = None,
+        scheduled_fire_time: datetime | None = None,
+        *,
+        decrement_running_job_count: bool = True,
     ) -> JobReleased:
         # Record the job result
         if result.expires_at > result.finished_at:
@@ -722,10 +747,10 @@ class MongoDBDataStore(BaseExternalDataStore):
         )
 
         # Decrement the running jobs counter if the job had been successfully acquired
-        if job.acquired_by:
+        if decrement_running_job_count:
             await to_thread.run_sync(
                 lambda: self._tasks.find_one_and_update(
-                    {"_id": job.task_id},
+                    {"_id": task_id},
                     {"$inc": {"running_jobs": -1}},
                     session=session,
                 )
@@ -733,13 +758,20 @@ class MongoDBDataStore(BaseExternalDataStore):
 
         # Notify other schedulers
         return JobReleased.from_result(
-            result, scheduler_id, job.task_id, job.schedule_id, job.scheduled_fire_time
+            result, scheduler_id, task_id, schedule_id, scheduled_fire_time
         )
 
     async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
         async for attempt in self._retry():
             with attempt, self._client.start_session() as session:
-                event = await self._release_job(session, scheduler_id, job, result)
+                event = await self._release_job(
+                    session,
+                    result,
+                    scheduler_id,
+                    job.task_id,
+                    job.schedule_id,
+                    job.scheduled_fire_time,
+                )
 
                 # Notify other schedulers
                 await self._event_broker.publish(event)
@@ -848,7 +880,12 @@ class MongoDBDataStore(BaseExternalDataStore):
                         assert job.acquired_by is not None
                         events.append(
                             await self._release_job(
-                                session, job.acquired_by, job, result
+                                session,
+                                result,
+                                job.acquired_by,
+                                job.task_id,
+                                job.schedule_id,
+                                job.scheduled_fire_time,
                             )
                         )
 

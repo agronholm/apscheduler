@@ -5,14 +5,17 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from logging import Logger
 from typing import TYPE_CHECKING, AsyncGenerator
+from unittest.mock import Mock
 
 import anyio
 import pytest
 from anyio import CancelScope
+from pytest_mock.plugin import MockerFixture
 
 from apscheduler import (
     CoalescePolicy,
     ConflictPolicy,
+    DeserializationError,
     Event,
     Job,
     JobOutcome,
@@ -27,7 +30,8 @@ from apscheduler import (
     TaskUpdated,
 )
 from apscheduler._structures import ScheduleResult
-from apscheduler.abc import DataStore, EventBroker
+from apscheduler.abc import DataStore, EventBroker, Serializer
+from apscheduler.datastores.base import BaseExternalDataStore
 from apscheduler.triggers.date import DateTrigger
 
 if TYPE_CHECKING:
@@ -762,3 +766,25 @@ async def test_extend_acquired_job_leases(
     # Check that a result was recorded, with the "abandoned" outcome
     result = await datastore.get_job_result(job.id)
     assert result.outcome is JobOutcome.abandoned
+
+
+async def test_acquire_jobs_deserialization_failure(
+    datastore: DataStore, mocker: MockerFixture
+) -> None:
+    if not isinstance(datastore, BaseExternalDataStore):
+        pytest.skip("Only applicable to external data stores")
+
+    # Add a task to the data store
+    task = Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    await datastore.add_task(task)
+
+    # Add a job to the data store
+    job = Job(task_id="task1", result_expiration_time=timedelta(seconds=30))
+    await datastore.add_job(job)
+
+    # Make the serializer fail deserialization
+    datastore.serializer = Mock(Serializer)
+    datastore.serializer.deserialize.configure_mock(side_effect=DeserializationError)
+
+    # This should not yield any jobs
+    assert await datastore.acquire_jobs("scheduler_id", timedelta(seconds=30), 1) == []
