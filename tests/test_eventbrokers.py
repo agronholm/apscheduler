@@ -150,7 +150,9 @@ def test_asyncpg_broker_from_async_engine() -> None:
 
 
 def test_psycopg_broker_from_async_engine() -> None:
-    pytest.importorskip("psycopg", reason="psycopg is not installed")
+    pytest.importorskip(
+        "psycopg", exc_type=ImportError, reason="psycopg is not installed"
+    )
     from sqlalchemy import URL
     from sqlalchemy.ext.asyncio import create_async_engine
 
