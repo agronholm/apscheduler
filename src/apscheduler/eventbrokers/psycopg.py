@@ -35,7 +35,7 @@ class PsycopgEventBroker(BaseExternalEventBroker):
     An asynchronous, psycopg_ based event broker that uses a PostgreSQL server to
     broadcast events using its ``NOTIFY`` mechanism.
 
-    .. psycopg: https://pypi.org/project/psycopg/
+    .. _psycopg: https://pypi.org/project/psycopg/
 
     :param conninfo: a libpq connection string (e.g.
         ``postgres://user:pass@host:port/dbname``)

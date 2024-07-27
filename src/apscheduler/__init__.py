@@ -28,6 +28,7 @@ from ._events import ScheduleUpdated as ScheduleUpdated
 from ._events import TaskAdded as TaskAdded
 from ._events import TaskRemoved as TaskRemoved
 from ._events import TaskUpdated as TaskUpdated
+from ._exceptions import CallableLookupError as CallableLookupError
 from ._exceptions import ConflictingIdError as ConflictingIdError
 from ._exceptions import DeserializationError as DeserializationError
 from ._exceptions import JobCancelled as JobCancelled
@@ -45,8 +46,10 @@ from ._schedulers.sync import Scheduler as Scheduler
 from ._structures import Job as Job
 from ._structures import JobResult as JobResult
 from ._structures import Schedule as Schedule
+from ._structures import ScheduleResult as ScheduleResult
 from ._structures import Task as Task
 from ._structures import TaskDefaults as TaskDefaults
+from ._utils import UnsetValue as UnsetValue
 
 # Re-export imports, so they look like they live directly in this package
 value: Any

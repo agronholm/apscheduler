@@ -307,7 +307,7 @@ class AsyncScheduler:
         max_running_jobs: int | None | UnsetValue = unset,
     ) -> Task:
         """
-        Add or update a :ref:`task` definition.
+        Add or update a :ref:`task <task>` definition.
 
         Any options not explicitly passed to this method will use their default values
         (from ``task_defaults``) when a new task is created:

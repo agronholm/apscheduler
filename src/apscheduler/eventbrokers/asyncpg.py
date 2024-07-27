@@ -35,7 +35,7 @@ class AsyncpgEventBroker(BaseExternalEventBroker):
 
     :param dsn: a libpq connection string (e.g.
         ``postgres://user:pass@host:port/dbname``)
-    :param options: extra keyword arguments passed to :func:`asyncpg.connect`
+    :param options: extra keyword arguments passed to :func:`asyncpg.connection.connect`
     :param channel: the ``NOTIFY`` channel to use
     :param max_idle_time: maximum time to let the connection go idle, before sending a
         ``SELECT 1`` query to prevent a connection timeout
@@ -61,11 +61,12 @@ class AsyncpgEventBroker(BaseExternalEventBroker):
         Create a new asyncpg event broker from an SQLAlchemy engine.
 
         The engine will only be used to create the appropriate options for
-        :func:`asyncpg.connect`.
+        :func:`asyncpg.connection.connect`.
 
         :param engine: an asynchronous SQLAlchemy engine using asyncpg as the driver
         :type engine: ~sqlalchemy.ext.asyncio.AsyncEngine
-        :param options: extra keyword arguments passed to :func:`asyncpg.connect`
+        :param options: extra keyword arguments passed to
+            :func:`asyncpg.connection.connect`
         :param kwargs: keyword arguments to pass to the initializer of this class
         :return: the newly created event broker
 

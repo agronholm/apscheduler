@@ -129,7 +129,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     if they're not already present.
 
     Operations are retried (in accordance to ``retry_settings``) when an operation
-    raises :exc:`sqlalchemy.OperationalError`.
+    raises either :exc:`OSError` or :exc:`sqlalchemy.exc.InterfaceError`.
 
     This store has been tested to work with:
 

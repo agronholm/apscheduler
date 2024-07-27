@@ -482,9 +482,9 @@ be sent to all schedulers and workers connected to that event broker.
 Clean-up of expired jobs, job results and schedules
 ===================================================
 
-Each scheduler runs the data store's :meth:`~DataStore.cleanup` method periodically,
-configurable via the ``cleanup_interval`` scheduler parameter. This ensures that the
-data store doesn't get filled with unused data over time.
+Each scheduler runs the data store's :meth:`~.abc.DataStore.cleanup` method
+periodically, configurable via the ``cleanup_interval`` scheduler parameter. This
+ensures that the data store doesn't get filled with unused data over time.
 
 Deployment
 ==========
