@@ -11,6 +11,11 @@ Data structures
 .. autoclass:: apscheduler.Job
 .. autoclass:: apscheduler.JobResult
 
+Decorators
+----------
+
+.. autodecorator:: apscheduler.task
+
 Schedulers
 ----------
 

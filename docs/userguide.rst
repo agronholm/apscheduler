@@ -91,6 +91,14 @@ A *task* encapsulates a callable_ and a number of configuration parameters. They
 often implicitly defined as a side effect of the user creating a new schedule against a
 callable_, but can also be :ref:`explicitly defined beforehand <configuring-tasks>`.
 
+Tasks have three different roles:
+
+#. They provide the target callable to be run when a job is started
+#. They provide a key (task ID) on which to limit the maximum number of concurrent jobs,
+   even between different schedules
+#. They provide a template from which certain parameters, like job executor and misfire
+   grace time, are copied to schedules and jobs derived from the task
+
 .. _trigger:
 
 A trigger_ contains the logic and state used to calculate when a scheduled task_ should
@@ -226,8 +234,9 @@ of the scheduler before the process terminates.
 Configuring tasks
 =================
 
-In order to add :ref:`schedules <schedule>` or :ref:`jobs <job>` to the `data store`_, you need
-to have a task_ that defines which callable_ will be called when each job_ is run.
+In order to add :ref:`schedules <schedule>` or :ref:`jobs <job>` to the `data store`_,
+you need to have a task_ that defines which callable_ will be called when each job_ is
+run.
 
 In most cases, you don't need to go through this step, and instead have a task_
 implicitly created for you by the methods that add schedules or jobs.
@@ -238,6 +247,39 @@ Explicitly configuring a task is generally only necessary in the following cases
 * You need to set any of the task settings to non-default values
 * You need to add schedules/jobs targeting lambdas, nested functions or instances of
   unserializable classes
+
+There are two ways to explicitly configure tasks:
+
+#. Call the :meth:`~Scheduler.configure_task` scheduler method
+#. Decorate your target function with :func:`@task <task>`
+
+Task configuration parameters are resolving according to the following, descending
+priority order:
+
+#. Parameters passed directly to :meth:`~AsyncScheduler.configure_task`
+#. Parameters bound to the target function via :func:`@task <task>`
+#. The scheduler's task defaults
+
+If any parameter is unset, it will be looked up on the next level. Here is an example
+that illustrates the lookup order::
+
+    from apscheduler import Scheduler, TaskDefaults, task
+
+    @task(max_running_jobs=3)
+    def mytaskfunc():
+        print("running stuff")
+
+    task_defaults = TaskDefaults(misfire_grace_time=15, job_executor="processpool")
+    with Scheduler(task_defaults=task_defaults) as scheduler:
+        scheduler.configure_task("sometask", func=mytaskfunc, job_executor="threadpool")
+
+The resulting task will have the following parameters:
+
+* ``id``: ``'sometask'`` (from the :meth:`~AsyncScheduler.configure_task` call)
+* ``job_executor``: 3 (from the :meth:`~AsyncScheduler.configure_task` call, where it
+  overrides the scheduler-level default)
+* ``max_running_jobs``: 3 (from the decorator)
+* ``misfire_grace_time``: 15 (from the scheduler-level default)
 
 Scheduling tasks
 ================
