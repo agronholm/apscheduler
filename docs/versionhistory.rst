@@ -39,6 +39,10 @@ APScheduler, see the :doc:`migration section <migration>`.
   function
 - **BREAKING** Changed tasks to only function as job templates as well as buckets to
   limit maximum concurrent job execution
+- **BREAKING** Changed the ``timezone`` argument to ``CronTrigger.from_crontab()`` into
+  a keyword-only argument
+- Added the ``start_time`` and ``end_time`` arguments to ``CronTrigger.from_crontab()``
+  (`#676 <https://github.com/agronholm/apscheduler/issues/676>`_)
 - Added the ``psycopg`` event broker
 - Added useful indexes and removed useless ones in ``SQLAlchemyDatastore`` and
   ``MongoDBDataStore``
