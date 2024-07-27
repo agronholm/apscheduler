@@ -7,13 +7,32 @@ User guide
 Installation
 ============
 
-The preferred installation method is by using `pip <http://pypi.python.org/pypi/pip/>`_::
+The preferred installation method is by using
+`pip <http://pypi.python.org/pypi/pip/>`_::
 
     $ pip install apscheduler
 
 If you don't have pip installed, you need to
 `install that first <https://pip.pypa.io/en/stable/installation/>`_.
 
+Interfacing with certain external services may need extra dependencies which are
+installable as extras:
+
+* ``asyncpg``: for the AsyncPG event broker
+* ``cbor``: for the CBOR serializer
+* ``mongodb``: for the MongoDB data store
+* ``mqtt``: for the MQTT event broker
+* ``psycopg``: for the Psycopg event broker
+* ``redis``: for the Redis event broker
+* ``sqlalchemy``: for the SQLAlchemy data store
+
+Using the extras instead of adding the corresponding libraries separately helps ensure
+that you will have compatible versions of the dependent libraries going forward.
+
+You can install any number of these extras with APScheduler by providing them as a comma
+separated list inside the brackets, like this::
+
+    pip install apscheduler[psycopg,sqlalchemy]
 
 Code examples
 =============
