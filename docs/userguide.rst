@@ -52,10 +52,10 @@ schedule.
 
 The *scheduler* is the user-facing interface of the system. When it's running, it does
 two things concurrently. The first is processing *schedules*. From its *data store*,
-it fetches :ref:`schedules <schedule>` due to be run. For each such schedule, it then uses
-the schedule's trigger_ to calculate run times up to the present. The scheduler then
-creates one or more jobs (controllable by configuration) based on these run times and
-adds them to the data store.
+it fetches :ref:`schedules <schedule>` due to be run. For each such schedule, it then
+uses the schedule's trigger_ to calculate run times up to the present. The scheduler
+then creates one or more jobs (controllable by configuration) based on these run times
+and adds them to the data store.
 
 The second role of the scheduler is running :ref:`jobs <job>`. The scheduler asks the
 `data store`_ for jobs, and then starts running those jobs. If the data store signals
@@ -117,8 +117,8 @@ they directly request a task_ to be run.
 
 .. _data store:
 
-A *data store* is used to store :ref:`schedules <schedule>` and :ref:`jobs <job>`, and to keep
-track of :ref:`tasks <task>`.
+A *data store* is used to store :ref:`schedules <schedule>` and :ref:`jobs <job>`, and
+to keep track of :ref:`tasks <task>`.
 
 .. _job executor:
 
@@ -138,16 +138,16 @@ A *scheduler* is the main interface of this library. It houses both a `data stor
 an `event broker`_, plus one or more :ref:`job executors <job executor>`. It contains
 methods users can use to work with tasks, schedules and jobs. Behind the scenes, it also
 processes due schedules, spawning jobs and updating the next run times. It also
-processes available jobs, making the appropriate :ref:`job executors <job executor>` to run
-them, and then sending back the results to the `data store`_.
+processes available jobs, making the appropriate :ref:`job executors <job executor>` to
+run them, and then sending back the results to the `data store`_.
 
 Running the scheduler
 =====================
 
 The scheduler_ comes in two flavors: synchronous and asynchronous. The synchronous
 scheduler actually runs an asynchronous scheduler behind the scenes in a dedicated
-thread, so if your app runs on :mod:`asyncio` or Trio_, you should prefer the asynchronous
-scheduler.
+thread, so if your app runs on :mod:`asyncio` or Trio_, you should prefer the
+asynchronous scheduler.
 
 The scheduler can run either in the foreground, blocking on a call to
 :meth:`~Scheduler.run_until_stopped`, or in the background where it does its work while
@@ -160,8 +160,8 @@ of the program.
 
 In almost all cases, the scheduler should be used as a context manager. This initializes
 the underlying `data store`_ and `event broker`_, allowing you to use the scheduler for
-manipulating :ref:`tasks <task>`, :ref:`schedules <schedule>` and jobs prior to starting the
-processing of schedules and jobs. Exiting the context manager will shut down the
+manipulating :ref:`tasks <task>`, :ref:`schedules <schedule>` and jobs prior to starting
+the processing of schedules and jobs. Exiting the context manager will shut down the
 scheduler and its underlying services. This mode of operation is mandatory for the
 asynchronous scheduler when running it in the background, but it is preferred for the
 synchronous scheduler too.
@@ -376,8 +376,8 @@ In some cases, you want to run tasks directly, without involving schedules:
 
 To queue a job and wait for its completion and get the result, the easiest way is to
 use :meth:`~Scheduler.run_job`. If you prefer to just launch a job and not wait for its
-result, use :meth:`~Scheduler.add_job` instead. If you want to get the results later, you
-need to pass an appropriate ``result_expiration_time`` parameter to
+result, use :meth:`~Scheduler.add_job` instead. If you want to get the results later,
+you need to pass an appropriate ``result_expiration_time`` parameter to
 :meth:`~Scheduler.add_job` so that the result is saved. Then, you can call
 :meth:`~Scheduler.get_job_result` with the job ID you got from
 :meth:`~Scheduler.add_job` to retrieve the result.
