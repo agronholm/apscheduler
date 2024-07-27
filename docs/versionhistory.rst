@@ -30,6 +30,15 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#927 <https://github.com/agronholm/apscheduler/issues/927>`_)
 - **BREAKING** Added an index for the ``created_at`` job field, so acquiring jobs would
   be faster when there are a lot of them
+- **BREAKING** Removed the ``job_executor`` and ``max_running_jobs`` parameters from
+  ``add_schedule()`` and ``add_run_job()`` (explicitly configure the task using
+  ``configure_task()`` or by using the new ``@task`` decorator
+- **BREAKING** Replaced the ``default_job_executor`` scheduler parameter with a more
+  comprehensive ``task_defaults`` parameter
+- Added the ``@task`` decorator for specifying task configuration parameters bound to a
+  function
+- **BREAKING** Changed tasks to only function as job templates as well as buckets to
+  limit maximum concurrent job execution
 - Added the ``psycopg`` event broker
 - Added useful indexes and removed useless ones in ``SQLAlchemyDatastore`` and
   ``MongoDBDataStore``

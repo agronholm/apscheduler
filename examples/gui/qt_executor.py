@@ -40,7 +40,6 @@ window = MainWindow()
 window.show()
 with Scheduler() as scheduler:
     scheduler.job_executors["qt"] = QtJobExecutor()
-    scheduler.default_job_executor = "qt"
     scheduler.add_schedule(
         window.update_time, IntervalTrigger(seconds=1), job_executor="qt"
     )

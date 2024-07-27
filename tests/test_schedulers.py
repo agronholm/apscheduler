@@ -46,9 +46,11 @@ from apscheduler import (
     SchedulerStopped,
     ScheduleUpdated,
     TaskAdded,
+    TaskDefaults,
     TaskUpdated,
     current_async_scheduler,
     current_job,
+    task,
 )
 from apscheduler.abc import DataStore
 from apscheduler.datastores.memory import MemoryDataStore
@@ -89,6 +91,15 @@ def dummy_sync_job(delay: float = 0, fail: bool = False) -> str:
         return "returnvalue"
 
 
+@task(
+    job_executor="threadpool",
+    max_running_jobs=3,
+    misfire_grace_time=timedelta(seconds=6),
+)
+def decorated_job() -> None:
+    pass
+
+
 class DummyClass:
     def __init__(self, value: int):
         self.value = value
@@ -120,14 +131,6 @@ class DummyClass:
 
 
 class TestAsyncScheduler:
-    async def test_bad_default_executor(self) -> None:
-        with pytest.raises(
-            ValueError,
-            match=r"default_job_executor must be one of the given job "
-            r"executors \(async, threadpool, processpool\)",
-        ):
-            AsyncScheduler(default_job_executor="foo")
-
     async def test_use_before_initialized(self) -> None:
         scheduler = AsyncScheduler()
         with pytest.raises(
@@ -149,7 +152,7 @@ class TestAsyncScheduler:
             assert isinstance(
                 scheduler.job_executors["processpool"], ProcessPoolJobExecutor
             )
-            assert scheduler.default_job_executor == "async"
+            assert scheduler.task_defaults.job_executor == "async"
             assert scheduler.state is RunState.stopped
 
     @pytest.mark.parametrize("as_default", [False, True])
@@ -200,6 +203,32 @@ class TestAsyncScheduler:
                 event = await receive.receive()
                 assert isinstance(event, TaskUpdated)
                 assert event.task_id == "mytask"
+
+    async def test_configure_task_with_decorator(self) -> None:
+        async with AsyncScheduler() as scheduler:
+            await scheduler.configure_task("taskfunc", func=decorated_job)
+            tasks = await scheduler.get_tasks()
+            assert len(tasks) == 1
+            assert tasks[0].max_running_jobs == 3
+            assert tasks[0].misfire_grace_time == timedelta(seconds=6)
+            assert tasks[0].job_executor == "threadpool"
+
+    async def test_configure_local_task_with_decorator(self) -> None:
+        @task(
+            job_executor="threadpool",
+            max_running_jobs=3,
+            misfire_grace_time=timedelta(seconds=6),
+        )
+        def taskfunc() -> None:
+            pass
+
+        async with AsyncScheduler() as scheduler:
+            await scheduler.configure_task("taskfunc", func=taskfunc)
+            tasks = await scheduler.get_tasks()
+            assert len(tasks) == 1
+            assert tasks[0].max_running_jobs == 3
+            assert tasks[0].misfire_grace_time == timedelta(seconds=6)
+            assert tasks[0].job_executor == "threadpool"
 
     async def test_add_pause_unpause_remove_schedule(
         self, raw_datastore: DataStore, timezone: ZoneInfo
@@ -317,6 +346,7 @@ class TestAsyncScheduler:
                 assert event.outcome is JobOutcome.success
 
                 result = await scheduler.get_job_result(job_id)
+                assert result
                 assert result.outcome is JobOutcome.success
                 assert result.return_value == "returnvalue"
 
@@ -442,6 +472,7 @@ class TestAsyncScheduler:
 
             if not use_scheduling:
                 result = await scheduler.get_job_result(event.job_id)
+                assert result
                 assert result.outcome is JobOutcome.success
                 assert result.return_value == expected_result
 
@@ -640,6 +671,7 @@ class TestAsyncScheduler:
             with fail_after(3):
                 result = await scheduler.get_job_result(job_id)
 
+            assert result
             assert result.job_id == job_id
             assert result.outcome is JobOutcome.success
             assert result.return_value == "returnvalue"
@@ -691,6 +723,7 @@ class TestAsyncScheduler:
             with fail_after(3):
                 result = await scheduler.get_job_result(job_id)
 
+            assert result
             assert result.job_id == job_id
             assert result.outcome is JobOutcome.error
             assert isinstance(result.exception, RuntimeError)
@@ -978,6 +1011,7 @@ class TestAsyncScheduler:
                     # Get its result
                     result = await scheduler.get_job_result(event.job_id)
 
+                assert result
                 assert result.outcome is JobOutcome.success
                 assert result.return_value == "returnvalue"
 
@@ -985,20 +1019,21 @@ class TestAsyncScheduler:
 class TestSyncScheduler:
     def test_configure(self) -> None:
         executor = ThreadPoolJobExecutor()
+        task_defaults = TaskDefaults(job_executor="executor1")
         scheduler = Scheduler(
             identity="identity",
             role=SchedulerRole.scheduler,
             max_concurrent_jobs=150,
             cleanup_interval=5,
             job_executors={"executor1": executor},
-            default_job_executor="executor1",
+            task_defaults=task_defaults,
         )
         assert scheduler.identity == "identity"
         assert scheduler.role is SchedulerRole.scheduler
         assert scheduler.max_concurrent_jobs == 150
         assert scheduler.cleanup_interval == timedelta(seconds=5)
         assert scheduler.job_executors == {"executor1": executor}
-        assert scheduler.default_job_executor == "executor1"
+        assert scheduler.task_defaults == task_defaults
 
     @pytest.mark.parametrize("as_default", [False, True])
     def test_threadpool_executor(self, as_default: bool) -> None:
@@ -1033,11 +1068,8 @@ class TestSyncScheduler:
             assert isinstance(
                 scheduler.job_executors["processpool"], ProcessPoolJobExecutor
             )
-            assert scheduler.default_job_executor == "threadpool"
+            assert isinstance(scheduler.task_defaults, TaskDefaults)
             assert scheduler.state is RunState.stopped
-
-            scheduler.default_job_executor = "processpool"
-            assert scheduler.default_job_executor == "processpool"
 
     def test_use_without_contextmanager(self, mocker: MockFixture) -> None:
         fake_atexit_register = mocker.patch("atexit.register")
@@ -1143,6 +1175,7 @@ class TestSyncScheduler:
             assert event.outcome is JobOutcome.success
 
             result = scheduler.get_job_result(job_id)
+            assert result
             assert result.outcome is JobOutcome.success
             assert result.return_value == "returnvalue"
 

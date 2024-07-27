@@ -11,7 +11,7 @@ from functools import partial
 from inspect import isbuiltin, isclass, ismethod, ismodule
 from logging import Logger, getLogger
 from types import TracebackType
-from typing import Any, Callable, Iterable, Literal, Mapping, cast, overload
+from typing import Any, Callable, Iterable, Literal, Mapping, TypeVar, cast, overload
 from uuid import UUID, uuid4
 
 import anyio
@@ -30,6 +30,7 @@ from attr.validators import instance_of, optional
 from .. import JobAdded, SerializationError, TaskLookupError
 from .._context import current_async_scheduler, current_job
 from .._converters import as_enum, as_timedelta
+from .._decorators import TaskParameters, get_task_params
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome, RunState, SchedulerRole
 from .._events import (
     Event,
@@ -49,7 +50,7 @@ from .._exceptions import (
     ScheduleLookupError,
 )
 from .._marshalling import callable_from_ref, callable_to_ref
-from .._structures import Job, JobResult, Schedule, ScheduleResult, Task
+from .._structures import Job, JobResult, Schedule, ScheduleResult, Task, TaskDefaults
 from .._utils import UnsetValue, unset
 from .._validators import non_negative_number
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
@@ -73,6 +74,7 @@ _microsecond_delta = timedelta(microseconds=1)
 _zero_timedelta = timedelta()
 
 TaskType: TypeAlias = "Task | str | Callable"
+T = TypeVar("T")
 
 
 @attrs.define(eq=False)
@@ -95,7 +97,7 @@ class AsyncScheduler:
         only, job running only, or both)
     :param max_concurrent_jobs: Maximum number of jobs the scheduler will run at once
     :param job_executors: a mutable mapping of executor names to executor instances
-    :param default_job_executor: name of the default job executor
+    :param task_defaults: default settings for newly configured tasks
     :param cleanup_interval: interval (as seconds or timedelta) between automatic
         calls to :meth:`cleanup` – ``None`` to disable automatic clean-up
     :param lease_duration: maximum amount of time (as seconds or timedelta) that
@@ -114,14 +116,12 @@ class AsyncScheduler:
     role: SchedulerRole = attrs.field(
         kw_only=True, converter=as_enum(SchedulerRole), default=SchedulerRole.both
     )
+    task_defaults: TaskDefaults = attrs.field(kw_only=True, factory=TaskDefaults)
     max_concurrent_jobs: int = attrs.field(
         kw_only=True, validator=non_negative_number, default=100
     )
     job_executors: MutableMapping[str, JobExecutor] = attrs.field(
         kw_only=True, validator=instance_of(MutableMapping), factory=dict
-    )
-    default_job_executor: str | None = attrs.field(
-        kw_only=True, validator=optional(instance_of(str)), default=None
     )
     cleanup_interval: timedelta | None = attrs.field(
         kw_only=True,
@@ -151,14 +151,20 @@ class AsyncScheduler:
                 "processpool": ProcessPoolJobExecutor(),
             }
 
-        if not self.default_job_executor:
-            self.default_job_executor = next(iter(self.job_executors))
-        elif self.default_job_executor not in self.job_executors:
+        if self.task_defaults.job_executor is unset:
+            self.task_defaults.job_executor = next(iter(self.job_executors))
+        elif self.task_defaults.job_executor not in self.job_executors:
             valid_executors = ", ".join(self.job_executors)
             raise ValueError(
-                f"default_job_executor must be one of the given job executors "
+                f"the default job executor must be one of the given job executors "
                 f"({valid_executors})"
             )
+
+        if self.task_defaults.max_running_jobs is unset:
+            self.task_defaults.max_running_jobs = 1
+
+        if self.task_defaults.misfire_grace_time is unset:
+            self.task_defaults.misfire_grace_time = None
 
     async def __aenter__(self) -> Self:
         async with AsyncExitStack() as exit_stack:
@@ -304,7 +310,7 @@ class AsyncScheduler:
         Add or update a :ref:`task` definition.
 
         Any options not explicitly passed to this method will use their default values
-        when a new task is created:
+        (from ``task_defaults``) when a new task is created:
 
         * ``job_executor``: the value of ``default_job_executor`` scheduler attribute
         * ``misfire_grace_time``: ``None``
@@ -330,20 +336,46 @@ class AsyncScheduler:
         """
         func_ref: str | None = None
         if callable(func_or_task_id):
-            task_ref = callable_to_ref(func_or_task_id)
+            task_params = get_task_params(func_or_task_id)
+            if task_params.id is unset:
+                task_params.id = callable_to_ref(func_or_task_id)
+
             if func is unset:
                 func = func_or_task_id
         elif isinstance(func_or_task_id, Task):
-            task_ref = func_or_task_id.id
+            task_params = TaskParameters(
+                id=func_or_task_id.id,
+                job_executor=func_or_task_id.job_executor,
+                max_running_jobs=func_or_task_id.max_running_jobs,
+                misfire_grace_time=func_or_task_id.misfire_grace_time,
+            )
         elif isinstance(func_or_task_id, str) and func_or_task_id:
-            task_ref = func_or_task_id
+            task_params = get_task_params(func) if callable(func) else TaskParameters()
+            task_params.id = func_or_task_id
         else:
             raise TypeError(
                 "func_or_task_id must be either a task, its identifier or a callable"
             )
 
+        # Apply any settings passed directly to this function as arguments
+        if job_executor is not unset:
+            task_params.job_executor = job_executor
+        if max_running_jobs is not unset:
+            task_params.max_running_jobs = max_running_jobs
+        if misfire_grace_time is not unset:
+            task_params.misfire_grace_time = misfire_grace_time
+
+        # Fill in unset values with the defaults
+        if task_params.job_executor is unset:
+            task_params.job_executor = self.task_defaults.job_executor
+        if task_params.max_running_jobs is unset:
+            task_params.max_running_jobs = self.task_defaults.max_running_jobs
+        if task_params.misfire_grace_time is unset:
+            task_params.misfire_grace_time = self.task_defaults.misfire_grace_time
+
+        assert task_params.id
         if callable(func):
-            self._task_callables[task_ref] = func
+            self._task_callables[task_params.id] = func
             try:
                 func_ref = callable_to_ref(func)
             except SerializationError:
@@ -351,20 +383,14 @@ class AsyncScheduler:
 
         modified = False
         try:
-            task = await self.data_store.get_task(task_ref)
+            task = await self.data_store.get_task(cast(str, task_params.id))
         except TaskLookupError:
             task = Task(
-                id=task_ref,
+                id=task_params.id,
                 func=func_ref,
-                job_executor=(
-                    self.default_job_executor if job_executor is unset else job_executor
-                ),
-                max_running_jobs=(
-                    None if max_running_jobs is unset else max_running_jobs
-                ),
-                misfire_grace_time=(
-                    None if misfire_grace_time is unset else misfire_grace_time
-                ),
+                job_executor=task_params.job_executor,
+                max_running_jobs=task_params.max_running_jobs,
+                misfire_grace_time=task_params.misfire_grace_time,
             )
             modified = True
         else:
@@ -373,22 +399,16 @@ class AsyncScheduler:
                 changes["func"] = func_ref
                 modified = True
 
-            if job_executor is not unset and task.job_executor != job_executor:
-                changes["job_executor"] = job_executor
+            if task_params.job_executor != task.job_executor:
+                changes["job_executor"] = task_params.job_executor
                 modified = True
 
-            if (
-                max_running_jobs is not unset
-                and task.max_running_jobs != max_running_jobs
-            ):
-                changes["max_running_jobs"] = max_running_jobs
+            if task_params.max_running_jobs != task.max_running_jobs:
+                changes["max_running_jobs"] = task_params.max_running_jobs
                 modified = True
 
-            if (
-                misfire_grace_time is not unset
-                and task.misfire_grace_time != misfire_grace_time
-            ):
-                changes["misfire_grace_time"] = misfire_grace_time
+            if task_params.misfire_grace_time != task.misfire_grace_time:
+                changes["misfire_grace_time"] = task_params.misfire_grace_time
                 modified = True
 
             task = attrs.evolve(task, **changes)
@@ -417,11 +437,10 @@ class AsyncScheduler:
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
         paused: bool = False,
-        job_executor: str | UnsetValue = unset,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
+        job_executor: str | UnsetValue = unset,
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
         max_jitter: float | timedelta | None = None,
-        max_running_jobs: int | None | UnsetValue = unset,
         job_result_expiration_time: float | timedelta = 0,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
     ) -> str:
@@ -436,7 +455,8 @@ class AsyncScheduler:
         :param args: positional arguments to be passed to the task function
         :param kwargs: keyword arguments to be passed to the task function
         :param paused: whether the schedule is paused
-        :param job_executor: name of the job executor to run the task with
+        :param job_executor: name of the job executor to run the scheduled jobs with
+            (overrides the executor specified in the task settings)
         :param coalesce: determines what to do when processing the schedule if multiple
             fire times have become due for this schedule since the last processing
         :param misfire_grace_time: maximum number of seconds the scheduled job's actual
@@ -445,9 +465,6 @@ class AsyncScheduler:
             to the scheduled time for each job created from this schedule
         :param job_result_expiration_time: minimum time (in seconds, or as a timedelta)
             to keep the job results in storage from the jobs created by this schedule
-        :param max_running_jobs: maximum number of instances of the task that are
-            allowed to run concurrently (if not set, uses the default misfire grace time
-            from the associated task, or ``None`` if there is no existing task)
         :param conflict_policy: determines what to do if a schedule with the same ID
             already exists in the data store
         :return: the ID of the newly added schedule
@@ -478,11 +495,7 @@ class AsyncScheduler:
             method_class = type(func_or_task_id.__self__)
             func_or_task_id = getattr(method_class, func_or_task_id.__name__)
 
-        task = await self.configure_task(
-            func_or_task_id,
-            job_executor=job_executor,
-            max_running_jobs=max_running_jobs,
-        )
+        task = await self.configure_task(func_or_task_id)
         schedule = Schedule(
             id=schedule_id,
             task_id=task.id,
@@ -495,6 +508,7 @@ class AsyncScheduler:
             if misfire_grace_time is unset
             else misfire_grace_time,
             max_jitter=max_jitter,
+            job_executor=task.job_executor if job_executor is unset else job_executor,
             job_result_expiration_time=job_result_expiration_time,
         )
         schedule.next_fire_time = trigger.next()
@@ -612,7 +626,8 @@ class AsyncScheduler:
             as the task ID (unless that task already exists of course).
         :param args: positional arguments to call the target callable with
         :param kwargs: keyword arguments to call the target callable with
-        :param job_executor: name of the job executor to run the job with
+        :param job_executor: name of the job executor to run the task with
+            (overrides the executor in the task definition, if any)
         :param result_expiration_time: the minimum time (as seconds, or timedelta) to
             keep the result of the job available for fetching (the result won't be
             saved at all if that time is 0)
@@ -643,11 +658,12 @@ class AsyncScheduler:
             method_class = type(func_or_task_id.__self__)
             func_or_task_id = getattr(method_class, func_or_task_id.__name__)
 
-        task = await self.configure_task(func_or_task_id, job_executor=job_executor)
+        task = await self.configure_task(func_or_task_id)
         job = Job(
             task_id=task.id,
             args=args or (),
             kwargs=kwargs or {},
+            executor=task.job_executor if job_executor is unset else job_executor,
             result_expiration_time=result_expiration_time,
         )
         await self.data_store.add_job(job)
@@ -712,6 +728,7 @@ class AsyncScheduler:
         :param args: positional arguments to be passed to the task function
         :param kwargs: keyword arguments to be passed to the task function
         :param job_executor: name of the job executor to run the task with
+            (overrides the executor in the task definition, if any)
         :returns: the return value of the task function
 
         """
@@ -728,17 +745,21 @@ class AsyncScheduler:
                 func_or_task_id,
                 args=args,
                 kwargs=kwargs,
-                job_executor=self.default_job_executor
-                if job_executor is unset
-                else job_executor,
+                job_executor=job_executor,
                 result_expiration_time=timedelta(minutes=15),
             )
             await job_complete_event.wait()
 
         result = await self.get_job_result(job_id)
+        if result is None:
+            raise RuntimeError(
+                "Job completed but job result not found - report this as a bug!"
+            )
+
         if result.exception:
             assert result.outcome is JobOutcome.error
             raise result.exception
+
         if result.outcome is JobOutcome.success:
             return result.return_value
         elif result.outcome is JobOutcome.missed_start_deadline:
@@ -947,7 +968,7 @@ class AsyncScheduler:
                                 fire_time += jitter
 
                             if schedule.misfire_grace_time is None:
-                                start_deadline = None
+                                start_deadline: datetime | None = None
                             else:
                                 start_deadline = fire_time + schedule.misfire_grace_time
 
@@ -959,6 +980,7 @@ class AsyncScheduler:
                                 scheduled_fire_time=fire_time,
                                 jitter=jitter,
                                 start_deadline=start_deadline,
+                                executor=schedule.job_executor,
                                 result_expiration_time=schedule.job_result_expiration_time,
                             )
                             await self.data_store.add_job(job)
@@ -1073,9 +1095,7 @@ class AsyncScheduler:
                             task = await self.data_store.get_task(job.task_id)
                             func = self._get_task_callable(task)
                             self._running_jobs.add(job)
-                            outer_tg.start_soon(
-                                self._run_job, job, func, task.job_executor
-                            )
+                            outer_tg.start_soon(self._run_job, job, func, job.executor)
 
                 await wakeup_event.wait()
                 wakeup_event = anyio.Event()

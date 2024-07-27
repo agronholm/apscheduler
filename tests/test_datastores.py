@@ -53,15 +53,21 @@ async def datastore(
 @pytest.fixture
 def schedules() -> list[Schedule]:
     trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
-    schedule1 = Schedule(id="s1", task_id="task1", trigger=trigger)
+    schedule1 = Schedule(
+        id="s1", task_id="task1", job_executor="async", trigger=trigger
+    )
     schedule1.next_fire_time = trigger.next()
 
     trigger = DateTrigger(datetime(2020, 9, 14, tzinfo=timezone.utc))
-    schedule2 = Schedule(id="s2", task_id="task2", trigger=trigger)
+    schedule2 = Schedule(
+        id="s2", task_id="task2", job_executor="async", trigger=trigger
+    )
     schedule2.next_fire_time = trigger.next()
 
     trigger = DateTrigger(datetime(2020, 9, 15, tzinfo=timezone.utc))
-    schedule3 = Schedule(id="s3", task_id="task1", trigger=trigger)
+    schedule3 = Schedule(
+        id="s3", task_id="task1", job_executor="async", trigger=trigger
+    )
     schedule3.next_fire_time = trigger.next()
 
     return [schedule1, schedule2, schedule3]
@@ -156,6 +162,7 @@ async def test_replace_schedules(
             trigger=trigger,
             args=(),
             kwargs={},
+            job_executor="async",
             coalesce=CoalescePolicy.earliest,
             misfire_grace_time=None,
         )
@@ -291,7 +298,9 @@ async def test_release_schedule_two_identical_fire_times(datastore: DataStore) -
     """Regression test for #616."""
     for i in range(1, 3):
         trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
-        schedule = Schedule(id=f"s{i}", task_id="task1", trigger=trigger)
+        schedule = Schedule(
+            id=f"s{i}", task_id="task1", job_executor="async", trigger=trigger
+        )
         schedule.next_fire_time = trigger.next()
         await datastore.add_schedule(schedule, ConflictPolicy.exception)
 
@@ -324,7 +333,9 @@ async def test_release_two_schedules_at_once(datastore: DataStore) -> None:
     """Regression test for #621."""
     for i in range(2):
         trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
-        schedule = Schedule(id=f"s{i}", task_id="task1", trigger=trigger)
+        schedule = Schedule(
+            id=f"s{i}", task_id="task1", job_executor="async", trigger=trigger
+        )
         schedule.next_fire_time = trigger.next()
         await datastore.add_schedule(schedule, ConflictPolicy.exception)
 
@@ -395,7 +406,7 @@ async def test_acquire_multiple_workers(datastore: DataStore) -> None:
     await datastore.add_task(
         Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
     )
-    jobs = [Job(task_id="task1") for _ in range(2)]
+    jobs = [Job(task_id="task1", executor="async") for _ in range(2)]
     for job in jobs:
         await datastore.add_job(job)
 
@@ -418,7 +429,9 @@ async def test_job_release_success(datastore: DataStore) -> None:
     await datastore.add_task(
         Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
     )
-    job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
+    job = Job(
+        task_id="task1", executor="async", result_expiration_time=timedelta(minutes=1)
+    )
     await datastore.add_job(job)
 
     acquired = await datastore.acquire_jobs("worker_id", timedelta(seconds=30), 2)
@@ -449,7 +462,9 @@ async def test_job_release_failure(datastore: DataStore) -> None:
     await datastore.add_task(
         Task(id="task1", job_executor="async", func="contextlib:asynccontextmanager")
     )
-    job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
+    job = Job(
+        task_id="task1", executor="async", result_expiration_time=timedelta(minutes=1)
+    )
     await datastore.add_job(job)
 
     acquired = await datastore.acquire_jobs("worker_id", timedelta(seconds=30), 2)
@@ -481,7 +496,9 @@ async def test_job_release_missed_deadline(datastore: DataStore):
     await datastore.add_task(
         Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
     )
-    job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
+    job = Job(
+        task_id="task1", executor="async", result_expiration_time=timedelta(minutes=1)
+    )
     await datastore.add_job(job)
 
     acquired = await datastore.acquire_jobs("worker_id", timedelta(seconds=30), 2)
@@ -511,7 +528,9 @@ async def test_job_release_cancelled(datastore: DataStore) -> None:
     await datastore.add_task(
         Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
     )
-    job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
+    job = Job(
+        task_id="task1", executor="async", result_expiration_time=timedelta(minutes=1)
+    )
     await datastore.add_job(job)
 
     acquired = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 2)
@@ -549,7 +568,9 @@ async def test_acquire_jobs_lock_timeout(
     await datastore.add_task(
         Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
     )
-    job = Job(task_id="task1", result_expiration_time=timedelta(minutes=1))
+    job = Job(
+        task_id="task1", executor="async", result_expiration_time=timedelta(minutes=1)
+    )
     await datastore.add_job(job)
 
     # First, one worker acquires the first available job
@@ -581,7 +602,11 @@ async def test_acquire_jobs_max_number_exceeded(datastore: DataStore) -> None:
     )
     assert (await datastore.get_task("task1")).running_jobs == 0
 
-    jobs = [Job(task_id="task1"), Job(task_id="task1"), Job(task_id="task1")]
+    jobs = [
+        Job(task_id="task1", executor="async"),
+        Job(task_id="task1", executor="async"),
+        Job(task_id="task1", executor="async"),
+    ]
     for job in jobs:
         await datastore.add_job(job)
 
@@ -733,7 +758,9 @@ async def test_extend_acquired_job_leases(
     await datastore.add_task(task)
 
     # Add a job to the data store
-    job = Job(task_id="task1", result_expiration_time=timedelta(seconds=30))
+    job = Job(
+        task_id="task1", executor="async", result_expiration_time=timedelta(seconds=30)
+    )
     await datastore.add_job(job)
 
     # Acquire the job
@@ -780,7 +807,9 @@ async def test_acquire_jobs_deserialization_failure(
     await datastore.add_task(task)
 
     # Add a job to the data store
-    job = Job(task_id="task1", result_expiration_time=timedelta(seconds=30))
+    job = Job(
+        task_id="task1", executor="async", result_expiration_time=timedelta(seconds=30)
+    )
     await datastore.add_job(job)
 
     # Make the serializer fail deserialization

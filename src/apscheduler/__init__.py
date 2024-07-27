@@ -5,6 +5,7 @@ from typing import Any
 from ._context import current_async_scheduler as current_async_scheduler
 from ._context import current_job as current_job
 from ._context import current_scheduler as current_scheduler
+from ._decorators import task as task
 from ._enums import CoalescePolicy as CoalescePolicy
 from ._enums import ConflictPolicy as ConflictPolicy
 from ._enums import JobOutcome as JobOutcome
@@ -45,6 +46,7 @@ from ._structures import Job as Job
 from ._structures import JobResult as JobResult
 from ._structures import Schedule as Schedule
 from ._structures import Task as Task
+from ._structures import TaskDefaults as TaskDefaults
 
 # Re-export imports, so they look like they live directly in this package
 value: Any

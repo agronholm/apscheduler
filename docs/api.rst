@@ -5,6 +5,7 @@ Data structures
 ---------------
 
 .. autoclass:: apscheduler.Task
+.. autoclass:: apscheduler.TaskDefaults
 .. autoclass:: apscheduler.Schedule
 .. autoclass:: apscheduler.Job
 .. autoclass:: apscheduler.JobResult

@@ -65,11 +65,12 @@ class MemoryDataStore(BaseDataStore):
         ]
 
     async def add_task(self, task: Task) -> None:
-        task_exists = task.id in self._tasks
-        self._tasks[task.id] = task
-        if task_exists:
+        if task.id in self._tasks:
+            task.running_jobs = self._tasks[task.id].running_jobs
+            self._tasks[task.id] = task
             await self._event_broker.publish(TaskUpdated(task_id=task.id))
         else:
+            self._tasks[task.id] = task
             await self._event_broker.publish(TaskAdded(task_id=task.id))
 
     async def remove_task(self, task_id: str) -> None:

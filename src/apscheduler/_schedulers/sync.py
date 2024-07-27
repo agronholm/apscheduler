@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import atexit
-import logging
 import sys
 import threading
 from collections.abc import MutableMapping, Sequence
@@ -13,12 +12,13 @@ from types import TracebackType
 from typing import Any, Callable, Iterable, Literal, Mapping, overload
 from uuid import UUID
 
+import attrs
 from anyio.from_thread import BlockingPortal, start_blocking_portal
 
 from .. import current_scheduler
 from .._enums import CoalescePolicy, ConflictPolicy, RunState, SchedulerRole
 from .._events import Event, T_Event
-from .._structures import Job, JobResult, Schedule, Task
+from .._structures import Job, JobResult, Schedule, Task, TaskDefaults
 from .._utils import UnsetValue, unset
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
 from .async_ import AsyncScheduler, TaskType
@@ -29,6 +29,7 @@ else:
     from typing_extensions import Self
 
 
+@attrs.define(init=False)
 class Scheduler:
     """
     A synchronous wrapper for :class:`AsyncScheduler`.
@@ -41,6 +42,11 @@ class Scheduler:
     the configuration options.
     """
 
+    _async_scheduler: AsyncScheduler
+    _exit_stack: ExitStack = attrs.field(init=False, factory=ExitStack)
+    _portal: BlockingPortal | None = attrs.field(init=False, default=None)
+    _lock: threading.Lock = attrs.field(init=False, factory=threading.Lock)
+
     def __init__(
         self,
         data_store: DataStore | None = None,
@@ -52,7 +58,7 @@ class Scheduler:
         cleanup_interval: float | timedelta | None = None,
         lease_duration: timedelta = timedelta(seconds=30),
         job_executors: MutableMapping[str, JobExecutor] | None = None,
-        default_job_executor: str | None = None,
+        task_defaults: TaskDefaults | None = None,
         logger: Logger | None = None,
     ):
         kwargs: dict[str, Any] = {}
@@ -62,23 +68,26 @@ class Scheduler:
         if event_broker is not None:
             kwargs["event_broker"] = event_broker
 
-        if not default_job_executor and not job_executors:
-            default_job_executor = "threadpool"
+        if logger is not None:
+            kwargs["logger"] = logger
 
-        self._async_scheduler = AsyncScheduler(
+        if task_defaults is None:
+            task_defaults = TaskDefaults()
+
+        if task_defaults.job_executor is unset:
+            task_defaults.job_executor = "threadpool"
+
+        async_scheduler = AsyncScheduler(
             identity=identity,
             role=role,
+            task_defaults=task_defaults,
             max_concurrent_jobs=max_concurrent_jobs,
             job_executors=job_executors or {},
             cleanup_interval=cleanup_interval,
             lease_duration=lease_duration,
-            default_job_executor=default_job_executor,
-            logger=logger or logging.getLogger(__name__),
             **kwargs,
         )
-        self._exit_stack = ExitStack()
-        self._portal: BlockingPortal | None = None
-        self._lock = threading.RLock()
+        self.__attrs_init__(async_scheduler=async_scheduler)
 
     @property
     def data_store(self) -> DataStore:
@@ -113,12 +122,8 @@ class Scheduler:
         return self._async_scheduler.job_executors
 
     @property
-    def default_job_executor(self) -> str:
-        return self._async_scheduler.default_job_executor
-
-    @default_job_executor.setter
-    def default_job_executor(self, value: str) -> None:
-        self._async_scheduler.default_job_executor = value
+    def task_defaults(self) -> TaskDefaults:
+        return self._async_scheduler.task_defaults
 
     @property
     def state(self) -> RunState:
@@ -253,7 +258,6 @@ class Scheduler:
         coalesce: CoalescePolicy = CoalescePolicy.latest,
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
         max_jitter: float | timedelta | None = None,
-        max_running_jobs: int | None | UnsetValue = unset,
         job_result_expiration_time: float | timedelta = 0,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
     ) -> str:
@@ -271,7 +275,6 @@ class Scheduler:
                 coalesce=coalesce,
                 misfire_grace_time=misfire_grace_time,
                 max_jitter=max_jitter,
-                max_running_jobs=max_running_jobs,
                 job_result_expiration_time=job_result_expiration_time,
                 conflict_policy=conflict_policy,
             )
@@ -314,7 +317,6 @@ class Scheduler:
         *,
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
-        job_executor: str | UnsetValue = unset,
         result_expiration_time: timedelta | float = 0,
     ) -> UUID:
         portal = self._ensure_services_ready()
@@ -324,7 +326,6 @@ class Scheduler:
                 func_or_task_id,
                 args=args,
                 kwargs=kwargs,
-                job_executor=job_executor,
                 result_expiration_time=result_expiration_time,
             )
         )

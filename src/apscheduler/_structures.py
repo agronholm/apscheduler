@@ -11,6 +11,7 @@ from attrs.validators import and_, gt, instance_of, matches_re, min_len, optiona
 
 from ._converters import as_aware_datetime, as_enum, as_timedelta
 from ._enums import CoalescePolicy, JobOutcome
+from ._utils import UnsetValue, unset
 from .abc import Serializer, Trigger
 
 
@@ -79,6 +80,33 @@ class Task:
         return NotImplemented
 
 
+@attrs.define(kw_only=True)
+class TaskDefaults:
+    """
+    Contains default values for tasks that will be applied when no matching
+    configuration value has been explicitly provided.
+
+    :param str job_executor: name of the job executor that will run this task
+    :param int | None max_running_jobs: maximum number of instances of this task that are
+        allowed to run concurrently
+    :param ~datetime.timedelta | None misfire_grace_time: maximum number of seconds the
+        run time of jobs created for this task are allowed to be late, compared to the
+        scheduled run time
+    """
+
+    job_executor: str | UnsetValue = attrs.field(
+        validator=instance_of((str, UnsetValue)), default=unset
+    )
+    max_running_jobs: int | None | UnsetValue = attrs.field(
+        validator=optional(instance_of((int, UnsetValue))), default=unset
+    )
+    misfire_grace_time: timedelta | None | UnsetValue = attrs.field(
+        converter=as_timedelta,
+        validator=optional(instance_of((timedelta, UnsetValue))),
+        default=unset,
+    )
+
+
 @attrs.define(kw_only=True, order=False)
 class Schedule:
     """
@@ -137,6 +165,7 @@ class Schedule:
         validator=optional(instance_of(timedelta)),
         on_setattr=frozen,
     )
+    job_executor: str = attrs.field(validator=instance_of(str), on_setattr=frozen)
     job_result_expiration_time: timedelta = attrs.field(
         default=0,
         converter=as_timedelta,
@@ -256,6 +285,7 @@ class Job:
     scheduled_fire_time: datetime | None = attrs.field(
         converter=as_aware_datetime, default=None, on_setattr=frozen
     )
+    executor: str = attrs.field(on_setattr=frozen)
     jitter: timedelta = attrs.field(
         converter=as_timedelta, factory=timedelta, repr=False, on_setattr=frozen
     )
