@@ -9,7 +9,7 @@ import attrs
 from ._structures import TaskDefaults
 from ._utils import UnsetValue, unset
 
-T = TypeVar("T", bound=Callable[..., Any])
+T = TypeVar("T", bound="Callable[..., Any]")
 
 TASK_PARAMETERS_KEY = "_apscheduler_taskdef"
 
