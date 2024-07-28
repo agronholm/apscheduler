@@ -18,7 +18,7 @@ from anyio.from_thread import BlockingPortal, start_blocking_portal
 from .. import current_scheduler
 from .._enums import CoalescePolicy, ConflictPolicy, RunState, SchedulerRole
 from .._events import Event, T_Event
-from .._structures import Job, JobResult, Schedule, Task, TaskDefaults
+from .._structures import Job, JobResult, MetadataType, Schedule, Task, TaskDefaults
 from .._utils import UnsetValue, unset
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
 from .async_ import AsyncScheduler, TaskType
@@ -236,6 +236,7 @@ class Scheduler:
         job_executor: str | UnsetValue = unset,
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
         max_running_jobs: int | None | UnsetValue = unset,
+        metadata: MetadataType | UnsetValue = unset,
     ) -> Task:
         portal = self._ensure_services_ready()
         return portal.call(
@@ -246,6 +247,7 @@ class Scheduler:
                 job_executor=job_executor,
                 misfire_grace_time=misfire_grace_time,
                 max_running_jobs=max_running_jobs,
+                metadata=metadata,
             )
         )
 
@@ -265,6 +267,7 @@ class Scheduler:
         coalesce: CoalescePolicy = CoalescePolicy.latest,
         job_executor: str | UnsetValue = unset,
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
+        metadata: MetadataType | UnsetValue = unset,
         max_jitter: float | timedelta | None = None,
         job_result_expiration_time: float | timedelta = 0,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
@@ -284,6 +287,7 @@ class Scheduler:
                 misfire_grace_time=misfire_grace_time,
                 max_jitter=max_jitter,
                 job_result_expiration_time=job_result_expiration_time,
+                metadata=metadata,
                 conflict_policy=conflict_policy,
             )
         )
@@ -326,6 +330,7 @@ class Scheduler:
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
         job_executor: str | UnsetValue = unset,
+        metadata: MetadataType | UnsetValue = unset,
         result_expiration_time: timedelta | float = 0,
     ) -> UUID:
         portal = self._ensure_services_ready()
@@ -336,6 +341,7 @@ class Scheduler:
                 args=args,
                 kwargs=kwargs,
                 job_executor=job_executor,
+                metadata=metadata,
                 result_expiration_time=result_expiration_time,
             )
         )
@@ -357,6 +363,7 @@ class Scheduler:
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
         job_executor: str | UnsetValue = unset,
+        metadata: MetadataType | UnsetValue = unset,
     ) -> Any:
         portal = self._ensure_services_ready()
         return portal.call(
@@ -366,6 +373,7 @@ class Scheduler:
                 args=args,
                 kwargs=kwargs,
                 job_executor=job_executor,
+                metadata=metadata,
             )
         )
 

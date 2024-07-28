@@ -41,6 +41,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   limit maximum concurrent job execution
 - **BREAKING** Changed the ``timezone`` argument to ``CronTrigger.from_crontab()`` into
   a keyword-only argument
+- **BREAKING** Added the ``metadata`` field to tasks, schedules and jobs
 - Added the ``start_time`` and ``end_time`` arguments to ``CronTrigger.from_crontab()``
   (`#676 <https://github.com/agronholm/apscheduler/issues/676>`_)
 - Added the ``psycopg`` event broker

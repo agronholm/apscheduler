@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from typing import Any
@@ -12,7 +13,17 @@ from attrs.validators import and_, gt, instance_of, matches_re, min_len, optiona
 from ._converters import as_aware_datetime, as_enum, as_timedelta
 from ._enums import CoalescePolicy, JobOutcome
 from ._utils import UnsetValue, unset
+from ._validators import if_not_unset, valid_metadata
 from .abc import Serializer, Trigger
+
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    from typing_extensions import TypeAlias
+
+MetadataType: TypeAlias = (
+    "dict[str, str | int | bool | None | list[MetadataType] | dict[str, MetadataType]]"
+)
 
 
 def serialize(inst: Any, field: attrs.Attribute, value: Any) -> Any:
@@ -36,6 +47,7 @@ class Task:
     :var ~datetime.timedelta | None misfire_grace_time: maximum number of seconds the
         run time of jobs created for this task are allowed to be late, compared to the
         scheduled run time
+    :var metadata: key-value pairs for storing JSON compatible custom information
     """
 
     id: str = attrs.field(validator=[instance_of(str), min_len(1)], on_setattr=frozen)
@@ -55,6 +67,7 @@ class Task:
         validator=optional(instance_of(timedelta)),
         on_setattr=frozen,
     )
+    metadata: MetadataType = attrs.field(validator=valid_metadata, factory=dict)
     running_jobs: int = attrs.field(default=0)
 
     def marshal(self, serializer: Serializer) -> dict[str, Any]:
@@ -92,19 +105,21 @@ class TaskDefaults:
     :param ~datetime.timedelta | None misfire_grace_time: maximum number of seconds the
         run time of jobs created for this task are allowed to be late, compared to the
         scheduled run time
+    :var metadata: key-value pairs for storing JSON compatible custom information
     """
 
     job_executor: str | UnsetValue = attrs.field(
-        validator=instance_of((str, UnsetValue)), default=unset
+        validator=if_not_unset(instance_of(str)), default=unset
     )
     max_running_jobs: int | None | UnsetValue = attrs.field(
-        validator=optional(instance_of((int, UnsetValue))), default=unset
+        validator=optional(instance_of(int)), default=1
     )
-    misfire_grace_time: timedelta | None | UnsetValue = attrs.field(
+    misfire_grace_time: timedelta | None = attrs.field(
         converter=as_timedelta,
-        validator=optional(instance_of((timedelta, UnsetValue))),
-        default=unset,
+        validator=optional(instance_of(timedelta)),
+        default=None,
     )
+    metadata: MetadataType = attrs.field(validator=valid_metadata, factory=dict)
 
 
 @attrs.define(kw_only=True, order=False)
@@ -127,6 +142,7 @@ class Schedule:
         add to the scheduled time for each job created from this schedule
     :var ~datetime.timedelta job_result_expiration_time: minimum time to keep the job
         results in storage from the jobs created by this schedule
+    :var metadata: key-value pairs for storing JSON compatible custom information
     :var ~datetime.datetime next_fire_time: the next time the task will be run
     :var ~datetime.datetime | None last_fire_time: the last time the task was scheduled
         to run
@@ -172,6 +188,7 @@ class Schedule:
         validator=optional(instance_of(timedelta)),
         on_setattr=frozen,
     )
+    metadata: MetadataType = attrs.field(validator=valid_metadata, factory=dict)
     next_fire_time: datetime | None = attrs.field(
         converter=as_aware_datetime,
         default=None,
@@ -266,6 +283,7 @@ class Job:
         scheduler after this time, it is considered to be misfired and will be aborted
     :var ~datetime.timedelta result_expiration_time: minimum amount of time to keep the
         result available for fetching in the data store
+    :var metadata: key-value pairs for storing JSON compatible custom information
     :var ~datetime.datetime created_at: the time at which the job was created
     :var str | None acquired_by: the unique identifier of the scheduler that has
         acquired the job for execution
@@ -295,6 +313,7 @@ class Job:
     result_expiration_time: timedelta = attrs.field(
         converter=as_timedelta, default=timedelta(), repr=False, on_setattr=frozen
     )
+    metadata: MetadataType = attrs.field(validator=valid_metadata, factory=dict)
     created_at: datetime = attrs.field(
         converter=as_aware_datetime,
         factory=partial(datetime.now, timezone.utc),

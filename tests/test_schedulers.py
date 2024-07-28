@@ -217,20 +217,25 @@ class TestAsyncScheduler:
 
     async def test_configure_local_task_with_decorator(self) -> None:
         @task(
+            id="taskfunc",
             job_executor="threadpool",
             max_running_jobs=3,
             misfire_grace_time=timedelta(seconds=6),
+            metadata={"local": 6},
         )
         def taskfunc() -> None:
             pass
 
-        async with AsyncScheduler() as scheduler:
-            await scheduler.configure_task("taskfunc", func=taskfunc)
+        task_defaults = TaskDefaults(metadata={"global": "foo"})
+        async with AsyncScheduler(task_defaults=task_defaults) as scheduler:
+            await scheduler.configure_task(taskfunc, metadata={"direct": [1, 9]})
             tasks = await scheduler.get_tasks()
             assert len(tasks) == 1
+            assert tasks[0].id == "taskfunc"
             assert tasks[0].max_running_jobs == 3
             assert tasks[0].misfire_grace_time == timedelta(seconds=6)
             assert tasks[0].job_executor == "threadpool"
+            assert tasks[0].metadata == {"global": "foo", "local": 6, "direct": [1, 9]}
 
     async def test_add_pause_unpause_remove_schedule(
         self, raw_datastore: DataStore, timezone: ZoneInfo

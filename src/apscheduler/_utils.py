@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime, tzinfo
-from typing import Any, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
 
 from ._exceptions import DeserializationError
 from .abc import Trigger
@@ -13,6 +13,9 @@ if sys.version_info >= (3, 9):
     from zoneinfo import ZoneInfo
 else:
     from backports.zoneinfo import ZoneInfo
+
+if TYPE_CHECKING:
+    from ._structures import MetadataType
 
 T = TypeVar("T")
 
@@ -73,3 +76,16 @@ def require_state_version(
         raise DeserializationError(
             'Missing "version" key in the serialized state'
         ) from exc
+
+
+def merge_metadata(
+    base_metadata: MetadataType, *overlays: MetadataType | UnsetValue
+) -> MetadataType:
+    new_metadata = base_metadata.copy()
+    for metadata in overlays:
+        if isinstance(metadata, UnsetValue):
+            continue
+
+        new_metadata.update(metadata)
+
+    return new_metadata

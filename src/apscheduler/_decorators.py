@@ -5,9 +5,12 @@ from datetime import timedelta
 from typing import Any, TypeVar
 
 import attrs
+from attr.validators import instance_of, optional
 
-from ._structures import TaskDefaults
+from ._converters import as_timedelta
+from ._structures import MetadataType, TaskDefaults
 from ._utils import UnsetValue, unset
+from ._validators import if_not_unset, valid_metadata
 
 T = TypeVar("T", bound="Callable[..., Any]")
 
@@ -17,6 +20,20 @@ TASK_PARAMETERS_KEY = "_apscheduler_taskdef"
 @attrs.define(kw_only=True)
 class TaskParameters(TaskDefaults):
     id: str | UnsetValue = attrs.field(default=unset)
+    job_executor: str | UnsetValue = attrs.field(
+        validator=if_not_unset(instance_of(str)), default=unset
+    )
+    max_running_jobs: int | None | UnsetValue = attrs.field(
+        validator=if_not_unset(optional(instance_of(int))), default=unset
+    )
+    misfire_grace_time: timedelta | None | UnsetValue = attrs.field(
+        converter=as_timedelta,
+        validator=if_not_unset(optional(instance_of(timedelta))),
+        default=unset,
+    )
+    metadata: MetadataType | UnsetValue = attrs.field(
+        validator=if_not_unset(valid_metadata), default=unset
+    )
 
 
 def task(
@@ -25,6 +42,7 @@ def task(
     job_executor: str | UnsetValue = unset,
     max_running_jobs: int | None | UnsetValue = unset,
     misfire_grace_time: int | timedelta | None | UnsetValue = unset,
+    metadata: MetadataType | UnsetValue = unset,
 ) -> Callable[[T], T]:
     """
     Decorate a function to have implied defaults as an APScheduler task.
@@ -36,7 +54,7 @@ def task(
     :param ~datetime.timedelta | None misfire_grace_time: maximum number of seconds the
         run time of jobs created for the task are allowed to be late, compared to the
         scheduled run time
-
+    :param metadata: key-value pairs for storing JSON compatible custom information
     """
 
     def wrapper(func: T) -> T:
@@ -56,6 +74,7 @@ def task(
                 job_executor=job_executor,
                 max_running_jobs=max_running_jobs,
                 misfire_grace_time=misfire_grace_time,
+                metadata=metadata,
             ),
         )
         return func

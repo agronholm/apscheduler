@@ -16,6 +16,7 @@ import tenacity
 from anyio import CancelScope, to_thread
 from attr.validators import instance_of
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     Column,
@@ -292,6 +293,13 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         else:
             interval_type = EmulatedInterval()
 
+        if self._engine.dialect.name == "postgresql":
+            from sqlalchemy.dialects.postgresql import JSONB
+
+            json_type = JSONB
+        else:
+            json_type = JSON
+
         metadata = MetaData(schema=self.schema)
         Table("metadata", metadata, Column("schema_version", Integer, nullable=False))
         Table(
@@ -302,6 +310,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("job_executor", Unicode(500), nullable=False),
             Column("max_running_jobs", Integer),
             Column("misfire_grace_time", interval_type),
+            Column("metadata", json_type, nullable=False),
             Column("running_jobs", Integer, nullable=False, server_default=literal(0)),
         )
         Table(
@@ -318,6 +327,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("max_jitter", interval_type),
             Column("job_executor", Unicode(500), nullable=False),
             Column("job_result_expiration_time", interval_type),
+            Column("metadata", json_type, nullable=False),
             *next_fire_time_tzoffset_columns,
             Column("last_fire_time", timestamp_type),
             Column("acquired_by", Unicode(500), index=True),
@@ -336,6 +346,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("jitter", interval_type),
             Column("start_deadline", timestamp_type),
             Column("result_expiration_time", interval_type),
+            Column("metadata", json_type, nullable=False),
             Column("created_at", timestamp_type, nullable=False, index=True),
             Column("acquired_by", Unicode(500), index=True),
             Column("acquired_until", timestamp_type),
@@ -445,6 +456,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             job_executor=task.job_executor,
             max_running_jobs=task.max_running_jobs,
             misfire_grace_time=task.misfire_grace_time,
+            metadata=task.metadata,
         )
         try:
             async for attempt in self._retry():
@@ -459,6 +471,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     job_executor=task.job_executor,
                     max_running_jobs=task.max_running_jobs,
                     misfire_grace_time=task.misfire_grace_time,
+                    metadata=task.metadata,
                 )
                 .where(self._t_tasks.c.id == task.id)
             )
@@ -1054,7 +1067,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         delete = self._t_job_results.delete().where(
                             self._t_job_results.c.job_id == job_id
                         )
-                        result = await self._execute(conn, delete)
+                        await self._execute(conn, delete)
 
         return JobResult.unmarshal(self.serializer, row._asdict()) if row else None
 

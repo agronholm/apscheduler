@@ -50,8 +50,16 @@ from .._exceptions import (
     ScheduleLookupError,
 )
 from .._marshalling import callable_from_ref, callable_to_ref
-from .._structures import Job, JobResult, Schedule, ScheduleResult, Task, TaskDefaults
-from .._utils import UnsetValue, unset
+from .._structures import (
+    Job,
+    JobResult,
+    MetadataType,
+    Schedule,
+    ScheduleResult,
+    Task,
+    TaskDefaults,
+)
+from .._utils import UnsetValue, merge_metadata, unset
 from .._validators import non_negative_number
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
 from ..datastores.memory import MemoryDataStore
@@ -305,6 +313,7 @@ class AsyncScheduler:
         job_executor: str | UnsetValue = unset,
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
         max_running_jobs: int | None | UnsetValue = unset,
+        metadata: MetadataType | UnsetValue = unset,
     ) -> Task:
         """
         Add or update a :ref:`task <task>` definition.
@@ -329,6 +338,7 @@ class AsyncScheduler:
             run time is allowed to be late, compared to the scheduled run time
         :param max_running_jobs: maximum number of instances of the task that are
             allowed to run concurrently
+        :param metadata: key-value pairs for storing JSON compatible custom information
         :raises TypeError: if ``func_or_task_id`` is neither a task, task ID or a
             callable
         :return: the created or updated task definition
@@ -348,6 +358,7 @@ class AsyncScheduler:
                 job_executor=func_or_task_id.job_executor,
                 max_running_jobs=func_or_task_id.max_running_jobs,
                 misfire_grace_time=func_or_task_id.misfire_grace_time,
+                metadata=func_or_task_id.metadata,
             )
         elif isinstance(func_or_task_id, str) and func_or_task_id:
             task_params = get_task_params(func) if callable(func) else TaskParameters()
@@ -373,6 +384,12 @@ class AsyncScheduler:
         if task_params.misfire_grace_time is unset:
             task_params.misfire_grace_time = self.task_defaults.misfire_grace_time
 
+        # Merge the metadata from the defaults, task definition and explicitly passed
+        # metadata
+        task_params.metadata = merge_metadata(
+            self.task_defaults.metadata, task_params.metadata, metadata
+        )
+
         assert task_params.id
         if callable(func):
             self._task_callables[task_params.id] = func
@@ -391,6 +408,7 @@ class AsyncScheduler:
                 job_executor=task_params.job_executor,
                 max_running_jobs=task_params.max_running_jobs,
                 misfire_grace_time=task_params.misfire_grace_time,
+                metadata=task_params.metadata,
             )
             modified = True
         else:
@@ -409,6 +427,10 @@ class AsyncScheduler:
 
             if task_params.misfire_grace_time != task.misfire_grace_time:
                 changes["misfire_grace_time"] = task_params.misfire_grace_time
+                modified = True
+
+            if task_params.metadata != task.metadata:
+                changes["metadata"] = task_params.metadata
                 modified = True
 
             task = attrs.evolve(task, **changes)
@@ -440,6 +462,7 @@ class AsyncScheduler:
         coalesce: CoalescePolicy = CoalescePolicy.latest,
         job_executor: str | UnsetValue = unset,
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
+        metadata: MetadataType | UnsetValue = unset,
         max_jitter: float | timedelta | None = None,
         job_result_expiration_time: float | timedelta = 0,
         conflict_policy: ConflictPolicy = ConflictPolicy.do_nothing,
@@ -461,6 +484,7 @@ class AsyncScheduler:
             fire times have become due for this schedule since the last processing
         :param misfire_grace_time: maximum number of seconds the scheduled job's actual
             run time is allowed to be late, compared to the scheduled run time
+        :param metadata: key-value pairs for storing JSON compatible custom information
         :param max_jitter: maximum time (in seconds, or as a timedelta) to randomly add
             to the scheduled time for each job created from this schedule
         :param job_result_expiration_time: minimum time (in seconds, or as a timedelta)
@@ -507,6 +531,9 @@ class AsyncScheduler:
             misfire_grace_time=task.misfire_grace_time
             if misfire_grace_time is unset
             else misfire_grace_time,
+            metadata=task.metadata.copy()
+            if metadata is unset
+            else merge_metadata(task.metadata, metadata),
             max_jitter=max_jitter,
             job_executor=task.job_executor if job_executor is unset else job_executor,
             job_result_expiration_time=job_result_expiration_time,
@@ -615,6 +642,7 @@ class AsyncScheduler:
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
         job_executor: str | UnsetValue = unset,
+        metadata: MetadataType | UnsetValue = unset,
         result_expiration_time: timedelta | float = 0,
     ) -> UUID:
         """
@@ -628,6 +656,7 @@ class AsyncScheduler:
         :param kwargs: keyword arguments to call the target callable with
         :param job_executor: name of the job executor to run the task with
             (overrides the executor in the task definition, if any)
+        :param metadata: key-value pairs for storing JSON compatible custom information
         :param result_expiration_time: the minimum time (as seconds, or timedelta) to
             keep the result of the job available for fetching (the result won't be
             saved at all if that time is 0)
@@ -665,6 +694,7 @@ class AsyncScheduler:
             kwargs=kwargs or {},
             executor=task.job_executor if job_executor is unset else job_executor,
             result_expiration_time=result_expiration_time,
+            metadata=merge_metadata(task.metadata, metadata),
         )
         await self.data_store.add_job(job)
         return job.id
@@ -717,6 +747,7 @@ class AsyncScheduler:
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
         job_executor: str | UnsetValue = unset,
+        metadata: MetadataType | UnsetValue = unset,
     ) -> Any:
         """
         Convenience method to add a job and then return its result.
@@ -729,6 +760,7 @@ class AsyncScheduler:
         :param kwargs: keyword arguments to be passed to the task function
         :param job_executor: name of the job executor to run the task with
             (overrides the executor in the task definition, if any)
+        :param metadata: key-value pairs for storing JSON compatible custom information
         :returns: the return value of the task function
 
         """
@@ -746,6 +778,7 @@ class AsyncScheduler:
                 args=args,
                 kwargs=kwargs,
                 job_executor=job_executor,
+                metadata=metadata,
                 result_expiration_time=timedelta(minutes=15),
             )
             await job_complete_event.wait()
@@ -982,6 +1015,7 @@ class AsyncScheduler:
                                 start_deadline=start_deadline,
                                 executor=schedule.job_executor,
                                 result_expiration_time=schedule.job_result_expiration_time,
+                                metadata=schedule.metadata.copy(),
                             )
                             await self.data_store.add_job(job)
 
