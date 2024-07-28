@@ -6,10 +6,12 @@ import sys
 import sysconfig
 import threading
 import time
+from collections import defaultdict
 from collections.abc import Callable
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from functools import partial
+from inspect import signature
 from pathlib import Path
 from queue import Queue
 from types import ModuleType
@@ -1017,6 +1019,39 @@ class TestAsyncScheduler:
 
 
 class TestSyncScheduler:
+    def test_interface_parity(self) -> None:
+        """
+        Ensure that the sync scheduler has the same properties and methods as the async
+        schedulers, and the method parameters match too.
+
+        """
+        actual_attributes = set(dir(Scheduler))
+        expected_attributes = sorted(
+            attrname for attrname in dir(AsyncScheduler) if not attrname.startswith("_")
+        )
+        for attrname in expected_attributes:
+            if attrname not in actual_attributes:
+                pytest.fail(f"SyncScheduler is missing the {attrname} attribute")
+
+            async_attrval = getattr(AsyncScheduler, attrname)
+            sync_attrval = getattr(Scheduler, attrname)
+            if callable(async_attrval):
+                async_sig = signature(async_attrval)
+                async_args: dict[int, list] = defaultdict(list)
+                for param in async_sig.parameters.values():
+                    if param.name not in ("task_status", "is_async"):
+                        async_args[param.kind].append(param)
+
+                sync_sig = signature(sync_attrval)
+                sync_args: dict[int, list] = defaultdict(list)
+                for param in sync_sig.parameters.values():
+                    sync_args[param.kind].append(param)
+
+                for kind, args in async_args.items():
+                    assert (
+                        args == sync_args[kind]
+                    ), f"Parameter mismatch for {attrname}(): {args} != {sync_args[kind]}"
+
     def test_configure(self) -> None:
         executor = ThreadPoolJobExecutor()
         task_defaults = TaskDefaults(job_executor="executor1")

@@ -90,6 +90,10 @@ class Scheduler:
         self.__attrs_init__(async_scheduler=async_scheduler)
 
     @property
+    def logger(self) -> Logger:
+        return self._async_scheduler.logger
+
+    @property
     def data_store(self) -> DataStore:
         return self._async_scheduler.data_store
 
@@ -220,6 +224,10 @@ class Scheduler:
             )
         )
 
+    def get_next_event(self, event_types: type[Event] | Iterable[type[Event]]) -> Event:
+        portal = self._ensure_services_ready()
+        return portal.call(partial(self._async_scheduler.get_next_event, event_types))
+
     def configure_task(
         self,
         func_or_task_id: TaskType,
@@ -254,8 +262,8 @@ class Scheduler:
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
         paused: bool = False,
-        job_executor: str | UnsetValue = unset,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
+        job_executor: str | UnsetValue = unset,
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
         max_jitter: float | timedelta | None = None,
         job_result_expiration_time: float | timedelta = 0,
@@ -317,6 +325,7 @@ class Scheduler:
         *,
         args: Iterable | None = None,
         kwargs: Mapping[str, Any] | None = None,
+        job_executor: str | UnsetValue = unset,
         result_expiration_time: timedelta | float = 0,
     ) -> UUID:
         portal = self._ensure_services_ready()
@@ -326,6 +335,7 @@ class Scheduler:
                 func_or_task_id,
                 args=args,
                 kwargs=kwargs,
+                job_executor=job_executor,
                 result_expiration_time=result_expiration_time,
             )
         )
