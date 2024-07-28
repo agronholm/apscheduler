@@ -253,33 +253,104 @@ There are two ways to explicitly configure tasks:
 #. Call the :meth:`~Scheduler.configure_task` scheduler method
 #. Decorate your target function with :func:`@task <task>`
 
-Task configuration parameters are resolving according to the following, descending
-priority order:
+.. seealso:: :ref:`settings_inheritance`
 
-#. Parameters passed directly to :meth:`~AsyncScheduler.configure_task`
-#. Parameters bound to the target function via :func:`@task <task>`
-#. The scheduler's task defaults
+Limiting the number of concurrently executing instances of a job
+----------------------------------------------------------------
+
+**Option**: ``max_running_jobs``
+
+It is possible to control the maximum number of concurrently running jobs for a
+particular task. By default, only one job is allowed to be run for every task.
+This means that if the job is about to be run but there is another job for the same task
+still running, the later job is terminated with the outcome of
+:attr:`~JobOutcome.missed_start_deadline`.
+
+To allow more jobs to be concurrently running for a task, pass the desired maximum
+number as the ``max_running_jobs`` keyword argument to :meth:`~Scheduler.add_schedule`.
+
+.. _controlling-how-much-a-job-can-be-started-late:
+
+Controlling how much a job can be started late
+----------------------------------------------
+
+**Option**: ``misfire_grace_time``
+
+This option applies to scheduled jobs. Some tasks are time sensitive, and should not be
+run at all if they fail to be started on time (like, for example, if the scheduler(s)
+were down while they were supposed to be running the scheduled jobs). When a scheduler
+acquires jobs, the data store discards any jobs that have passed their start deadlines
+(scheduled time + ``misfire_grace_time``). Such jobs are released with the outcome of
+:attr:`~JobOutcome.missed_start_deadline`.
+
+Adding custom metadata
+----------------------
+
+**Option**: ``metadata``
+
+This option allows adding custom, JSON compatible metadata to tasks, schedules and jobs.
+Here, "JSON compatible" means the following restrictions:
+
+* The top-level metadata object must be a :class:`dict`
+* All :class:`dict` keys must be strings
+* Values can be :class:`int`, :class:`float`, :class:`str`, :class:`bool` or
+  :data:`None`
+
+.. note:: Top level metadata keys are merged with any explicitly passed values, in such
+    a way that explicitly passed values override any values from the task level.
+
+.. _settings_inheritance:
+
+Inheritance of settings
+-----------------------
+
+When tasks are configured, or schedules or jobs created, they will inherit the settings
+of any "parent" object according to the following rules:
+
+* Task configuration parameters are resolving according to the following, descending
+  priority order:
+
+  #. Parameters passed directly to :meth:`~AsyncScheduler.configure_task`
+  #. Parameters bound to the target function via :func:`@task <task>`
+  #. The scheduler's task defaults
+* Schedules inherit settings from the their respective tasks
+* Jobs created from schedules inherit the settings from their parent schedules
+* Jobs created directly inherit the settings from their parent tasks
+
+The ``metadata`` parameter works a bit differently. Top level keys will be merged in
+such a way that keys on a more explicit configuration level keys will overwrite keys
+from a more generic level.
 
 If any parameter is unset, it will be looked up on the next level. Here is an example
 that illustrates the lookup order::
 
     from apscheduler import Scheduler, TaskDefaults, task
 
-    @task(max_running_jobs=3)
+    @task(max_running_jobs=3, metadata={"foo": ["taskfunc"]})
     def mytaskfunc():
         print("running stuff")
 
-    task_defaults = TaskDefaults(misfire_grace_time=15, job_executor="processpool")
+    task_defaults = TaskDefaults(
+        misfire_grace_time=15,
+        job_executor="processpool",
+        metadata={"global": 3, "foo": ["bar"]}
+    )
     with Scheduler(task_defaults=task_defaults) as scheduler:
-        scheduler.configure_task("sometask", func=mytaskfunc, job_executor="threadpool")
+        scheduler.configure_task(
+            "sometask",
+            func=mytaskfunc,
+            job_executor="threadpool",
+            metadata={"direct": True}
+        )
 
 The resulting task will have the following parameters:
 
 * ``id``: ``'sometask'`` (from the :meth:`~AsyncScheduler.configure_task` call)
-* ``job_executor``: 3 (from the :meth:`~AsyncScheduler.configure_task` call, where it
-  overrides the scheduler-level default)
+* ``job_executor``: ``'threadpool'`` (from the :meth:`~AsyncScheduler.configure_task`
+  call, where it overrides the scheduler-level default)
 * ``max_running_jobs``: 3 (from the decorator)
 * ``misfire_grace_time``: 15 (from the scheduler-level default)
+* ``metadata``: ``{"global": 3, "foo": ["taskfunc"], "direct": True}``
 
 Scheduling tasks
 ================
@@ -366,22 +437,6 @@ If this trigger is created on 2022-06-07 at 09:00:00, its first run times would 
 
 Notably, 2022-08-07 is skipped because it falls on a Sunday.
 
-Running tasks without scheduling
---------------------------------
-
-In some cases, you want to run tasks directly, without involving schedules:
-
-* You're only interested in using the scheduler system as a job queue
-* You're interested in the job's return value
-
-To queue a job and wait for its completion and get the result, the easiest way is to
-use :meth:`~Scheduler.run_job`. If you prefer to just launch a job and not wait for its
-result, use :meth:`~Scheduler.add_job` instead. If you want to get the results later,
-you need to pass an appropriate ``result_expiration_time`` parameter to
-:meth:`~Scheduler.add_job` so that the result is saved. Then, you can call
-:meth:`~Scheduler.get_job_result` with the job ID you got from
-:meth:`~Scheduler.add_job` to retrieve the result.
-
 Removing schedules
 ------------------
 
@@ -418,31 +473,6 @@ the current datetime. If this parameter is provided, the schedules trigger will 
 repeatedly advanced to determine a next fire time that is at or after the specified time
 to resume from.
 
-Limiting the number of concurrently executing instances of a job
-----------------------------------------------------------------
-
-It is possible to control the maximum number of concurrently running jobs for a
-particular task. By default, only one job is allowed to be run for every task.
-This means that if the job is about to be run but there is another job for the same task
-still running, the later job is terminated with the outcome of
-:attr:`~JobOutcome.missed_start_deadline`.
-
-To allow more jobs to be concurrently running for a task, pass the desired maximum
-number as the ``max_running_jobs`` keyword argument to :meth:`~Scheduler.add_schedule`.
-
-.. _controlling-how-much-a-job-can-be-started-late:
-
-Controlling how much a job can be started late
-----------------------------------------------
-
-Some tasks are time sensitive, and should not be run at all if they fail to be started
-on time (like, for example, if the scheduler(s) were down while they were supposed to be
-running the scheduled jobs). You can control this time limit with the
-``misfire_grace_time`` option passed to :meth:`~Scheduler.add_schedule`. A scheduler
-that acquires the job then checks if the current time is later than the deadline
-(run time + misfire grace time) and if it is, it skips the execution of the job and
-releases it with the outcome of :attr:`~JobOutcome.missed_start_deadline`.
-
 Controlling how jobs are queued from schedules
 ----------------------------------------------
 
@@ -474,6 +504,22 @@ the collected run times is used for the deadline calculation.
 As explained in the previous section, the starting
 deadline is *misfire grace time*
 affects the newly queued job.
+
+Running tasks without scheduling
+================================
+
+In some cases, you want to run tasks directly, without involving schedules:
+
+* You're only interested in using the scheduler system as a job queue
+* You're interested in the job's return value
+
+To queue a job and wait for its completion and get the result, the easiest way is to
+use :meth:`~Scheduler.run_job`. If you prefer to just launch a job and not wait for its
+result, use :meth:`~Scheduler.add_job` instead. If you want to get the results later,
+you need to pass an appropriate ``result_expiration_time`` parameter to
+:meth:`~Scheduler.add_job` so that the result is saved. Then, you can call
+:meth:`~Scheduler.get_job_result` with the job ID you got from
+:meth:`~Scheduler.add_job` to retrieve the result.
 
 Context variables
 =================
