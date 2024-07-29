@@ -628,7 +628,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                     )
                     async for doc in cursor:
                         task_max_running_jobs = doc["max_running_jobs"]
-                        task_job_slots_left[doc["_id"]] = doc["max_running_jobs"]
+                        task_job_slots_left[doc["_id"]] = (doc["max_running_jobs"] - doc["running_jobs"])
 
                 acquired_jobs: list[Job] = []
                 skipped_job_ids: list[UUID] = []
@@ -684,10 +684,13 @@ class MongoDBDataStore(BaseExternalDataStore):
                         continue
 
                     # Skip and un-acquire the job if no more slots are available
-                    if not task_job_slots_left.get(job.task_id, float("inf")):
+                    task_slots_left = task_job_slots_left.get(job.task_id, float("inf"))
+                    if not task_slots_left or running_job_count_increments[job.task_id] == task_slots_left:
                         self._logger.debug(
                             "Skipping job %s because task %r has the maximum "
                             "number of %d jobs already running",
+                            job,
+                            job.task_id,
                             task_max_running_jobs,
                         )
                         skipped_job_ids.append(job.id)
