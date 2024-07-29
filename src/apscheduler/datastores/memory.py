@@ -25,12 +25,13 @@ from .._events import (
 )
 from .._exceptions import ConflictingIdError, TaskLookupError
 from .._structures import Job, JobResult, Schedule, ScheduleResult, Task
+from .._utils import create_repr
 from .base import BaseDataStore
 
 max_datetime = datetime(MAXYEAR, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
 
 
-@attrs.define(eq=False)
+@attrs.define(eq=False, repr=False)
 class MemoryDataStore(BaseDataStore):
     """
     Stores scheduler data in memory, without serializing it.
@@ -48,6 +49,9 @@ class MemoryDataStore(BaseDataStore):
     _jobs_by_task_id: dict[str, set[Job]] = attrs.Factory(partial(defaultdict, set))
     _jobs_by_schedule_id: dict[str, set[Job]] = attrs.Factory(partial(defaultdict, set))
     _job_results: dict[UUID, JobResult] = attrs.Factory(dict)
+
+    def __repr__(self) -> str:
+        return create_repr(self)
 
     def _find_schedule_index(self, schedule: Schedule) -> int:
         left_index = bisect_left(self._schedules, schedule)

@@ -19,7 +19,7 @@ from .. import current_scheduler
 from .._enums import CoalescePolicy, ConflictPolicy, RunState, SchedulerRole
 from .._events import Event, T_Event
 from .._structures import Job, JobResult, MetadataType, Schedule, Task, TaskDefaults
-from .._utils import UnsetValue, unset
+from .._utils import UnsetValue, create_repr, unset
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
 from .async_ import AsyncScheduler, TaskType
 
@@ -29,7 +29,7 @@ else:
     from typing_extensions import Self
 
 
-@attrs.define(init=False)
+@attrs.define(init=False, repr=False)
 class Scheduler:
     """
     A synchronous wrapper for :class:`AsyncScheduler`.
@@ -170,6 +170,9 @@ class Scheduler:
                 )
 
         return self._portal
+
+    def __repr__(self) -> str:
+        return create_repr(self, "identity", "role", "data_store", "event_broker")
 
     def cleanup(self) -> None:
         portal = self._ensure_services_ready()

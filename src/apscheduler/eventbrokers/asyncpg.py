@@ -19,13 +19,14 @@ from attr.validators import instance_of
 
 from .._events import Event
 from .._exceptions import SerializationError
+from .._utils import create_repr
 from .base import BaseExternalEventBroker
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
 
-@attrs.define(eq=False)
+@attrs.define(eq=False, repr=False)
 class AsyncpgEventBroker(BaseExternalEventBroker):
     """
     An asynchronous, asyncpg_ based event broker that uses a PostgreSQL server to
@@ -79,6 +80,9 @@ class AsyncpgEventBroker(BaseExternalEventBroker):
 
         dsn = engine.url.render_as_string(hide_password=False).replace("+asyncpg", "")
         return cls(dsn, options or {}, **kwargs)
+
+    def __repr__(self) -> str:
+        return create_repr(self, "dsn")
 
     @property
     def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:

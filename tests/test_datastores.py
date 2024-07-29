@@ -4,6 +4,7 @@ import platform
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from logging import Logger
+from pathlib import Path
 from typing import TYPE_CHECKING, AsyncGenerator
 from unittest.mock import Mock
 
@@ -32,6 +33,9 @@ from apscheduler import (
 from apscheduler._structures import ScheduleResult
 from apscheduler.abc import DataStore, EventBroker, Serializer
 from apscheduler.datastores.base import BaseExternalDataStore
+from apscheduler.datastores.memory import MemoryDataStore
+from apscheduler.datastores.mongodb import MongoDBDataStore
+from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.triggers.date import DateTrigger
 
 if TYPE_CHECKING:
@@ -819,3 +823,24 @@ async def test_acquire_jobs_deserialization_failure(
 
     # This should not yield any jobs
     assert await datastore.acquire_jobs("scheduler_id", timedelta(seconds=30), 1) == []
+
+
+class TestRepr:
+    async def test_memory(self, memory_store: MemoryDataStore) -> None:
+        assert repr(memory_store) == "MemoryDataStore()"
+
+    async def test_aiosqlite(
+        self, aiosqlite_store: SQLAlchemyDataStore, tmp_path: Path
+    ) -> None:
+        assert repr(aiosqlite_store) == (
+            f"SQLAlchemyDataStore(url='sqlite+aiosqlite:///{tmp_path}/test.db')"
+        )
+
+    async def test_psycopg(self, psycopg_async_store: SQLAlchemyDataStore) -> None:
+        assert repr(psycopg_async_store) == (
+            "SQLAlchemyDataStore(url='postgresql+psycopg://postgres:***@localhost/"
+            "testdb', schema='psycopg_async')"
+        )
+
+    async def test_mongodb(self, mongodb_store: MongoDBDataStore) -> None:
+        assert repr(mongodb_store) == "MongoDBDataStore(host=[('localhost', 27017)])"

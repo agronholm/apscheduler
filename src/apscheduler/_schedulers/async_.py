@@ -59,7 +59,7 @@ from .._structures import (
     Task,
     TaskDefaults,
 )
-from .._utils import UnsetValue, merge_metadata, unset
+from .._utils import UnsetValue, create_repr, merge_metadata, unset
 from .._validators import non_negative_number
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
 from ..datastores.memory import MemoryDataStore
@@ -85,7 +85,7 @@ TaskType: TypeAlias = "Task | str | Callable"
 T = TypeVar("T")
 
 
-@attrs.define(eq=False)
+@attrs.define(eq=False, repr=False)
 class AsyncScheduler:
     """
     An asynchronous (AnyIO based) scheduler implementation.
@@ -193,6 +193,9 @@ class AsyncScheduler:
     ) -> None:
         await self.stop()
         await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
+
+    def __repr__(self) -> str:
+        return create_repr(self, "identity", "role", "data_store", "event_broker")
 
     async def _ensure_services_initialized(self, exit_stack: AsyncExitStack) -> None:
         """

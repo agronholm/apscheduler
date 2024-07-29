@@ -42,6 +42,7 @@ from .._exceptions import (
     TaskLookupError,
 )
 from .._structures import Job, JobResult, Schedule, ScheduleResult, Task
+from .._utils import create_repr
 from ..abc import EventBroker
 from .base import BaseExternalDataStore
 
@@ -123,7 +124,7 @@ class AsyncCursor(Generic[T]):
         return AsyncCursor(cursor)
 
 
-@attrs.define(eq=False)
+@attrs.define(eq=False, repr=False)
 class MongoDBDataStore(BaseExternalDataStore):
     """
     Uses a MongoDB server to store data.
@@ -193,6 +194,10 @@ class MongoDBDataStore(BaseExternalDataStore):
         self._schedules = database["schedules"]
         self._jobs = database["jobs"]
         self._jobs_results = database["job_results"]
+
+    def __repr__(self) -> str:
+        server_descriptions = self._client.topology_description.server_descriptions()
+        return create_repr(self, host=list(server_descriptions))
 
     def _initialize(self) -> None:
         with self._client.start_session() as session:

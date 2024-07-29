@@ -76,6 +76,7 @@ from .._exceptions import (
     TaskLookupError,
 )
 from .._structures import Job, JobResult, Schedule, ScheduleResult, Task
+from .._utils import create_repr
 from ..abc import EventBroker
 from .base import BaseExternalDataStore
 
@@ -121,7 +122,7 @@ class _JobDiscard:
     exception: Exception | None = None
 
 
-@attrs.define(eq=False)
+@attrs.define(eq=False, repr=False)
 class SQLAlchemyDataStore(BaseExternalDataStore):
     """
     Uses a relational database to store data.
@@ -188,6 +189,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         self._t_schedules = self._metadata.tables[prefix + "schedules"]
         self._t_jobs = self._metadata.tables[prefix + "jobs"]
         self._t_job_results = self._metadata.tables[prefix + "job_results"]
+
+    def __repr__(self) -> str:
+        return create_repr(self, url=repr(self._engine.url), schema=self.schema)
 
     def _retry(self) -> tenacity.AsyncRetrying:
         def after_attempt(retry_state: tenacity.RetryCallState) -> None:

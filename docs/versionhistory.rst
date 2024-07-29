@@ -56,6 +56,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   synchronous engine
 - Fixed serializers raising their own exceptions instead of ``SerializationError`` and
   ``DeserializationError`` as appropriate
+- Fixed ``repr()`` outputs of schedulers, data stores and event brokers to be much more
+  useful and reasonable
 
 **4.0.0a5**
 

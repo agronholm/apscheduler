@@ -18,6 +18,7 @@ from psycopg import AsyncConnection, InterfaceError
 
 from .._events import Event
 from .._exceptions import SerializationError
+from .._utils import create_repr
 from .._validators import positive_number
 from .base import BaseExternalEventBroker
 
@@ -29,7 +30,7 @@ def convert_options(value: Mapping[str, Any]) -> dict[str, Any]:
     return dict(value, autocommit=True)
 
 
-@attrs.define(eq=False)
+@attrs.define(eq=False, repr=False)
 class PsycopgEventBroker(BaseExternalEventBroker):
     """
     An asynchronous, psycopg_ based event broker that uses a PostgreSQL server to
@@ -90,6 +91,9 @@ class PsycopgEventBroker(BaseExternalEventBroker):
             "+psycopg", ""
         )
         return cls(conninfo, options or {}, **kwargs)
+
+    def __repr__(self) -> str:
+        return create_repr(self, "conninfo")
 
     @property
     def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:

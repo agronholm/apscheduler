@@ -15,12 +15,13 @@ from paho.mqtt.client import Client, MQTTMessage
 from paho.mqtt.enums import CallbackAPIVersion
 
 from .._events import Event
+from .._utils import create_repr
 from .base import BaseExternalEventBroker
 
 ALLOWED_TRANSPORTS = ("mqtt", "mqtts", "ws", "wss", "unix")
 
 
-@attrs.define(eq=False)
+@attrs.define(eq=False, repr=False)
 class MQTTEventBroker(BaseExternalEventBroker):
     """
     An event broker that uses an MQTT (v3.1 or v5) broker to broadcast events.
@@ -79,6 +80,9 @@ class MQTTEventBroker(BaseExternalEventBroker):
             self._client.tls_set_context(self.ssl)
         elif self.ssl:
             self._client.tls_set()
+
+    def __repr__(self) -> str:
+        return create_repr(self, "host", "port", "transport")
 
     async def start(self, exit_stack: AsyncExitStack, logger: Logger) -> None:
         await super().start(exit_stack, logger)

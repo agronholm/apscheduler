@@ -15,10 +15,11 @@ from redis.asyncio.client import PubSub
 from redis.asyncio.connection import ConnectionPool
 
 from .._events import Event
+from .._utils import create_repr
 from .base import BaseExternalEventBroker
 
 
-@attrs.define(eq=False)
+@attrs.define(eq=False, repr=False)
 class RedisEventBroker(BaseExternalEventBroker):
     """
     An event broker that uses a Redis server to broadcast events.
@@ -54,6 +55,9 @@ class RedisEventBroker(BaseExternalEventBroker):
             self._close_on_exit = True
         else:
             self._client = self.client_or_url
+
+    def __repr__(self) -> str:
+        return create_repr(self, "client_or_url")
 
     def _retry(self) -> tenacity.AsyncRetrying:
         def after_attempt(retry_state: tenacity.RetryCallState) -> None:

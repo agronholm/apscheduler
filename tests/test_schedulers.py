@@ -133,6 +133,13 @@ class DummyClass:
 
 
 class TestAsyncScheduler:
+    def test_repr(self) -> None:
+        scheduler = AsyncScheduler(identity="my identity")
+        assert repr(scheduler) == (
+            "AsyncScheduler(identity='my identity', role=<SchedulerRole.both: 3>, "
+            "data_store=MemoryDataStore(), event_broker=LocalEventBroker())"
+        )
+
     async def test_use_before_initialized(self) -> None:
         scheduler = AsyncScheduler()
         with pytest.raises(
@@ -1056,6 +1063,13 @@ class TestSyncScheduler:
                     assert (
                         args == sync_args[kind]
                     ), f"Parameter mismatch for {attrname}(): {args} != {sync_args[kind]}"
+
+    def test_repr(self) -> None:
+        scheduler = Scheduler(identity="my identity")
+        assert repr(scheduler) == (
+            "Scheduler(identity='my identity', role=<SchedulerRole.both: 3>, "
+            "data_store=MemoryDataStore(), event_broker=LocalEventBroker())"
+        )
 
     def test_configure(self) -> None:
         executor = ThreadPoolJobExecutor()
