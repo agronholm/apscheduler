@@ -156,6 +156,7 @@ async def psycopg_async_store() -> AsyncGenerator[DataStore, None]:
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 
+    pytest.importorskip("psycopg", reason="psycopg not available")
     engine = create_async_engine(
         "postgresql+psycopg://postgres:secret@localhost/testdb"
     )
@@ -177,6 +178,7 @@ def psycopg_sync_store() -> Generator[DataStore, None, None]:
 
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 
+    pytest.importorskip("psycopg", reason="psycopg not available")
     engine = create_engine("postgresql+psycopg://postgres:secret@localhost/testdb")
     try:
         with engine.begin() as conn:
