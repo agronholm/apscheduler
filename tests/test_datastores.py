@@ -840,6 +840,7 @@ class TestRepr:
         )
 
     async def test_psycopg(self, psycopg_async_store: SQLAlchemyDataStore) -> None:
+        pytest.importorskip("psycopg")
         assert repr(psycopg_async_store) == (
             "SQLAlchemyDataStore(url='postgresql+psycopg://postgres:***@localhost/"
             "testdb', schema='psycopg_async')"
