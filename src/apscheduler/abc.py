@@ -396,9 +396,10 @@ class JobExecutor(metaclass=ABCMeta):
     @abstractmethod
     async def run_job(self, func: Callable[..., Any], job: Job) -> Any:
         """
+        Run the given job by calling the given function.
 
-        :param func:
-        :param job:
+        :param func: the function to call
+        :param job: the associated job
         :return: the return value of ``func`` (potentially awaiting on the returned
             aawaitable, if any)
         """
