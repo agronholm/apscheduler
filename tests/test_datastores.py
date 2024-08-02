@@ -837,22 +837,21 @@ class TestRepr:
 
         engine = create_engine(f"sqlite:///{tmp_path}")
         data_store = SQLAlchemyDataStore(engine)
-        assert repr(data_store) == (
-            f"SQLAlchemyDataStore(url='sqlite+sqlite:///{tmp_path}')"
-        )
+        assert repr(data_store) == (f"SQLAlchemyDataStore(url='sqlite:///{tmp_path}')")
 
     async def test_psycopg(self) -> None:
         from sqlalchemy.ext.asyncio import create_async_engine
 
+        pytest.importorskip("psycopg", reason="psycopg not available")
         engine = create_async_engine(
-            "postgresql+psycopg://postgres:secret@localhost:5432/postgres"
+            "postgresql+psycopg://postgres:secret@localhost/testdb"
         )
-        data_store = SQLAlchemyDataStore(engine)
+        data_store = SQLAlchemyDataStore(engine, schema="myschema")
         assert repr(data_store) == (
             "SQLAlchemyDataStore(url='postgresql+psycopg://postgres:***@localhost/"
-            "testdb', schema='psycopg_async')"
+            "testdb', schema='myschema')"
         )
 
     async def test_mongodb(self) -> None:
-        data_store = MongoDBDataStore("mongo://localhost")
+        data_store = MongoDBDataStore("mongodb://localhost")
         assert repr(data_store) == "MongoDBDataStore(host=[('localhost', 27017)])"
