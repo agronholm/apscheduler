@@ -832,18 +832,27 @@ class TestRepr:
     async def test_memory(self, memory_store: MemoryDataStore) -> None:
         assert repr(memory_store) == "MemoryDataStore()"
 
-    async def test_aiosqlite(
-        self, aiosqlite_store: SQLAlchemyDataStore, tmp_path: Path
-    ) -> None:
-        assert repr(aiosqlite_store) == (
-            f"SQLAlchemyDataStore(url='sqlite+aiosqlite:///{tmp_path}/test.db')"
+    async def test_sqlite(self, tmp_path: Path) -> None:
+        from sqlalchemy import create_engine
+
+        engine = create_engine(f"sqlite:///{tmp_path}")
+        data_store = SQLAlchemyDataStore(engine)
+        assert repr(data_store) == (
+            f"SQLAlchemyDataStore(url='sqlite+sqlite:///{tmp_path}')"
         )
 
-    async def test_psycopg(self, psycopg_async_store: SQLAlchemyDataStore) -> None:
-        assert repr(psycopg_async_store) == (
+    async def test_psycopg(self) -> None:
+        from sqlalchemy.ext.asyncio import create_async_engine
+
+        engine = create_async_engine(
+            "postgresql+psycopg://postgres:secret@localhost:5432/postgres"
+        )
+        data_store = SQLAlchemyDataStore(engine)
+        assert repr(data_store) == (
             "SQLAlchemyDataStore(url='postgresql+psycopg://postgres:***@localhost/"
             "testdb', schema='psycopg_async')"
         )
 
-    async def test_mongodb(self, mongodb_store: MongoDBDataStore) -> None:
-        assert repr(mongodb_store) == "MongoDBDataStore(host=[('localhost', 27017)])"
+    async def test_mongodb(self) -> None:
+        data_store = MongoDBDataStore("mongo://localhost")
+        assert repr(data_store) == "MongoDBDataStore(host=[('localhost', 27017)])"
