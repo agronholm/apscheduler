@@ -624,6 +624,9 @@ async def test_acquire_jobs_max_number_exceeded(datastore: DataStore) -> None:
         assert job.acquired_by == "worker1"
         assert job.acquired_until
 
+    # Check that no jobs are acquired now that the task is at capacity
+    assert not await datastore.acquire_jobs("worker1", timedelta(seconds=30), 3)
+
     # Release one job, and the worker should be able to acquire the third job
     await datastore.release_job(
         "worker1",
