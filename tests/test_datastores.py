@@ -835,9 +835,12 @@ class TestRepr:
     async def test_sqlite(self, tmp_path: Path) -> None:
         from sqlalchemy import create_engine
 
+        expected_path = str(tmp_path).replace("\\", "\\\\")
         engine = create_engine(f"sqlite:///{tmp_path}")
         data_store = SQLAlchemyDataStore(engine)
-        assert repr(data_store) == (f"SQLAlchemyDataStore(url='sqlite:///{tmp_path}')")
+        assert repr(data_store) == (
+            f"SQLAlchemyDataStore(url='sqlite:///{expected_path}')"
+        )
 
     async def test_psycopg(self) -> None:
         from sqlalchemy.ext.asyncio import create_async_engine
