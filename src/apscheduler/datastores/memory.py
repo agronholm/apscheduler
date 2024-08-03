@@ -257,6 +257,8 @@ class MemoryDataStore(BaseDataStore):
                 self._logger.debug(
                     "Skipping job %s because task %r has the maximum number of %d jobs "
                     "already running",
+                    job.id,
+                    job.task_id,
                     task.running_jobs,
                 )
                 continue
