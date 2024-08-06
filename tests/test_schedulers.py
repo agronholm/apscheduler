@@ -15,6 +15,7 @@ from inspect import signature
 from pathlib import Path
 from queue import Queue
 from types import ModuleType
+from typing import Any
 
 import anyio
 import pytest
@@ -458,7 +459,7 @@ class TestAsyncScheduler:
     )
     async def test_callable_types(
         self,
-        target: Callable,
+        target: Callable[..., Any],
         expected_result: object,
         use_scheduling: bool,
         raw_datastore: DataStore,
