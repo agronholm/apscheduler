@@ -81,7 +81,7 @@ else:
 _microsecond_delta = timedelta(microseconds=1)
 _zero_timedelta = timedelta()
 
-TaskType: TypeAlias = "Task | str | Callable"
+TaskType: TypeAlias = "Task | str | Callable[..., Any]"
 T = TypeVar("T")
 
 
