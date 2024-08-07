@@ -312,7 +312,7 @@ class AsyncScheduler:
         self,
         func_or_task_id: TaskType,
         *,
-        func: Callable | UnsetValue = unset,
+        func: Callable[..., Any] | UnsetValue = unset,
         job_executor: str | UnsetValue = unset,
         misfire_grace_time: float | timedelta | None | UnsetValue = unset,
         max_running_jobs: int | None | UnsetValue = unset,
@@ -459,7 +459,7 @@ class AsyncScheduler:
         trigger: Trigger,
         *,
         id: str | None = None,
-        args: Iterable | None = None,
+        args: Iterable[Any] | None = None,
         kwargs: Mapping[str, Any] | None = None,
         paused: bool = False,
         coalesce: CoalescePolicy = CoalescePolicy.latest,
@@ -642,7 +642,7 @@ class AsyncScheduler:
         self,
         func_or_task_id: TaskType,
         *,
-        args: Iterable | None = None,
+        args: Iterable[Any] | None = None,
         kwargs: Mapping[str, Any] | None = None,
         job_executor: str | UnsetValue = unset,
         metadata: MetadataType | UnsetValue = unset,
@@ -745,9 +745,9 @@ class AsyncScheduler:
 
     async def run_job(
         self,
-        func_or_task_id: str | Callable,
+        func_or_task_id: str | Callable[..., Any],
         *,
-        args: Iterable | None = None,
+        args: Iterable[Any] | None = None,
         kwargs: Mapping[str, Any] | None = None,
         job_executor: str | UnsetValue = unset,
         metadata: MetadataType | UnsetValue = unset,
@@ -838,7 +838,7 @@ class AsyncScheduler:
         )
 
     async def run_until_stopped(
-        self, *, task_status: TaskStatus = TASK_STATUS_IGNORED
+        self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED
     ) -> None:
         """Run the scheduler until explicitly stopped."""
         if self._state is not RunState.stopped:
@@ -911,7 +911,7 @@ class AsyncScheduler:
                         SchedulerStopped(exception=exception)
                     )
 
-    async def _process_schedules(self, *, task_status: TaskStatus) -> None:
+    async def _process_schedules(self, *, task_status: TaskStatus[None]) -> None:
         wakeup_event = anyio.Event()
         wakeup_deadline: datetime | None = None
 
@@ -1100,7 +1100,7 @@ class AsyncScheduler:
                 f"callable."
             )
 
-    async def _process_jobs(self, *, task_status: TaskStatus) -> None:
+    async def _process_jobs(self, *, task_status: TaskStatus[None]) -> None:
         wakeup_event = anyio.Event()
 
         async def check_queue_capacity(event: Event) -> None:
@@ -1161,7 +1161,7 @@ class AsyncScheduler:
                 await wakeup_event.wait()
                 wakeup_event = anyio.Event()
 
-    async def _run_job(self, job: Job, func: Callable, executor: str) -> None:
+    async def _run_job(self, job: Job, func: Callable[..., Any], executor: str) -> None:
         try:
             # Check if the job started before the deadline
             start_time = datetime.now(timezone.utc)
