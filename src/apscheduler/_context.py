@@ -4,9 +4,9 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from ._schedulers.async_ import AsyncScheduler
+    from ._schedulers.sync import Scheduler
     from ._structures import Job
-    from .schedulers.async_ import AsyncScheduler
-    from .schedulers.sync import Scheduler
 
 #: The currently running (local) scheduler
 current_scheduler: ContextVar[Scheduler | None] = ContextVar(
