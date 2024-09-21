@@ -58,6 +58,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   ``DeserializationError`` as appropriate
 - Fixed ``repr()`` outputs of schedulers, data stores and event brokers to be much more
   useful and reasonable
+- Fixed race condition in ``MongoDBDataStore`` that allowed multiple schedulers to
+  acquire the same schedules at once
 
 **4.0.0a5**
 

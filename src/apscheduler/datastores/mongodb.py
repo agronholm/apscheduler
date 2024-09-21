@@ -381,53 +381,98 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def acquire_schedules(
         self, scheduler_id: str, lease_duration: timedelta, limit: int
     ) -> list[Schedule]:
-        async for attempt in self._retry():
-            with attempt, self._client.start_session() as session:
-                schedules: list[Schedule] = []
-                now = datetime.now(timezone.utc)
-                async with await AsyncCursor.create(
-                    lambda: self._schedules.find(
-                        {
-                            "next_fire_time": {"$lte": now.timestamp()},
-                            "$and": [
-                                {
-                                    "$or": [
-                                        {"paused": {"$exists": False}},
-                                        {"paused": False},
-                                    ]
-                                },
-                                {
-                                    "$or": [
-                                        {"acquired_until": {"$exists": False}},
-                                        {"acquired_until": {"$lt": now.timestamp()}},
-                                    ]
-                                },
-                            ],
-                        },
-                        session=session,
-                    )
-                    .sort("next_fire_time")
-                    .limit(limit)
-                ) as cursor:
-                    async for document in cursor:
-                        document["id"] = document.pop("_id")
-                        unmarshal_timestamps(document)
-                        schedule = Schedule.unmarshal(self.serializer, document)
-                        schedules.append(schedule)
+        schedules: list[Schedule] = []
 
-                if schedules:
+        # Fetch up to {limit} schedules
+        while len(schedules) < limit:
+            async for attempt in self._retry():
+                with attempt, self._client.start_session() as session:
+                    now = datetime.now(timezone.utc)
+                    async with await AsyncCursor.create(
+                        lambda: self._schedules.find(
+                            {
+                                "next_fire_time": {"$lte": now.timestamp()},
+                                "$and": [
+                                    {
+                                        "$or": [
+                                            {"paused": {"$exists": False}},
+                                            {"paused": False},
+                                        ]
+                                    },
+                                    {
+                                        "$or": [
+                                            {"acquired_until": {"$exists": False}},
+                                            {
+                                                "acquired_until": {
+                                                    "$lt": now.timestamp()
+                                                }
+                                            },
+                                        ]
+                                    },
+                                ],
+                            },
+                            session=session,
+                        )
+                        .sort("next_fire_time")
+                        .limit(limit - len(schedules))
+                    ) as cursor:
+                        documents = [doc async for doc in cursor]
+
+                    # Bail out if there are no more schedules to be acquired
+                    if not documents:
+                        return schedules
+
                     now = datetime.now(timezone.utc)
                     acquired_until = now + lease_duration
-                    filters = {"_id": {"$in": [schedule.id for schedule in schedules]}}
-                    update = {
-                        "$set": {
-                            "acquired_by": scheduler_id,
-                            **marshal_timestamp(acquired_until, "acquired_until"),
-                        }
-                    }
-                    self._schedules.update_many(filters, update, session=session)
+                    schedule_ids = [doc["_id"] for doc in documents]
+                    result = await to_thread.run_sync(
+                        lambda: self._schedules.update_many(
+                            {
+                                "_id": {"$in": schedule_ids},
+                                "$or": [
+                                    {"acquired_until": {"$exists": False}},
+                                    {"acquired_until": {"$lt": now.timestamp()}},
+                                ],
+                            },
+                            {
+                                "$set": {
+                                    "acquired_by": scheduler_id,
+                                    **marshal_timestamp(
+                                        acquired_until, "acquired_until"
+                                    ),
+                                }
+                            },
+                        )
+                    )
 
-        return schedules
+                    # If the number of modified schedules was smaller than expected,
+                    # manually check which ones were successfully acquired
+                    if result.modified_count != len(schedule_ids):
+                        async with await AsyncCursor.create(
+                            lambda: self._schedules.find(
+                                {
+                                    "_id": {"$in": schedule_ids},
+                                    "acquired_by": scheduler_id,
+                                },
+                                sort=[("created_at", ASCENDING)],
+                                projection=["_id"],
+                                session=session,
+                            )
+                        ) as cursor:
+                            acquired_schedule_ids = {doc["_id"] async for doc in cursor}
+                            documents = [
+                                doc
+                                for doc in documents
+                                if doc["_id"] in acquired_schedule_ids
+                            ]
+
+                    for doc in documents:
+                        # Deserialize the schedule
+                        doc["id"] = doc.pop("_id")
+                        unmarshal_timestamps(doc)
+                        schedules.append(Schedule.unmarshal(self.serializer, doc))
+
+                return schedules
 
     async def release_schedules(
         self, scheduler_id: str, results: Sequence[ScheduleResult]
