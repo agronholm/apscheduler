@@ -857,5 +857,8 @@ class TestRepr:
         )
 
     async def test_mongodb(self) -> None:
-        data_store = MongoDBDataStore("mongodb://localhost")
-        assert repr(data_store) == "MongoDBDataStore(host=[('localhost', 27017)])"
+        from pymongo import MongoClient
+
+        with MongoClient() as client:
+            data_store = MongoDBDataStore(client)
+            assert repr(data_store) == "MongoDBDataStore(host=[('localhost', 27017)])"
