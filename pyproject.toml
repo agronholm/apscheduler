@@ -17,19 +17,19 @@ classifiers = [
     "Typing :: Typed",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 keywords = ["scheduling", "cron"]
 license = {text = "MIT"}
-requires-python = ">= 3.8"
+requires-python = ">= 3.9"
 dependencies = [
     "anyio ~= 4.0",
     "attrs >= 22.1",
-    "tenacity >= 8.0, <10.0",
+    "tenacity >= 8.0, < 10.0",
     "tzlocal >= 3.0",
     "typing_extensions >= 4.0; python_version < '3.11'"
 ]
@@ -50,7 +50,7 @@ redis = ["redis >= 5.0.1"]
 sqlalchemy = ["sqlalchemy[asyncio] >= 2.0.24"]
 test = [
     "APScheduler[cbor,mongodb,mqtt,redis,sqlalchemy]",
-    "asyncpg >= 0.20; python_implementation == 'CPython'",
+    "asyncpg >= 0.20; python_implementation == 'CPython' and python_version < '3.13'",
     "aiosqlite >= 0.19",
     "anyio[trio]",
     "asyncmy >= 0.2.5; python_implementation == 'CPython'",
@@ -58,12 +58,15 @@ test = [
     "psycopg",
     "pymongo >= 4",
     "pymysql[rsa]",
-    "PySide6 >= 6.6; python_implementation == 'CPython'",
+    "PySide6 >= 6.6; python_implementation == 'CPython' and python_version < '3.13'",
     "pytest >= 7.4",
     "pytest-lazy-fixtures",
     "pytest-mock",
     "time-machine >= 2.13.0; python_implementation == 'CPython'",
-    "uwsgi; python_implementation == 'CPython' and platform_system == 'Linux'",
+    """\
+    uwsgi; python_implementation == 'CPython' and platform_system == 'Linux'\
+    and python_version < '3.13'\
+    """,
 ]
 doc = [
     "sphinx",
@@ -118,7 +121,7 @@ disable_error_code = "type-abstract"
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py38, py39, py310, py311, py312, pypy3
+envlist = py38, py39, py310, py311, py312, py313, pypy3
 skip_missing_interpreters = true
 minversion = 4.0
 
