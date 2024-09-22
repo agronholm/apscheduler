@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime, timedelta, tzinfo
-from typing import Any, ClassVar, Sequence
+from typing import Any, ClassVar
 
 import attrs
 from attr.validators import instance_of, optional

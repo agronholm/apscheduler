@@ -3,13 +3,13 @@ from __future__ import annotations
 import atexit
 import sys
 import threading
-from collections.abc import MutableMapping, Sequence
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from contextlib import ExitStack
 from datetime import datetime, timedelta
 from functools import partial
 from logging import Logger
 from types import TracebackType
-from typing import Any, Callable, Iterable, Literal, Mapping, overload
+from typing import Any, Callable, Literal, overload
 from uuid import UUID
 
 import attrs

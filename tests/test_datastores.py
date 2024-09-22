@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import platform
+from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from logging import Logger
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncGenerator
+from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
 import anyio

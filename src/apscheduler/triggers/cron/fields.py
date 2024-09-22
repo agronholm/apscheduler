@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import re
 from calendar import monthrange
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Any, ClassVar, Sequence
+from typing import Any, ClassVar
 
 from .expressions import (
     WEEKDAYS,

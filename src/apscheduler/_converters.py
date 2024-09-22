@@ -1,17 +1,12 @@
 from __future__ import annotations
 
-import sys
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from tzlocal import get_localzone
-
-if sys.version_info >= (3, 9):
-    from zoneinfo import ZoneInfo
-else:
-    from backports.zoneinfo import ZoneInfo
 
 
 def as_int(value: Any) -> Any:

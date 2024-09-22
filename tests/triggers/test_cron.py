@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-import sys
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
 from apscheduler.triggers.cron import CronTrigger
-
-if sys.version_info >= (3, 9):
-    from zoneinfo import ZoneInfo
-else:
-    from backports.zoneinfo import ZoneInfo
 
 
 def test_invalid_expression():

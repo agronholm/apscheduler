@@ -4,14 +4,14 @@ import os
 import platform
 import random
 import sys
-from collections.abc import MutableMapping, Sequence
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from inspect import isbuiltin, isclass, ismethod, ismodule
 from logging import Logger, getLogger
 from types import TracebackType
-from typing import Any, Callable, Iterable, Literal, Mapping, TypeVar, cast, overload
+from typing import Any, Callable, Literal, TypeVar, cast, overload
 from uuid import UUID, uuid4
 
 import anyio

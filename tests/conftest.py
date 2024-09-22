@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import logging
-import sys
-from collections.abc import Generator
+from collections.abc import AsyncGenerator, Generator
 from contextlib import AsyncExitStack
 from logging import Logger
 from pathlib import Path
-from typing import Any, AsyncGenerator, cast
+from typing import Any, cast
+from zoneinfo import ZoneInfo
 
 import pytest
 from _pytest.fixtures import SubRequest
@@ -17,11 +17,6 @@ from apscheduler.datastores.memory import MemoryDataStore
 from apscheduler.serializers.cbor import CBORSerializer
 from apscheduler.serializers.json import JSONSerializer
 from apscheduler.serializers.pickle import PickleSerializer
-
-if sys.version_info >= (3, 9):
-    from zoneinfo import ZoneInfo
-else:
-    from backports.zoneinfo import ZoneInfo
 
 
 @pytest.fixture(scope="session")

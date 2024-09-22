@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import operator
 import sys
-from collections.abc import AsyncGenerator, AsyncIterator, Sequence
+from collections.abc import AsyncGenerator, AsyncIterator, Iterable, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from logging import Logger
-from typing import Any, Callable, ClassVar, Generic, Iterable, Mapping, TypeVar, cast
+from typing import Any, Callable, ClassVar, Generic, TypeVar, cast
 from uuid import UUID
 
 import attrs

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import AsyncGenerator, Mapping, Sequence
+from collections.abc import AsyncGenerator, Iterable, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from logging import Logger
-from typing import Any, Iterable, cast
+from typing import Any, cast
 from uuid import UUID
 
 import anyio

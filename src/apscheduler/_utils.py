@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-import sys
 from datetime import datetime, tzinfo
 from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
+from zoneinfo import ZoneInfo
 
 from ._exceptions import DeserializationError
 from .abc import Trigger
-
-if sys.version_info >= (3, 9):
-    from zoneinfo import ZoneInfo
-else:
-    from backports.zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
     from ._structures import MetadataType
