@@ -60,6 +60,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   useful and reasonable
 - Fixed race condition in ``MongoDBDataStore`` that allowed multiple schedulers to
   acquire the same schedules at once
+- Changed ``SQLAlchemyDataStore`` to automatically create the explicitly specified
+  schema if it's missing (PR by @zhu0629)
 
 **4.0.0a5**
 
