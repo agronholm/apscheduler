@@ -232,12 +232,6 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
             yield conn
 
-    async def _create_schema(self, conn: Connection | AsyncConnection) -> None:
-        if not self.schema:
-            return
-        t = CreateSchema(name=self.schema, if_not_exists=True)
-        await self._execute(conn, t)
-
     async def _create_metadata(self, conn: Connection | AsyncConnection) -> None:
         if isinstance(conn, AsyncConnection):
             await conn.run_sync(self._metadata.create_all)
@@ -396,7 +390,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
-                    await self._create_schema(conn)
+                    # Create the schema first if it doesn't exist yet
+                    if self.schema:
+                        await self._execute(
+                            conn, CreateSchema(name=self.schema, if_not_exists=True)
+                        )
+
                     if self.start_from_scratch:
                         for table in self._metadata.sorted_tables:
                             await self._execute(conn, DropTable(table, if_exists=True))
