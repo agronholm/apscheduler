@@ -403,16 +403,24 @@ def test_dst_change(
 @pytest.mark.parametrize(
     "cron_expression, start_time, correct_next_dates",
     [
-        ('0 * * * *', datetime(2024, 10, 27, 2, 0, 0, 0), [
-            (datetime(2024, 10, 27, 2, 0, 0, 0), 0),
-            (datetime(2024, 10, 27, 2, 0, 0, 0), 1),
-            (datetime(2024, 10, 27, 3, 0, 0, 0), 0),
-        ]),
-        ('1 * * * *', datetime(2024, 10, 27, 2, 1, 0, 0), [
-            (datetime(2024, 10, 27, 2, 1, 0, 0), 0),
-            (datetime(2024, 10, 27, 2, 1, 0, 0), 1),
-            (datetime(2024, 10, 27, 3, 1, 0, 0), 0),
-        ]),
+        (
+            "0 * * * *",
+            datetime(2024, 10, 27, 2, 0, 0, 0),
+            [
+                (datetime(2024, 10, 27, 2, 0, 0, 0), 0),
+                (datetime(2024, 10, 27, 2, 0, 0, 0), 1),
+                (datetime(2024, 10, 27, 3, 0, 0, 0), 0),
+            ],
+        ),
+        (
+            "1 * * * *",
+            datetime(2024, 10, 27, 2, 1, 0, 0),
+            [
+                (datetime(2024, 10, 27, 2, 1, 0, 0), 0),
+                (datetime(2024, 10, 27, 2, 1, 0, 0), 1),
+                (datetime(2024, 10, 27, 3, 1, 0, 0), 0),
+            ],
+        ),
     ],
     ids=["dst_change_0", "dst_change_1"],
 )
@@ -424,7 +432,7 @@ def test_dst_change2(
 ):
     trigger = CronTrigger.from_crontab(cron_expression, timezone=timezone)
     trigger.start_time = start_time.astimezone(timezone)
-    for (correct_next_date, fold) in correct_next_dates:
+    for correct_next_date, fold in correct_next_dates:
         next_date = trigger.next()
         assert next_date == correct_next_date.astimezone(timezone)
         assert next_date.fold == fold
