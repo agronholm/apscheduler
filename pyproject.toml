@@ -64,7 +64,7 @@ test = [
     "pytest-mock",
     "time-machine >= 2.13.0; python_implementation == 'CPython'",
     """\
-    uwsgi; python_implementation == 'CPython' and platform_system == 'Linux'\
+    uwsgi <= 2.0.26; python_implementation == 'CPython' and platform_system == 'Linux'\
     and python_version < '3.13'\
     """,
 ]
