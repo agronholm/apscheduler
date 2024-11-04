@@ -212,8 +212,18 @@ async def aiosqlite_store(tmp_path: Path) -> AsyncGenerator[DataStore, None]:
         await engine.dispose()
 
 
+@pytest.fixture(
+    params=[
+        pytest.param('', id="default_prefix"),
+        pytest.param('aps_', id="aps_prefix"),
+    ]
+)
+def table_prefix(request) -> str:
+    return request.param
+
+
 @pytest.fixture
-async def asyncpg_store() -> AsyncGenerator[DataStore, None]:
+async def asyncpg_store(table_prefix: str) -> AsyncGenerator[DataStore, None]:
     pytest.importorskip("asyncpg", reason="asyncpg is not installed")
     from asyncpg import compat
     from sqlalchemy.ext.asyncio import create_async_engine
@@ -241,7 +251,10 @@ async def asyncpg_store() -> AsyncGenerator[DataStore, None]:
         "postgresql+asyncpg://postgres:secret@localhost/testdb", future=True
     )
     try:
-        yield SQLAlchemyDataStore(engine, start_from_scratch=True)
+        if table_prefix:
+            yield SQLAlchemyDataStore(engine, table_prefix=table_prefix, start_from_scratch=True)
+        else:
+            yield SQLAlchemyDataStore(engine, start_from_scratch=True)
         assert "Current Checked out connections: 0" in engine.pool.status()
     finally:
         await engine.dispose()

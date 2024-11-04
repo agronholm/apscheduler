@@ -153,6 +153,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         validator=instance_of((str, URL, Engine, AsyncEngine))
     )
     schema: str | None = attrs.field(kw_only=True, default=None)
+    table_prefix: str | None = attrs.field(kw_only=True, default='')
 
     _engine: Engine | AsyncEngine = attrs.field(init=False)
     _close_on_exit: bool = attrs.field(init=False, default=False)
@@ -185,14 +186,14 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         )
         self._supports_native_interval = self._engine.dialect.name == "postgresql"
         self._metadata = self.get_table_definitions()
-        self._t_metadata = self._metadata.tables[prefix + "metadata"]
-        self._t_tasks = self._metadata.tables[prefix + "tasks"]
-        self._t_schedules = self._metadata.tables[prefix + "schedules"]
-        self._t_jobs = self._metadata.tables[prefix + "jobs"]
-        self._t_job_results = self._metadata.tables[prefix + "job_results"]
+        self._t_metadata = self._metadata.tables[prefix + self.table_prefix + "metadata"]
+        self._t_tasks = self._metadata.tables[prefix + self.table_prefix + "tasks"]
+        self._t_schedules = self._metadata.tables[prefix + self.table_prefix + "schedules"]
+        self._t_jobs = self._metadata.tables[prefix + self.table_prefix + "jobs"]
+        self._t_job_results = self._metadata.tables[prefix + self.table_prefix + "job_results"]
 
     def __repr__(self) -> str:
-        return create_repr(self, url=repr(self._engine.url), schema=self.schema)
+        return create_repr(self, url=repr(self._engine.url), schema=self.schema, table_prefix=self.table_prefix)
 
     def _retry(self) -> tenacity.AsyncRetrying:
         def after_attempt(retry_state: tenacity.RetryCallState) -> None:
@@ -306,9 +307,13 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             json_type = JSON
 
         metadata = MetaData(schema=self.schema)
-        Table("metadata", metadata, Column("schema_version", Integer, nullable=False))
         Table(
-            "tasks",
+            self.table_prefix + "metadata",
+            metadata,
+            Column("schema_version", Integer, nullable=False)
+        )
+        Table(
+            self.table_prefix + "tasks",
             metadata,
             Column("id", Unicode(500), primary_key=True),
             Column("func", Unicode(500)),
@@ -319,7 +324,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("running_jobs", Integer, nullable=False, server_default=literal(0)),
         )
         Table(
-            "schedules",
+            self.table_prefix + "schedules",
             metadata,
             Column("id", Unicode(500), primary_key=True),
             Column("task_id", Unicode(500), nullable=False, index=True),
@@ -339,7 +344,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("acquired_until", timestamp_type),
         )
         Table(
-            "jobs",
+            self.table_prefix + "jobs",
             metadata,
             Column("id", Uuid, primary_key=True),
             Column("task_id", Unicode(500), nullable=False, index=True),
@@ -357,7 +362,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("acquired_until", timestamp_type),
         )
         Table(
-            "job_results",
+            self.table_prefix + "job_results",
             metadata,
             Column("job_id", Uuid, primary_key=True),
             Column("outcome", Enum(JobOutcome, metadata=metadata), nullable=False),
