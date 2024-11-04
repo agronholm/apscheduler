@@ -214,8 +214,8 @@ async def aiosqlite_store(tmp_path: Path) -> AsyncGenerator[DataStore, None]:
 
 @pytest.fixture(
     params=[
-        pytest.param('', id="default_prefix"),
-        pytest.param('aps_', id="aps_prefix"),
+        pytest.param("", id="default_prefix"),
+        pytest.param("aps_", id="aps_prefix"),
     ]
 )
 def table_prefix(request) -> str:
@@ -252,7 +252,9 @@ async def asyncpg_store(table_prefix: str) -> AsyncGenerator[DataStore, None]:
     )
     try:
         if table_prefix:
-            yield SQLAlchemyDataStore(engine, table_prefix=table_prefix, start_from_scratch=True)
+            yield SQLAlchemyDataStore(
+                engine, table_prefix=table_prefix, start_from_scratch=True
+            )
         else:
             yield SQLAlchemyDataStore(engine, start_from_scratch=True)
         assert "Current Checked out connections: 0" in engine.pool.status()

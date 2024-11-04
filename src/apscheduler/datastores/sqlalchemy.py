@@ -153,7 +153,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         validator=instance_of((str, URL, Engine, AsyncEngine))
     )
     schema: str | None = attrs.field(kw_only=True, default=None)
-    table_prefix: str | None = attrs.field(kw_only=True, default='')
+    table_prefix: str | None = attrs.field(kw_only=True, default="")
 
     _engine: Engine | AsyncEngine = attrs.field(init=False)
     _close_on_exit: bool = attrs.field(init=False, default=False)
@@ -186,14 +186,25 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         )
         self._supports_native_interval = self._engine.dialect.name == "postgresql"
         self._metadata = self.get_table_definitions()
-        self._t_metadata = self._metadata.tables[prefix + self.table_prefix + "metadata"]
+        self._t_metadata = self._metadata.tables[
+            prefix + self.table_prefix + "metadata"
+        ]
         self._t_tasks = self._metadata.tables[prefix + self.table_prefix + "tasks"]
-        self._t_schedules = self._metadata.tables[prefix + self.table_prefix + "schedules"]
+        self._t_schedules = self._metadata.tables[
+            prefix + self.table_prefix + "schedules"
+        ]
         self._t_jobs = self._metadata.tables[prefix + self.table_prefix + "jobs"]
-        self._t_job_results = self._metadata.tables[prefix + self.table_prefix + "job_results"]
+        self._t_job_results = self._metadata.tables[
+            prefix + self.table_prefix + "job_results"
+        ]
 
     def __repr__(self) -> str:
-        return create_repr(self, url=repr(self._engine.url), schema=self.schema, table_prefix=self.table_prefix)
+        return create_repr(
+            self,
+            url=repr(self._engine.url),
+            schema=self.schema,
+            table_prefix=self.table_prefix,
+        )
 
     def _retry(self) -> tenacity.AsyncRetrying:
         def after_attempt(retry_state: tenacity.RetryCallState) -> None:
@@ -310,7 +321,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         Table(
             self.table_prefix + "metadata",
             metadata,
-            Column("schema_version", Integer, nullable=False)
+            Column("schema_version", Integer, nullable=False),
         )
         Table(
             self.table_prefix + "tasks",
