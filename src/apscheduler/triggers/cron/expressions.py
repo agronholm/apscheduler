@@ -262,7 +262,7 @@ class LastNDayOfMonthExpression(AllExpression):
 
     def get_next_value(self, date, field):
         currval = field.get_value(date)
-        nextval = monthrange(date.year, date.month)[1]-self.last_day
+        nextval = monthrange(date.year, date.month)[1] - self.last_day
 
         return nextval if currval <= nextval else None
 
