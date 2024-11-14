@@ -257,7 +257,7 @@ class LastNDayOfMonthExpression(AllExpression):
     value_re = re.compile(r"last-(?P<last_day>[0-9]+)", re.IGNORECASE)
 
     def __init__(self, last_day):
-        super(LastNDayOfMonthExpression, self).__init__(None)
+        super().__init__(None)
         self.last_day = as_int(last_day)
 
     def get_next_value(self, date, field):
