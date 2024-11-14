@@ -13,8 +13,8 @@ from typing import Any, ClassVar
 from .expressions import (
     WEEKDAYS,
     AllExpression,
-    LastNDayOfMonthExpression,
     LastDayOfMonthExpression,
+    LastNDayOfMonthExpression,
     MonthRangeExpression,
     RangeExpression,
     WeekdayPositionExpression,
@@ -123,7 +123,12 @@ class WeekField(BaseField, real=False):
 
 
 class DayOfMonthField(
-    BaseField, extra_compilers=(WeekdayPositionExpression, LastNDayOfMonthExpression, LastDayOfMonthExpression)
+    BaseField,
+    extra_compilers=(
+        WeekdayPositionExpression,
+        LastNDayOfMonthExpression,
+        LastDayOfMonthExpression,
+    ),
 ):
     __slots__ = ()
 
