@@ -1,19 +1,5 @@
 """This module contains several handy functions primarily meant for internal use."""
 
-import re
-from asyncio import iscoroutinefunction
-from calendar import timegm
-from datetime import date, datetime, time, timedelta, tzinfo
-from functools import partial
-from inspect import isbuiltin, isclass, isfunction, ismethod, signature
-
-from pytz import FixedOffset, timezone, utc
-
-try:
-    from threading import TIMEOUT_MAX
-except ImportError:
-    TIMEOUT_MAX = 4294967  # Maximum value accepted by Event.wait() on Windows
-
 __all__ = (
     "asint",
     "asbool",
@@ -30,8 +16,17 @@ __all__ = (
     "check_callable_args",
     "normalize",
     "localize",
-    "TIMEOUT_MAX",
+    "undefined",
 )
+
+import re
+from asyncio import iscoroutinefunction
+from calendar import timegm
+from datetime import date, datetime, time, timedelta, tzinfo
+from functools import partial
+from inspect import isbuiltin, isclass, isfunction, ismethod, signature
+
+from pytz import FixedOffset, timezone, utc
 
 
 class _Undefined:

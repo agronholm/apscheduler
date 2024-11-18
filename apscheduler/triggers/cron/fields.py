@@ -1,5 +1,15 @@
 """Fields represent CronTrigger options which map to :class:`~datetime.datetime` fields."""
 
+__all__ = (
+    "MIN_VALUES",
+    "MAX_VALUES",
+    "DEFAULT_VALUES",
+    "BaseField",
+    "WeekField",
+    "DayOfMonthField",
+    "DayOfWeekField",
+)
+
 import re
 from calendar import monthrange
 
@@ -11,17 +21,6 @@ from apscheduler.triggers.cron.expressions import (
     WeekdayPositionExpression,
     WeekdayRangeExpression,
 )
-
-__all__ = (
-    "MIN_VALUES",
-    "MAX_VALUES",
-    "DEFAULT_VALUES",
-    "BaseField",
-    "WeekField",
-    "DayOfMonthField",
-    "DayOfWeekField",
-)
-
 
 MIN_VALUES = {
     "year": 1970,

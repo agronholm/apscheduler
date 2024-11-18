@@ -1,7 +1,6 @@
-from threading import Event
+from threading import TIMEOUT_MAX, Event
 
 from apscheduler.schedulers.base import STATE_STOPPED, BaseScheduler
-from apscheduler.util import TIMEOUT_MAX
 
 
 class BlockingScheduler(BaseScheduler):

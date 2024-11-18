@@ -3,7 +3,7 @@ import warnings
 from abc import ABCMeta, abstractmethod
 from datetime import datetime, timedelta
 from logging import getLogger
-from threading import RLock
+from threading import TIMEOUT_MAX, RLock
 
 from tzlocal import get_localzone
 
@@ -38,7 +38,6 @@ from apscheduler.schedulers import (
 )
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import (
-    TIMEOUT_MAX,
     asbool,
     asint,
     astimezone,

@@ -1,10 +1,5 @@
 """This module contains the expressions applicable for CronTrigger's fields."""
 
-import re
-from calendar import monthrange
-
-from apscheduler.util import asint
-
 __all__ = (
     "AllExpression",
     "RangeExpression",
@@ -13,6 +8,10 @@ __all__ = (
     "LastDayOfMonthExpression",
 )
 
+import re
+from calendar import monthrange
+
+from apscheduler.util import asint
 
 WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 MONTHS = [
