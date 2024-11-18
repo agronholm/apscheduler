@@ -36,11 +36,11 @@ def executor(request, mock_scheduler):
         executor_ = ThreadPoolExecutor()
     else:
         from apscheduler.executors.pool import ProcessPoolExecutor
-        executor_ = ProcessPoolExecutor()
+        executor_ = ProcessPoolExecutor(4, {"max_tasks_per_child": 1})
 
     executor_.start(mock_scheduler, 'dummy')
     yield executor_
-    executor_.shutdown()
+    executor_.shutdown(True)
 
 
 def wait_event():
@@ -60,12 +60,12 @@ def test_max_instances(mock_scheduler, executor, create_job, freeze_time):
     """Tests that the maximum instance limit on a job is respected."""
     events = []
     mock_scheduler._dispatch_event = lambda event: events.append(event)
-    job = create_job(func=wait_event, max_instances=2, next_run_time=None)
+    job = create_job(func=wait_event, max_instances=2, next_run_time=None, misfire_grace_time = None)
     executor.submit_job(job, [freeze_time.current])
     executor.submit_job(job, [freeze_time.current])
 
     pytest.raises(MaxInstancesReachedError, executor.submit_job, job, [freeze_time.current])
-    executor.shutdown()
+    executor.shutdown(True)
     assert len(events) == 2
     assert events[0].retval == 'test'
     assert events[1].retval == 'test'
@@ -83,12 +83,13 @@ def test_submit_job(mock_scheduler, executor, create_job, freeze_time, timezone,
 
     """
     mock_scheduler._dispatch_event = MagicMock()
-    job = create_job(func=func, id='foo')
+    misfire_grace_time = 1 if event_code == EVENT_JOB_MISSED else None
+    job = create_job(func=func, id='foo', misfire_grace_time=misfire_grace_time)
     job._jobstore_alias = 'test_jobstore'
     run_time = (timezone.localize(datetime(1970, 1, 1)) if event_code == EVENT_JOB_MISSED else
                 freeze_time.current)
     executor.submit_job(job, [run_time])
-    executor.shutdown()
+    executor.shutdown(True)
 
     assert mock_scheduler._dispatch_event.call_count == 1
     event = mock_scheduler._dispatch_event.call_args[0][0]
@@ -157,18 +158,13 @@ def test_broken_pool():
 
     pid = [None]
     event = Event()
-    scheduler = BackgroundScheduler(executors={'default': ProcessPoolExecutor(1)})
+    scheduler = BackgroundScheduler(executors={'default': ProcessPoolExecutor(1, {"max_tasks_per_child": 1})})
     scheduler.add_listener(listener, EVENT_JOB_EXECUTED)
     scheduler.add_job(os.getpid, 'date', run_date=datetime.now(UTC))
     scheduler.start()
 
     event.wait(3)
     killed_pid = pid[0]
-    os.kill(pid[0], signal.SIGTERM)
-    try:
-        os.waitpid(pid[0], 0)
-    except OSError:
-        pass
 
     event.clear()
     scheduler.add_job(os.getpid, 'date', run_date=datetime.now(UTC))
