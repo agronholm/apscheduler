@@ -52,8 +52,7 @@ zookeeper = ["kazoo"]
 test = [
     "APScheduler[gevent,mongodb,redis,rethinkdb,sqlalchemy,tornado,twisted,zookeeper,etcd]",
     "pytest",
-    "pytest_asyncio",
-    "pytest-tornado",
+    "pytest-asyncio >= 0.24.0",
     "PySide6; python_implementation == 'CPython'",
 ]
 doc = [

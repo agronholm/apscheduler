@@ -68,8 +68,8 @@ def asyncio_executor(asyncio_scheduler):
 
 
 @pytest.fixture
-def tornado_scheduler(io_loop):
-    scheduler = TornadoScheduler(io_loop=io_loop)
+def tornado_scheduler():
+    scheduler = TornadoScheduler()
     scheduler.start(paused=True)
     yield scheduler
     scheduler.shutdown(False)
@@ -276,7 +276,7 @@ async def test_run_coroutine_job(asyncio_scheduler, asyncio_executor, exception)
 
 
 @pytest.mark.parametrize("exception", [False, True])
-@pytest.mark.gen_test
+@pytest.mark.asyncio
 async def test_run_coroutine_job_tornado(
     tornado_scheduler, tornado_executor, exception
 ):
