@@ -6,8 +6,8 @@ from apscheduler.util import maybe_ref
 
 try:
     from tornado.ioloop import IOLoop
-except ImportError:  # pragma: nocover
-    raise ImportError("TornadoScheduler requires tornado installed")
+except ImportError as exc:  # pragma: nocover
+    raise ImportError("TornadoScheduler requires tornado installed") from exc
 
 
 def run_in_ioloop(func):

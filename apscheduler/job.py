@@ -1,3 +1,4 @@
+from collections.abc import Iterable, Mapping
 from inspect import isclass, ismethod
 from uuid import uuid4
 
@@ -10,11 +11,6 @@ from apscheduler.util import (
     obj_to_ref,
     ref_to_obj,
 )
-
-try:
-    from collections.abc import Iterable, Mapping
-except ImportError:
-    from collections.abc import Iterable, Mapping
 
 
 class Job:

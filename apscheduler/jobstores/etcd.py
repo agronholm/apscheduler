@@ -13,8 +13,8 @@ from apscheduler.util import (
 
 try:
     from etcd3 import Etcd3Client
-except ImportError:  # pragma: nocover
-    raise ImportError("EtcdJobStore requires etcd3 be installed")
+except ImportError as exc:  # pragma: nocover
+    raise ImportError("EtcdJobStore requires etcd3 be installed") from exc
 
 
 class EtcdJobStore(BaseJobStore):

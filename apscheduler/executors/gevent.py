@@ -4,8 +4,8 @@ from apscheduler.executors.base import BaseExecutor, run_job
 
 try:
     import gevent
-except ImportError:  # pragma: nocover
-    raise ImportError("GeventExecutor requires gevent installed")
+except ImportError as exc:  # pragma: nocover
+    raise ImportError("GeventExecutor requires gevent installed") from exc
 
 
 class GeventExecutor(BaseExecutor):

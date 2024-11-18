@@ -1,3 +1,5 @@
+import pickle
+
 from apscheduler.job import Job
 from apscheduler.jobstores.base import BaseJobStore, ConflictingIdError, JobLookupError
 from apscheduler.util import (
@@ -5,11 +7,6 @@ from apscheduler.util import (
     maybe_ref,
     utc_timestamp_to_datetime,
 )
-
-try:
-    import cPickle as pickle
-except ImportError:  # pragma: nocover
-    import pickle
 
 try:
     from sqlalchemy import (
@@ -25,8 +22,8 @@ try:
     )
     from sqlalchemy.exc import IntegrityError
     from sqlalchemy.sql.expression import null
-except ImportError:  # pragma: nocover
-    raise ImportError("SQLAlchemyJobStore requires SQLAlchemy installed")
+except ImportError as exc:  # pragma: nocover
+    raise ImportError("SQLAlchemyJobStore requires SQLAlchemy installed") from exc
 
 
 class SQLAlchemyJobStore(BaseJobStore):

@@ -13,8 +13,8 @@ try:
     from bson.binary import Binary
     from pymongo import ASCENDING, MongoClient
     from pymongo.errors import DuplicateKeyError
-except ImportError:  # pragma: nocover
-    raise ImportError("MongoDBJobStore requires PyMongo installed")
+except ImportError as exc:  # pragma: nocover
+    raise ImportError("MongoDBJobStore requires PyMongo installed") from exc
 
 
 class MongoDBJobStore(BaseJobStore):

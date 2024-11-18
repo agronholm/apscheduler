@@ -1,3 +1,4 @@
+import pickle
 from datetime import datetime
 
 from kazoo.exceptions import NodeExistsError, NoNodeError
@@ -12,14 +13,9 @@ from apscheduler.util import (
 )
 
 try:
-    import cPickle as pickle
-except ImportError:  # pragma: nocover
-    import pickle
-
-try:
     from kazoo.client import KazooClient
-except ImportError:  # pragma: nocover
-    raise ImportError("ZooKeeperJobStore requires Kazoo installed")
+except ImportError as exc:  # pragma: nocover
+    raise ImportError("ZooKeeperJobStore requires Kazoo installed") from exc
 
 
 class ZooKeeperJobStore(BaseJobStore):

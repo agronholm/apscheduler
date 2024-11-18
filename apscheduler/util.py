@@ -282,8 +282,10 @@ def ref_to_obj(ref):
     modulename, rest = ref.split(":", 1)
     try:
         obj = __import__(modulename, fromlist=[rest])
-    except ImportError:
-        raise LookupError(f"Error resolving reference {ref}: could not import module")
+    except ImportError as exc:
+        raise LookupError(
+            f"Error resolving reference {ref}: could not import module"
+        ) from exc
 
     try:
         for name in rest.split("."):

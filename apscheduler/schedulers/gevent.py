@@ -5,8 +5,8 @@ try:
     import gevent
     from gevent.event import Event
     from gevent.lock import RLock
-except ImportError:  # pragma: nocover
-    raise ImportError("GeventScheduler requires gevent installed")
+except ImportError as exc:  # pragma: nocover
+    raise ImportError("GeventScheduler requires gevent installed") from exc
 
 
 class GeventScheduler(BlockingScheduler):

@@ -1,7 +1,9 @@
 import sys
 import warnings
 from abc import ABCMeta, abstractmethod
+from collections.abc import MutableMapping
 from datetime import datetime, timedelta
+from importlib.metadata import entry_points
 from logging import getLogger
 from threading import TIMEOUT_MAX, RLock
 
@@ -45,13 +47,6 @@ from apscheduler.util import (
     timedelta_seconds,
     undefined,
 )
-
-try:
-    from collections.abc import MutableMapping
-except ImportError:
-    from collections.abc import MutableMapping
-
-from importlib.metadata import entry_points
 
 #: constant indicating a scheduler's stopped state
 STATE_STOPPED = 0

@@ -1,3 +1,5 @@
+import pickle
+
 from apscheduler.job import Job
 from apscheduler.jobstores.base import BaseJobStore, ConflictingIdError, JobLookupError
 from apscheduler.util import (
@@ -7,14 +9,9 @@ from apscheduler.util import (
 )
 
 try:
-    import cPickle as pickle
-except ImportError:  # pragma: nocover
-    import pickle
-
-try:
     from rethinkdb import RethinkDB
-except ImportError:  # pragma: nocover
-    raise ImportError("RethinkDBJobStore requires rethinkdb installed")
+except ImportError as exc:  # pragma: nocover
+    raise ImportError("RethinkDBJobStore requires rethinkdb installed") from exc
 
 
 class RethinkDBJobStore(BaseJobStore):
