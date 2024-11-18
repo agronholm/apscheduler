@@ -1,5 +1,5 @@
-from abc import abstractmethod
 import concurrent.futures
+from abc import abstractmethod
 
 from apscheduler.executors.base import BaseExecutor, run_job
 
@@ -12,24 +12,33 @@ except ImportError:
 class BasePoolExecutor(BaseExecutor):
     @abstractmethod
     def __init__(self, pool):
-        super(BasePoolExecutor, self).__init__()
+        super().__init__()
         self._pool = pool
 
     def _do_submit_job(self, job, run_times):
         def callback(f):
-            exc, tb = (f.exception_info() if hasattr(f, 'exception_info') else
-                       (f.exception(), getattr(f.exception(), '__traceback__', None)))
+            exc, tb = (
+                f.exception_info()
+                if hasattr(f, "exception_info")
+                else (f.exception(), getattr(f.exception(), "__traceback__", None))
+            )
             if exc:
                 self._run_job_error(job.id, exc, tb)
             else:
                 self._run_job_success(job.id, f.result())
 
         try:
-            f = self._pool.submit(run_job, job, job._jobstore_alias, run_times, self._logger.name)
+            f = self._pool.submit(
+                run_job, job, job._jobstore_alias, run_times, self._logger.name
+            )
         except BrokenProcessPool:
-            self._logger.warning('Process pool is broken; replacing pool with a fresh instance')
+            self._logger.warning(
+                "Process pool is broken; replacing pool with a fresh instance"
+            )
             self._pool = self._pool.__class__(self._pool._max_workers)
-            f = self._pool.submit(run_job, job, job._jobstore_alias, run_times, self._logger.name)
+            f = self._pool.submit(
+                run_job, job, job._jobstore_alias, run_times, self._logger.name
+            )
 
         f.add_done_callback(callback)
 
@@ -51,7 +60,7 @@ class ThreadPoolExecutor(BasePoolExecutor):
     def __init__(self, max_workers=10, pool_kwargs=None):
         pool_kwargs = pool_kwargs or {}
         pool = concurrent.futures.ThreadPoolExecutor(int(max_workers), **pool_kwargs)
-        super(ThreadPoolExecutor, self).__init__(pool)
+        super().__init__(pool)
 
 
 class ProcessPoolExecutor(BasePoolExecutor):
@@ -68,4 +77,4 @@ class ProcessPoolExecutor(BasePoolExecutor):
     def __init__(self, max_workers=10, pool_kwargs=None):
         pool_kwargs = pool_kwargs or {}
         pool = concurrent.futures.ProcessPoolExecutor(int(max_workers), **pool_kwargs)
-        super(ProcessPoolExecutor, self).__init__(pool)
+        super().__init__(pool)

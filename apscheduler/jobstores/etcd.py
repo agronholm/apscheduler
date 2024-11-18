@@ -4,15 +4,17 @@ from datetime import datetime
 from pytz import utc
 
 from apscheduler.job import Job
-from apscheduler.jobstores.base import (BaseJobStore, ConflictingIdError,
-                                        JobLookupError)
-from apscheduler.util import (datetime_to_utc_timestamp, maybe_ref,
-                              utc_timestamp_to_datetime)
+from apscheduler.jobstores.base import BaseJobStore, ConflictingIdError, JobLookupError
+from apscheduler.util import (
+    datetime_to_utc_timestamp,
+    maybe_ref,
+    utc_timestamp_to_datetime,
+)
 
 try:
     from etcd3 import Etcd3Client
 except ImportError:  # pragma: nocover
-    raise ImportError('EtcdJobStore requires etcd3 be installed')
+    raise ImportError("EtcdJobStore requires etcd3 be installed")
 
 
 class EtcdJobStore(BaseJobStore):
@@ -30,9 +32,15 @@ class EtcdJobStore(BaseJobStore):
         highest available
     """
 
-    def __init__(self, path='/apscheduler', client=None, close_connection_on_exit=False,
-                 pickle_protocol=pickle.DEFAULT_PROTOCOL, **connect_args):
-        super(EtcdJobStore, self).__init__()
+    def __init__(
+        self,
+        path="/apscheduler",
+        client=None,
+        close_connection_on_exit=False,
+        pickle_protocol=pickle.DEFAULT_PROTOCOL,
+        **connect_args,
+    ):
+        super().__init__()
         self.pickle_protocol = pickle_protocol
         self.close_connection_on_exit = close_connection_on_exit
 
@@ -47,37 +55,43 @@ class EtcdJobStore(BaseJobStore):
             self.client = Etcd3Client(**connect_args)
 
     def lookup_job(self, job_id):
-        node_path = self.path + '/' + str(job_id)
+        node_path = self.path + "/" + str(job_id)
         try:
             content, _ = self.client.get(node_path)
-            conetent = pickle.loads(content)
-            job = self._reconstitute_job(conetent['job_state'])
+            content = pickle.loads(content)
+            job = self._reconstitute_job(content["job_state"])
             return job
         except BaseException:
             return None
 
     def get_due_jobs(self, now):
         timestamp = datetime_to_utc_timestamp(now)
-        jobs = [job_record['job'] for job_record in self._get_jobs()
-                if job_record['next_run_time'] is not None and
-                job_record['next_run_time'] <= timestamp]
+        jobs = [
+            job_record["job"]
+            for job_record in self._get_jobs()
+            if job_record["next_run_time"] is not None
+            and job_record["next_run_time"] <= timestamp
+        ]
         return jobs
 
     def get_next_run_time(self):
-        next_runs = [job_record['next_run_time'] for job_record in self._get_jobs()
-                     if job_record['next_run_time'] is not None]
+        next_runs = [
+            job_record["next_run_time"]
+            for job_record in self._get_jobs()
+            if job_record["next_run_time"] is not None
+        ]
         return utc_timestamp_to_datetime(min(next_runs)) if len(next_runs) > 0 else None
 
     def get_all_jobs(self):
-        jobs = [job_record['job'] for job_record in self._get_jobs()]
+        jobs = [job_record["job"] for job_record in self._get_jobs()]
         self._fix_paused_jobs_sorting(jobs)
         return jobs
 
     def add_job(self, job):
-        node_path = self.path + '/' + str(job.id)
+        node_path = self.path + "/" + str(job.id)
         value = {
-            'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
-            'job_state': job.__getstate__()
+            "next_run_time": datetime_to_utc_timestamp(job.next_run_time),
+            "job_state": job.__getstate__(),
         }
         data = pickle.dumps(value, self.pickle_protocol)
         status = self.client.put_if_not_exists(node_path, value=data)
@@ -87,18 +101,14 @@ class EtcdJobStore(BaseJobStore):
     def update_job(self, job):
         node_path = self.path + "/" + str(job.id)
         changes = {
-            'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
-            'job_state': job.__getstate__()
+            "next_run_time": datetime_to_utc_timestamp(job.next_run_time),
+            "job_state": job.__getstate__(),
         }
         data = pickle.dumps(changes, self.pickle_protocol)
         status, _ = self.client.transaction(
-            compare=[
-                self.client.transactions.version(node_path) > 0
-            ],
-            success=[
-                self.client.transactions.put(node_path, value=data)
-            ],
-            failure=[]
+            compare=[self.client.transactions.version(node_path) > 0],
+            success=[self.client.transactions.put(node_path, value=data)],
+            failure=[],
         )
         if not status:
             raise JobLookupError(job.id)
@@ -106,13 +116,9 @@ class EtcdJobStore(BaseJobStore):
     def remove_job(self, job_id):
         node_path = self.path + "/" + str(job_id)
         status, _ = self.client.transaction(
-            compare=[
-                self.client.transactions.version(node_path) > 0
-            ],
-            success=[
-                self.client.transactions.delete(node_path)
-            ],
-            failure=[]
+            compare=[self.client.transactions.version(node_path) > 0],
+            success=[self.client.transactions.delete(node_path)],
+            failure=[],
         )
         if not status:
             raise JobLookupError(job_id)
@@ -140,23 +146,27 @@ class EtcdJobStore(BaseJobStore):
             try:
                 content = pickle.loads(doc)
                 job_record = {
-                    'next_run_time': content['next_run_time'],
-                    'job': self._reconstitute_job(content['job_state'])
+                    "next_run_time": content["next_run_time"],
+                    "job": self._reconstitute_job(content["job_state"]),
                 }
                 jobs.append(job_record)
             except BaseException:
                 content = pickle.loads(doc)
-                failed_id = content['job_state']['id']
+                failed_id = content["job_state"]["id"]
                 failed_job_ids.append(failed_id)
-                self._logger.exception('Unable to restore job "%s" -- removing it', failed_id)
+                self._logger.exception(
+                    'Unable to restore job "%s" -- removing it', failed_id
+                )
 
         if failed_job_ids:
             for failed_id in failed_job_ids:
                 self.remove_job(failed_id)
         paused_sort_key = datetime(9999, 12, 31, tzinfo=utc)
-        return sorted(jobs, key=lambda job_record: job_record['job'].next_run_time
-                      or paused_sort_key)
+        return sorted(
+            jobs,
+            key=lambda job_record: job_record["job"].next_run_time or paused_sort_key,
+        )
 
     def __repr__(self):
-        self._logger.exception('<%s (client=%s)>' % (self.__class__.__name__, self.client))
-        return '<%s (client=%s)>' % (self.__class__.__name__, self.client)
+        self._logger.exception("<%s (client=%s)>", self.__class__.__name__, self.client)
+        return "<%s (client=%s)>" % (self.__class__.__name__, self.client)

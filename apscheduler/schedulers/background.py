@@ -1,6 +1,4 @@
-from __future__ import absolute_import
-
-from threading import Thread, Event
+from threading import Event, Thread
 
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -25,19 +23,20 @@ class BackgroundScheduler(BlockingScheduler):
     _thread = None
 
     def _configure(self, config):
-        self._daemon = asbool(config.pop('daemon', True))
-        super(BackgroundScheduler, self)._configure(config)
+        self._daemon = asbool(config.pop("daemon", True))
+        super()._configure(config)
 
     def start(self, *args, **kwargs):
         if self._event is None or self._event.is_set():
             self._event = Event()
 
         BaseScheduler.start(self, *args, **kwargs)
-        self._thread = Thread(target=self._main_loop, name='APScheduler')
-        self._thread.daemon = self._daemon
+        self._thread = Thread(
+            target=self._main_loop, name="APScheduler", daemon=self._daemon
+        )
         self._thread.start()
 
     def shutdown(self, *args, **kwargs):
-        super(BackgroundScheduler, self).shutdown(*args, **kwargs)
+        super().shutdown(*args, **kwargs)
         self._thread.join()
         del self._thread

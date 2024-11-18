@@ -1,20 +1,19 @@
-from abc import ABCMeta, abstractmethod
 import logging
+from abc import ABCMeta, abstractmethod
 
 
 class JobLookupError(KeyError):
     """Raised when the job store cannot find a job for update or removal."""
 
     def __init__(self, job_id):
-        super(JobLookupError, self).__init__(u'No job by the id of %s was found' % job_id)
+        super().__init__("No job by the id of %s was found" % job_id)
 
 
 class ConflictingIdError(KeyError):
     """Raised when the uniqueness of job IDs is being violated."""
 
     def __init__(self, job_id):
-        super(ConflictingIdError, self).__init__(
-            u'Job identifier (%s) conflicts with an existing job' % job_id)
+        super().__init__("Job identifier (%s) conflicts with an existing job" % job_id)
 
 
 class TransientJobError(ValueError):
@@ -24,9 +23,10 @@ class TransientJobError(ValueError):
     """
 
     def __init__(self, job_id):
-        super(TransientJobError, self).__init__(
-            u'Job (%s) cannot be added to this job store because a reference to the callable '
-            u'could not be determined.' % job_id)
+        super().__init__(
+            "Job (%s) cannot be added to this job store because a reference to the callable "
+            "could not be determined." % job_id
+        )
 
 
 class BaseJobStore(metaclass=ABCMeta):
@@ -34,7 +34,7 @@ class BaseJobStore(metaclass=ABCMeta):
 
     _scheduler = None
     _alias = None
-    _logger = logging.getLogger('apscheduler.jobstores')
+    _logger = logging.getLogger("apscheduler.jobstores")
 
     def start(self, scheduler, alias):
         """
@@ -48,7 +48,7 @@ class BaseJobStore(metaclass=ABCMeta):
 
         self._scheduler = scheduler
         self._alias = alias
-        self._logger = logging.getLogger('apscheduler.jobstores.%s' % alias)
+        self._logger = logging.getLogger("apscheduler.jobstores.%s" % alias)
 
     def shutdown(self):
         """Frees any resources still bound to this job store."""
@@ -138,4 +138,4 @@ class BaseJobStore(metaclass=ABCMeta):
         """Removes all jobs from this store."""
 
     def __repr__(self):
-        return '<%s>' % self.__class__.__name__
+        return "<%s>" % self.__class__.__name__

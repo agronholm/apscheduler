@@ -1,31 +1,40 @@
 """This module contains several handy functions primarily meant for internal use."""
 
-from __future__ import division
-
-from asyncio import iscoroutinefunction
-from datetime import date, datetime, time, timedelta, tzinfo
-from calendar import timegm
-from functools import partial
-from inspect import isbuiltin, isclass, isfunction, ismethod
 import re
-import sys
+from asyncio import iscoroutinefunction
+from calendar import timegm
+from datetime import date, datetime, time, timedelta, tzinfo
+from functools import partial
+from inspect import isbuiltin, isclass, isfunction, ismethod, signature
 
-from pytz import timezone, utc, FixedOffset
-
-from inspect import signature
+from pytz import FixedOffset, timezone, utc
 
 try:
     from threading import TIMEOUT_MAX
 except ImportError:
     TIMEOUT_MAX = 4294967  # Maximum value accepted by Event.wait() on Windows
 
-__all__ = ('asint', 'asbool', 'astimezone', 'convert_to_datetime', 'datetime_to_utc_timestamp',
-           'utc_timestamp_to_datetime', 'timedelta_seconds', 'datetime_ceil', 'get_callable_name',
-           'obj_to_ref', 'ref_to_obj', 'maybe_ref', 'check_callable_args', 'normalize',
-           'localize', 'TIMEOUT_MAX')
+__all__ = (
+    "asint",
+    "asbool",
+    "astimezone",
+    "convert_to_datetime",
+    "datetime_to_utc_timestamp",
+    "utc_timestamp_to_datetime",
+    "timedelta_seconds",
+    "datetime_ceil",
+    "get_callable_name",
+    "obj_to_ref",
+    "ref_to_obj",
+    "maybe_ref",
+    "check_callable_args",
+    "normalize",
+    "localize",
+    "TIMEOUT_MAX",
+)
 
 
-class _Undefined(object):
+class _Undefined:
     def __nonzero__(self):
         return False
 
@@ -33,10 +42,12 @@ class _Undefined(object):
         return False
 
     def __repr__(self):
-        return '<undefined>'
+        return "<undefined>"
 
 
-undefined = _Undefined()  #: a unique object that only signifies that no value is defined
+undefined = (
+    _Undefined()
+)  #: a unique object that only signifies that no value is defined
 
 
 def asint(text):
@@ -60,9 +71,9 @@ def asbool(obj):
     """
     if isinstance(obj, str):
         obj = obj.strip().lower()
-        if obj in ('true', 'yes', 'on', 'y', 't', '1'):
+        if obj in ("true", "yes", "on", "y", "t", "1"):
             return True
-        if obj in ('false', 'no', 'off', 'n', 'f', '0'):
+        if obj in ("false", "no", "off", "n", "f", "0"):
             return False
         raise ValueError('Unable to interpret value "%s" as boolean' % obj)
     return bool(obj)
@@ -78,22 +89,24 @@ def astimezone(obj):
     if isinstance(obj, str):
         return timezone(obj)
     if isinstance(obj, tzinfo):
-        if obj.tzname(None) == 'local':
+        if obj.tzname(None) == "local":
             raise ValueError(
-                'Unable to determine the name of the local timezone -- you must explicitly '
-                'specify the name of the local timezone. Please refrain from using timezones like '
-                'EST to prevent problems with daylight saving time. Instead, use a locale based '
-                'timezone name (such as Europe/Helsinki).')
+                "Unable to determine the name of the local timezone -- you must explicitly "
+                "specify the name of the local timezone. Please refrain from using timezones like "
+                "EST to prevent problems with daylight saving time. Instead, use a locale based "
+                "timezone name (such as Europe/Helsinki)."
+            )
         return obj
     if obj is not None:
-        raise TypeError('Expected tzinfo, got %s instead' % obj.__class__.__name__)
+        raise TypeError("Expected tzinfo, got %s instead" % obj.__class__.__name__)
 
 
 _DATE_REGEX = re.compile(
-    r'(?P<year>\d{4})-(?P<month>\d{1,2})-(?P<day>\d{1,2})'
-    r'(?:[ T](?P<hour>\d{1,2}):(?P<minute>\d{1,2}):(?P<second>\d{1,2})'
-    r'(?:\.(?P<microsecond>\d{1,6}))?'
-    r'(?P<timezone>Z|[+-]\d\d:\d\d)?)?$')
+    r"(?P<year>\d{4})-(?P<month>\d{1,2})-(?P<day>\d{1,2})"
+    r"(?:[ T](?P<hour>\d{1,2}):(?P<minute>\d{1,2}):(?P<second>\d{1,2})"
+    r"(?:\.(?P<microsecond>\d{1,6}))?"
+    r"(?P<timezone>Z|[+-]\d\d:\d\d)?)?$"
+)
 
 
 def convert_to_datetime(input, tz, arg_name):
@@ -124,27 +137,31 @@ def convert_to_datetime(input, tz, arg_name):
     elif isinstance(input, str):
         m = _DATE_REGEX.match(input)
         if not m:
-            raise ValueError('Invalid date string')
+            raise ValueError("Invalid date string")
 
         values = m.groupdict()
-        tzname = values.pop('timezone')
-        if tzname == 'Z':
+        tzname = values.pop("timezone")
+        if tzname == "Z":
             tz = utc
         elif tzname:
-            hours, minutes = (int(x) for x in tzname[1:].split(':'))
-            sign = 1 if tzname[0] == '+' else -1
+            hours, minutes = (int(x) for x in tzname[1:].split(":"))
+            sign = 1 if tzname[0] == "+" else -1
             tz = FixedOffset(sign * (hours * 60 + minutes))
 
         values = {k: int(v or 0) for k, v in values.items()}
         datetime_ = datetime(**values)
     else:
-        raise TypeError('Unsupported type for %s: %s' % (arg_name, input.__class__.__name__))
+        raise TypeError(
+            "Unsupported type for %s: %s" % (arg_name, input.__class__.__name__)
+        )
 
     if datetime_.tzinfo is not None:
         return datetime_
     if tz is None:
         raise ValueError(
-            'The "tz" argument must be specified if %s has no timezone information' % arg_name)
+            'The "tz" argument must be specified if %s has no timezone information'
+            % arg_name
+        )
     if isinstance(tz, str):
         tz = timezone(tz)
 
@@ -183,8 +200,7 @@ def timedelta_seconds(delta):
     :rtype: float
 
     """
-    return delta.days * 24 * 60 * 60 + delta.seconds + \
-        delta.microseconds / 1000000.0
+    return delta.days * 24 * 60 * 60 + delta.seconds + delta.microseconds / 1000000.0
 
 
 def datetime_ceil(dateval):
@@ -200,7 +216,7 @@ def datetime_ceil(dateval):
 
 
 def datetime_repr(dateval):
-    return dateval.strftime('%Y-%m-%d %H:%M:%S %Z') if dateval else 'None'
+    return dateval.strftime("%Y-%m-%d %H:%M:%S %Z") if dateval else "None"
 
 
 def get_callable_name(func):
@@ -216,11 +232,13 @@ def get_callable_name(func):
         return f"{cls.__qualname__}.{func.__name__}"
     elif isclass(func) or isfunction(func) or isbuiltin(func):
         return func.__qualname__
-    elif hasattr(func, '__call__') and callable(func.__call__):
+    elif hasattr(func, "__call__") and callable(func.__call__):
         # instance of a class with a __call__ method
         return type(func).__qualname__
 
-    raise TypeError('Unable to determine a name for %r -- maybe it is not a callable?' % func)
+    raise TypeError(
+        "Unable to determine a name for %r -- maybe it is not a callable?" % func
+    )
 
 
 def obj_to_ref(obj):
@@ -234,20 +252,20 @@ def obj_to_ref(obj):
 
     """
     if isinstance(obj, partial):
-        raise ValueError('Cannot create a reference to a partial()')
+        raise ValueError("Cannot create a reference to a partial()")
 
     name = get_callable_name(obj)
-    if '<lambda>' in name:
-        raise ValueError('Cannot create a reference to a lambda')
-    if '<locals>' in name:
-        raise ValueError('Cannot create a reference to a nested function')
+    if "<lambda>" in name:
+        raise ValueError("Cannot create a reference to a lambda")
+    if "<locals>" in name:
+        raise ValueError("Cannot create a reference to a nested function")
 
     if ismethod(obj):
         module = obj.__self__.__module__
     else:
         module = obj.__module__
 
-    return '%s:%s' % (module, name)
+    return "%s:%s" % (module, name)
 
 
 def ref_to_obj(ref):
@@ -258,22 +276,22 @@ def ref_to_obj(ref):
 
     """
     if not isinstance(ref, str):
-        raise TypeError('References must be strings')
-    if ':' not in ref:
-        raise ValueError('Invalid reference')
+        raise TypeError("References must be strings")
+    if ":" not in ref:
+        raise ValueError("Invalid reference")
 
-    modulename, rest = ref.split(':', 1)
+    modulename, rest = ref.split(":", 1)
     try:
         obj = __import__(modulename, fromlist=[rest])
     except ImportError:
-        raise LookupError('Error resolving reference %s: could not import module' % ref)
+        raise LookupError("Error resolving reference %s: could not import module" % ref)
 
     try:
-        for name in rest.split('.'):
+        for name in rest.split("."):
             obj = getattr(obj, name)
         return obj
     except Exception:
-        raise LookupError('Error resolving reference %s: error looking up object' % ref)
+        raise LookupError("Error resolving reference %s: error looking up object" % ref)
 
 
 def maybe_ref(ref):
@@ -299,17 +317,16 @@ def check_callable_args(func, args, kwargs):
     positional_only_kwargs = []  # positional-only parameters that have a match in kwargs
     unsatisfied_args = []  # parameters in signature that don't have a match in args or kwargs
     unsatisfied_kwargs = []  # keyword-only arguments that don't have a match in kwargs
-    unmatched_args = list(args)  # args that didn't match any of the parameters in the signature
+    unmatched_args = list(
+        args
+    )  # args that didn't match any of the parameters in the signature
     # kwargs that didn't match any of the parameters in the signature
     unmatched_kwargs = list(kwargs)
     # indicates if the signature defines *args and **kwargs respectively
     has_varargs = has_var_kwargs = False
 
     try:
-        if sys.version_info >= (3, 5):
-            sig = signature(func, follow_wrapped=False)
-        else:
-            sig = signature(func)
+        sig = signature(func, follow_wrapped=False)
     except ValueError:
         # signature() doesn't work against every kind of callable
         return
@@ -344,37 +361,47 @@ def check_callable_args(func, args, kwargs):
 
     # Make sure there are no conflicts between args and kwargs
     if pos_kwargs_conflicts:
-        raise ValueError('The following arguments are supplied in both args and kwargs: %s' %
-                         ', '.join(pos_kwargs_conflicts))
+        raise ValueError(
+            "The following arguments are supplied in both args and kwargs: %s"
+            % ", ".join(pos_kwargs_conflicts)
+        )
 
     # Check if keyword arguments are being fed to positional-only parameters
     if positional_only_kwargs:
-        raise ValueError('The following arguments cannot be given as keyword arguments: %s' %
-                         ', '.join(positional_only_kwargs))
+        raise ValueError(
+            "The following arguments cannot be given as keyword arguments: %s"
+            % ", ".join(positional_only_kwargs)
+        )
 
     # Check that the number of positional arguments minus the number of matched kwargs matches the
     # argspec
     if unsatisfied_args:
-        raise ValueError('The following arguments have not been supplied: %s' %
-                         ', '.join(unsatisfied_args))
+        raise ValueError(
+            "The following arguments have not been supplied: %s"
+            % ", ".join(unsatisfied_args)
+        )
 
     # Check that all keyword-only arguments have been supplied
     if unsatisfied_kwargs:
         raise ValueError(
-            'The following keyword-only arguments have not been supplied in kwargs: %s' %
-            ', '.join(unsatisfied_kwargs))
+            "The following keyword-only arguments have not been supplied in kwargs: %s"
+            % ", ".join(unsatisfied_kwargs)
+        )
 
     # Check that the callable can accept the given number of positional arguments
     if not has_varargs and unmatched_args:
         raise ValueError(
-            'The list of positional arguments is longer than the target callable can handle '
-            '(allowed: %d, given in args: %d)' % (len(args) - len(unmatched_args), len(args)))
+            "The list of positional arguments is longer than the target callable can handle "
+            "(allowed: %d, given in args: %d)"
+            % (len(args) - len(unmatched_args), len(args))
+        )
 
     # Check that the callable can accept the given keyword arguments
     if not has_var_kwargs and unmatched_kwargs:
         raise ValueError(
-            'The target callable does not accept the following keyword arguments: %s' %
-            ', '.join(unmatched_kwargs))
+            "The target callable does not accept the following keyword arguments: %s"
+            % ", ".join(unmatched_kwargs)
+        )
 
 
 def iscoroutinefunction_partial(f):
@@ -391,7 +418,7 @@ def normalize(dt):
 
 
 def localize(dt, tzinfo):
-    if hasattr(tzinfo, 'localize'):
+    if hasattr(tzinfo, "localize"):
         return tzinfo.localize(dt)
 
     return normalize(dt.replace(tzinfo=tzinfo))

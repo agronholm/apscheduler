@@ -1,27 +1,62 @@
 """Fields represent CronTrigger options which map to :class:`~datetime.datetime` fields."""
 
-from calendar import monthrange
 import re
+from calendar import monthrange
 
 from apscheduler.triggers.cron.expressions import (
-    AllExpression, RangeExpression, WeekdayPositionExpression, LastDayOfMonthExpression,
-    WeekdayRangeExpression, MonthRangeExpression)
+    AllExpression,
+    LastDayOfMonthExpression,
+    MonthRangeExpression,
+    RangeExpression,
+    WeekdayPositionExpression,
+    WeekdayRangeExpression,
+)
+
+__all__ = (
+    "MIN_VALUES",
+    "MAX_VALUES",
+    "DEFAULT_VALUES",
+    "BaseField",
+    "WeekField",
+    "DayOfMonthField",
+    "DayOfWeekField",
+)
 
 
-__all__ = ('MIN_VALUES', 'MAX_VALUES', 'DEFAULT_VALUES', 'BaseField', 'WeekField',
-           'DayOfMonthField', 'DayOfWeekField')
+MIN_VALUES = {
+    "year": 1970,
+    "month": 1,
+    "day": 1,
+    "week": 1,
+    "day_of_week": 0,
+    "hour": 0,
+    "minute": 0,
+    "second": 0,
+}
+MAX_VALUES = {
+    "year": 9999,
+    "month": 12,
+    "day": 31,
+    "week": 53,
+    "day_of_week": 6,
+    "hour": 23,
+    "minute": 59,
+    "second": 59,
+}
+DEFAULT_VALUES = {
+    "year": "*",
+    "month": 1,
+    "day": 1,
+    "week": "*",
+    "day_of_week": "*",
+    "hour": 0,
+    "minute": 0,
+    "second": 0,
+}
+SEPARATOR = re.compile(" *, *")
 
 
-MIN_VALUES = {'year': 1970, 'month': 1, 'day': 1, 'week': 1, 'day_of_week': 0, 'hour': 0,
-              'minute': 0, 'second': 0}
-MAX_VALUES = {'year': 9999, 'month': 12, 'day': 31, 'week': 53, 'day_of_week': 6, 'hour': 23,
-              'minute': 59, 'second': 59}
-DEFAULT_VALUES = {'year': '*', 'month': 1, 'day': 1, 'week': '*', 'day_of_week': '*', 'hour': 0,
-                  'minute': 0, 'second': 0}
-SEPARATOR = re.compile(' *, *')
-
-
-class BaseField(object):
+class BaseField:
     REAL = True
     COMPILERS = [AllExpression, RangeExpression]
 
@@ -64,19 +99,25 @@ class BaseField(object):
                 try:
                     compiled_expr.validate_range(self.name)
                 except ValueError as e:
-                    raise ValueError('Error validating expression {!r}: {}'.format(expr, e)) from None
+                    raise ValueError(
+                        f"Error validating expression {expr!r}: {e}"
+                    ) from None
 
                 self.expressions.append(compiled_expr)
                 return
 
-        raise ValueError('Unrecognized expression "%s" for field "%s"' % (expr, self.name))
+        raise ValueError(
+            'Unrecognized expression "%s" for field "%s"' % (expr, self.name)
+        )
 
     def __eq__(self, other):
-        return isinstance(self, self.__class__) and self.expressions == other.expressions
+        return (
+            isinstance(self, self.__class__) and self.expressions == other.expressions
+        )
 
     def __str__(self):
         expr_strings = (str(e) for e in self.expressions)
-        return ','.join(expr_strings)
+        return ",".join(expr_strings)
 
     def __repr__(self):
         return "%s('%s', '%s')" % (self.__class__.__name__, self.name, self)
@@ -90,7 +131,10 @@ class WeekField(BaseField):
 
 
 class DayOfMonthField(BaseField):
-    COMPILERS = BaseField.COMPILERS + [WeekdayPositionExpression, LastDayOfMonthExpression]
+    COMPILERS = BaseField.COMPILERS + [
+        WeekdayPositionExpression,
+        LastDayOfMonthExpression,
+    ]
 
     def get_max(self, dateval):
         return monthrange(dateval.year, dateval.month)[1]

@@ -1,22 +1,27 @@
+import logging
+import sys
 import traceback
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from datetime import datetime, timedelta
 from traceback import format_tb
-import logging
-import sys
 
 from pytz import utc
 
 from apscheduler.events import (
-    JobExecutionEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED)
+    EVENT_JOB_ERROR,
+    EVENT_JOB_EXECUTED,
+    EVENT_JOB_MISSED,
+    JobExecutionEvent,
+)
 
 
 class MaxInstancesReachedError(Exception):
     def __init__(self, job):
-        super(MaxInstancesReachedError, self).__init__(
-            'Job "%s" has already reached its maximum number of instances (%d)' %
-            (job.id, job.max_instances))
+        super().__init__(
+            'Job "%s" has already reached its maximum number of instances (%d)'
+            % (job.id, job.max_instances)
+        )
 
 
 class BaseExecutor(metaclass=ABCMeta):
@@ -24,10 +29,10 @@ class BaseExecutor(metaclass=ABCMeta):
 
     _scheduler = None
     _lock = None
-    _logger = logging.getLogger('apscheduler.executors')
+    _logger = logging.getLogger("apscheduler.executors")
 
     def __init__(self):
-        super(BaseExecutor, self).__init__()
+        super().__init__()
         self._instances = defaultdict(lambda: 0)
 
     def start(self, scheduler, alias):
@@ -42,7 +47,7 @@ class BaseExecutor(metaclass=ABCMeta):
         """
         self._scheduler = scheduler
         self._lock = scheduler._create_lock()
-        self._logger = logging.getLogger('apscheduler.executors.%s' % alias)
+        self._logger = logging.getLogger("apscheduler.executors.%s" % alias)
 
     def shutdown(self, wait=True):
         """
@@ -63,7 +68,7 @@ class BaseExecutor(metaclass=ABCMeta):
             allowed instances for this job has been reached
 
         """
-        assert self._lock is not None, 'This executor has not been started yet'
+        assert self._lock is not None, "This executor has not been started yet"
         with self._lock:
             if self._instances[job.id] >= job.max_instances:
                 raise MaxInstancesReachedError(job)
@@ -97,7 +102,7 @@ class BaseExecutor(metaclass=ABCMeta):
                 del self._instances[job_id]
 
         exc_info = (exc.__class__, exc, traceback)
-        self._logger.error('Error running job %s', job_id, exc_info=exc_info)
+        self._logger.error("Error running job %s", job_id, exc_info=exc_info)
 
 
 def run_job(job, jobstore_alias, run_times, logger_name):
@@ -115,8 +120,11 @@ def run_job(job, jobstore_alias, run_times, logger_name):
             difference = datetime.now(utc) - run_time
             grace_time = timedelta(seconds=job.misfire_grace_time)
             if difference > grace_time:
-                events.append(JobExecutionEvent(EVENT_JOB_MISSED, job.id, jobstore_alias,
-                                                run_time))
+                events.append(
+                    JobExecutionEvent(
+                        EVENT_JOB_MISSED, job.id, jobstore_alias, run_time
+                    )
+                )
                 logger.warning('Run time of job "%s" was missed by %s', job, difference)
                 continue
 
@@ -125,17 +133,28 @@ def run_job(job, jobstore_alias, run_times, logger_name):
             retval = job.func(*job.args, **job.kwargs)
         except BaseException:
             exc, tb = sys.exc_info()[1:]
-            formatted_tb = ''.join(format_tb(tb))
-            events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
-                                            exception=exc, traceback=formatted_tb))
+            formatted_tb = "".join(format_tb(tb))
+            events.append(
+                JobExecutionEvent(
+                    EVENT_JOB_ERROR,
+                    job.id,
+                    jobstore_alias,
+                    run_time,
+                    exception=exc,
+                    traceback=formatted_tb,
+                )
+            )
             logger.exception('Job "%s" raised an exception', job)
 
             # This is to prevent cyclic references that would lead to memory leaks
             traceback.clear_frames(tb)
             del tb
         else:
-            events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
-                                            retval=retval))
+            events.append(
+                JobExecutionEvent(
+                    EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time, retval=retval
+                )
+            )
             logger.info('Job "%s" executed successfully', job)
 
     return events

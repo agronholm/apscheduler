@@ -1,10 +1,9 @@
-import sys
 from datetime import datetime
 
 import pytest
 
+from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
 from apscheduler.jobstores.memory import MemoryJobStore
-from apscheduler.jobstores.base import JobLookupError, ConflictingIdError
 
 
 def dummy_job():
@@ -38,10 +37,10 @@ def memjobstore():
 
 @pytest.fixture
 def sqlalchemyjobstore(tmpdir):
-    db_path = tmpdir.join('apscheduler_unittest.sqlite')
-    sqlalchemy = pytest.importorskip('apscheduler.jobstores.sqlalchemy')
-    store = sqlalchemy.SQLAlchemyJobStore(url='sqlite:///%s' % db_path)
-    store.start(None, 'sqlalchemy')
+    db_path = tmpdir.join("apscheduler_unittest.sqlite")
+    sqlalchemy = pytest.importorskip("apscheduler.jobstores.sqlalchemy")
+    store = sqlalchemy.SQLAlchemyJobStore(url="sqlite:///%s" % db_path)
+    store.start(None, "sqlalchemy")
     yield store
     store.shutdown()
     db_path.remove()
@@ -49,22 +48,19 @@ def sqlalchemyjobstore(tmpdir):
 
 @pytest.fixture
 def rethinkdbjobstore():
-    if sys.version_info >= (3, 10):
-        pytest.skip('RethinkDB does not work on Python 3.10+')
-
-    rethinkdb = pytest.importorskip('apscheduler.jobstores.rethinkdb')
-    store = rethinkdb.RethinkDBJobStore(database='apscheduler_unittest')
-    store.start(None, 'rethinkdb')
+    rethinkdb = pytest.importorskip("apscheduler.jobstores.rethinkdb")
+    store = rethinkdb.RethinkDBJobStore(database="apscheduler_unittest")
+    store.start(None, "rethinkdb")
     yield store
-    store.r.db_drop('apscheduler_unittest').run(store.conn)
+    store.r.db_drop("apscheduler_unittest").run(store.conn)
     store.shutdown()
 
 
 @pytest.fixture
 def mongodbjobstore():
-    mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
-    store = mongodb.MongoDBJobStore(database='apscheduler_unittest')
-    store.start(None, 'mongodb')
+    mongodb = pytest.importorskip("apscheduler.jobstores.mongodb")
+    store = mongodb.MongoDBJobStore(database="apscheduler_unittest")
+    store.start(None, "mongodb")
     yield store
     store.client.drop_database(store.collection.database.name)
     store.shutdown()
@@ -72,9 +68,9 @@ def mongodbjobstore():
 
 @pytest.fixture
 def redisjobstore():
-    redis = pytest.importorskip('apscheduler.jobstores.redis')
+    redis = pytest.importorskip("apscheduler.jobstores.redis")
     store = redis.RedisJobStore()
-    store.start(None, 'redis')
+    store.start(None, "redis")
     yield store
     store.remove_all_jobs()
     store.shutdown()
@@ -82,9 +78,9 @@ def redisjobstore():
 
 @pytest.fixture
 def zookeeperjobstore():
-    zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
-    store = zookeeper.ZooKeeperJobStore(path='/apscheduler_unittest')
-    store.start(None, 'zookeeper')
+    zookeeper = pytest.importorskip("apscheduler.jobstores.zookeeper")
+    store = zookeeper.ZooKeeperJobStore(path="/apscheduler_unittest")
+    store.start(None, "zookeeper")
     yield store
     store.remove_all_jobs()
     store.shutdown()
@@ -92,36 +88,66 @@ def zookeeperjobstore():
 
 @pytest.fixture
 def etcdjobstore():
-    etcd = pytest.importorskip('apscheduler.jobstores.etcd')
-    store = etcd.EtcdJobStore(path='/apscheduler_unittest')
-    store.start(None, 'etcd')
+    etcd = pytest.importorskip("apscheduler.jobstores.etcd")
+    store = etcd.EtcdJobStore(path="/apscheduler_unittest")
+    store.start(None, "etcd")
     yield store
     store.remove_all_jobs()
     store.shutdown()
 
 
-@pytest.fixture(params=['memjobstore', 'sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore',
-                        'rethinkdbjobstore', 'zookeeperjobstore', 'etcdjobstore'],
-                ids=['memory', 'sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper', 'etcd'])
+@pytest.fixture(
+    params=[
+        "memjobstore",
+        "sqlalchemyjobstore",
+        "mongodbjobstore",
+        "redisjobstore",
+        "rethinkdbjobstore",
+        "zookeeperjobstore",
+        "etcdjobstore",
+    ],
+    ids=["memory", "sqlalchemy", "mongodb", "redis", "rethinkdb", "zookeeper", "etcd"],
+)
 def jobstore(request):
     return request.getfixturevalue(request.param)
 
 
-@pytest.fixture(params=['sqlalchemyjobstore', 'mongodbjobstore', 'redisjobstore',
-                        'rethinkdbjobstore', 'zookeeperjobstore', 'etcdjobstore'],
-                ids=['sqlalchemy', 'mongodb', 'redis', 'rethinkdb', 'zookeeper', 'etcd'])
+@pytest.fixture(
+    params=[
+        "sqlalchemyjobstore",
+        "mongodbjobstore",
+        "redisjobstore",
+        "rethinkdbjobstore",
+        "zookeeperjobstore",
+        "etcdjobstore",
+    ],
+    ids=["sqlalchemy", "mongodb", "redis", "rethinkdb", "zookeeper", "etcd"],
+)
 def persistent_jobstore(request):
     return request.getfixturevalue(request.param)
 
 
 @pytest.fixture
 def create_add_job(timezone, create_job):
-    def create(jobstore, func=dummy_job, run_date=datetime(2999, 1, 1), id=None, paused=False,
-               **kwargs):
+    def create(
+        jobstore,
+        func=dummy_job,
+        run_date=datetime(2999, 1, 1),
+        id=None,
+        paused=False,
+        **kwargs,
+    ):
         run_date = timezone.localize(run_date)
-        job = create_job(func=func, trigger='date', trigger_args={'run_date': run_date}, id=id,
-                         **kwargs)
-        job.next_run_time = None if paused else job.trigger.get_next_fire_time(None, run_date)
+        job = create_job(
+            func=func,
+            trigger="date",
+            trigger_args={"run_date": run_date},
+            id=id,
+            **kwargs,
+        )
+        job.next_run_time = (
+            None if paused else job.trigger.get_next_fire_time(None, run_date)
+        )
         if jobstore:
             jobstore.add_job(job)
         return job
@@ -131,27 +157,37 @@ def create_add_job(timezone, create_job):
 
 def test_add_callable_instance_method_job(jobstore, create_add_job):
     instance = DummyClass()
-    initial_job = create_add_job(jobstore, instance.dummy_method, kwargs={'a': 1, 'b': 2})
+    initial_job = create_add_job(
+        jobstore, instance.dummy_method, kwargs={"a": 1, "b": 2}
+    )
     job = jobstore.lookup_job(initial_job.id)
     assert job.func(*job.args, **job.kwargs) == 3
 
 
 def test_add_callable_class_method_job(jobstore, create_add_job):
-    initial_job = create_add_job(jobstore, DummyClass.dummy_classmethod, kwargs={'a': 1, 'b': 2})
+    initial_job = create_add_job(
+        jobstore, DummyClass.dummy_classmethod, kwargs={"a": 1, "b": 2}
+    )
     job = jobstore.lookup_job(initial_job.id)
     assert job.func(*job.args, **job.kwargs) == 3
 
 
 def test_add_textual_instance_method_job(jobstore, create_add_job):
-    initial_job = create_add_job(jobstore, 'tests.test_jobstores:dummy_instance.dummy_method',
-                                 kwargs={'a': 1, 'b': 2})
+    initial_job = create_add_job(
+        jobstore,
+        "tests.test_jobstores:dummy_instance.dummy_method",
+        kwargs={"a": 1, "b": 2},
+    )
     job = jobstore.lookup_job(initial_job.id)
     assert job.func(*job.args, **job.kwargs) == 3
 
 
 def test_add_textual_class_method_job(jobstore, create_add_job):
-    initial_job = create_add_job(jobstore, 'tests.test_jobstores:DummyClass.dummy_classmethod',
-                                 kwargs={'a': 1, 'b': 2})
+    initial_job = create_add_job(
+        jobstore,
+        "tests.test_jobstores:DummyClass.dummy_classmethod",
+        kwargs={"a": 1, "b": 2},
+    )
     job = jobstore.lookup_job(initial_job.id)
     assert job.func(*job.args, **job.kwargs) == 3
 
@@ -163,7 +199,7 @@ def test_lookup_job(jobstore, create_add_job):
 
 
 def test_lookup_nonexistent_job(jobstore):
-    assert jobstore.lookup_job('foo') is None
+    assert jobstore.lookup_job("foo") is None
 
 
 def test_get_all_jobs(jobstore, create_add_job):
@@ -203,16 +239,23 @@ def test_get_next_run_time(jobstore, create_add_job, timezone):
 
 
 def test_add_job_conflicting_id(jobstore, create_add_job):
-    create_add_job(jobstore, dummy_job, datetime(2016, 5, 3), id='blah')
-    pytest.raises(ConflictingIdError, create_add_job, jobstore, dummy_job2, datetime(2014, 2, 26),
-                  id='blah')
+    create_add_job(jobstore, dummy_job, datetime(2016, 5, 3), id="blah")
+    pytest.raises(
+        ConflictingIdError,
+        create_add_job,
+        jobstore,
+        dummy_job2,
+        datetime(2014, 2, 26),
+        id="blah",
+    )
 
 
 def test_update_job(jobstore, create_add_job, timezone):
     job1 = create_add_job(jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_add_job(jobstore, dummy_job2, datetime(2014, 2, 26))
-    replacement = create_add_job(None, dummy_job, datetime(2016, 5, 4), id=job1.id,
-                                 max_instances=6)
+    replacement = create_add_job(
+        None, dummy_job, datetime(2016, 5, 4), id=job1.id, max_instances=6
+    )
     assert replacement.max_instances == 6
     jobstore.update_job(replacement)
 
@@ -224,7 +267,9 @@ def test_update_job(jobstore, create_add_job, timezone):
     assert jobs[1].max_instances == 6
 
 
-@pytest.mark.parametrize('next_run_time', [datetime(2013, 8, 13), None], ids=['earlier', 'null'])
+@pytest.mark.parametrize(
+    "next_run_time", [datetime(2013, 8, 13), None], ids=["earlier", "null"]
+)
 def test_update_job_next_runtime(jobstore, create_add_job, next_run_time, timezone):
     job1 = create_add_job(jobstore, dummy_job, datetime(2016, 5, 3))
     create_add_job(jobstore, dummy_job2, datetime(2014, 2, 26))
@@ -238,17 +283,25 @@ def test_update_job_next_runtime(jobstore, create_add_job, next_run_time, timezo
         assert jobstore.get_next_run_time() == job3.next_run_time
 
 
-@pytest.mark.parametrize('next_run_time', [datetime(2013, 8, 13), None], ids=['earlier', 'null'])
-@pytest.mark.parametrize('index', [0, 1, 2], ids=['first', 'middle', 'last'])
-def test_update_job_clear_next_runtime(jobstore, create_add_job, next_run_time, timezone, index):
+@pytest.mark.parametrize(
+    "next_run_time", [datetime(2013, 8, 13), None], ids=["earlier", "null"]
+)
+@pytest.mark.parametrize("index", [0, 1, 2], ids=["first", "middle", "last"])
+def test_update_job_clear_next_runtime(
+    jobstore, create_add_job, next_run_time, timezone, index
+):
     """
     Tests that update_job() maintains the proper ordering of the jobs,
     even when their next run times are initially the same.
 
     """
-    jobs = [create_add_job(jobstore, dummy_job, datetime(2014, 2, 26), 'job%d' % i) for
-            i in range(3)]
-    jobs[index].next_run_time = timezone.localize(next_run_time) if next_run_time else None
+    jobs = [
+        create_add_job(jobstore, dummy_job, datetime(2014, 2, 26), "job%d" % i)
+        for i in range(3)
+    ]
+    jobs[index].next_run_time = (
+        timezone.localize(next_run_time) if next_run_time else None
+    )
     jobstore.update_job(jobs[index])
     due_date = timezone.localize(datetime(2014, 2, 27))
     due_jobs = jobstore.get_due_jobs(due_date)
@@ -257,18 +310,18 @@ def test_update_job_clear_next_runtime(jobstore, create_add_job, next_run_time, 
     due_job_ids = [job.id for job in due_jobs]
     if next_run_time:
         if index == 0:
-            assert due_job_ids == ['job0', 'job1', 'job2']
+            assert due_job_ids == ["job0", "job1", "job2"]
         elif index == 1:
-            assert due_job_ids == ['job1', 'job0', 'job2']
+            assert due_job_ids == ["job1", "job0", "job2"]
         else:
-            assert due_job_ids == ['job2', 'job0', 'job1']
+            assert due_job_ids == ["job2", "job0", "job1"]
     else:
         if index == 0:
-            assert due_job_ids == ['job1', 'job2']
+            assert due_job_ids == ["job1", "job2"]
         elif index == 1:
-            assert due_job_ids == ['job0', 'job2']
+            assert due_job_ids == ["job0", "job2"]
         else:
-            assert due_job_ids == ['job0', 'job1']
+            assert due_job_ids == ["job0", "job1"]
 
 
 def test_update_job_nonexistent_job(jobstore, create_add_job):
@@ -276,18 +329,22 @@ def test_update_job_nonexistent_job(jobstore, create_add_job):
     pytest.raises(JobLookupError, jobstore.update_job, job)
 
 
-def test_one_job_fails_to_load(persistent_jobstore, create_add_job, monkeypatch, timezone):
+def test_one_job_fails_to_load(
+    persistent_jobstore, create_add_job, monkeypatch, timezone
+):
     job1 = create_add_job(persistent_jobstore, dummy_job, datetime(2016, 5, 3))
     job2 = create_add_job(persistent_jobstore, dummy_job2, datetime(2014, 2, 26))
     create_add_job(persistent_jobstore, dummy_job3, datetime(2013, 8, 14))
 
     # Make the dummy_job2 function disappear
-    monkeypatch.delitem(globals(), 'dummy_job3')
+    monkeypatch.delitem(globals(), "dummy_job3")
 
     jobs = persistent_jobstore.get_all_jobs()
     assert jobs == [job2, job1]
 
-    assert persistent_jobstore.get_next_run_time() == timezone.localize(datetime(2014, 2, 26))
+    assert persistent_jobstore.get_next_run_time() == timezone.localize(
+        datetime(2014, 2, 26)
+    )
 
 
 def test_remove_job(jobstore, create_add_job):
@@ -304,7 +361,7 @@ def test_remove_job(jobstore, create_add_job):
 
 
 def test_remove_nonexistent_job(jobstore):
-    pytest.raises(JobLookupError, jobstore.remove_job, 'blah')
+    pytest.raises(JobLookupError, jobstore.remove_job, "blah")
 
 
 def test_remove_all_jobs(jobstore, create_add_job):
@@ -317,11 +374,11 @@ def test_remove_all_jobs(jobstore, create_add_job):
 
 
 def test_repr_memjobstore(memjobstore):
-    assert repr(memjobstore) == '<MemoryJobStore>'
+    assert repr(memjobstore) == "<MemoryJobStore>"
 
 
 def test_repr_sqlalchemyjobstore(sqlalchemyjobstore):
-    assert repr(sqlalchemyjobstore).startswith('<SQLAlchemyJobStore (url=')
+    assert repr(sqlalchemyjobstore).startswith("<SQLAlchemyJobStore (url=")
 
 
 def test_repr_mongodbjobstore(mongodbjobstore):
@@ -329,7 +386,7 @@ def test_repr_mongodbjobstore(mongodbjobstore):
 
 
 def test_repr_redisjobstore(redisjobstore):
-    assert repr(redisjobstore) == '<RedisJobStore>'
+    assert repr(redisjobstore) == "<RedisJobStore>"
 
 
 def test_repr_zookeeperjobstore(zookeeperjobstore):
@@ -350,27 +407,27 @@ def test_memstore_close(memjobstore, create_add_job):
 
 def test_sqlalchemy_engine_ref():
     global sqla_engine
-    sqlalchemy = pytest.importorskip('apscheduler.jobstores.sqlalchemy')
-    sqla_engine = sqlalchemy.create_engine('sqlite:///')
+    sqlalchemy = pytest.importorskip("apscheduler.jobstores.sqlalchemy")
+    sqla_engine = sqlalchemy.create_engine("sqlite:///")
     try:
-        sqlalchemy.SQLAlchemyJobStore(engine='%s:sqla_engine' % __name__)
+        sqlalchemy.SQLAlchemyJobStore(engine="%s:sqla_engine" % __name__)
     finally:
         sqla_engine.dispose()
         del sqla_engine
 
 
 def test_sqlalchemy_missing_engine():
-    sqlalchemy = pytest.importorskip('apscheduler.jobstores.sqlalchemy')
+    sqlalchemy = pytest.importorskip("apscheduler.jobstores.sqlalchemy")
     exc = pytest.raises(ValueError, sqlalchemy.SQLAlchemyJobStore)
-    assert 'Need either' in str(exc.value)
+    assert "Need either" in str(exc.value)
 
 
 def test_mongodb_client_ref():
     global mongodb_client
-    mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
+    mongodb = pytest.importorskip("apscheduler.jobstores.mongodb")
     mongodb_client = mongodb.MongoClient()
     try:
-        mongodb.MongoDBJobStore(client='%s:mongodb_client' % __name__)
+        mongodb.MongoDBJobStore(client="%s:mongodb_client" % __name__)
     finally:
         mongodb_client.close()
         del mongodb_client
@@ -378,11 +435,13 @@ def test_mongodb_client_ref():
 
 def test_zookeeper_client_ref():
     global zookeeper_client
-    zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
+    zookeeper = pytest.importorskip("apscheduler.jobstores.zookeeper")
     zookeeper_client = zookeeper.KazooClient()
     try:
-        zookeeperjobstore = zookeeper.ZooKeeperJobStore(client='%s:zookeeper_client' % __name__)
-        zookeeperjobstore.start(None, 'zookeeper')
+        zookeeperjobstore = zookeeper.ZooKeeperJobStore(
+            client="%s:zookeeper_client" % __name__
+        )
+        zookeeperjobstore.start(None, "zookeeper")
         zookeeperjobstore.shutdown()
         assert zookeeper_client.connected is True
     finally:
@@ -393,12 +452,13 @@ def test_zookeeper_client_ref():
 
 def test_zookeeper_client_keep_open():
     global zookeeper_client
-    zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
+    zookeeper = pytest.importorskip("apscheduler.jobstores.zookeeper")
     zookeeper_client = zookeeper.KazooClient()
     try:
-        zookeeperjobstore = zookeeper.ZooKeeperJobStore(client='%s:zookeeper_client' % __name__,
-                                                        close_connection_on_exit=True)
-        zookeeperjobstore.start(None, 'zookeeper')
+        zookeeperjobstore = zookeeper.ZooKeeperJobStore(
+            client="%s:zookeeper_client" % __name__, close_connection_on_exit=True
+        )
+        zookeeperjobstore.start(None, "zookeeper")
         zookeeperjobstore.shutdown()
         assert zookeeper_client.connected is False
     finally:
@@ -406,36 +466,36 @@ def test_zookeeper_client_keep_open():
 
 
 def test_mongodb_null_database():
-    mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
-    exc = pytest.raises(ValueError, mongodb.MongoDBJobStore, database='')
+    mongodb = pytest.importorskip("apscheduler.jobstores.mongodb")
+    exc = pytest.raises(ValueError, mongodb.MongoDBJobStore, database="")
     assert '"database"' in str(exc.value)
 
 
 def test_mongodb_null_collection():
-    mongodb = pytest.importorskip('apscheduler.jobstores.mongodb')
-    exc = pytest.raises(ValueError, mongodb.MongoDBJobStore, collection='')
+    mongodb = pytest.importorskip("apscheduler.jobstores.mongodb")
+    exc = pytest.raises(ValueError, mongodb.MongoDBJobStore, collection="")
     assert '"collection"' in str(exc.value)
 
 
 def test_zookeeper_null_path():
-    zookeeper = pytest.importorskip('apscheduler.jobstores.zookeeper')
-    exc = pytest.raises(ValueError, zookeeper.ZooKeeperJobStore, path='')
+    zookeeper = pytest.importorskip("apscheduler.jobstores.zookeeper")
+    exc = pytest.raises(ValueError, zookeeper.ZooKeeperJobStore, path="")
     assert '"path"' in str(exc.value)
 
 
 def test_etcd_null_path():
-    etcd = pytest.importorskip('apscheduler.jobstores.etcd')
-    exc = pytest.raises(ValueError, etcd.EtcdJobStore, path='')
+    etcd = pytest.importorskip("apscheduler.jobstores.etcd")
+    exc = pytest.raises(ValueError, etcd.EtcdJobStore, path="")
     assert '"path"' in str(exc.value)
 
 
 def test_etcd_client_ref():
     global etcd_client
-    etcd = pytest.importorskip('apscheduler.jobstores.etcd')
+    etcd = pytest.importorskip("apscheduler.jobstores.etcd")
     etcd_client = etcd.Etcd3Client()
     try:
-        etcdjobstore = etcd.EtcdJobStore(client='%s:etcd_client' % __name__)
-        etcdjobstore.start(None, 'etcd')
+        etcdjobstore = etcd.EtcdJobStore(client="%s:etcd_client" % __name__)
+        etcdjobstore.start(None, "etcd")
         etcdjobstore.shutdown()
     finally:
         etcd_client.close()

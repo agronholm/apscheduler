@@ -1,13 +1,15 @@
-from __future__ import absolute_import
-
 from datetime import datetime
 
+from kazoo.exceptions import NodeExistsError, NoNodeError
 from pytz import utc
-from kazoo.exceptions import NoNodeError, NodeExistsError
 
-from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
-from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
+from apscheduler.jobstores.base import BaseJobStore, ConflictingIdError, JobLookupError
+from apscheduler.util import (
+    datetime_to_utc_timestamp,
+    maybe_ref,
+    utc_timestamp_to_datetime,
+)
 
 try:
     import cPickle as pickle
@@ -17,7 +19,7 @@ except ImportError:  # pragma: nocover
 try:
     from kazoo.client import KazooClient
 except ImportError:  # pragma: nocover
-    raise ImportError('ZooKeeperJobStore requires Kazoo installed')
+    raise ImportError("ZooKeeperJobStore requires Kazoo installed")
 
 
 class ZooKeeperJobStore(BaseJobStore):
@@ -35,9 +37,15 @@ class ZooKeeperJobStore(BaseJobStore):
         highest available
     """
 
-    def __init__(self, path='/apscheduler', client=None, close_connection_on_exit=False,
-                 pickle_protocol=pickle.HIGHEST_PROTOCOL, **connect_args):
-        super(ZooKeeperJobStore, self).__init__()
+    def __init__(
+        self,
+        path="/apscheduler",
+        client=None,
+        close_connection_on_exit=False,
+        pickle_protocol=pickle.HIGHEST_PROTOCOL,
+        **connect_args,
+    ):
+        super().__init__()
         self.pickle_protocol = pickle_protocol
         self.close_connection_on_exit = close_connection_on_exit
 
@@ -58,7 +66,7 @@ class ZooKeeperJobStore(BaseJobStore):
         self._ensured_path = True
 
     def start(self, scheduler, alias):
-        super(ZooKeeperJobStore, self).start(scheduler, alias)
+        super().start(scheduler, alias)
         if not self.client.connected:
             self.client.start()
 
@@ -68,24 +76,31 @@ class ZooKeeperJobStore(BaseJobStore):
         try:
             content, _ = self.client.get(node_path)
             doc = pickle.loads(content)
-            job = self._reconstitute_job(doc['job_state'])
+            job = self._reconstitute_job(doc["job_state"])
             return job
         except BaseException:
             return None
 
     def get_due_jobs(self, now):
         timestamp = datetime_to_utc_timestamp(now)
-        jobs = [job_def['job'] for job_def in self._get_jobs()
-                if job_def['next_run_time'] is not None and job_def['next_run_time'] <= timestamp]
+        jobs = [
+            job_def["job"]
+            for job_def in self._get_jobs()
+            if job_def["next_run_time"] is not None
+            and job_def["next_run_time"] <= timestamp
+        ]
         return jobs
 
     def get_next_run_time(self):
-        next_runs = [job_def['next_run_time'] for job_def in self._get_jobs()
-                     if job_def['next_run_time'] is not None]
+        next_runs = [
+            job_def["next_run_time"]
+            for job_def in self._get_jobs()
+            if job_def["next_run_time"] is not None
+        ]
         return utc_timestamp_to_datetime(min(next_runs)) if len(next_runs) > 0 else None
 
     def get_all_jobs(self):
-        jobs = [job_def['job'] for job_def in self._get_jobs()]
+        jobs = [job_def["job"] for job_def in self._get_jobs()]
         self._fix_paused_jobs_sorting(jobs)
         return jobs
 
@@ -93,8 +108,8 @@ class ZooKeeperJobStore(BaseJobStore):
         self._ensure_paths()
         node_path = self.path + "/" + str(job.id)
         value = {
-            'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
-            'job_state': job.__getstate__()
+            "next_run_time": datetime_to_utc_timestamp(job.next_run_time),
+            "job_state": job.__getstate__(),
         }
         data = pickle.dumps(value, self.pickle_protocol)
         try:
@@ -106,8 +121,8 @@ class ZooKeeperJobStore(BaseJobStore):
         self._ensure_paths()
         node_path = self.path + "/" + str(job.id)
         changes = {
-            'next_run_time': datetime_to_utc_timestamp(job.next_run_time),
-            'job_state': job.__getstate__()
+            "next_run_time": datetime_to_utc_timestamp(job.next_run_time),
+            "job_state": job.__getstate__(),
         }
         data = pickle.dumps(changes, self.pickle_protocol)
         try:
@@ -154,15 +169,19 @@ class ZooKeeperJobStore(BaseJobStore):
                 content, _ = self.client.get(node_path)
                 doc = pickle.loads(content)
                 job_def = {
-                    'job_id': node_name,
-                    'next_run_time': doc['next_run_time'] if doc['next_run_time'] else None,
-                    'job_state': doc['job_state'],
-                    'job': self._reconstitute_job(doc['job_state']),
-                    'creation_time': _.ctime
+                    "job_id": node_name,
+                    "next_run_time": doc["next_run_time"]
+                    if doc["next_run_time"]
+                    else None,
+                    "job_state": doc["job_state"],
+                    "job": self._reconstitute_job(doc["job_state"]),
+                    "creation_time": _.ctime,
                 }
                 jobs.append(job_def)
             except BaseException:
-                self._logger.exception('Unable to restore job "%s" -- removing it' % node_name)
+                self._logger.exception(
+                    'Unable to restore job "%s" -- removing it', node_name
+                )
                 failed_job_ids.append(node_name)
 
         # Remove all the jobs we failed to restore
@@ -170,9 +189,14 @@ class ZooKeeperJobStore(BaseJobStore):
             for failed_id in failed_job_ids:
                 self.remove_job(failed_id)
         paused_sort_key = datetime(9999, 12, 31, tzinfo=utc)
-        return sorted(jobs, key=lambda job_def: (job_def['job'].next_run_time or paused_sort_key,
-                                                 job_def['creation_time']))
+        return sorted(
+            jobs,
+            key=lambda job_def: (
+                job_def["job"].next_run_time or paused_sort_key,
+                job_def["creation_time"],
+            ),
+        )
 
     def __repr__(self):
-        self._logger.exception('<%s (client=%s)>' % (self.__class__.__name__, self.client))
-        return '<%s (client=%s)>' % (self.__class__.__name__, self.client)
+        self._logger.exception("<%s (client=%s)>", self.__class__.__name__, self.client)
+        return "<%s (client=%s)>" % (self.__class__.__name__, self.client)

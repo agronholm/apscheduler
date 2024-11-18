@@ -1,6 +1,6 @@
+import random
 from abc import ABCMeta, abstractmethod
 from datetime import timedelta
-import random
 
 
 class BaseTrigger(metaclass=ABCMeta):

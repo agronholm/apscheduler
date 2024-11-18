@@ -1,6 +1,5 @@
-from __future__ import absolute_import
 import asyncio
-from functools import wraps, partial
+from functools import partial, wraps
 
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.util import maybe_ref
@@ -11,6 +10,7 @@ def run_in_event_loop(func):
     def wrapper(self, *args, **kwargs):
         wrapped = partial(func, self, *args, **kwargs)
         self._eventloop.call_soon_threadsafe(wrapped)
+
     return wrapper
 
 
@@ -34,16 +34,16 @@ class AsyncIOScheduler(BaseScheduler):
         if not self._eventloop:
             self._eventloop = asyncio.get_event_loop()
 
-        super(AsyncIOScheduler, self).start(paused)
+        super().start(paused)
 
     @run_in_event_loop
     def shutdown(self, wait=True):
-        super(AsyncIOScheduler, self).shutdown(wait)
+        super().shutdown(wait)
         self._stop_timer()
 
     def _configure(self, config):
-        self._eventloop = maybe_ref(config.pop('event_loop', None))
-        super(AsyncIOScheduler, self)._configure(config)
+        self._eventloop = maybe_ref(config.pop("event_loop", None))
+        super()._configure(config)
 
     def _start_timer(self, wait_seconds):
         self._stop_timer()
@@ -63,4 +63,5 @@ class AsyncIOScheduler(BaseScheduler):
 
     def _create_default_executor(self):
         from apscheduler.executors.asyncio import AsyncIOExecutor
+
         return AsyncIOExecutor()

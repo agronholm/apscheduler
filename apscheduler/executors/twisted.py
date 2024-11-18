@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from apscheduler.executors.base import BaseExecutor, run_job
 
 
@@ -11,7 +9,7 @@ class TwistedExecutor(BaseExecutor):
     """
 
     def start(self, scheduler, alias):
-        super(TwistedExecutor, self).start(scheduler, alias)
+        super().start(scheduler, alias)
         self._reactor = scheduler._reactor
 
     def _do_submit_job(self, job, run_times):
@@ -22,4 +20,5 @@ class TwistedExecutor(BaseExecutor):
                 self._run_job_error(job.id, result.value, result.tb)
 
         self._reactor.getThreadPool().callInThreadWithCallback(
-            callback, run_job, job, job._jobstore_alias, run_times, self._logger.name)
+            callback, run_job, job, job._jobstore_alias, run_times, self._logger.name
+        )

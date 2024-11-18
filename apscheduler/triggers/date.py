@@ -3,7 +3,7 @@ from datetime import datetime
 from tzlocal import get_localzone
 
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import convert_to_datetime, datetime_repr, astimezone
+from apscheduler.util import astimezone, convert_to_datetime, datetime_repr
 
 
 class DateTrigger(BaseTrigger):
@@ -14,12 +14,12 @@ class DateTrigger(BaseTrigger):
     :param datetime.tzinfo|str timezone: time zone for ``run_date`` if it doesn't have one already
     """
 
-    __slots__ = 'run_date'
+    __slots__ = "run_date"
 
     def __init__(self, run_date=None, timezone=None):
         timezone = astimezone(timezone) or get_localzone()
         if run_date is not None:
-            self.run_date = convert_to_datetime(run_date, timezone, 'run_date')
+            self.run_date = convert_to_datetime(run_date, timezone, "run_date")
         else:
             self.run_date = datetime.now(timezone)
 
@@ -27,25 +27,26 @@ class DateTrigger(BaseTrigger):
         return self.run_date if previous_fire_time is None else None
 
     def __getstate__(self):
-        return {
-            'version': 1,
-            'run_date': self.run_date
-        }
+        return {"version": 1, "run_date": self.run_date}
 
     def __setstate__(self, state):
         # This is for compatibility with APScheduler 3.0.x
         if isinstance(state, tuple):
             state = state[1]
 
-        if state.get('version', 1) > 1:
+        if state.get("version", 1) > 1:
             raise ValueError(
-                'Got serialized data for version %s of %s, but only version 1 can be handled' %
-                (state['version'], self.__class__.__name__))
+                "Got serialized data for version %s of %s, but only version 1 can be handled"
+                % (state["version"], self.__class__.__name__)
+            )
 
-        self.run_date = state['run_date']
+        self.run_date = state["run_date"]
 
     def __str__(self):
-        return 'date[%s]' % datetime_repr(self.run_date)
+        return "date[%s]" % datetime_repr(self.run_date)
 
     def __repr__(self):
-        return "<%s (run_date='%s')>" % (self.__class__.__name__, datetime_repr(self.run_date))
+        return "<%s (run_date='%s')>" % (
+            self.__class__.__name__,
+            datetime_repr(self.run_date),
+        )

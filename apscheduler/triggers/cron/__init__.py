@@ -4,9 +4,21 @@ from tzlocal import get_localzone
 
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.cron.fields import (
-    BaseField, MonthField, WeekField, DayOfMonthField, DayOfWeekField, DEFAULT_VALUES)
+    DEFAULT_VALUES,
+    BaseField,
+    DayOfMonthField,
+    DayOfWeekField,
+    MonthField,
+    WeekField,
+)
 from apscheduler.util import (
-    datetime_ceil, convert_to_datetime, datetime_repr, astimezone, localize, normalize)
+    astimezone,
+    convert_to_datetime,
+    datetime_ceil,
+    datetime_repr,
+    localize,
+    normalize,
+)
 
 
 class CronTrigger(BaseTrigger):
@@ -31,23 +43,44 @@ class CronTrigger(BaseTrigger):
     .. note:: The first weekday is always **monday**.
     """
 
-    FIELD_NAMES = ('year', 'month', 'day', 'week', 'day_of_week', 'hour', 'minute', 'second')
+    FIELD_NAMES = (
+        "year",
+        "month",
+        "day",
+        "week",
+        "day_of_week",
+        "hour",
+        "minute",
+        "second",
+    )
     FIELDS_MAP = {
-        'year': BaseField,
-        'month': MonthField,
-        'week': WeekField,
-        'day': DayOfMonthField,
-        'day_of_week': DayOfWeekField,
-        'hour': BaseField,
-        'minute': BaseField,
-        'second': BaseField
+        "year": BaseField,
+        "month": MonthField,
+        "week": WeekField,
+        "day": DayOfMonthField,
+        "day_of_week": DayOfWeekField,
+        "hour": BaseField,
+        "minute": BaseField,
+        "second": BaseField,
     }
 
-    __slots__ = 'timezone', 'start_date', 'end_date', 'fields', 'jitter'
+    __slots__ = "timezone", "start_date", "end_date", "fields", "jitter"
 
-    def __init__(self, year=None, month=None, day=None, week=None, day_of_week=None, hour=None,
-                 minute=None, second=None, start_date=None, end_date=None, timezone=None,
-                 jitter=None):
+    def __init__(
+        self,
+        year=None,
+        month=None,
+        day=None,
+        week=None,
+        day_of_week=None,
+        hour=None,
+        minute=None,
+        second=None,
+        start_date=None,
+        end_date=None,
+        timezone=None,
+        jitter=None,
+    ):
         if timezone:
             self.timezone = astimezone(timezone)
         elif isinstance(start_date, datetime) and start_date.tzinfo:
@@ -57,13 +90,16 @@ class CronTrigger(BaseTrigger):
         else:
             self.timezone = get_localzone()
 
-        self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date')
-        self.end_date = convert_to_datetime(end_date, self.timezone, 'end_date')
+        self.start_date = convert_to_datetime(start_date, self.timezone, "start_date")
+        self.end_date = convert_to_datetime(end_date, self.timezone, "end_date")
 
         self.jitter = jitter
 
-        values = dict((key, value) for (key, value) in locals().items()
-                      if key in self.FIELD_NAMES and value is not None)
+        values = dict(
+            (key, value)
+            for (key, value) in locals().items()
+            if key in self.FIELD_NAMES and value is not None
+        )
         self.fields = []
         assign_defaults = False
         for field_name in self.FIELD_NAMES:
@@ -75,7 +111,7 @@ class CronTrigger(BaseTrigger):
                 exprs = DEFAULT_VALUES[field_name]
                 is_default = True
             else:
-                exprs = '*'
+                exprs = "*"
                 is_default = True
 
             field_class = self.FIELDS_MAP[field_name]
@@ -97,10 +133,16 @@ class CronTrigger(BaseTrigger):
         """
         values = expr.split()
         if len(values) != 5:
-            raise ValueError('Wrong number of fields; got {}, expected 5'.format(len(values)))
+            raise ValueError(f"Wrong number of fields; got {len(values)}, expected 5")
 
-        return cls(minute=values[0], hour=values[1], day=values[2], month=values[3],
-                   day_of_week=values[4], timezone=timezone)
+        return cls(
+            minute=values[0],
+            hour=values[1],
+            day=values[2],
+            month=values[3],
+            day_of_week=values[4],
+            timezone=timezone,
+        )
 
     def _increment_field_value(self, dateval, fieldnum):
         """
@@ -175,14 +217,18 @@ class CronTrigger(BaseTrigger):
 
             if next_value is None:
                 # No valid value was found
-                next_date, fieldnum = self._increment_field_value(next_date, fieldnum - 1)
+                next_date, fieldnum = self._increment_field_value(
+                    next_date, fieldnum - 1
+                )
             elif next_value > curr_value:
                 # A valid, but higher than the starting value, was found
                 if field.REAL:
                     next_date = self._set_field_value(next_date, fieldnum, next_value)
                     fieldnum += 1
                 else:
-                    next_date, fieldnum = self._increment_field_value(next_date, fieldnum)
+                    next_date, fieldnum = self._increment_field_value(
+                        next_date, fieldnum
+                    )
             else:
                 # A valid value was found, no changes necessary
                 fieldnum += 1
@@ -197,12 +243,12 @@ class CronTrigger(BaseTrigger):
 
     def __getstate__(self):
         return {
-            'version': 2,
-            'timezone': self.timezone,
-            'start_date': self.start_date,
-            'end_date': self.end_date,
-            'fields': self.fields,
-            'jitter': self.jitter,
+            "version": 2,
+            "timezone": self.timezone,
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+            "fields": self.fields,
+            "jitter": self.jitter,
         }
 
     def __setstate__(self, state):
@@ -210,20 +256,21 @@ class CronTrigger(BaseTrigger):
         if isinstance(state, tuple):
             state = state[1]
 
-        if state.get('version', 1) > 2:
+        if state.get("version", 1) > 2:
             raise ValueError(
-                'Got serialized data for version %s of %s, but only versions up to 2 can be '
-                'handled' % (state['version'], self.__class__.__name__))
+                "Got serialized data for version %s of %s, but only versions up to 2 can be "
+                "handled" % (state["version"], self.__class__.__name__)
+            )
 
-        self.timezone = state['timezone']
-        self.start_date = state['start_date']
-        self.end_date = state['end_date']
-        self.fields = state['fields']
-        self.jitter = state.get('jitter')
+        self.timezone = state["timezone"]
+        self.start_date = state["start_date"]
+        self.end_date = state["end_date"]
+        self.fields = state["fields"]
+        self.jitter = state.get("jitter")
 
     def __str__(self):
         options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
-        return 'cron[%s]' % (', '.join(options))
+        return "cron[%s]" % (", ".join(options))
 
     def __repr__(self):
         options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
@@ -232,7 +279,10 @@ class CronTrigger(BaseTrigger):
         if self.end_date:
             options.append("end_date=%r" % datetime_repr(self.end_date))
         if self.jitter:
-            options.append('jitter=%s' % self.jitter)
+            options.append("jitter=%s" % self.jitter)
 
         return "<%s (%s, timezone='%s')>" % (
-            self.__class__.__name__, ', '.join(options), self.timezone)
+            self.__class__.__name__,
+            ", ".join(options),
+            self.timezone,
+        )

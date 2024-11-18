@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from datetime import timedelta
 from functools import wraps
 
@@ -9,13 +7,14 @@ from apscheduler.util import maybe_ref
 try:
     from tornado.ioloop import IOLoop
 except ImportError:  # pragma: nocover
-    raise ImportError('TornadoScheduler requires tornado installed')
+    raise ImportError("TornadoScheduler requires tornado installed")
 
 
 def run_in_ioloop(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         self._ioloop.add_callback(func, self, *args, **kwargs)
+
     return wrapper
 
 
@@ -35,17 +34,19 @@ class TornadoScheduler(BaseScheduler):
 
     @run_in_ioloop
     def shutdown(self, wait=True):
-        super(TornadoScheduler, self).shutdown(wait)
+        super().shutdown(wait)
         self._stop_timer()
 
     def _configure(self, config):
-        self._ioloop = maybe_ref(config.pop('io_loop', None)) or IOLoop.current()
-        super(TornadoScheduler, self)._configure(config)
+        self._ioloop = maybe_ref(config.pop("io_loop", None)) or IOLoop.current()
+        super()._configure(config)
 
     def _start_timer(self, wait_seconds):
         self._stop_timer()
         if wait_seconds is not None:
-            self._timeout = self._ioloop.add_timeout(timedelta(seconds=wait_seconds), self.wakeup)
+            self._timeout = self._ioloop.add_timeout(
+                timedelta(seconds=wait_seconds), self.wakeup
+            )
 
     def _stop_timer(self):
         if self._timeout:
@@ -54,6 +55,7 @@ class TornadoScheduler(BaseScheduler):
 
     def _create_default_executor(self):
         from apscheduler.executors.tornado import TornadoExecutor
+
         return TornadoExecutor()
 
     @run_in_ioloop

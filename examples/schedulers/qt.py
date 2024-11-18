@@ -3,9 +3,9 @@ Demonstrates how to use the Qt compatible scheduler to schedule a job that execu
 intervals.
 """
 
-from datetime import datetime
 import signal
 import sys
+from datetime import datetime
 from importlib import import_module
 from itertools import product
 
@@ -27,22 +27,22 @@ else:
 
 
 def tick():
-    label.setText('Tick! The time is: %s' % datetime.now())
+    label.setText("Tick! The time is: %s" % datetime.now())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # This enables processing of Ctrl+C keypresses
     signal.signal(signal.SIGINT, lambda *args: QApplication.quit())
 
-    label = QLabel('The timer text will appear here in a moment!')
-    label.setWindowTitle('QtScheduler example')
+    label = QLabel("The timer text will appear here in a moment!")
+    label.setWindowTitle("QtScheduler example")
     label.setFixedSize(280, 50)
     label.show()
 
     scheduler = QtScheduler()
-    scheduler.add_job(tick, 'interval', seconds=3)
+    scheduler.add_job(tick, "interval", seconds=3)
     scheduler.start()
 
     # Execution will block here until the user closes the windows or Ctrl+C is pressed.

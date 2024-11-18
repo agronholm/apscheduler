@@ -3,7 +3,7 @@ from apscheduler.util import obj_to_ref, ref_to_obj
 
 
 class BaseCombiningTrigger(BaseTrigger):
-    __slots__ = ('triggers', 'jitter')
+    __slots__ = ("triggers", "jitter")
 
     def __init__(self, triggers, jitter=None):
         self.triggers = triggers
@@ -11,29 +11,35 @@ class BaseCombiningTrigger(BaseTrigger):
 
     def __getstate__(self):
         return {
-            'version': 1,
-            'triggers': [(obj_to_ref(trigger.__class__), trigger.__getstate__())
-                         for trigger in self.triggers],
-            'jitter': self.jitter
+            "version": 1,
+            "triggers": [
+                (obj_to_ref(trigger.__class__), trigger.__getstate__())
+                for trigger in self.triggers
+            ],
+            "jitter": self.jitter,
         }
 
     def __setstate__(self, state):
-        if state.get('version', 1) > 1:
+        if state.get("version", 1) > 1:
             raise ValueError(
-                'Got serialized data for version %s of %s, but only versions up to 1 can be '
-                'handled' % (state['version'], self.__class__.__name__))
+                "Got serialized data for version %s of %s, but only versions up to 1 can be "
+                "handled" % (state["version"], self.__class__.__name__)
+            )
 
-        self.jitter = state['jitter']
+        self.jitter = state["jitter"]
         self.triggers = []
-        for clsref, state in state['triggers']:
+        for clsref, state in state["triggers"]:
             cls = ref_to_obj(clsref)
             trigger = cls.__new__(cls)
             trigger.__setstate__(state)
             self.triggers.append(trigger)
 
     def __repr__(self):
-        return '<{}({}{})>'.format(self.__class__.__name__, self.triggers,
-                                   ', jitter={}'.format(self.jitter) if self.jitter else '')
+        return "<{}({}{})>".format(
+            self.__class__.__name__,
+            self.triggers,
+            f", jitter={self.jitter}" if self.jitter else "",
+        )
 
 
 class AndTrigger(BaseCombiningTrigger):
@@ -52,8 +58,10 @@ class AndTrigger(BaseCombiningTrigger):
 
     def get_next_fire_time(self, previous_fire_time, now):
         while True:
-            fire_times = [trigger.get_next_fire_time(previous_fire_time, now)
-                          for trigger in self.triggers]
+            fire_times = [
+                trigger.get_next_fire_time(previous_fire_time, now)
+                for trigger in self.triggers
+            ]
             if None in fire_times:
                 return None
             elif min(fire_times) == max(fire_times):
@@ -62,7 +70,7 @@ class AndTrigger(BaseCombiningTrigger):
                 now = max(fire_times)
 
     def __str__(self):
-        return 'and[{}]'.format(', '.join(str(trigger) for trigger in self.triggers))
+        return "and[{}]".format(", ".join(str(trigger) for trigger in self.triggers))
 
 
 class OrTrigger(BaseCombiningTrigger):
@@ -83,8 +91,10 @@ class OrTrigger(BaseCombiningTrigger):
     __slots__ = ()
 
     def get_next_fire_time(self, previous_fire_time, now):
-        fire_times = [trigger.get_next_fire_time(previous_fire_time, now)
-                      for trigger in self.triggers]
+        fire_times = [
+            trigger.get_next_fire_time(previous_fire_time, now)
+            for trigger in self.triggers
+        ]
         fire_times = [fire_time for fire_time in fire_times if fire_time is not None]
         if fire_times:
             return self._apply_jitter(min(fire_times), self.jitter, now)
@@ -92,4 +102,4 @@ class OrTrigger(BaseCombiningTrigger):
             return None
 
     def __str__(self):
-        return 'or[{}]'.format(', '.join(str(trigger) for trigger in self.triggers))
+        return "or[{}]".format(", ".join(str(trigger) for trigger in self.triggers))

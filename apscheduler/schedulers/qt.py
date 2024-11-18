@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from importlib import import_module
 from itertools import product
 
@@ -14,9 +12,7 @@ for version, pkgname in product(range(6, 1, -1), ("PySide", "PyQt")):
         QTimer = qtcore.QTimer
         break
 else:
-    raise ImportError(
-        "QtScheduler requires either PySide/PyQt (v6 to v2) installed"
-    )
+    raise ImportError("QtScheduler requires either PySide/PyQt (v6 to v2) installed")
 
 
 class QtScheduler(BaseScheduler):
@@ -25,7 +21,7 @@ class QtScheduler(BaseScheduler):
     _timer = None
 
     def shutdown(self, *args, **kwargs):
-        super(QtScheduler, self).shutdown(*args, **kwargs)
+        super().shutdown(*args, **kwargs)
         self._stop_timer()
 
     def _start_timer(self, wait_seconds):
@@ -44,5 +40,5 @@ class QtScheduler(BaseScheduler):
         self._start_timer(0)
 
     def _process_jobs(self):
-        wait_seconds = super(QtScheduler, self)._process_jobs()
+        wait_seconds = super()._process_jobs()
         self._start_timer(wait_seconds)

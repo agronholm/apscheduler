@@ -7,7 +7,11 @@ from traceback import format_tb
 from pytz import utc
 
 from apscheduler.events import (
-    JobExecutionEvent, EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_JOB_EXECUTED)
+    EVENT_JOB_ERROR,
+    EVENT_JOB_EXECUTED,
+    EVENT_JOB_MISSED,
+    JobExecutionEvent,
+)
 
 
 async def run_coroutine_job(job, jobstore_alias, run_times, logger_name):
@@ -20,8 +24,11 @@ async def run_coroutine_job(job, jobstore_alias, run_times, logger_name):
             difference = datetime.now(utc) - run_time
             grace_time = timedelta(seconds=job.misfire_grace_time)
             if difference > grace_time:
-                events.append(JobExecutionEvent(EVENT_JOB_MISSED, job.id, jobstore_alias,
-                                                run_time))
+                events.append(
+                    JobExecutionEvent(
+                        EVENT_JOB_MISSED, job.id, jobstore_alias, run_time
+                    )
+                )
                 logger.warning('Run time of job "%s" was missed by %s', job, difference)
                 continue
 
@@ -30,14 +37,25 @@ async def run_coroutine_job(job, jobstore_alias, run_times, logger_name):
             retval = await job.func(*job.args, **job.kwargs)
         except BaseException:
             exc, tb = sys.exc_info()[1:]
-            formatted_tb = ''.join(format_tb(tb))
-            events.append(JobExecutionEvent(EVENT_JOB_ERROR, job.id, jobstore_alias, run_time,
-                                            exception=exc, traceback=formatted_tb))
+            formatted_tb = "".join(format_tb(tb))
+            events.append(
+                JobExecutionEvent(
+                    EVENT_JOB_ERROR,
+                    job.id,
+                    jobstore_alias,
+                    run_time,
+                    exception=exc,
+                    traceback=formatted_tb,
+                )
+            )
             logger.exception('Job "%s" raised an exception', job)
             traceback.clear_frames(tb)
         else:
-            events.append(JobExecutionEvent(EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time,
-                                            retval=retval))
+            events.append(
+                JobExecutionEvent(
+                    EVENT_JOB_EXECUTED, job.id, jobstore_alias, run_time, retval=retval
+                )
+            )
             logger.info('Job "%s" executed successfully', job)
 
     return events

@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
@@ -11,6 +9,7 @@ try:
     from apscheduler.executors.base_py3 import run_coroutine_job
     from apscheduler.util import iscoroutinefunction_partial
 except ImportError:
+
     def iscoroutinefunction_partial(func):
         return False
 
@@ -28,11 +27,11 @@ class TornadoExecutor(BaseExecutor):
     """
 
     def __init__(self, max_workers=10):
-        super(TornadoExecutor, self).__init__()
+        super().__init__()
         self.executor = ThreadPoolExecutor(max_workers)
 
     def start(self, scheduler, alias):
-        super(TornadoExecutor, self).start(scheduler, alias)
+        super().start(scheduler, alias)
         self._ioloop = scheduler._ioloop
 
     def _do_submit_job(self, job, run_times):
@@ -45,10 +44,13 @@ class TornadoExecutor(BaseExecutor):
                 self._run_job_success(job.id, events)
 
         if iscoroutinefunction_partial(job.func):
-            f = run_coroutine_job(job, job._jobstore_alias, run_times, self._logger.name)
+            f = run_coroutine_job(
+                job, job._jobstore_alias, run_times, self._logger.name
+            )
         else:
-            f = self.executor.submit(run_job, job, job._jobstore_alias, run_times,
-                                     self._logger.name)
+            f = self.executor.submit(
+                run_job, job, job._jobstore_alias, run_times, self._logger.name
+            )
 
         f = convert_yielded(f)
         f.add_done_callback(callback)

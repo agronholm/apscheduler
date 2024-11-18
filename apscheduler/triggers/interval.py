@@ -1,12 +1,16 @@
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 from math import ceil
 
 from tzlocal import get_localzone
 
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import (
-    convert_to_datetime, normalize, timedelta_seconds, datetime_repr,
-    astimezone)
+    astimezone,
+    convert_to_datetime,
+    datetime_repr,
+    normalize,
+    timedelta_seconds,
+)
 
 
 class IntervalTrigger(BaseTrigger):
@@ -25,12 +29,30 @@ class IntervalTrigger(BaseTrigger):
     :param int|None jitter: delay the job execution by ``jitter`` seconds at most
     """
 
-    __slots__ = 'timezone', 'start_date', 'end_date', 'interval', 'interval_length', 'jitter'
+    __slots__ = (
+        "timezone",
+        "start_date",
+        "end_date",
+        "interval",
+        "interval_length",
+        "jitter",
+    )
 
-    def __init__(self, weeks=0, days=0, hours=0, minutes=0, seconds=0, start_date=None,
-                 end_date=None, timezone=None, jitter=None):
-        self.interval = timedelta(weeks=weeks, days=days, hours=hours, minutes=minutes,
-                                  seconds=seconds)
+    def __init__(
+        self,
+        weeks=0,
+        days=0,
+        hours=0,
+        minutes=0,
+        seconds=0,
+        start_date=None,
+        end_date=None,
+        timezone=None,
+        jitter=None,
+    ):
+        self.interval = timedelta(
+            weeks=weeks, days=days, hours=hours, minutes=minutes, seconds=seconds
+        )
         self.interval_length = timedelta_seconds(self.interval)
         if self.interval_length == 0:
             self.interval = timedelta(seconds=1)
@@ -46,8 +68,8 @@ class IntervalTrigger(BaseTrigger):
             self.timezone = get_localzone()
 
         start_date = start_date or (datetime.now(self.timezone) + self.interval)
-        self.start_date = convert_to_datetime(start_date, self.timezone, 'start_date')
-        self.end_date = convert_to_datetime(end_date, self.timezone, 'end_date')
+        self.start_date = convert_to_datetime(start_date, self.timezone, "start_date")
+        self.end_date = convert_to_datetime(end_date, self.timezone, "end_date")
 
         self.jitter = jitter
 
@@ -69,12 +91,12 @@ class IntervalTrigger(BaseTrigger):
 
     def __getstate__(self):
         return {
-            'version': 2,
-            'timezone': self.timezone,
-            'start_date': self.start_date,
-            'end_date': self.end_date,
-            'interval': self.interval,
-            'jitter': self.jitter,
+            "version": 2,
+            "timezone": self.timezone,
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+            "interval": self.interval,
+            "jitter": self.jitter,
         }
 
     def __setstate__(self, state):
@@ -82,27 +104,34 @@ class IntervalTrigger(BaseTrigger):
         if isinstance(state, tuple):
             state = state[1]
 
-        if state.get('version', 1) > 2:
+        if state.get("version", 1) > 2:
             raise ValueError(
-                'Got serialized data for version %s of %s, but only versions up to 2 can be '
-                'handled' % (state['version'], self.__class__.__name__))
+                "Got serialized data for version %s of %s, but only versions up to 2 can be "
+                "handled" % (state["version"], self.__class__.__name__)
+            )
 
-        self.timezone = state['timezone']
-        self.start_date = state['start_date']
-        self.end_date = state['end_date']
-        self.interval = state['interval']
+        self.timezone = state["timezone"]
+        self.start_date = state["start_date"]
+        self.end_date = state["end_date"]
+        self.interval = state["interval"]
         self.interval_length = timedelta_seconds(self.interval)
-        self.jitter = state.get('jitter')
+        self.jitter = state.get("jitter")
 
     def __str__(self):
-        return 'interval[%s]' % str(self.interval)
+        return "interval[%s]" % str(self.interval)
 
     def __repr__(self):
-        options = ['interval=%r' % self.interval, 'start_date=%r' % datetime_repr(self.start_date)]
+        options = [
+            "interval=%r" % self.interval,
+            "start_date=%r" % datetime_repr(self.start_date),
+        ]
         if self.end_date:
             options.append("end_date=%r" % datetime_repr(self.end_date))
         if self.jitter:
-            options.append('jitter=%s' % self.jitter)
+            options.append("jitter=%s" % self.jitter)
 
         return "<%s (%s, timezone='%s')>" % (
-            self.__class__.__name__, ', '.join(options), self.timezone)
+            self.__class__.__name__,
+            ", ".join(options),
+            self.timezone,
+        )

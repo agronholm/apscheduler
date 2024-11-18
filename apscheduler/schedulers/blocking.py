@@ -1,8 +1,6 @@
-from __future__ import absolute_import
-
 from threading import Event
 
-from apscheduler.schedulers.base import BaseScheduler, STATE_STOPPED
+from apscheduler.schedulers.base import STATE_STOPPED, BaseScheduler
 from apscheduler.util import TIMEOUT_MAX
 
 
@@ -11,17 +9,18 @@ class BlockingScheduler(BaseScheduler):
     A scheduler that runs in the foreground
     (:meth:`~apscheduler.schedulers.base.BaseScheduler.start` will block).
     """
+
     _event = None
 
     def start(self, *args, **kwargs):
         if self._event is None or self._event.is_set():
             self._event = Event()
 
-        super(BlockingScheduler, self).start(*args, **kwargs)
+        super().start(*args, **kwargs)
         self._main_loop()
 
     def shutdown(self, wait=True):
-        super(BlockingScheduler, self).shutdown(wait)
+        super().shutdown(wait)
         self._event.set()
 
     def _main_loop(self):

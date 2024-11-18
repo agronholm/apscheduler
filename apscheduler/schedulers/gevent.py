@@ -1,14 +1,12 @@
-from __future__ import absolute_import
-
-from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.schedulers.base import BaseScheduler
+from apscheduler.schedulers.blocking import BlockingScheduler
 
 try:
+    import gevent
     from gevent.event import Event
     from gevent.lock import RLock
-    import gevent
 except ImportError:  # pragma: nocover
-    raise ImportError('GeventScheduler requires gevent installed')
+    raise ImportError("GeventScheduler requires gevent installed")
 
 
 class GeventScheduler(BlockingScheduler):
@@ -23,7 +21,7 @@ class GeventScheduler(BlockingScheduler):
         return self._greenlet
 
     def shutdown(self, *args, **kwargs):
-        super(GeventScheduler, self).shutdown(*args, **kwargs)
+        super().shutdown(*args, **kwargs)
         self._greenlet.join()
         del self._greenlet
 
@@ -32,4 +30,5 @@ class GeventScheduler(BlockingScheduler):
 
     def _create_default_executor(self):
         from apscheduler.executors.gevent import GeventExecutor
+
         return GeventExecutor()

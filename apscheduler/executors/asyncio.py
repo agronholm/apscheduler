@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 import sys
 
 from apscheduler.executors.base import BaseExecutor, run_job
@@ -19,7 +17,7 @@ class AsyncIOExecutor(BaseExecutor):
     """
 
     def start(self, scheduler, alias):
-        super(AsyncIOExecutor, self).start(scheduler, alias)
+        super().start(scheduler, alias)
         self._eventloop = scheduler._eventloop
         self._pending_futures = set()
 
@@ -42,11 +40,14 @@ class AsyncIOExecutor(BaseExecutor):
                 self._run_job_success(job.id, events)
 
         if iscoroutinefunction_partial(job.func):
-            coro = run_coroutine_job(job, job._jobstore_alias, run_times, self._logger.name)
+            coro = run_coroutine_job(
+                job, job._jobstore_alias, run_times, self._logger.name
+            )
             f = self._eventloop.create_task(coro)
         else:
-            f = self._eventloop.run_in_executor(None, run_job, job, job._jobstore_alias, run_times,
-                                                self._logger.name)
+            f = self._eventloop.run_in_executor(
+                None, run_job, job, job._jobstore_alias, run_times, self._logger.name
+            )
 
         f.add_done_callback(callback)
         self._pending_futures.add(f)
