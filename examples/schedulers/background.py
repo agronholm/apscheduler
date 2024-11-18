@@ -11,14 +11,14 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 
 def tick():
-    print("Tick! The time is: %s" % datetime.now())
+    print(f"Tick! The time is: {datetime.now()}")
 
 
 if __name__ == "__main__":
     scheduler = BackgroundScheduler()
     scheduler.add_job(tick, "interval", seconds=3)
     scheduler.start()
-    print("Press Ctrl+{0} to exit".format("Break" if os.name == "nt" else "C"))
+    print("Press Ctrl+{} to exit".format("Break" if os.name == "nt" else "C"))
 
     try:
         # This is here to simulate application activity (which keeps the main thread alive).

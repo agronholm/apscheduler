@@ -36,17 +36,16 @@ class DateTrigger(BaseTrigger):
 
         if state.get("version", 1) > 1:
             raise ValueError(
-                "Got serialized data for version %s of %s, but only version 1 can be handled"
-                % (state["version"], self.__class__.__name__)
+                f"Got serialized data for version {state['version']} of "
+                f"{self.__class__.__name__}, but only version 1 can be handled"
             )
 
         self.run_date = state["run_date"]
 
     def __str__(self):
-        return "date[%s]" % datetime_repr(self.run_date)
+        return f"date[{datetime_repr(self.run_date)}]"
 
     def __repr__(self):
-        return "<%s (run_date='%s')>" % (
-            self.__class__.__name__,
-            datetime_repr(self.run_date),
+        return (
+            f"<{self.__class__.__name__} (run_date='{datetime_repr(self.run_date)}')>"
         )

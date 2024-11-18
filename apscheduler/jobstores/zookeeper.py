@@ -199,4 +199,4 @@ class ZooKeeperJobStore(BaseJobStore):
 
     def __repr__(self):
         self._logger.exception("<%s (client=%s)>", self.__class__.__name__, self.client)
-        return "<%s (client=%s)>" % (self.__class__.__name__, self.client)
+        return f"<{self.__class__.__name__} (client={self.client})>"

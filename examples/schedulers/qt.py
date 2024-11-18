@@ -27,7 +27,7 @@ else:
 
 
 def tick():
-    label.setText("Tick! The time is: %s" % datetime.now())
+    label.setText(f"Tick! The time is: {datetime.now()}")
 
 
 if __name__ == "__main__":

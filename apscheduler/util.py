@@ -73,9 +73,12 @@ def asbool(obj):
         obj = obj.strip().lower()
         if obj in ("true", "yes", "on", "y", "t", "1"):
             return True
+
         if obj in ("false", "no", "off", "n", "f", "0"):
             return False
-        raise ValueError('Unable to interpret value "%s" as boolean' % obj)
+
+        raise ValueError(f'Unable to interpret value "{obj}" as boolean')
+
     return bool(obj)
 
 
@@ -88,17 +91,20 @@ def astimezone(obj):
     """
     if isinstance(obj, str):
         return timezone(obj)
+
     if isinstance(obj, tzinfo):
         if obj.tzname(None) == "local":
             raise ValueError(
-                "Unable to determine the name of the local timezone -- you must explicitly "
-                "specify the name of the local timezone. Please refrain from using timezones like "
-                "EST to prevent problems with daylight saving time. Instead, use a locale based "
-                "timezone name (such as Europe/Helsinki)."
+                "Unable to determine the name of the local timezone -- you must "
+                "explicitly specify the name of the local timezone. Please refrain "
+                "from using timezones like EST to prevent problems with daylight "
+                "saving time. Instead, use a locale based timezone name (such as "
+                "Europe/Helsinki)."
             )
         return obj
+
     if obj is not None:
-        raise TypeError("Expected tzinfo, got %s instead" % obj.__class__.__name__)
+        raise TypeError(f"Expected tzinfo, got {obj.__class__.__name__} instead")
 
 
 _DATE_REGEX = re.compile(
@@ -117,12 +123,13 @@ def convert_to_datetime(input, tz, arg_name):
     If a native datetime object is passed, it is given the specified timezone.
     If the input is a string, it is parsed as a datetime with the given timezone.
 
-    Date strings are accepted in three different forms: date only (Y-m-d), date with time
-    (Y-m-d H:M:S) or with date+time with microseconds (Y-m-d H:M:S.micro). Additionally you can
-    override the time zone by giving a specific offset in the format specified by ISO 8601:
-    Z (UTC), +HH:MM or -HH:MM.
+    Date strings are accepted in three different forms: date only (Y-m-d), date with
+    time (Y-m-d H:M:S) or with date+time with microseconds (Y-m-d H:M:S.micro).
+    Additionally you can override the time zone by giving a specific offset in the
+    format specified by ISO 8601: Z (UTC), +HH:MM or -HH:MM.
 
-    :param str|datetime input: the datetime or string to convert to a timezone aware datetime
+    :param str|datetime input: the datetime or string to convert to a timezone aware
+        datetime
     :param datetime.tzinfo tz: timezone to interpret ``input`` in
     :param str arg_name: the name of the argument (used in an error message)
     :rtype: datetime
@@ -151,16 +158,13 @@ def convert_to_datetime(input, tz, arg_name):
         values = {k: int(v or 0) for k, v in values.items()}
         datetime_ = datetime(**values)
     else:
-        raise TypeError(
-            "Unsupported type for %s: %s" % (arg_name, input.__class__.__name__)
-        )
+        raise TypeError(f"Unsupported type for {arg_name}: {input.__class__.__name__}")
 
     if datetime_.tzinfo is not None:
         return datetime_
     if tz is None:
         raise ValueError(
-            'The "tz" argument must be specified if %s has no timezone information'
-            % arg_name
+            f'The "tz" argument must be specified if {arg_name} has no timezone information'
         )
     if isinstance(tz, str):
         tz = timezone(tz)
@@ -237,7 +241,7 @@ def get_callable_name(func):
         return type(func).__qualname__
 
     raise TypeError(
-        "Unable to determine a name for %r -- maybe it is not a callable?" % func
+        f"Unable to determine a name for {func!r} -- maybe it is not a callable?"
     )
 
 
@@ -265,7 +269,7 @@ def obj_to_ref(obj):
     else:
         module = obj.__module__
 
-    return "%s:%s" % (module, name)
+    return f"{module}:{name}"
 
 
 def ref_to_obj(ref):
@@ -284,14 +288,14 @@ def ref_to_obj(ref):
     try:
         obj = __import__(modulename, fromlist=[rest])
     except ImportError:
-        raise LookupError("Error resolving reference %s: could not import module" % ref)
+        raise LookupError(f"Error resolving reference {ref}: could not import module")
 
     try:
         for name in rest.split("."):
             obj = getattr(obj, name)
         return obj
     except Exception:
-        raise LookupError("Error resolving reference %s: error looking up object" % ref)
+        raise LookupError(f"Error resolving reference {ref}: error looking up object")
 
 
 def maybe_ref(ref):
@@ -362,45 +366,48 @@ def check_callable_args(func, args, kwargs):
     # Make sure there are no conflicts between args and kwargs
     if pos_kwargs_conflicts:
         raise ValueError(
-            "The following arguments are supplied in both args and kwargs: %s"
-            % ", ".join(pos_kwargs_conflicts)
+            "The following arguments are supplied in both args and kwargs: {}".format(
+                ", ".join(pos_kwargs_conflicts)
+            )
         )
 
     # Check if keyword arguments are being fed to positional-only parameters
     if positional_only_kwargs:
         raise ValueError(
-            "The following arguments cannot be given as keyword arguments: %s"
-            % ", ".join(positional_only_kwargs)
+            "The following arguments cannot be given as keyword arguments: {}".format(
+                ", ".join(positional_only_kwargs)
+            )
         )
 
-    # Check that the number of positional arguments minus the number of matched kwargs matches the
-    # argspec
+    # Check that the number of positional arguments minus the number of matched kwargs
+    # matches the argspec
     if unsatisfied_args:
         raise ValueError(
-            "The following arguments have not been supplied: %s"
-            % ", ".join(unsatisfied_args)
+            "The following arguments have not been supplied: {}".format(
+                ", ".join(unsatisfied_args)
+            )
         )
 
     # Check that all keyword-only arguments have been supplied
     if unsatisfied_kwargs:
         raise ValueError(
-            "The following keyword-only arguments have not been supplied in kwargs: %s"
-            % ", ".join(unsatisfied_kwargs)
+            "The following keyword-only arguments have not been supplied in kwargs: "
+            "{}".format(", ".join(unsatisfied_kwargs))
         )
 
     # Check that the callable can accept the given number of positional arguments
     if not has_varargs and unmatched_args:
         raise ValueError(
-            "The list of positional arguments is longer than the target callable can handle "
-            "(allowed: %d, given in args: %d)"
-            % (len(args) - len(unmatched_args), len(args))
+            f"The list of positional arguments is longer than the target callable can "
+            f"handle (allowed: {len(args) - len(unmatched_args)}, given in args: "
+            f"{len(args)})"
         )
 
     # Check that the callable can accept the given keyword arguments
     if not has_var_kwargs and unmatched_kwargs:
         raise ValueError(
-            "The target callable does not accept the following keyword arguments: %s"
-            % ", ".join(unmatched_kwargs)
+            "The target callable does not accept the following keyword arguments: "
+            "{}".format(", ".join(unmatched_kwargs))
         )
 
 

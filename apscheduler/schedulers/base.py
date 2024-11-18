@@ -300,8 +300,7 @@ class BaseScheduler(metaclass=ABCMeta):
         with self._executors_lock:
             if alias in self._executors:
                 raise ValueError(
-                    'This scheduler already has an executor by the alias of "%s"'
-                    % alias
+                    f'This scheduler already has an executor by the alias of "{alias}"'
                 )
 
             if isinstance(executor, BaseExecutor):
@@ -312,8 +311,7 @@ class BaseScheduler(metaclass=ABCMeta):
                 )
             else:
                 raise TypeError(
-                    "Expected an executor instance or a string, got %s instead"
-                    % executor.__class__.__name__
+                    f"Expected an executor instance or a string, got {executor.__class__.__name__} instead"
                 )
 
             # Start the executor right away if the scheduler is running
@@ -355,8 +353,7 @@ class BaseScheduler(metaclass=ABCMeta):
         with self._jobstores_lock:
             if alias in self._jobstores:
                 raise ValueError(
-                    'This scheduler already has a job store by the alias of "%s"'
-                    % alias
+                    f'This scheduler already has a job store by the alias of "{alias}"'
                 )
 
             if isinstance(jobstore, BaseJobStore):
@@ -367,8 +364,7 @@ class BaseScheduler(metaclass=ABCMeta):
                 )
             else:
                 raise TypeError(
-                    "Expected a job store instance or a string, got %s instead"
-                    % jobstore.__class__.__name__
+                    f"Expected a job store instance or a string, got {jobstore.__class__.__name__} instead"
                 )
 
             # Start the job store right away if the scheduler isn't stopped
@@ -778,17 +774,17 @@ class BaseScheduler(metaclass=ABCMeta):
                 if self._pending_jobs:
                     for job, jobstore_alias, replace_existing in self._pending_jobs:
                         if jobstore in (None, jobstore_alias):
-                            print("    %s" % job, file=out)
+                            print(f"    {job}", file=out)
                 else:
                     print("    No pending jobs", file=out)
             else:
                 for alias, store in sorted(self._jobstores.items()):
                     if jobstore in (None, alias):
-                        print("Jobstore %s:" % alias, file=out)
+                        print(f"Jobstore {alias}:", file=out)
                         jobs = store.get_all_jobs()
                         if jobs:
                             for job in jobs:
-                                print("    %s" % job, file=out)
+                                print(f"    {job}", file=out)
                         else:
                             print("    No scheduled jobs", file=out)
 
@@ -834,15 +830,13 @@ class BaseScheduler(metaclass=ABCMeta):
                     executor = cls(**value)
                 else:
                     raise ValueError(
-                        'Cannot create executor "%s" -- either "type" or "class" must be defined'
-                        % alias
+                        f'Cannot create executor "{alias}" -- either "type" or "class" must be defined'
                     )
 
                 self.add_executor(executor, alias)
             else:
                 raise TypeError(
-                    "Expected executor instance or dict for executors['%s'], got %s instead"
-                    % (alias, value.__class__.__name__)
+                    f"Expected executor instance or dict for executors['{alias}'], got {value.__class__.__name__} instead"
                 )
 
         # Configure job stores
@@ -860,15 +854,14 @@ class BaseScheduler(metaclass=ABCMeta):
                     jobstore = cls(**value)
                 else:
                     raise ValueError(
-                        'Cannot create job store "%s" -- either "type" or "class" must be '
-                        "defined" % alias
+                        f'Cannot create job store "{alias}" -- either "type" or "class" must be '
+                        "defined"
                     )
 
                 self.add_jobstore(jobstore, alias)
             else:
                 raise TypeError(
-                    "Expected job store instance or dict for jobstores['%s'], got %s instead"
-                    % (alias, value.__class__.__name__)
+                    f"Expected job store instance or dict for jobstores['{alias}'], got {value.__class__.__name__} instead"
                 )
 
     def _create_default_executor(self):
@@ -891,7 +884,7 @@ class BaseScheduler(metaclass=ABCMeta):
         try:
             return self._executors[alias]
         except KeyError:
-            raise KeyError("No such executor: %s" % alias)
+            raise KeyError(f"No such executor: {alias}")
 
     def _lookup_jobstore(self, alias):
         """
@@ -905,7 +898,7 @@ class BaseScheduler(metaclass=ABCMeta):
         try:
             return self._jobstores[alias]
         except KeyError:
-            raise KeyError("No such job store: %s" % alias)
+            raise KeyError(f"No such job store: {alias}")
 
     def _lookup_job(self, job_id, jobstore_alias):
         """
@@ -1033,8 +1026,7 @@ class BaseScheduler(metaclass=ABCMeta):
             trigger = "date"
         elif not isinstance(trigger, str):
             raise TypeError(
-                "Expected a trigger instance or string, got %s instead"
-                % trigger.__class__.__name__
+                f"Expected a trigger instance or string, got {trigger.__class__.__name__} instead"
             )
 
         # Use the scheduler's time zone if nothing else is specified

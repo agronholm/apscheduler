@@ -231,8 +231,7 @@ class Job:
             trigger = changes.pop("trigger")
             if not isinstance(trigger, BaseTrigger):
                 raise TypeError(
-                    "Expected a trigger instance, got %s instead"
-                    % trigger.__class__.__name__
+                    f"Expected a trigger instance, got {trigger.__class__.__name__} instead"
                 )
 
             approved["trigger"] = trigger
@@ -251,8 +250,9 @@ class Job:
 
         if changes:
             raise AttributeError(
-                "The following are not modifiable attributes of Job: %s"
-                % ", ".join(changes)
+                "The following are not modifiable attributes of Job: {}".format(
+                    ", ".join(changes)
+                )
             )
 
         for key, value in approved.items():
@@ -262,9 +262,9 @@ class Job:
         # Don't allow this Job to be serialized if the function reference could not be determined
         if not self.func_ref:
             raise ValueError(
-                "This Job cannot be serialized since the reference to its callable (%r) could not "
+                f"This Job cannot be serialized since the reference to its callable ({self.func!r}) could not "
                 "be determined. Consider giving a textual reference (module:function name) "
-                "instead." % (self.func,)
+                "instead."
             )
 
         # Instance methods cannot survive serialization as-is, so store the "self" argument
@@ -297,8 +297,7 @@ class Job:
     def __setstate__(self, state):
         if state.get("version", 1) > 1:
             raise ValueError(
-                "Job has version %s, but only version 1 can be handled"
-                % state["version"]
+                f"Job has version {state['version']}, but only version 1 can be handled"
             )
 
         self.id = state["id"]
@@ -332,4 +331,4 @@ class Job:
         else:
             status = "pending"
 
-        return "%s (trigger: %s, %s)" % (self.name, self.trigger, status)
+        return f"{self.name} (trigger: {self.trigger}, {status})"

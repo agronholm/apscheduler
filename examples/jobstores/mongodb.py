@@ -13,7 +13,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 
 
 def alarm(time):
-    print("Alarm! This alarm was scheduled at %s." % time)
+    print(f"Alarm! This alarm was scheduled at {time}.")
 
 
 if __name__ == "__main__":
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     alarm_time = datetime.now() + timedelta(seconds=10)
     scheduler.add_job(alarm, "date", run_date=alarm_time, args=[datetime.now()])
     print("To clear the alarms, run this example with the --clear argument.")
-    print("Press Ctrl+{0} to exit".format("Break" if os.name == "nt" else "C"))
+    print("Press Ctrl+{} to exit".format("Break" if os.name == "nt" else "C"))
 
     try:
         scheduler.start()

@@ -22,8 +22,8 @@ class BaseCombiningTrigger(BaseTrigger):
     def __setstate__(self, state):
         if state.get("version", 1) > 1:
             raise ValueError(
-                "Got serialized data for version %s of %s, but only versions up to 1 can be "
-                "handled" % (state["version"], self.__class__.__name__)
+                f"Got serialized data for version {state['version']} of "
+                f"{self.__class__.__name__}, but only versions up to 1 can be handled"
             )
 
         self.jitter = state["jitter"]

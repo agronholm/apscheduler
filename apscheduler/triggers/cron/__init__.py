@@ -258,8 +258,8 @@ class CronTrigger(BaseTrigger):
 
         if state.get("version", 1) > 2:
             raise ValueError(
-                "Got serialized data for version %s of %s, but only versions up to 2 can be "
-                "handled" % (state["version"], self.__class__.__name__)
+                f"Got serialized data for version {state['version']} of "
+                f"{self.__class__.__name__}, but only versions up to 2 can be handled"
             )
 
         self.timezone = state["timezone"]
@@ -269,19 +269,19 @@ class CronTrigger(BaseTrigger):
         self.jitter = state.get("jitter")
 
     def __str__(self):
-        options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
-        return "cron[%s]" % (", ".join(options))
+        options = [f"{f.name}='{f}'" for f in self.fields if not f.is_default]
+        return "cron[{}]".format(", ".join(options))
 
     def __repr__(self):
-        options = ["%s='%s'" % (f.name, f) for f in self.fields if not f.is_default]
+        options = [f"{f.name}='{f}'" for f in self.fields if not f.is_default]
         if self.start_date:
-            options.append("start_date=%r" % datetime_repr(self.start_date))
+            options.append(f"start_date={datetime_repr(self.start_date)!r}")
         if self.end_date:
-            options.append("end_date=%r" % datetime_repr(self.end_date))
+            options.append(f"end_date={datetime_repr(self.end_date)!r}")
         if self.jitter:
-            options.append("jitter=%s" % self.jitter)
+            options.append(f"jitter={self.jitter}")
 
-        return "<%s (%s, timezone='%s')>" % (
+        return "<{} ({}, timezone='{}')>".format(
             self.__class__.__name__,
             ", ".join(options),
             self.timezone,

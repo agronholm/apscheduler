@@ -47,7 +47,7 @@ class BaseExecutor(metaclass=ABCMeta):
         """
         self._scheduler = scheduler
         self._lock = scheduler._create_lock()
-        self._logger = logging.getLogger("apscheduler.executors.%s" % alias)
+        self._logger = logging.getLogger(f"apscheduler.executors.{alias}")
 
     def shutdown(self, wait=True):
         """

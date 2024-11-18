@@ -155,4 +155,4 @@ class MongoDBJobStore(BaseJobStore):
         return jobs
 
     def __repr__(self):
-        return "<%s (client=%s)>" % (self.__class__.__name__, self.client)
+        return f"<{self.__class__.__name__} (client={self.client})>"

@@ -106,9 +106,7 @@ class BaseField:
                 self.expressions.append(compiled_expr)
                 return
 
-        raise ValueError(
-            'Unrecognized expression "%s" for field "%s"' % (expr, self.name)
-        )
+        raise ValueError(f'Unrecognized expression "{expr}" for field "{self.name}"')
 
     def __eq__(self, other):
         return (
@@ -120,7 +118,7 @@ class BaseField:
         return ",".join(expr_strings)
 
     def __repr__(self):
-        return "%s('%s', '%s')" % (self.__class__.__name__, self.name, self)
+        return f"{self.__class__.__name__}('{self.name}', '{self}')"
 
 
 class WeekField(BaseField):

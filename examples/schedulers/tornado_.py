@@ -12,14 +12,14 @@ from apscheduler.schedulers.tornado import TornadoScheduler
 
 
 def tick():
-    print("Tick! The time is: %s" % datetime.now())
+    print(f"Tick! The time is: {datetime.now()}")
 
 
 if __name__ == "__main__":
     scheduler = TornadoScheduler()
     scheduler.add_job(tick, "interval", seconds=3)
     scheduler.start()
-    print("Press Ctrl+{0} to exit".format("Break" if os.name == "nt" else "C"))
+    print("Press Ctrl+{} to exit".format("Break" if os.name == "nt" else "C"))
 
     # Execution will block here until Ctrl+C (Ctrl+Break on Windows) is pressed.
     try:

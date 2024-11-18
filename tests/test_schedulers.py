@@ -119,7 +119,7 @@ class TestBaseScheduler:
         return events
 
     def test_constructor(self):
-        with patch("%s.DummyScheduler.configure" % __name__) as configure:
+        with patch(f"{__name__}.DummyScheduler.configure") as configure:
             gconfig = {"apscheduler.foo": "bar", "apscheduler.x": "y"}
             options = {"bar": "baz", "xyz": 123}
             DummyScheduler(gconfig, **options)
@@ -134,15 +134,15 @@ class TestBaseScheduler:
                 "apscheduler.job_defaults.misfire_grace_time": "5",
                 "apscheduler.job_defaults.coalesce": "false",
                 "apscheduler.job_defaults.max_instances": "9",
-                "apscheduler.executors.default.class": "%s:DummyExecutor" % __name__,
+                "apscheduler.executors.default.class": f"{__name__}:DummyExecutor",
                 "apscheduler.executors.default.arg1": "3",
                 "apscheduler.executors.default.arg2": "a",
-                "apscheduler.executors.alter.class": "%s:DummyExecutor" % __name__,
+                "apscheduler.executors.alter.class": f"{__name__}:DummyExecutor",
                 "apscheduler.executors.alter.arg": "true",
-                "apscheduler.jobstores.default.class": "%s:DummyJobStore" % __name__,
+                "apscheduler.jobstores.default.class": f"{__name__}:DummyJobStore",
                 "apscheduler.jobstores.default.arg1": "3",
                 "apscheduler.jobstores.default.arg2": "a",
-                "apscheduler.jobstores.bar.class": "%s:DummyJobStore" % __name__,
+                "apscheduler.jobstores.bar.class": f"{__name__}:DummyJobStore",
                 "apscheduler.jobstores.bar.arg": "false",
             },
             {
@@ -154,19 +154,19 @@ class TestBaseScheduler:
                 },
                 "apscheduler.executors": {
                     "default": {
-                        "class": "%s:DummyExecutor" % __name__,
+                        "class": f"{__name__}:DummyExecutor",
                         "arg1": "3",
                         "arg2": "a",
                     },
-                    "alter": {"class": "%s:DummyExecutor" % __name__, "arg": "true"},
+                    "alter": {"class": f"{__name__}:DummyExecutor", "arg": "true"},
                 },
                 "apscheduler.jobstores": {
                     "default": {
-                        "class": "%s:DummyJobStore" % __name__,
+                        "class": f"{__name__}:DummyJobStore",
                         "arg1": "3",
                         "arg2": "a",
                     },
-                    "bar": {"class": "%s:DummyJobStore" % __name__, "arg": "false"},
+                    "bar": {"class": f"{__name__}:DummyJobStore", "arg": "false"},
                 },
             },
         ],
@@ -186,19 +186,19 @@ class TestBaseScheduler:
                 },
                 "executors": {
                     "default": {
-                        "class": "%s:DummyExecutor" % __name__,
+                        "class": f"{__name__}:DummyExecutor",
                         "arg1": "3",
                         "arg2": "a",
                     },
-                    "alter": {"class": "%s:DummyExecutor" % __name__, "arg": "true"},
+                    "alter": {"class": f"{__name__}:DummyExecutor", "arg": "true"},
                 },
                 "jobstores": {
                     "default": {
-                        "class": "%s:DummyJobStore" % __name__,
+                        "class": f"{__name__}:DummyJobStore",
                         "arg1": "3",
                         "arg2": "a",
                     },
-                    "bar": {"class": "%s:DummyJobStore" % __name__, "arg": "false"},
+                    "bar": {"class": f"{__name__}:DummyJobStore", "arg": "false"},
                 },
             }
         )
@@ -745,19 +745,19 @@ Jobstore other:
                 },
                 "executors": {
                     "default": {
-                        "class": "%s:DummyExecutor" % __name__,
+                        "class": f"{__name__}:DummyExecutor",
                         "arg1": "3",
                         "arg2": "a",
                     },
-                    "alter": {"class": "%s:DummyExecutor" % __name__, "arg": "true"},
+                    "alter": {"class": f"{__name__}:DummyExecutor", "arg": "true"},
                 },
                 "jobstores": {
                     "default": {
-                        "class": "%s:DummyJobStore" % __name__,
+                        "class": f"{__name__}:DummyJobStore",
                         "arg1": "3",
                         "arg2": "a",
                     },
-                    "bar": {"class": "%s:DummyJobStore" % __name__, "arg": "false"},
+                    "bar": {"class": f"{__name__}:DummyJobStore", "arg": "false"},
                 },
             },
             {

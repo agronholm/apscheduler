@@ -173,4 +173,4 @@ class RethinkDBJobStore(BaseJobStore):
 
     def __repr__(self):
         connection = self.conn
-        return "<%s (connection=%s)>" % (self.__class__.__name__, connection)
+        return f"<{self.__class__.__name__} (connection={connection})>"
