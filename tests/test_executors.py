@@ -6,6 +6,7 @@ from asyncio import CancelledError
 from datetime import datetime
 from threading import Event
 from types import TracebackType
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from pytz import UTC, utc
@@ -21,11 +22,6 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.schedulers.tornado import TornadoScheduler
-
-try:
-    from unittest.mock import MagicMock, Mock, patch
-except ImportError:
-    from unittest.mock import MagicMock, Mock, patch
 
 
 @pytest.fixture

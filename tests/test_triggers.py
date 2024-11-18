@@ -1,6 +1,7 @@
 import pickle
 import random
 from datetime import date, datetime, timedelta
+from unittest.mock import Mock
 
 import pytest
 import pytz
@@ -10,11 +11,6 @@ from apscheduler.triggers.combining import AndTrigger, BaseCombiningTrigger, OrT
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-
-try:
-    from unittest.mock import Mock
-except ImportError:
-    from unittest.mock import Mock
 
 
 class _DummyTriggerWithJitter(BaseTrigger):
