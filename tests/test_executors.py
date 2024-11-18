@@ -104,17 +104,16 @@ def success():
     return 5
 
 
-def test_max_instances(mock_scheduler, executor, create_job, freeze_time):
+def test_max_instances(mock_scheduler, executor, create_job, timezone):
     """Tests that the maximum instance limit on a job is respected."""
     events = []
     mock_scheduler._dispatch_event = lambda event: events.append(event)
+    now = datetime.now(timezone)
     job = create_job(func=wait_event, max_instances=2, next_run_time=None)
-    executor.submit_job(job, [freeze_time.current])
-    executor.submit_job(job, [freeze_time.current])
+    executor.submit_job(job, [now])
+    executor.submit_job(job, [now])
 
-    pytest.raises(
-        MaxInstancesReachedError, executor.submit_job, job, [freeze_time.current]
-    )
+    pytest.raises(MaxInstancesReachedError, executor.submit_job, job, [now])
     executor.shutdown()
     assert len(events) == 2
     assert events[0].retval == "test"
@@ -130,9 +129,7 @@ def test_max_instances(mock_scheduler, executor, create_job, freeze_time):
     ],
     ids=["executed", "missed", "error"],
 )
-def test_submit_job(
-    mock_scheduler, executor, create_job, freeze_time, timezone, event_code, func
-):
+def test_submit_job(mock_scheduler, executor, create_job, timezone, event_code, func):
     """
     Tests that an EVENT_JOB_EXECUTED event is delivered to the scheduler if the job was
     successfully executed.
@@ -141,10 +138,11 @@ def test_submit_job(
     mock_scheduler._dispatch_event = MagicMock()
     job = create_job(func=func, id="foo")
     job._jobstore_alias = "test_jobstore"
+    now = datetime.now(timezone)
     run_time = (
         timezone.localize(datetime(1970, 1, 1))
         if event_code == EVENT_JOB_MISSED
-        else freeze_time.current
+        else now
     )
     executor.submit_job(job, [run_time])
     executor.shutdown()

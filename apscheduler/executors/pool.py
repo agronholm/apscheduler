@@ -1,4 +1,5 @@
 import concurrent.futures
+import multiprocessing
 from abc import abstractmethod
 from concurrent.futures.process import BrokenProcessPool
 
@@ -72,5 +73,6 @@ class ProcessPoolExecutor(BasePoolExecutor):
 
     def __init__(self, max_workers=10, pool_kwargs=None):
         pool_kwargs = pool_kwargs or {}
+        pool_kwargs.setdefault("mp_context", multiprocessing.get_context("spawn"))
         pool = concurrent.futures.ProcessPoolExecutor(int(max_workers), **pool_kwargs)
         super().__init__(pool)

@@ -9,6 +9,8 @@ UNRELEASED
 
 - Dropped support for Python 3.6 and 3.7
 - Removed the dependency on ``six``
+- Changed ``ProcessPoolExecutor`` to spawn new subprocesses from scratch instead of
+  forking on all platform
 
 
 3.10.4
