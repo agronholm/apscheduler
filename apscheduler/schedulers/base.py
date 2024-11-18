@@ -24,7 +24,7 @@ from apscheduler.events import (
     EVENT_SCHEDULER_PAUSED,
     EVENT_SCHEDULER_RESUMED,
     EVENT_SCHEDULER_SHUTDOWN,
-    EVENT_SCHEDULER_START,
+    EVENT_SCHEDULER_STARTED,
     JobEvent,
     JobSubmissionEvent,
     SchedulerEvent,
@@ -210,7 +210,7 @@ class BaseScheduler(metaclass=ABCMeta):
 
         self.state = STATE_PAUSED if paused else STATE_RUNNING
         self._logger.info("Scheduler started")
-        self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_START))
+        self._dispatch_event(SchedulerEvent(EVENT_SCHEDULER_STARTED))
 
         if not paused:
             self.wakeup()

@@ -16,6 +16,7 @@ __all__ = (
     "EVENT_JOB_MISSED",
     "EVENT_JOB_SUBMITTED",
     "EVENT_JOB_MAX_INSTANCES",
+    "EVENT_ALL",
     "SchedulerEvent",
     "JobEvent",
     "JobExecutionEvent",
