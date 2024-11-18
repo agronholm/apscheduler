@@ -23,25 +23,23 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11'
+        'Programming Language :: Python :: 3.12'
+        'Programming Language :: Python :: 3.13'
     ],
     keywords='scheduling cron',
     license='MIT',
     packages=find_packages(exclude=['tests']),
-    python_requires='>=3.6',
+    python_requires='>=3.8',
     setup_requires=[
         'setuptools_scm'
     ],
     install_requires=[
-        'six >= 1.4.0',
         'pytz',
         'tzlocal >= 2.0, != 3.*',
-        'importlib-metadata >= 3.6.0; python_version < "3.8"',
     ],
     extras_require={
         'gevent': ['gevent'],
@@ -53,15 +51,18 @@ setup(
         'twisted': ['twisted'],
         'zookeeper': ['kazoo'],
         'etcd': ['etcd3', 'protobuf <= 3.21.0'],
-        'testing': [
+        'test': [
             'pytest',
             'pytest_asyncio',
             'pytest-cov',
-            'pytest-tornado5'
+            'pytest-tornado5',
+            'PySide6; python_implementation == "CPython"',
+            'APScheduler[gevent,mongodb,redis,rethinkdb,sqlalchemy,tornado,twisted,zookeeper,etcd]'
         ],
         'doc': [
             'sphinx',
             'sphinx-rtd-theme',
+            'APScheduler[gevent,mongodb,redis,rethinkdb,sqlalchemy,tornado,twisted,zookeeper,etcd]',
         ],
     },
     zip_safe=False,

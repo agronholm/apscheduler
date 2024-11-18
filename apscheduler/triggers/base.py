@@ -2,10 +2,8 @@ from abc import ABCMeta, abstractmethod
 from datetime import timedelta
 import random
 
-import six
 
-
-class BaseTrigger(six.with_metaclass(ABCMeta)):
+class BaseTrigger(metaclass=ABCMeta):
     """Abstract base class that defines the interface that every trigger must implement."""
 
     __slots__ = ()

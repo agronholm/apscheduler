@@ -3,8 +3,6 @@
 from calendar import monthrange
 import re
 
-import six
-
 from apscheduler.triggers.cron.expressions import (
     AllExpression, RangeExpression, WeekdayPositionExpression, LastDayOfMonthExpression,
     WeekdayRangeExpression, MonthRangeExpression)
@@ -66,8 +64,7 @@ class BaseField(object):
                 try:
                     compiled_expr.validate_range(self.name)
                 except ValueError as e:
-                    exc = ValueError('Error validating expression {!r}: {}'.format(expr, e))
-                    six.raise_from(exc, None)
+                    raise ValueError('Error validating expression {!r}: {}'.format(expr, e)) from None
 
                 self.expressions.append(compiled_expr)
                 return

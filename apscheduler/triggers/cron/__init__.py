@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
 from tzlocal import get_localzone
-import six
 
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.cron.fields import (
@@ -63,7 +62,7 @@ class CronTrigger(BaseTrigger):
 
         self.jitter = jitter
 
-        values = dict((key, value) for (key, value) in six.iteritems(locals())
+        values = dict((key, value) for (key, value) in locals().items()
                       if key in self.FIELD_NAMES and value is not None)
         self.fields = []
         assign_defaults = False

@@ -8,7 +8,6 @@ import warnings
 import sys
 
 from tzlocal import get_localzone
-import six
 
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
 from apscheduler.executors.base import MaxInstancesReachedError, BaseExecutor
@@ -30,10 +29,7 @@ try:
 except ImportError:
     from collections import MutableMapping
 
-try:
-    from importlib.metadata import entry_points
-except ModuleNotFoundError:
-    from importlib_metadata import entry_points
+from importlib.metadata import entry_points
 
 #: constant indicating a scheduler's stopped state
 STATE_STOPPED = 0
@@ -43,7 +39,7 @@ STATE_RUNNING = 1
 STATE_PAUSED = 2
 
 
-class BaseScheduler(six.with_metaclass(ABCMeta)):
+class BaseScheduler(metaclass=ABCMeta):
     """
     Abstract base class for all schedulers.
 
@@ -121,13 +117,13 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         # global configuration dict
         if prefix:
             prefixlen = len(prefix)
-            gconfig = dict((key[prefixlen:], value) for key, value in six.iteritems(gconfig)
+            gconfig = dict((key[prefixlen:], value) for key, value in gconfig.items()
                            if key.startswith(prefix))
 
         # Create a structure from the dotted options
         # (e.g. "a.b.c = d" -> {'a': {'b': {'c': 'd'}}})
         config = {}
-        for key, value in six.iteritems(gconfig):
+        for key, value in gconfig.items():
             parts = key.split('.')
             parent = config
             key = parts.pop(0)
@@ -160,7 +156,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 self.add_executor(self._create_default_executor(), 'default')
 
             # Start all the executors
-            for alias, executor in six.iteritems(self._executors):
+            for alias, executor in self._executors.items():
                 executor.start(self, alias)
 
         with self._jobstores_lock:
@@ -169,7 +165,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 self.add_jobstore(self._create_default_jobstore(), 'default')
 
             # Start all the job stores
-            for alias, store in six.iteritems(self._jobstores):
+            for alias, store in self._jobstores.items():
                 store.start(self, alias)
 
             # Schedule all pending jobs
@@ -202,11 +198,11 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Shut down all executors
         with self._executors_lock, self._jobstores_lock:
-            for executor in six.itervalues(self._executors):
+            for executor in self._executors.values():
                 executor.shutdown(wait)
 
             # Shut down all job stores
-            for jobstore in six.itervalues(self._jobstores):
+            for jobstore in self._jobstores.values():
                 jobstore.shutdown()
 
         self._logger.info('Scheduler has been shut down')
@@ -267,7 +263,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
             if isinstance(executor, BaseExecutor):
                 self._executors[alias] = executor
-            elif isinstance(executor, six.string_types):
+            elif isinstance(executor, str):
                 self._executors[alias] = executor = self._create_plugin_instance(
                     'executor', executor, executor_opts)
             else:
@@ -317,7 +313,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
             if isinstance(jobstore, BaseJobStore):
                 self._jobstores[alias] = jobstore
-            elif isinstance(jobstore, six.string_types):
+            elif isinstance(jobstore, str):
                 self._jobstores[alias] = jobstore = self._create_plugin_instance(
                     'jobstore', jobstore, jobstore_opts)
             else:
@@ -443,7 +439,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             'max_instances': max_instances,
             'next_run_time': next_run_time
         }
-        job_kwargs = dict((key, value) for key, value in six.iteritems(job_kwargs) if
+        job_kwargs = dict((key, value) for key, value in job_kwargs.items() if
                           value is not undefined)
         job = Job(self, **job_kwargs)
 
@@ -579,7 +575,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     if jobstore is None or alias == jobstore:
                         jobs.append(job)
             else:
-                for alias, store in six.iteritems(self._jobstores):
+                for alias, store in self._jobstores.items():
                     if jobstore is None or alias == jobstore:
                         jobs.extend(store.get_all_jobs())
 
@@ -622,7 +618,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             else:
                 # Otherwise, try to remove it from each store until it succeeds or we run out of
                 # stores to check
-                for alias, store in six.iteritems(self._jobstores):
+                for alias, store in self._jobstores.items():
                     if jobstore in (None, alias):
                         try:
                             store.remove_job(job_id)
@@ -655,7 +651,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 else:
                     self._pending_jobs = []
             else:
-                for alias, store in six.iteritems(self._jobstores):
+                for alias, store in self._jobstores.items():
                     if jobstore in (None, alias):
                         store.remove_all_jobs()
 
@@ -684,7 +680,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 else:
                     print(u'    No pending jobs', file=out)
             else:
-                for alias, store in sorted(six.iteritems(self._jobstores)):
+                for alias, store in sorted(self._jobstores.items()):
                     if jobstore in (None, alias):
                         print(u'Jobstore %s:' % alias, file=out)
                         jobs = store.get_all_jobs()
@@ -721,7 +717,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Configure executors
         self._executors.clear()
-        for alias, value in six.iteritems(config.get('executors', {})):
+        for alias, value in config.get('executors', {}).items():
             if isinstance(value, BaseExecutor):
                 self.add_executor(value, alias)
             elif isinstance(value, MutableMapping):
@@ -745,7 +741,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
         # Configure job stores
         self._jobstores.clear()
-        for alias, value in six.iteritems(config.get('jobstores', {})):
+        for alias, value in config.get('jobstores', {}).items():
             if isinstance(value, BaseJobStore):
                 self.add_jobstore(value, alias)
             elif isinstance(value, MutableMapping):
@@ -821,7 +817,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     return job, None
         else:
             # Look in all job stores
-            for alias, store in six.iteritems(self._jobstores):
+            for alias, store in self._jobstores.items():
                 if jobstore_alias in (None, alias):
                     job = store.lookup_job(job_id)
                     if job is not None:
@@ -863,7 +859,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         """
         # Fill in undefined values with defaults
         replacements = {}
-        for key, value in six.iteritems(self._job_defaults):
+        for key, value in self._job_defaults.items():
             if not hasattr(job, key):
                 replacements[key] = value
 
@@ -924,7 +920,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             return trigger
         elif trigger is None:
             trigger = 'date'
-        elif not isinstance(trigger, six.string_types):
+        elif not isinstance(trigger, str):
             raise TypeError('Expected a trigger instance or string, got %s instead' %
                             trigger.__class__.__name__)
 
@@ -957,7 +953,7 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         events = []
 
         with self._jobstores_lock:
-            for jobstore_alias, jobstore in six.iteritems(self._jobstores):
+            for jobstore_alias, jobstore in self._jobstores.items():
                 try:
                     due_jobs = jobstore.get_due_jobs(now)
                 except Exception as e:

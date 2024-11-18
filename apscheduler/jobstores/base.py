@@ -1,8 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import logging
 
-import six
-
 
 class JobLookupError(KeyError):
     """Raised when the job store cannot find a job for update or removal."""
@@ -31,7 +29,7 @@ class TransientJobError(ValueError):
             u'could not be determined.' % job_id)
 
 
-class BaseJobStore(six.with_metaclass(ABCMeta)):
+class BaseJobStore(metaclass=ABCMeta):
     """Abstract base class that defines the interface that every job store must implement."""
 
     _scheduler = None

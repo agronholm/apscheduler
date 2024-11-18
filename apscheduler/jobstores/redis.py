@@ -2,7 +2,6 @@ from __future__ import absolute_import
 from datetime import datetime
 
 from pytz import utc
-import six
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import datetime_to_utc_timestamp, utc_timestamp_to_datetime
@@ -58,7 +57,7 @@ class RedisJobStore(BaseJobStore):
         job_ids = self.redis.zrangebyscore(self.run_times_key, 0, timestamp)
         if job_ids:
             job_states = self.redis.hmget(self.jobs_key, *job_ids)
-            return self._reconstitute_jobs(six.moves.zip(job_ids, job_states))
+            return self._reconstitute_jobs(zip(job_ids, job_states))
         return []
 
     def get_next_run_time(self):
@@ -68,7 +67,7 @@ class RedisJobStore(BaseJobStore):
 
     def get_all_jobs(self):
         job_states = self.redis.hgetall(self.jobs_key)
-        jobs = self._reconstitute_jobs(six.iteritems(job_states))
+        jobs = self._reconstitute_jobs(job_states.items())
         paused_sort_key = datetime(9999, 12, 31, tzinfo=utc)
         return sorted(jobs, key=lambda job: job.next_run_time or paused_sort_key)
 

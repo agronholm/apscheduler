@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -21,8 +21,8 @@ jobs:
         cache: pip
         cache-dependency-path: setup.py
     - name: Start external services
-      run: docker-compose up -d
+      run: docker compose up -d
     - name: Install the project and its dependencies
-      run: pip install -e .[testing,asyncio,gevent,mongodb,redis,rethinkdb,sqlalchemy,tornado,twisted,zookeeper,etcd]
+      run: pip install -e .[test]
     - name: Test with pytest
       run: pytest

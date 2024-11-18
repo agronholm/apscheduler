@@ -10,12 +10,13 @@ on:
 
 jobs:
   build:
+    name: Build the source tarball and the wheel
     runs-on: ubuntu-latest
     environment: release
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: 3.x
     - name: Install dependencies
@@ -23,12 +24,13 @@ jobs:
     - name: Create packages
       run: python -m build
     - name: Archive packages
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dist
         path: dist
 
   publish:
+    name: Publish build artifacts to the PyPI
     needs: build
     runs-on: ubuntu-latest
     environment: release
@@ -36,6 +38,6 @@ jobs:
       id-token: write
     steps:
     - name: Retrieve packages
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
     - name: Upload packages
       uses: pypa/gh-action-pypi-publish@release/v1
