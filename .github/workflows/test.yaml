@@ -19,7 +19,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: pip
-        cache-dependency-path: setup.py
+        cache-dependency-path: pyproject.toml
     - name: Start external services
       run: docker compose up -d
     - name: Install the project and its dependencies
