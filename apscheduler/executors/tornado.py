@@ -3,8 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from tornado.gen import convert_yielded
 
-from apscheduler.executors.base import BaseExecutor, run_job
-from apscheduler.executors.base_py3 import run_coroutine_job
+from apscheduler.executors.base import BaseExecutor, run_coroutine_job, run_job
 from apscheduler.util import iscoroutinefunction_partial
 
 

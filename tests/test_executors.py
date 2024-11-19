@@ -13,8 +13,11 @@ from pytz import UTC, utc
 
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, EVENT_JOB_MISSED
 from apscheduler.executors.asyncio import AsyncIOExecutor
-from apscheduler.executors.base import MaxInstancesReachedError, run_job
-from apscheduler.executors.base_py3 import run_coroutine_job
+from apscheduler.executors.base import (
+    MaxInstancesReachedError,
+    run_coroutine_job,
+    run_job,
+)
 from apscheduler.executors.pool import ProcessPoolExecutor
 from apscheduler.executors.tornado import TornadoExecutor
 from apscheduler.job import Job
