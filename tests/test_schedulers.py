@@ -761,6 +761,31 @@ class TestAsyncScheduler:
             with pytest.raises(JobLookupError), fail_after(1):
                 await scheduler.get_job_result(job_id, wait=False)
 
+    async def test_add_job_not_rewriting_task_config(self, raw_datastore: DataStore) -> None:
+        async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+            TASK_ID = 'task_dummy_async_job'
+            JOB_EXECUTOR = 'async'
+            MISFIRE_GRACE_TIME = timedelta(seconds=10)
+            MAX_RUNNING_JOBS = 5
+            METADATA = {'key': 'value'}
+
+            await scheduler.configure_task(
+                func_or_task_id=TASK_ID,
+                func=dummy_async_job,
+                job_executor=JOB_EXECUTOR,
+                misfire_grace_time=MISFIRE_GRACE_TIME,
+                max_running_jobs=MAX_RUNNING_JOBS,
+                metadata=METADATA,
+            )
+
+            assert await scheduler.add_job(TASK_ID)
+
+            task = await scheduler.data_store.get_task(TASK_ID)
+            assert task.job_executor == JOB_EXECUTOR
+            assert task.misfire_grace_time == MISFIRE_GRACE_TIME
+            assert task.max_running_jobs == MAX_RUNNING_JOBS
+            assert task.metadata == METADATA
+
     async def test_contextvars(self, mocker: MockerFixture, timezone: ZoneInfo) -> None:
         def check_contextvars() -> None:
             assert current_async_scheduler.get() is scheduler
