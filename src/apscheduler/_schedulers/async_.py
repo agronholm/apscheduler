@@ -1216,4 +1216,4 @@ class AsyncScheduler:
             finally:
                 current_job.reset(token)
         finally:
-            self._running_jobs.remove(job)
+            self._running_jobs.discard(job)
