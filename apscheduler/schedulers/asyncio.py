@@ -32,7 +32,7 @@ class AsyncIOScheduler(BaseScheduler):
 
     def start(self, paused=False):
         if not self._eventloop:
-            self._eventloop = asyncio.get_event_loop()
+            self._eventloop = asyncio.get_running_loop()
 
         super().start(paused)
 

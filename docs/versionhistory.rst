@@ -11,7 +11,8 @@ UNRELEASED
 - Removed the dependency on ``six``
 - Changed ``ProcessPoolExecutor`` to spawn new subprocesses from scratch instead of
   forking on all platform
-
+- Fixed ``AsyncIOScheduler`` inadvertently creating a defunct event loop at start,
+  leading to the scheduler not working at all
 
 3.10.4
 ------
