@@ -375,13 +375,15 @@ class AsyncScheduler:
                     metadata=task.metadata,
                 )
             except TaskLookupError:
-                task_params = get_task_params(func) if callable(func) else TaskParameters()
+                task_params = (
+                    get_task_params(func) if callable(func) else TaskParameters()
+                )
                 task_params.id = func_or_task_id
         else:
             raise TypeError(
                 "func_or_task_id must be either a task, its identifier or a callable"
             )
-        
+
         assert task_params.id
 
         # Apply any settings passed directly to this function as arguments

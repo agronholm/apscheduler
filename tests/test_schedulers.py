@@ -761,13 +761,15 @@ class TestAsyncScheduler:
             with pytest.raises(JobLookupError), fail_after(1):
                 await scheduler.get_job_result(job_id, wait=False)
 
-    async def test_add_job_not_rewriting_task_config(self, raw_datastore: DataStore) -> None:
+    async def test_add_job_not_rewriting_task_config(
+        self, raw_datastore: DataStore
+    ) -> None:
         async with AsyncScheduler(data_store=raw_datastore) as scheduler:
-            TASK_ID = 'task_dummy_async_job'
-            JOB_EXECUTOR = 'async'
+            TASK_ID = "task_dummy_async_job"
+            JOB_EXECUTOR = "async"
             MISFIRE_GRACE_TIME = timedelta(seconds=10)
             MAX_RUNNING_JOBS = 5
-            METADATA = {'key': 'value'}
+            METADATA = {"key": "value"}
 
             await scheduler.configure_task(
                 func_or_task_id=TASK_ID,
