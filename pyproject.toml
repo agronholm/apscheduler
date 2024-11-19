@@ -50,10 +50,12 @@ tornado = ["tornado >= 4.3"]
 twisted = ["twisted"]
 zookeeper = ["kazoo"]
 test = [
-    "APScheduler[gevent,mongodb,redis,rethinkdb,sqlalchemy,tornado,twisted,zookeeper,etcd]",
+    "APScheduler[mongodb,redis,rethinkdb,sqlalchemy,tornado,zookeeper,etcd]",
     "pytest",
     "pytest-asyncio >= 0.24.0",
-    "PySide6; python_implementation == 'CPython'",
+    "PySide6; python_implementation == 'CPython' and python_version < '3.14'",
+    "gevent; python_version < '3.14'",
+    "twisted; python_version < '3.14'",
 ]
 doc = [
     "APScheduler[gevent,mongodb,redis,rethinkdb,sqlalchemy,tornado,twisted,zookeeper,etcd]",
@@ -134,7 +136,7 @@ ignore = [
 known-first-party = ["apscheduler"]
 
 [tool.tox]
-env_list = ["py38", "py39", "py310", "py311", "py312", "py313", "pypy3"]
+env_list = ["py38", "py39", "py310", "py311", "py312", "py313", "py314", "pypy3"]
 skip_missing_interpreters = true
 
 [tool.tox.env_run_base]
