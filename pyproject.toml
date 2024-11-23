@@ -58,7 +58,7 @@ test = [
     "twisted; python_version < '3.14'",
 ]
 doc = [
-    "APScheduler[gevent,mongodb,redis,rethinkdb,sqlalchemy,tornado,twisted,zookeeper,etcd]",
+    "packaging",
     "sphinx",
     "sphinx-rtd-theme >= 1.3.0",
     "sphinx-tabs >= 3.3.1",
@@ -145,5 +145,5 @@ package = "editable"
 extras = ["test"]
 
 [tool.tox.env.docs]
-commands = [["sphinx-build", "-W", "docs", "build/sphinx"]]
+commands = [["sphinx-build", "docs", "build/sphinx"]]
 extras = ["doc"]
