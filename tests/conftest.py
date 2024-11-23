@@ -10,6 +10,11 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 
 
 @pytest.fixture
+def anyio_backend():
+    return "asyncio"
+
+
+@pytest.fixture
 def timezone(monkeypatch):
     tz = pytz.timezone("Europe/Berlin")
     monkeypatch.setattr(

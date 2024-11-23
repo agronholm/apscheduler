@@ -51,15 +51,15 @@ def executor(request, mock_scheduler):
 
 
 @pytest.fixture
-def asyncio_scheduler(event_loop):
-    scheduler = AsyncIOScheduler(event_loop=event_loop)
+async def asyncio_scheduler():
+    scheduler = AsyncIOScheduler()
     scheduler.start(paused=True)
     yield scheduler
     scheduler.shutdown(False)
 
 
 @pytest.fixture
-def asyncio_executor(asyncio_scheduler):
+async def asyncio_executor(asyncio_scheduler):
     executor = AsyncIOExecutor()
     executor.start(asyncio_scheduler, "default")
     yield executor
@@ -207,7 +207,7 @@ def test_run_job_memory_leak():
     assert len(foos) == 0
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_run_async_job_memory_leak():
     class FooBar:
         pass
@@ -253,7 +253,7 @@ def test_broken_pool():
 
 
 @pytest.mark.parametrize("exception", [False, True])
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_run_coroutine_job(asyncio_scheduler, asyncio_executor, exception):
     from asyncio import Future, sleep
 
@@ -273,7 +273,7 @@ async def test_run_coroutine_job(asyncio_scheduler, asyncio_executor, exception)
 
 
 @pytest.mark.parametrize("exception", [False, True])
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_run_coroutine_job_tornado(
     tornado_scheduler, tornado_executor, exception
 ):
@@ -295,7 +295,7 @@ async def test_run_coroutine_job_tornado(
         assert events[0].retval is True
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_asyncio_executor_shutdown(asyncio_scheduler, asyncio_executor):
     """Test that the AsyncIO executor cancels its pending tasks on shutdown."""
     from asyncio import sleep

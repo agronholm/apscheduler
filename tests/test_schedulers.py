@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import pickle
 from datetime import datetime, timedelta
@@ -37,6 +38,7 @@ from apscheduler.schedulers import (
     SchedulerAlreadyRunningError,
     SchedulerNotRunningError,
 )
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.base import STATE_RUNNING, STATE_STOPPED, BaseScheduler
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import undefined
@@ -1148,20 +1150,22 @@ class TestBackgroundScheduler(SchedulerImplementationTestBase):
 
 class TestAsyncIOScheduler(SchedulerImplementationTestBase):
     @pytest.fixture
-    def scheduler(self, event_loop):
-        asyncio = pytest.importorskip("apscheduler.schedulers.asyncio")
-        return asyncio.AsyncIOScheduler(event_loop=event_loop)
+    def scheduler(self):
+        return AsyncIOScheduler()
 
     @pytest.fixture
-    def start_scheduler(self, request, event_loop, scheduler):
-        event_loop.call_soon_threadsafe(scheduler.start)
+    def start_scheduler(self, request, scheduler):
+        event_loop = asyncio.new_event_loop()
+        event_loop.call_soon(scheduler.start)
         thread = Thread(target=event_loop.run_forever)
         yield thread.start
 
         if scheduler.running:
             event_loop.call_soon_threadsafe(scheduler.shutdown)
+
         event_loop.call_soon_threadsafe(event_loop.stop)
         thread.join()
+        event_loop.close()
 
 
 class TestGeventScheduler(SchedulerImplementationTestBase):

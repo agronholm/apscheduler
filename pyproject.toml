@@ -53,7 +53,7 @@ zookeeper = ["kazoo"]
 test = [
     "APScheduler[mongodb,redis,rethinkdb,sqlalchemy,tornado,zookeeper,etcd]",
     "pytest",
-    "pytest-asyncio >= 0.24.0",
+    "anyio >= 4.5.2",
     "PySide6; python_implementation == 'CPython' and python_version < '3.14'",
     "gevent; python_version < '3.14'",
     "twisted; python_version < '3.14'",
@@ -98,8 +98,6 @@ local_scheme = "dirty-tag"
 addopts = "-rsx --tb=short"
 testpaths = "tests"
 filterwarnings = "always"
-asyncio_mode = "strict"
-asyncio_default_fixture_loop_scope = "function"
 markers = [
     "external_service: marks tests as requiring some external service",
 ]
