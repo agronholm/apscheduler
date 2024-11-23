@@ -50,6 +50,15 @@ class AndTrigger(BaseCombiningTrigger):
 
     Trigger alias: ``and``
 
+    .. warning:: This trigger should only be used to combine triggers that fire on
+        specific times of day, such as
+        :class:`~apscheduler.triggers.cron.CronTrigger` and
+        class:`~apscheduler.triggers.calendarinterval.CalendarIntervalTrigger`.
+        Attempting to use it with
+        :class:`~apscheduler.triggers.interval.IntervalTrigger` will likely result in
+        the scheduler hanging as it tries to find a fire time that matches exactly
+        between fire times produced by all the given triggers.
+
     :param list triggers: triggers to combine
     :param int|None jitter: delay the job execution by ``jitter`` seconds at most
     """
