@@ -16,7 +16,7 @@ If you don't have pip installed, you can easily install it by downloading and ru
 If, for some reason, pip won't work, you can manually `download the APScheduler distribution
 <https://pypi.python.org/pypi/APScheduler/>`_ from PyPI, extract and then install it::
 
-    $ python setup.py install
+    $ pip install .
 
 
 Code examples
