@@ -21,13 +21,17 @@ __all__ = (
 
 import re
 import sys
-from asyncio import iscoroutinefunction
 from calendar import timegm
 from datetime import date, datetime, time, timedelta, tzinfo
 from functools import partial
 from inspect import isbuiltin, isclass, isfunction, ismethod, signature
 
 from pytz import FixedOffset, timezone, utc
+
+if sys.version_info < (3, 14):
+    from asyncio import iscoroutinefunction
+else:
+    from inspect import iscoroutinefunction
 
 if sys.version_info < (3, 9):
     from backports.zoneinfo import ZoneInfo
