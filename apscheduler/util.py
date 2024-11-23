@@ -20,6 +20,7 @@ __all__ = (
 )
 
 import re
+import sys
 from asyncio import iscoroutinefunction
 from calendar import timegm
 from datetime import date, datetime, time, timedelta, tzinfo
@@ -27,6 +28,11 @@ from functools import partial
 from inspect import isbuiltin, isclass, isfunction, ismethod, signature
 
 from pytz import FixedOffset, timezone, utc
+
+if sys.version_info < (3, 9):
+    from backports.zoneinfo import ZoneInfo
+else:
+    from zoneinfo import ZoneInfo
 
 
 class _Undefined:
@@ -100,6 +106,40 @@ def astimezone(obj):
 
     if obj is not None:
         raise TypeError(f"Expected tzinfo, got {obj.__class__.__name__} instead")
+
+
+def aszoneinfo(obj):
+    """
+    Interprets an object as a timezone.
+
+    :rtype: tzinfo
+
+    """
+    if isinstance(obj, ZoneInfo):
+        return obj
+
+    if isinstance(obj, str):
+        return ZoneInfo(obj)
+
+    if isinstance(obj, tzinfo):
+        tzname = obj.tzname(None)
+        if tzname == "local":
+            raise ValueError(
+                "Unable to determine the name of the local timezone -- you must "
+                "explicitly specify the name of the local timezone. Please refrain "
+                "from using timezones like EST to prevent problems with daylight "
+                "saving time. Instead, use a locale based timezone name (such as "
+                "Europe/Helsinki)."
+            )
+
+        return ZoneInfo(tzname)
+
+
+def asdate(obj):
+    if isinstance(obj, str):
+        return date.fromisoformat(obj)
+
+    return obj
 
 
 _DATE_REGEX = re.compile(
@@ -216,6 +256,16 @@ def datetime_ceil(dateval):
 
 def datetime_repr(dateval):
     return dateval.strftime("%Y-%m-%d %H:%M:%S %Z") if dateval else "None"
+
+
+def timezone_repr(timezone: tzinfo) -> str:
+    if isinstance(timezone, ZoneInfo):
+        return timezone.key
+    elif hasattr(timezone, "zone"):
+        # named pytz timezones
+        return timezone.zone
+    else:
+        return repr(timezone)
 
 
 def get_callable_name(func):

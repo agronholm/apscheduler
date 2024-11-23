@@ -8,6 +8,7 @@ UNRELEASED
 ----------
 
 - Dropped support for Python 3.6 and 3.7
+- Added ``CalendarIntervalTrigger``, backported from the 4.x series
 - Removed the dependency on ``six``
 - Changed ``ProcessPoolExecutor`` to spawn new subprocesses from scratch instead of
   forking on all platform

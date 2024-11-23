@@ -29,7 +29,8 @@ license = {text = "MIT"}
 requires-python = ">= 3.8"
 dependencies = [
     "pytz",
-    "tzlocal >= 2.0, != 3.*"
+    "tzlocal >= 2.0, != 3.*",
+    "backports.zoneinfo; python_version < '3.9'"
 ]
 dynamic = ["version"]
 
@@ -65,6 +66,7 @@ doc = [
 ]
 
 [project.entry-points."apscheduler.triggers"]
+calendarinterval = "apscheduler.triggers.calendarinterval:CalendarIntervalTrigger"
 date = "apscheduler.triggers.date:DateTrigger"
 interval = "apscheduler.triggers.interval:IntervalTrigger"
 cron = "apscheduler.triggers.cron:CronTrigger"
