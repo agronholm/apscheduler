@@ -16,8 +16,6 @@ from apscheduler.util import (
     convert_to_datetime,
     datetime_ceil,
     datetime_repr,
-    localize,
-    normalize,
 )
 
 
@@ -84,9 +82,9 @@ class CronTrigger(BaseTrigger):
         if timezone:
             self.timezone = astimezone(timezone)
         elif isinstance(start_date, datetime) and start_date.tzinfo:
-            self.timezone = start_date.tzinfo
+            self.timezone = astimezone(start_date.tzinfo)
         elif isinstance(end_date, datetime) and end_date.tzinfo:
-            self.timezone = end_date.tzinfo
+            self.timezone = astimezone(end_date.tzinfo)
         else:
             self.timezone = get_localzone()
 
@@ -185,7 +183,10 @@ class CronTrigger(BaseTrigger):
                     i += 1
 
         difference = datetime(**values) - dateval.replace(tzinfo=None)
-        return normalize(dateval + difference), fieldnum
+        dateval = datetime.fromtimestamp(
+            dateval.timestamp() + difference.total_seconds(), self.timezone
+        )
+        return dateval, fieldnum
 
     def _set_field_value(self, dateval, fieldnum, new_value):
         values = {}
@@ -198,7 +199,7 @@ class CronTrigger(BaseTrigger):
                 else:
                     values[field.name] = new_value
 
-        return localize(datetime(**values), self.timezone)
+        return datetime(**values, tzinfo=self.timezone, fold=dateval.fold)
 
     def get_next_fire_time(self, previous_fire_time, now):
         if previous_fire_time:
@@ -262,7 +263,7 @@ class CronTrigger(BaseTrigger):
                 f"{self.__class__.__name__}, but only versions up to 2 can be handled"
             )
 
-        self.timezone = state["timezone"]
+        self.timezone = astimezone(state["timezone"])
         self.start_date = state["start_date"]
         self.end_date = state["end_date"]
         self.fields = state["fields"]

@@ -8,6 +8,7 @@ UNRELEASED
 ----------
 
 - Dropped support for Python 3.6 and 3.7
+- Added support for ``ZoneInfo`` time zones and deprecated support for pytz time zones
 - Added ``CalendarIntervalTrigger``, backported from the 4.x series
 - Removed the dependency on ``six``
 - Changed ``ProcessPoolExecutor`` to spawn new subprocesses from scratch instead of

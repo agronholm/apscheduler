@@ -1,5 +1,6 @@
 import pickle
 import random
+import sys
 from datetime import date, datetime, timedelta
 from unittest.mock import Mock
 
@@ -11,6 +12,12 @@ from apscheduler.triggers.combining import AndTrigger, BaseCombiningTrigger, OrT
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.util import localize
+
+if sys.version_info < (3, 9):
+    from backports.zoneinfo import ZoneInfo
+else:
+    from zoneinfo import ZoneInfo
 
 
 class _DummyTriggerWithJitter(BaseTrigger):
@@ -88,14 +95,14 @@ class TestCronTrigger:
             "timezone='Europe/Berlin')>"
         )
         assert str(trigger) == "cron[year='2009/2', month='1/3', day='5-13']"
-        start_date = timezone.localize(datetime(2008, 12, 1))
-        correct_next_date = timezone.localize(datetime(2009, 1, 5))
+        start_date = localize(datetime(2008, 12, 1), timezone)
+        correct_next_date = localize(datetime(2009, 1, 5), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_cron_trigger_2(self, timezone):
         trigger = CronTrigger(year="2009/2", month="1/3", day="5-13", timezone=timezone)
-        start_date = timezone.localize(datetime(2009, 10, 14))
-        correct_next_date = timezone.localize(datetime(2011, 1, 5))
+        start_date = localize(datetime(2009, 10, 14), timezone)
+        correct_next_date = localize(datetime(2011, 1, 5), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_cron_trigger_3(self, timezone):
@@ -106,8 +113,8 @@ class TestCronTrigger:
             "<CronTrigger (year='2009', month='feb-dec', hour='8-10', "
             "timezone='Europe/Berlin')>"
         )
-        start_date = timezone.localize(datetime(2009, 1, 1))
-        correct_next_date = timezone.localize(datetime(2009, 2, 1, 8))
+        start_date = localize(datetime(2009, 1, 1), timezone)
+        correct_next_date = localize(datetime(2009, 2, 1, 8), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_cron_trigger_4(self, timezone):
@@ -116,8 +123,8 @@ class TestCronTrigger:
             "<CronTrigger (year='2012', month='2', day='last', "
             "timezone='Europe/Berlin')>"
         )
-        start_date = timezone.localize(datetime(2012, 2, 1))
-        correct_next_date = timezone.localize(datetime(2012, 2, 29))
+        start_date = localize(datetime(2012, 2, 1), timezone)
+        correct_next_date = localize(datetime(2012, 2, 29), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_start_end_times_string(self, timezone, monkeypatch):
@@ -127,8 +134,8 @@ class TestCronTrigger:
         trigger = CronTrigger(
             start_date="2016-11-05 05:06:53", end_date="2017-11-05 05:11:32"
         )
-        assert trigger.start_date == timezone.localize(datetime(2016, 11, 5, 5, 6, 53))
-        assert trigger.end_date == timezone.localize(datetime(2017, 11, 5, 5, 11, 32))
+        assert trigger.start_date == localize(datetime(2016, 11, 5, 5, 6, 53), timezone)
+        assert trigger.end_date == localize(datetime(2017, 11, 5, 5, 11, 32), timezone)
 
     def test_cron_zero_value(self, timezone):
         trigger = CronTrigger(year=2009, month=2, hour=0, timezone=timezone)
@@ -144,8 +151,8 @@ class TestCronTrigger:
             == "<CronTrigger (year='2009,2008', timezone='Europe/Berlin')>"
         )
         assert str(trigger) == "cron[year='2009,2008']"
-        start_date = timezone.localize(datetime(2009, 1, 1))
-        correct_next_date = timezone.localize(datetime(2009, 1, 1))
+        start_date = localize(datetime(2009, 1, 1), timezone)
+        correct_next_date = localize(datetime(2009, 1, 1), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_cron_start_date(self, timezone):
@@ -162,30 +169,30 @@ class TestCronTrigger:
             "timezone='Europe/Berlin')>"
         )
         assert str(trigger) == "cron[year='2009', month='2', hour='8-10']"
-        start_date = timezone.localize(datetime(2009, 1, 1))
-        correct_next_date = timezone.localize(datetime(2009, 2, 4, 8))
+        start_date = localize(datetime(2009, 1, 1), timezone)
+        correct_next_date = localize(datetime(2009, 2, 4, 8), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_previous_fire_time_1(self, timezone):
         """Test for previous_fire_time arg in get_next_fire_time()"""
         trigger = CronTrigger(day="*", timezone=timezone)
-        previous_fire_time = timezone.localize(datetime(2015, 11, 23))
-        now = timezone.localize(datetime(2015, 11, 26))
-        correct_next_date = timezone.localize(datetime(2015, 11, 24))
+        previous_fire_time = localize(datetime(2015, 11, 23), timezone)
+        now = localize(datetime(2015, 11, 26), timezone)
+        correct_next_date = localize(datetime(2015, 11, 24), timezone)
         assert trigger.get_next_fire_time(previous_fire_time, now) == correct_next_date
 
     def test_previous_fire_time_2(self, timezone):
         trigger = CronTrigger(day="*", timezone=timezone)
-        previous_fire_time = timezone.localize(datetime(2015, 11, 23))
-        now = timezone.localize(datetime(2015, 11, 22))
-        correct_next_date = timezone.localize(datetime(2015, 11, 22))
+        previous_fire_time = localize(datetime(2015, 11, 23), timezone)
+        now = localize(datetime(2015, 11, 22), timezone)
+        correct_next_date = localize(datetime(2015, 11, 22), timezone)
         assert trigger.get_next_fire_time(previous_fire_time, now) == correct_next_date
 
     def test_previous_fire_time_3(self, timezone):
         trigger = CronTrigger(day="*", timezone=timezone)
-        previous_fire_time = timezone.localize(datetime(2016, 4, 25))
-        now = timezone.localize(datetime(2016, 4, 25))
-        correct_next_date = timezone.localize(datetime(2016, 4, 26))
+        previous_fire_time = localize(datetime(2016, 4, 25), timezone)
+        now = localize(datetime(2016, 4, 25), timezone)
+        correct_next_date = localize(datetime(2016, 4, 26), timezone)
         assert trigger.get_next_fire_time(previous_fire_time, now) == correct_next_date
 
     def test_cron_weekday_overlap(self, timezone):
@@ -200,8 +207,8 @@ class TestCronTrigger:
             str(trigger)
             == "cron[year='2009', month='1', day='6-10', day_of_week='2-4']"
         )
-        start_date = timezone.localize(datetime(2009, 1, 1))
-        correct_next_date = timezone.localize(datetime(2009, 1, 7))
+        start_date = localize(datetime(2009, 1, 1), timezone)
+        correct_next_date = localize(datetime(2009, 1, 7), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_cron_weekday_nomatch(self, timezone):
@@ -216,7 +223,7 @@ class TestCronTrigger:
             str(trigger)
             == "cron[year='2009', month='1', day='6-10', day_of_week='0,6']"
         )
-        start_date = timezone.localize(datetime(2009, 1, 1))
+        start_date = localize(datetime(2009, 1, 1), timezone)
         correct_next_date = None
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
@@ -227,8 +234,8 @@ class TestCronTrigger:
             "timezone='Europe/Berlin')>"
         )
         assert str(trigger) == "cron[year='2009', month='1', day='4th wed']"
-        start_date = timezone.localize(datetime(2009, 1, 1))
-        correct_next_date = timezone.localize(datetime(2009, 1, 28))
+        start_date = localize(datetime(2009, 1, 1), timezone)
+        correct_next_date = localize(datetime(2009, 1, 28), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_week_1(self, timezone):
@@ -238,8 +245,8 @@ class TestCronTrigger:
             "timezone='Europe/Berlin')>"
         )
         assert str(trigger) == "cron[year='2009', month='2', week='8']"
-        start_date = timezone.localize(datetime(2009, 1, 1))
-        correct_next_date = timezone.localize(datetime(2009, 2, 16))
+        start_date = localize(datetime(2009, 1, 1), timezone)
+        correct_next_date = localize(datetime(2009, 2, 16), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_week_2(self, timezone):
@@ -249,8 +256,8 @@ class TestCronTrigger:
             "timezone='Europe/Berlin')>"
         )
         assert str(trigger) == "cron[year='2009', week='15', day_of_week='2']"
-        start_date = timezone.localize(datetime(2009, 1, 1))
-        correct_next_date = timezone.localize(datetime(2009, 4, 8))
+        start_date = localize(datetime(2009, 1, 1), timezone)
+        correct_next_date = localize(datetime(2009, 4, 8), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_cron_extra_coverage(self, timezone):
@@ -258,8 +265,8 @@ class TestCronTrigger:
         trigger = CronTrigger(day="6,8", timezone=timezone)
         assert repr(trigger) == "<CronTrigger (day='6,8', timezone='Europe/Berlin')>"
         assert str(trigger) == "cron[day='6,8']"
-        start_date = timezone.localize(datetime(2009, 12, 31))
-        correct_next_date = timezone.localize(datetime(2010, 1, 6))
+        start_date = localize(datetime(2009, 12, 31), timezone)
+        correct_next_date = localize(datetime(2010, 1, 6), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_cron_faulty_expr(self, timezone):
@@ -274,8 +281,8 @@ class TestCronTrigger:
         trigger = CronTrigger(hour="5-6", timezone=timezone)
         assert repr(trigger) == "<CronTrigger (hour='5-6', timezone='Europe/Berlin')>"
         assert str(trigger) == "cron[hour='5-6']"
-        start_date = timezone.localize(datetime(2009, 9, 25, 7))
-        correct_next_date = timezone.localize(datetime(2009, 9, 26, 5))
+        start_date = localize(datetime(2009, 9, 25, 7), timezone)
+        correct_next_date = localize(datetime(2009, 9, 26, 5), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_cron_bad_kwarg(self, timezone):
@@ -283,25 +290,25 @@ class TestCronTrigger:
 
     def test_month_rollover(self, timezone):
         trigger = CronTrigger(timezone=timezone, day=30)
-        now = timezone.localize(datetime(2016, 2, 1))
-        expected = timezone.localize(datetime(2016, 3, 30))
+        now = localize(datetime(2016, 2, 1), timezone)
+        expected = localize(datetime(2016, 3, 30), timezone)
         assert trigger.get_next_fire_time(None, now) == expected
 
     def test_timezone_from_start_date(self, timezone):
         """
-        Tests that the trigger takes the timezone from the start_date parameter if no timezone is
-        supplied.
+        Tests that the trigger takes the timezone from the start_date parameter if no
+        timezone is supplied.
 
         """
-        start_date = timezone.localize(datetime(2014, 4, 13, 5, 30))
+        start_date = localize(datetime(2014, 4, 13, 5, 30), timezone)
         trigger = CronTrigger(year=2014, hour=4, start_date=start_date)
-        assert trigger.timezone == start_date.tzinfo
+        assert trigger.timezone.key == "Europe/Berlin"
 
     def test_end_date(self, timezone):
-        end_date = timezone.localize(datetime(2014, 4, 13, 3))
+        end_date = localize(datetime(2014, 4, 13, 3), timezone)
         trigger = CronTrigger(year=2014, hour=4, end_date=end_date)
 
-        start_date = timezone.localize(datetime(2014, 4, 13, 2, 30))
+        start_date = localize(datetime(2014, 4, 13, 2, 30), timezone)
         assert trigger.get_next_fire_time(
             None, start_date - timedelta(1)
         ) == start_date.replace(day=12, hour=4, minute=0)
@@ -316,24 +323,24 @@ class TestCronTrigger:
         )
         assert str(trigger) == "cron[year='2009', week='15', day_of_week='2']"
         start_date = alter_tz.localize(datetime(2008, 12, 31, 22))
-        correct_next_date = timezone.localize(datetime(2009, 4, 8))
+        correct_next_date = localize(datetime(2009, 4, 8), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     @pytest.mark.parametrize(
-        "trigger_args, start_date, start_date_dst, correct_next_date",
+        "trigger_args, start_date, start_date_fold, correct_next_date",
         [
             ({"hour": 8}, datetime(2013, 3, 9, 12), False, datetime(2013, 3, 10, 8)),
             ({"hour": 8}, datetime(2013, 11, 2, 12), True, datetime(2013, 11, 3, 8)),
             (
                 {"minute": "*/30"},
                 datetime(2013, 3, 10, 1, 35),
-                False,
+                1,
                 datetime(2013, 3, 10, 3),
             ),
             (
                 {"minute": "*/30"},
                 datetime(2013, 11, 3, 1, 35),
-                True,
+                0,
                 datetime(2013, 11, 3, 1),
             ),
         ],
@@ -345,7 +352,7 @@ class TestCronTrigger:
         ],
     )
     def test_dst_change(
-        self, trigger_args, start_date, start_date_dst, correct_next_date
+        self, trigger_args, start_date, start_date_fold, correct_next_date
     ):
         """
         Making sure that CronTrigger works correctly when crossing the DST switch threshold.
@@ -353,12 +360,10 @@ class TestCronTrigger:
         comparison which would test for equality in the UTC timezone.
 
         """
-        timezone = pytz.timezone("US/Eastern")
+        timezone = ZoneInfo("US/Eastern")
         trigger = CronTrigger(timezone=timezone, **trigger_args)
-        start_date = timezone.localize(start_date, is_dst=start_date_dst)
-        correct_next_date = timezone.localize(
-            correct_next_date, is_dst=not start_date_dst
-        )
+        start_date = start_date.replace(tzinfo=timezone, fold=start_date_fold)
+        correct_next_date = correct_next_date.replace(tzinfo=timezone, fold=1)
         assert str(trigger.get_next_fire_time(None, start_date)) == str(
             correct_next_date
         )
@@ -398,7 +403,7 @@ class TestCronTrigger:
 
     def test_jitter_produces_differrent_valid_results(self, timezone):
         trigger = CronTrigger(minute="*", jitter=5)
-        now = timezone.localize(datetime(2017, 11, 12, 6, 55, 30))
+        now = localize(datetime(2017, 11, 12, 6, 55, 30), timezone)
 
         results = set()
         for _ in range(0, 100):
@@ -422,7 +427,7 @@ class TestCronTrigger:
             ) <= timedelta(seconds=5)
 
     @pytest.mark.parametrize(
-        "trigger_args, start_date, start_date_dst, correct_next_date",
+        "trigger_args, start_date, fold, correct_next_date",
         [
             ({"hour": 8}, datetime(2013, 3, 9, 12), False, datetime(2013, 3, 10, 8)),
             ({"hour": 8}, datetime(2013, 11, 2, 12), True, datetime(2013, 11, 3, 8)),
@@ -446,23 +451,19 @@ class TestCronTrigger:
             "interval_autumn",
         ],
     )
-    def test_jitter_dst_change(
-        self, trigger_args, start_date, start_date_dst, correct_next_date
-    ):
-        timezone = pytz.timezone("US/Eastern")
+    def test_jitter_dst_change(self, trigger_args, start_date, fold, correct_next_date):
+        timezone = ZoneInfo("US/Eastern")
         trigger = CronTrigger(timezone=timezone, jitter=5, **trigger_args)
-        start_date = timezone.localize(start_date, is_dst=start_date_dst)
-        correct_next_date = timezone.localize(
-            correct_next_date, is_dst=not start_date_dst
-        )
+        start_date = start_date.replace(tzinfo=timezone)
+        correct_next_date = correct_next_date.replace(tzinfo=timezone)
 
         for _ in range(0, 100):
             next_fire_time = trigger.get_next_fire_time(None, start_date)
             assert abs(next_fire_time - correct_next_date) <= timedelta(seconds=5)
 
     def test_jitter_with_end_date(self, timezone):
-        now = timezone.localize(datetime(2017, 11, 12, 6, 55, 30))
-        end_date = timezone.localize(datetime(2017, 11, 12, 6, 56, 0))
+        now = localize(datetime(2017, 11, 12, 6, 55, 30), timezone)
+        end_date = localize(datetime(2017, 11, 12, 6, 56, 0), timezone)
         trigger = CronTrigger(minute="*", jitter=5, end_date=end_date)
 
         for _ in range(0, 100):
@@ -591,9 +592,9 @@ class TestDateTrigger:
         self, run_date, alter_tz, previous, now, expected, timezone, freeze_time
     ):
         trigger = DateTrigger(run_date, alter_tz or timezone)
-        previous = timezone.localize(previous) if previous else None
-        now = timezone.localize(now)
-        expected = timezone.localize(expected) if expected else None
+        previous = localize(previous, timezone) if previous else None
+        now = localize(now, timezone)
+        expected = localize(expected, timezone) if expected else None
         assert trigger.get_next_fire_time(previous, now) == expected
 
     @pytest.mark.parametrize(
@@ -647,8 +648,8 @@ class TestIntervalTrigger:
         trigger = IntervalTrigger(
             start_date="2016-11-05 05:06:53", end_date="2017-11-05 05:11:32"
         )
-        assert trigger.start_date == timezone.localize(datetime(2016, 11, 5, 5, 6, 53))
-        assert trigger.end_date == timezone.localize(datetime(2017, 11, 5, 5, 11, 32))
+        assert trigger.start_date == localize(datetime(2016, 11, 5, 5, 6, 53), timezone)
+        assert trigger.end_date == localize(datetime(2017, 11, 5, 5, 11, 32), timezone)
 
     def test_before(self, trigger, timezone):
         """Tests that if "start_date" is later than "now", it will return start_date."""
@@ -677,12 +678,12 @@ class TestIntervalTrigger:
         start_date = alter_tz.localize(
             datetime(2009, 8, 3, 22, second=2, microsecond=1000)
         )
-        correct_next_date = timezone.localize(datetime(2009, 8, 4, 1, second=3))
+        correct_next_date = localize(datetime(2009, 8, 4, 1, second=3), timezone)
         assert trigger.get_next_fire_time(None, start_date) == correct_next_date
 
     def test_end_date(self, timezone):
         """Tests that the interval trigger won't return any datetimes past the set end time."""
-        start_date = timezone.localize(datetime(2014, 5, 26))
+        start_date = localize(datetime(2014, 5, 26), timezone)
         trigger = IntervalTrigger(
             minutes=5,
             start_date=start_date,
@@ -703,21 +704,21 @@ class TestIntervalTrigger:
         comparison which would test for equality in the UTC timezone.
 
         """
-        eastern = pytz.timezone("US/Eastern")
+        eastern = ZoneInfo("US/Eastern")
         start_date = datetime(2013, 3, 1)  # Start within EDT
         trigger = IntervalTrigger(hours=1, start_date=start_date, timezone=eastern)
 
-        datetime_edt = eastern.localize(datetime(2013, 3, 10, 1, 5), is_dst=False)
-        correct_next_date = eastern.localize(datetime(2013, 3, 10, 3), is_dst=True)
+        datetime_edt = datetime(2013, 3, 10, 1, 5, tzinfo=eastern)
+        correct_next_date = datetime(2013, 3, 10, 3, tzinfo=eastern)
         assert str(trigger.get_next_fire_time(None, datetime_edt)) == str(
             correct_next_date
         )
 
-        datetime_est = eastern.localize(datetime(2013, 11, 3, 1, 5), is_dst=True)
-        correct_next_date = eastern.localize(datetime(2013, 11, 3, 1), is_dst=False)
-        assert str(trigger.get_next_fire_time(None, datetime_est)) == str(
-            correct_next_date
-        )
+        datetime_est = datetime(2013, 11, 3, 1, 5, tzinfo=eastern)
+        correct_next_date = datetime(2013, 11, 3, 1, tzinfo=eastern, fold=1)
+        next_fire_time = trigger.get_next_fire_time(None, datetime_est)
+        assert next_fire_time == correct_next_date
+        assert str(next_fire_time) == str(correct_next_date)
 
     def test_space_in_expr(self, timezone):
         trigger = CronTrigger(day="1-2, 4-7", timezone=timezone)
@@ -802,8 +803,8 @@ class TestIntervalTrigger:
             assert abs(next_fire_time - correct_next_date) <= timedelta(seconds=5)
 
     def test_jitter_with_end_date(self, timezone):
-        now = timezone.localize(datetime(2017, 11, 12, 6, 55, 58))
-        end_date = timezone.localize(datetime(2017, 11, 12, 6, 56, 0))
+        now = localize(datetime(2017, 11, 12, 6, 55, 58), timezone)
+        end_date = localize(datetime(2017, 11, 12, 6, 56, 0), timezone)
         trigger = IntervalTrigger(seconds=5, jitter=5, end_date=end_date)
 
         for _ in range(0, 100):
@@ -819,12 +820,12 @@ class TestAndTrigger:
                 CronTrigger(
                     month="5-8",
                     day="6-15",
-                    end_date=timezone.localize(datetime(2017, 8, 10)),
+                    end_date=localize(datetime(2017, 8, 10), timezone),
                 ),
                 CronTrigger(
                     month="6-9",
                     day="*/3",
-                    end_date=timezone.localize(datetime(2017, 9, 7)),
+                    end_date=localize(datetime(2017, 9, 7), timezone),
                 ),
             ]
         )
@@ -838,15 +839,15 @@ class TestAndTrigger:
         ids=["firstmatch", "end"],
     )
     def test_next_fire_time(self, trigger, timezone, start_time, expected):
-        expected = timezone.localize(expected) if expected else None
+        expected = localize(expected, timezone) if expected else None
         assert (
-            trigger.get_next_fire_time(None, timezone.localize(start_time)) == expected
+            trigger.get_next_fire_time(None, localize(start_time, timezone)) == expected
         )
 
     def test_jitter(self, trigger, timezone):
         trigger.jitter = 5
-        start_time = timezone.localize(datetime(2017, 8, 6))
-        expected = timezone.localize(datetime(2017, 8, 7))
+        start_time = localize(datetime(2017, 8, 6), timezone)
+        expected = localize(datetime(2017, 8, 7), timezone)
         for _ in range(100):
             next_fire_time = trigger.get_next_fire_time(None, start_time)
             assert abs(expected - next_fire_time) <= timedelta(seconds=5)
@@ -887,12 +888,12 @@ class TestOrTrigger:
                 CronTrigger(
                     month="5-8",
                     day="6-15",
-                    end_date=timezone.localize(datetime(2017, 8, 10)),
+                    end_date=localize(datetime(2017, 8, 10), timezone),
                 ),
                 CronTrigger(
                     month="6-9",
                     day="*/3",
-                    end_date=timezone.localize(datetime(2017, 9, 7)),
+                    end_date=localize(datetime(2017, 9, 7), timezone),
                 ),
             ]
         )
@@ -903,14 +904,14 @@ class TestOrTrigger:
         ids=["earliest", "end"],
     )
     def test_next_fire_time(self, trigger, timezone, start_time, expected):
-        expected = timezone.localize(expected) if expected else None
+        expected = localize(expected, timezone) if expected else None
         assert (
-            trigger.get_next_fire_time(None, timezone.localize(start_time)) == expected
+            trigger.get_next_fire_time(None, localize(start_time, timezone)) == expected
         )
 
     def test_jitter(self, trigger, timezone):
         trigger.jitter = 5
-        start_time = expected = timezone.localize(datetime(2017, 8, 6))
+        start_time = expected = localize(datetime(2017, 8, 6), timezone)
         for _ in range(100):
             next_fire_time = trigger.get_next_fire_time(None, start_time)
             assert abs(expected - next_fire_time) <= timedelta(seconds=5)

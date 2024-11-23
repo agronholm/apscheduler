@@ -20,12 +20,18 @@ from apscheduler.util import (
     datetime_to_utc_timestamp,
     get_callable_name,
     iscoroutinefunction_partial,
+    localize,
     maybe_ref,
     obj_to_ref,
     ref_to_obj,
     timedelta_seconds,
     utc_timestamp_to_datetime,
 )
+
+if sys.version_info < (3, 9):
+    from backports.zoneinfo import ZoneInfo
+else:
+    from zoneinfo import ZoneInfo
 
 
 class DummyClass:
@@ -105,10 +111,9 @@ class TestAstimezone:
         value = astimezone("Europe/Helsinki")
         assert isinstance(value, tzinfo)
 
-    def test_tz(self):
+    def test_pytz(self):
         tz = pytz.timezone("Europe/Helsinki")
-        value = astimezone(tz)
-        assert tz is value
+        assert astimezone(tz) == ZoneInfo(key="Europe/Helsinki")
 
     def test_none(self):
         assert astimezone(None) is None
@@ -167,7 +172,7 @@ class TestConvertToDatetime:
         returned = convert_to_datetime(input, timezone, None)
         if expected is not None:
             assert isinstance(returned, datetime)
-            expected = timezone.localize(expected) if not expected.tzinfo else expected
+            expected = localize(expected, timezone) if not expected.tzinfo else expected
 
         assert returned == expected
 
@@ -196,7 +201,7 @@ class TestConvertToDatetime:
 
 
 def test_datetime_to_utc_timestamp(timezone):
-    dt = timezone.localize(datetime(2014, 3, 12, 5, 40, 13, 254012))
+    dt = localize(datetime(2014, 3, 12, 5, 40, 13, 254012), timezone)
     timestamp = datetime_to_utc_timestamp(dt)
     dt2 = utc_timestamp_to_datetime(timestamp)
     assert dt2 == dt

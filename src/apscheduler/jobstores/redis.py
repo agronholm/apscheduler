@@ -1,7 +1,5 @@
 import pickle
-from datetime import datetime
-
-from pytz import utc
+from datetime import datetime, timezone
 
 from apscheduler.job import Job
 from apscheduler.jobstores.base import BaseJobStore, ConflictingIdError, JobLookupError
@@ -69,7 +67,7 @@ class RedisJobStore(BaseJobStore):
     def get_all_jobs(self):
         job_states = self.redis.hgetall(self.jobs_key)
         jobs = self._reconstitute_jobs(job_states.items())
-        paused_sort_key = datetime(9999, 12, 31, tzinfo=utc)
+        paused_sort_key = datetime(9999, 12, 31, tzinfo=timezone.utc)
         return sorted(jobs, key=lambda job: job.next_run_time or paused_sort_key)
 
     def add_job(self, job):

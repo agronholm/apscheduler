@@ -28,8 +28,7 @@ keywords = ["scheduling", "cron"]
 license = {text = "MIT"}
 requires-python = ">= 3.8"
 dependencies = [
-    "pytz",
-    "tzlocal >= 2.0, != 3.*",
+    "tzlocal >= 3.0",
     "backports.zoneinfo; python_version < '3.9'"
 ]
 dynamic = ["version"]
@@ -56,6 +55,7 @@ test = [
     "anyio >= 4.5.2",
     "PySide6; python_implementation == 'CPython' and python_version < '3.14'",
     "gevent; python_version < '3.14'",
+    "pytz",
     "twisted; python_version < '3.14'",
 ]
 doc = [

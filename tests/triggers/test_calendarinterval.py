@@ -6,7 +6,7 @@ from datetime import timezone as timezone_type
 import pytest
 
 from apscheduler.triggers.calendarinterval import CalendarIntervalTrigger
-from apscheduler.util import aszoneinfo, localize
+from apscheduler.util import astimezone, localize
 
 if sys.version_info < (3, 9):
     from backports.zoneinfo import ZoneInfo
@@ -39,7 +39,7 @@ def test_end_date(timezone: ZoneInfo) -> None:
     )
     trigger = pickle.loads(pickle.dumps(trigger, protocol=pickle.HIGHEST_PROTOCOL))
 
-    now = datetime.now(aszoneinfo(timezone))
+    now = datetime.now(astimezone(timezone))
     next_fire_time = trigger.get_next_fire_time(None, now)
     assert next_fire_time.date() == start_end_date
     assert trigger.get_next_fire_time(next_fire_time, now) is None
@@ -55,7 +55,7 @@ def test_missing_time(timezone: ZoneInfo) -> None:
         days=1, hour=2, minute=30, start_date=date(2016, 3, 27), timezone=timezone
     )
     trigger = pickle.loads(pickle.dumps(trigger, protocol=pickle.HIGHEST_PROTOCOL))
-    now = datetime.now(aszoneinfo(timezone))
+    now = datetime.now(astimezone(timezone))
     assert trigger.get_next_fire_time(None, now) == localize(
         datetime(2016, 3, 28, 2, 30), timezone
     )
@@ -71,9 +71,9 @@ def test_repeated_time(timezone: ZoneInfo) -> None:
         days=2, hour=2, minute=30, start_date=date(2016, 10, 30), timezone=timezone
     )
     trigger = pickle.loads(pickle.dumps(trigger, protocol=pickle.HIGHEST_PROTOCOL))
-    now = datetime.now(aszoneinfo(timezone))
+    now = datetime.now(astimezone(timezone))
     assert trigger.get_next_fire_time(None, now) == datetime(
-        2016, 10, 30, 2, 30, tzinfo=aszoneinfo(timezone), fold=0
+        2016, 10, 30, 2, 30, tzinfo=astimezone(timezone), fold=0
     )
 
 
@@ -82,13 +82,13 @@ def test_nonexistent_days(timezone: ZoneInfo) -> None:
     trigger = CalendarIntervalTrigger(
         months=1, start_date=date(2016, 3, 31), timezone=timezone
     )
-    now = datetime.now(aszoneinfo(timezone))
+    now = datetime.now(astimezone(timezone))
     next_fire_time = trigger.get_next_fire_time(None, now)
-    assert next_fire_time == datetime(2016, 3, 31, tzinfo=aszoneinfo(timezone))
+    assert next_fire_time == datetime(2016, 3, 31, tzinfo=astimezone(timezone))
 
     trigger = pickle.loads(pickle.dumps(trigger, protocol=pickle.HIGHEST_PROTOCOL))
     assert trigger.get_next_fire_time(next_fire_time, now) == datetime(
-        2016, 5, 31, tzinfo=aszoneinfo(timezone)
+        2016, 5, 31, tzinfo=astimezone(timezone)
     )
 
 

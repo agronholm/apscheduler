@@ -1,14 +1,14 @@
 import asyncio
 import logging
 import pickle
-from datetime import datetime, timedelta
+from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 from io import StringIO
 from queue import Queue
 from threading import Thread
 from unittest.mock import MagicMock, patch
 
 import pytest
-from pytz import utc
 
 from apscheduler.events import (
     EVENT_ALL,
@@ -421,7 +421,7 @@ class TestBaseScheduler:
         assert not hasattr(job, "misfire_grace_time")
         assert not hasattr(job, "coalesce")
         assert not hasattr(job, "max_instances")
-        assert job.next_run_time.tzinfo.zone == timezone.zone
+        assert job.next_run_time.tzinfo.tzname(None) == timezone.tzname(None)
 
     def test_add_job_pending(self, scheduler, scheduler_events):
         """
@@ -704,7 +704,7 @@ class TestBaseScheduler:
                 outfile.getvalue()
                 == """\
 Pending jobs:
-    test job 2 (trigger: date[2099-08-08 00:00:00 CET], pending)
+    test job 2 (trigger: date[2099-08-08 00:00:00 CEST], pending)
 """
             )
         elif jobstore and start_scheduler:
@@ -712,7 +712,7 @@ Pending jobs:
                 outfile.getvalue()
                 == """\
 Jobstore other:
-    test job 2 (trigger: date[2099-08-08 00:00:00 CET], next run at: 2099-08-08 00:00:00 CET)
+    test job 2 (trigger: date[2099-08-08 00:00:00 CEST], next run at: 2099-08-08 00:00:00 CEST)
 """
             )
         elif not jobstore and not start_scheduler:
@@ -720,8 +720,8 @@ Jobstore other:
                 outfile.getvalue()
                 == """\
 Pending jobs:
-    test job 1 (trigger: date[2099-09-09 00:00:00 CET], pending)
-    test job 2 (trigger: date[2099-08-08 00:00:00 CET], pending)
+    test job 1 (trigger: date[2099-09-09 00:00:00 CEST], pending)
+    test job 2 (trigger: date[2099-08-08 00:00:00 CEST], pending)
 """
             )
         else:
@@ -729,9 +729,9 @@ Pending jobs:
                 outfile.getvalue()
                 == """\
 Jobstore default:
-    test job 1 (trigger: date[2099-09-09 00:00:00 CET], next run at: 2099-09-09 00:00:00 CET)
+    test job 1 (trigger: date[2099-09-09 00:00:00 CEST], next run at: 2099-09-09 00:00:00 CEST)
 Jobstore other:
-    test job 2 (trigger: date[2099-08-08 00:00:00 CET], next run at: 2099-08-08 00:00:00 CET)
+    test job 2 (trigger: date[2099-08-08 00:00:00 CEST], next run at: 2099-08-08 00:00:00 CEST)
 """
             )
 
@@ -763,7 +763,7 @@ Jobstore other:
                 },
             },
             {
-                "timezone": utc,
+                "timezone": timezone.utc,
                 "job_defaults": {
                     "misfire_grace_time": 5,
                     "coalesce": False,
@@ -782,18 +782,18 @@ Jobstore other:
         ids=["references", "instances"],
     )
     def test_configure_private(self, scheduler, config):
-        scheduler._configure(config)
+        scheduler._configure(deepcopy(config))
 
-        assert scheduler.timezone is utc
+        assert scheduler.timezone == timezone.utc
         assert scheduler._job_defaults == {
             "misfire_grace_time": 5,
             "coalesce": False,
             "max_instances": 9,
         }
-        assert set(scheduler._executors) == set(["default", "alter"])
+        assert set(scheduler._executors) == {"default", "alter"}
         assert scheduler._executors["default"].args == {"arg1": "3", "arg2": "a"}
         assert scheduler._executors["alter"].args == {"arg": "true"}
-        assert set(scheduler._jobstores) == set(["default", "bar"])
+        assert set(scheduler._jobstores) == {"default", "bar"}
         assert scheduler._jobstores["default"].args == {"arg1": "3", "arg2": "a"}
         assert scheduler._jobstores["bar"].args == {"arg": "false"}
 

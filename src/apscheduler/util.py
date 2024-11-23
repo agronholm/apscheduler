@@ -22,11 +22,9 @@ __all__ = (
 import re
 import sys
 from calendar import timegm
-from datetime import date, datetime, time, timedelta, tzinfo
+from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from functools import partial
 from inspect import isbuiltin, isclass, isfunction, ismethod, signature
-
-from pytz import FixedOffset, timezone, utc
 
 if sys.version_info < (3, 14):
     from asyncio import iscoroutinefunction
@@ -95,7 +93,10 @@ def astimezone(obj):
 
     """
     if isinstance(obj, str):
-        return timezone(obj)
+        if obj == "UTC":
+            return timezone.utc
+
+        return ZoneInfo(obj)
 
     if isinstance(obj, tzinfo):
         if obj.tzname(None) == "local":
@@ -106,37 +107,19 @@ def astimezone(obj):
                 "saving time. Instead, use a locale based timezone name (such as "
                 "Europe/Helsinki)."
             )
+        elif isinstance(obj, ZoneInfo):
+            return obj
+        elif hasattr(obj, "zone"):
+            # pytz timezones
+            if obj.zone:
+                return ZoneInfo(obj.zone)
+
+            return timezone(obj._offset)
+
         return obj
 
     if obj is not None:
         raise TypeError(f"Expected tzinfo, got {obj.__class__.__name__} instead")
-
-
-def aszoneinfo(obj):
-    """
-    Interprets an object as a timezone.
-
-    :rtype: tzinfo
-
-    """
-    if isinstance(obj, ZoneInfo):
-        return obj
-
-    if isinstance(obj, str):
-        return ZoneInfo(obj)
-
-    if isinstance(obj, tzinfo):
-        tzname = obj.tzname(None)
-        if tzname == "local":
-            raise ValueError(
-                "Unable to determine the name of the local timezone -- you must "
-                "explicitly specify the name of the local timezone. Please refrain "
-                "from using timezones like EST to prevent problems with daylight "
-                "saving time. Instead, use a locale based timezone name (such as "
-                "Europe/Helsinki)."
-            )
-
-        return ZoneInfo(tzname)
 
 
 def asdate(obj):
@@ -188,11 +171,11 @@ def convert_to_datetime(input, tz, arg_name):
         values = m.groupdict()
         tzname = values.pop("timezone")
         if tzname == "Z":
-            tz = utc
+            tz = timezone.utc
         elif tzname:
             hours, minutes = (int(x) for x in tzname[1:].split(":"))
             sign = 1 if tzname[0] == "+" else -1
-            tz = FixedOffset(sign * (hours * 60 + minutes))
+            tz = timezone(sign * timedelta(hours=hours, minutes=minutes))
 
         values = {k: int(v or 0) for k, v in values.items()}
         datetime_ = datetime(**values)
@@ -206,7 +189,7 @@ def convert_to_datetime(input, tz, arg_name):
             f'The "tz" argument must be specified if {arg_name} has no timezone information'
         )
     if isinstance(tz, str):
-        tz = timezone(tz)
+        tz = astimezone(tz)
 
     return localize(datetime_, tz)
 
@@ -232,7 +215,7 @@ def utc_timestamp_to_datetime(timestamp):
 
     """
     if timestamp is not None:
-        return datetime.fromtimestamp(timestamp, utc)
+        return datetime.fromtimestamp(timestamp, timezone.utc)
 
 
 def timedelta_seconds(delta):
@@ -265,11 +248,8 @@ def datetime_repr(dateval):
 def timezone_repr(timezone: tzinfo) -> str:
     if isinstance(timezone, ZoneInfo):
         return timezone.key
-    elif hasattr(timezone, "zone"):
-        # named pytz timezones
-        return timezone.zone
-    else:
-        return repr(timezone)
+
+    return repr(timezone)
 
 
 def get_callable_name(func):

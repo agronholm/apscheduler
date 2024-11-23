@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime
 from unittest.mock import Mock
 
@@ -7,6 +8,12 @@ import pytz
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.util import localize
+
+if sys.version_info < (3, 9):
+    from backports.zoneinfo import ZoneInfo
+else:
+    from zoneinfo import ZoneInfo
 
 
 @pytest.fixture
@@ -14,9 +21,13 @@ def anyio_backend():
     return "asyncio"
 
 
-@pytest.fixture
-def timezone(monkeypatch):
-    tz = pytz.timezone("Europe/Berlin")
+@pytest.fixture(params=["pytz", "zoneinfo"])
+def timezone(request, monkeypatch):
+    if request.param == "pytz":
+        tz = pytz.timezone("Europe/Berlin")
+    else:
+        tz = ZoneInfo("Europe/Berlin")
+
     monkeypatch.setattr(
         "apscheduler.schedulers.base.get_localzone", Mock(return_value=tz)
     )
@@ -51,7 +62,7 @@ def freeze_time(monkeypatch, timezone):
         def set_increment(self, delta):
             self.increment = delta
 
-    freezer = TimeFreezer(timezone.localize(datetime(2011, 4, 3, 18, 40)))
+    freezer = TimeFreezer(localize(datetime(2011, 4, 3, 18, 40), timezone))
     fake_datetime = Mock(datetime, now=freezer.get)
     monkeypatch.setattr("apscheduler.schedulers.base.datetime", fake_datetime)
     monkeypatch.setattr("apscheduler.executors.base.datetime", fake_datetime)
@@ -62,7 +73,7 @@ def freeze_time(monkeypatch, timezone):
 
 @pytest.fixture
 def job_defaults(timezone):
-    run_date = timezone.localize(datetime(2011, 4, 3, 18, 40))
+    run_date = localize(datetime(2011, 4, 3, 18, 40), timezone)
     return {
         "trigger": "date",
         "trigger_args": {"run_date": run_date, "timezone": timezone},

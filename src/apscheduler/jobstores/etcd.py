@@ -1,7 +1,5 @@
 import pickle
-from datetime import datetime
-
-from pytz import utc
+from datetime import datetime, timezone
 
 from apscheduler.job import Job
 from apscheduler.jobstores.base import BaseJobStore, ConflictingIdError, JobLookupError
@@ -161,7 +159,7 @@ class EtcdJobStore(BaseJobStore):
         if failed_job_ids:
             for failed_id in failed_job_ids:
                 self.remove_job(failed_id)
-        paused_sort_key = datetime(9999, 12, 31, tzinfo=utc)
+        paused_sort_key = datetime(9999, 12, 31, tzinfo=timezone.utc)
         return sorted(
             jobs,
             key=lambda job_record: job_record["job"].next_run_time or paused_sort_key,

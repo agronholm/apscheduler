@@ -8,7 +8,7 @@ from tzlocal import get_localzone
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import (
     asdate,
-    aszoneinfo,
+    astimezone,
     timezone_repr,
 )
 
@@ -92,9 +92,9 @@ class CalendarIntervalTrigger(BaseTrigger):
         jitter: int | None = None,
     ):
         if timezone:
-            self.timezone = aszoneinfo(timezone)
+            self.timezone = astimezone(timezone)
         else:
-            self.timezone = aszoneinfo(get_localzone())
+            self.timezone = astimezone(get_localzone())
 
         self.years = years
         self.months = months

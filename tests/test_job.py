@@ -9,6 +9,7 @@ import pytest
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.triggers.date import DateTrigger
+from apscheduler.util import localize
 
 
 def dummyfunc():
@@ -83,7 +84,7 @@ def test_pending(job):
 
 
 def test_get_run_times(create_job, timezone):
-    run_time = timezone.localize(datetime(2010, 12, 13, 0, 8))
+    run_time = localize(datetime(2010, 12, 13, 0, 8), timezone)
     expected_times = [run_time + timedelta(seconds=1), run_time + timedelta(seconds=2)]
     job = create_job(
         trigger="interval",

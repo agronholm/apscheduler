@@ -4,6 +4,7 @@ import pytest
 
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
 from apscheduler.jobstores.memory import MemoryJobStore
+from apscheduler.util import localize
 
 
 def dummy_job():
@@ -137,7 +138,7 @@ def create_add_job(timezone, create_job):
         paused=False,
         **kwargs,
     ):
-        run_date = timezone.localize(run_date)
+        run_date = localize(run_date, timezone)
         job = create_job(
             func=func,
             trigger="date",
@@ -215,10 +216,10 @@ def test_get_pending_jobs(jobstore, create_add_job, timezone):
     job2 = create_add_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     job3 = create_add_job(jobstore, dummy_job3, datetime(2013, 8, 14))
     create_add_job(jobstore, dummy_job3, datetime(2013, 7, 11), paused=True)
-    jobs = jobstore.get_due_jobs(timezone.localize(datetime(2014, 2, 27)))
+    jobs = jobstore.get_due_jobs(localize(datetime(2014, 2, 27), timezone))
     assert jobs == [job3, job2]
 
-    jobs = jobstore.get_due_jobs(timezone.localize(datetime(2013, 8, 13)))
+    jobs = jobstore.get_due_jobs(localize(datetime(2013, 8, 13), timezone))
     assert jobs == []
 
 
@@ -226,7 +227,7 @@ def test_get_pending_jobs_subsecond_difference(jobstore, create_add_job, timezon
     job1 = create_add_job(jobstore, dummy_job, datetime(2014, 7, 7, 0, 0, 0, 401))
     job2 = create_add_job(jobstore, dummy_job2, datetime(2014, 7, 7, 0, 0, 0, 402))
     job3 = create_add_job(jobstore, dummy_job3, datetime(2014, 7, 7, 0, 0, 0, 400))
-    jobs = jobstore.get_due_jobs(timezone.localize(datetime(2014, 7, 7, 1)))
+    jobs = jobstore.get_due_jobs(localize(datetime(2014, 7, 7, 1), timezone))
     assert jobs == [job3, job1, job2]
 
 
@@ -235,7 +236,7 @@ def test_get_next_run_time(jobstore, create_add_job, timezone):
     create_add_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     create_add_job(jobstore, dummy_job3, datetime(2013, 8, 14))
     create_add_job(jobstore, dummy_job3, datetime(2013, 7, 11), paused=True)
-    assert jobstore.get_next_run_time() == timezone.localize(datetime(2013, 8, 14))
+    assert jobstore.get_next_run_time() == localize(datetime(2013, 8, 14), timezone)
 
 
 def test_add_job_conflicting_id(jobstore, create_add_job):
@@ -263,7 +264,7 @@ def test_update_job(jobstore, create_add_job, timezone):
     assert len(jobs) == 2
     assert jobs[0].id == job2.id
     assert jobs[1].id == job1.id
-    assert jobs[1].next_run_time == timezone.localize(datetime(2016, 5, 4))
+    assert jobs[1].next_run_time == localize(datetime(2016, 5, 4), timezone)
     assert jobs[1].max_instances == 6
 
 
@@ -274,7 +275,7 @@ def test_update_job_next_runtime(jobstore, create_add_job, next_run_time, timezo
     job1 = create_add_job(jobstore, dummy_job, datetime(2016, 5, 3))
     create_add_job(jobstore, dummy_job2, datetime(2014, 2, 26))
     job3 = create_add_job(jobstore, dummy_job3, datetime(2013, 8, 14))
-    job1.next_run_time = timezone.localize(next_run_time) if next_run_time else None
+    job1.next_run_time = localize(next_run_time, timezone) if next_run_time else None
     jobstore.update_job(job1)
 
     if next_run_time:
@@ -300,10 +301,10 @@ def test_update_job_clear_next_runtime(
         for i in range(3)
     ]
     jobs[index].next_run_time = (
-        timezone.localize(next_run_time) if next_run_time else None
+        localize(next_run_time, timezone) if next_run_time else None
     )
     jobstore.update_job(jobs[index])
-    due_date = timezone.localize(datetime(2014, 2, 27))
+    due_date = localize(datetime(2014, 2, 27), timezone)
     due_jobs = jobstore.get_due_jobs(due_date)
 
     assert len(due_jobs) == (3 if next_run_time else 2)
@@ -342,8 +343,8 @@ def test_one_job_fails_to_load(
     jobs = persistent_jobstore.get_all_jobs()
     assert jobs == [job2, job1]
 
-    assert persistent_jobstore.get_next_run_time() == timezone.localize(
-        datetime(2014, 2, 26)
+    assert persistent_jobstore.get_next_run_time() == localize(
+        datetime(2014, 2, 26), timezone
     )
 
 

@@ -25,6 +25,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.schedulers.tornado import TornadoScheduler
+from apscheduler.util import localize
 
 
 @pytest.fixture
@@ -139,7 +140,7 @@ def test_submit_job(mock_scheduler, executor, create_job, timezone, event_code, 
     job._jobstore_alias = "test_jobstore"
     now = datetime.now(timezone)
     run_time = (
-        timezone.localize(datetime(1970, 1, 1))
+        localize(datetime(1970, 1, 1), timezone)
         if event_code == EVENT_JOB_MISSED
         else now
     )

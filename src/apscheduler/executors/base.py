@@ -3,10 +3,8 @@ import sys
 import traceback
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from traceback import format_tb
-
-from pytz import utc
 
 from apscheduler.events import (
     EVENT_JOB_ERROR,
@@ -117,7 +115,7 @@ def run_job(job, jobstore_alias, run_times, logger_name):
         # See if the job missed its run time window, and handle
         # possible misfires accordingly
         if job.misfire_grace_time is not None:
-            difference = datetime.now(utc) - run_time
+            difference = datetime.now(timezone.utc) - run_time
             grace_time = timedelta(seconds=job.misfire_grace_time)
             if difference > grace_time:
                 events.append(
@@ -167,7 +165,7 @@ async def run_coroutine_job(job, jobstore_alias, run_times, logger_name):
     for run_time in run_times:
         # See if the job missed its run time window, and handle possible misfires accordingly
         if job.misfire_grace_time is not None:
-            difference = datetime.now(utc) - run_time
+            difference = datetime.now(timezone.utc) - run_time
             grace_time = timedelta(seconds=job.misfire_grace_time)
             if difference > grace_time:
                 events.append(

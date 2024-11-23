@@ -1,3 +1,4 @@
+import random
 from datetime import datetime, timedelta
 from math import ceil
 
@@ -8,7 +9,6 @@ from apscheduler.util import (
     astimezone,
     convert_to_datetime,
     datetime_repr,
-    normalize,
     timedelta_seconds,
 )
 
@@ -61,9 +61,9 @@ class IntervalTrigger(BaseTrigger):
         if timezone:
             self.timezone = astimezone(timezone)
         elif isinstance(start_date, datetime) and start_date.tzinfo:
-            self.timezone = start_date.tzinfo
+            self.timezone = astimezone(start_date.tzinfo)
         elif isinstance(end_date, datetime) and end_date.tzinfo:
-            self.timezone = end_date.tzinfo
+            self.timezone = astimezone(end_date.tzinfo)
         else:
             self.timezone = get_localzone()
 
@@ -75,24 +75,26 @@ class IntervalTrigger(BaseTrigger):
 
     def get_next_fire_time(self, previous_fire_time, now):
         if previous_fire_time:
-            next_fire_time = previous_fire_time + self.interval
+            next_fire_time = previous_fire_time.timestamp() + self.interval_length
         elif self.start_date > now:
-            next_fire_time = self.start_date
+            next_fire_time = self.start_date.timestamp()
         else:
-            timediff_seconds = timedelta_seconds(now - self.start_date)
-            next_interval_num = int(ceil(timediff_seconds / self.interval_length))
-            next_fire_time = self.start_date + self.interval * next_interval_num
+            timediff = now.timestamp() - self.start_date.timestamp()
+            next_interval_num = int(ceil(timediff / self.interval_length))
+            next_fire_time = (
+                self.start_date.timestamp() + self.interval_length * next_interval_num
+            )
 
         if self.jitter is not None:
-            next_fire_time = self._apply_jitter(next_fire_time, self.jitter, now)
+            next_fire_time += random.uniform(0, self.jitter)
 
-        if not self.end_date or next_fire_time <= self.end_date:
-            return normalize(next_fire_time)
+        if not self.end_date or next_fire_time <= self.end_date.timestamp():
+            return datetime.fromtimestamp(next_fire_time, tz=self.timezone)
 
     def __getstate__(self):
         return {
             "version": 2,
-            "timezone": self.timezone,
+            "timezone": astimezone(self.timezone),
             "start_date": self.start_date,
             "end_date": self.end_date,
             "interval": self.interval,
