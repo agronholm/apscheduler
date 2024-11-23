@@ -91,9 +91,6 @@ redis = "apscheduler.jobstores.redis:RedisJobStore"
 zookeeper = "apscheduler.jobstores.zookeeper:ZooKeeperJobStore"
 etcd = "apscheduler.jobstores.etcd:EtcdJobStore"
 
-[tool.setuptools.packages.find]
-include = ["apscheduler*"]
-
 [tool.setuptools_scm]
 version_scheme = "post-release"
 local_scheme = "dirty-tag"
@@ -132,7 +129,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.extend-per-file-ignores]
-"apscheduler/jobstores/rethinkdb.py" = ["E711"]
+"src/apscheduler/jobstores/rethinkdb.py" = ["E711"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["apscheduler"]
