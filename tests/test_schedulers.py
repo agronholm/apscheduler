@@ -1167,7 +1167,9 @@ class TestAsyncIOScheduler(SchedulerImplementationTestBase):
 class TestGeventScheduler(SchedulerImplementationTestBase):
     @pytest.fixture
     def scheduler(self):
-        gevent = pytest.importorskip("apscheduler.schedulers.gevent")
+        gevent = pytest.importorskip(
+            "apscheduler.schedulers.gevent", exc_type=ImportError
+        )
         return gevent.GeventScheduler()
 
     @pytest.fixture
