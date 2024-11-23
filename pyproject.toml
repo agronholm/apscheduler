@@ -62,7 +62,6 @@ doc = [
     "packaging",
     "sphinx",
     "sphinx-rtd-theme >= 1.3.0",
-    "sphinx-tabs >= 3.3.1",
 ]
 
 [project.entry-points."apscheduler.triggers"]
