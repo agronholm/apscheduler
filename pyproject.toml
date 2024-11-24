@@ -33,8 +33,8 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-Documentation = "https://apscheduler.readthedocs.io/en/master/"
-Changelog = "https://apscheduler.readthedocs.io/en/master/versionhistory.html"
+Documentation = "https://apscheduler.readthedocs.io/en/3.x/"
+Changelog = "https://apscheduler.readthedocs.io/en/3.x/versionhistory.html"
 "Source code" = "https://github.com/agronholm/apscheduler"
 "Issue tracker" = "https://github.com/agronholm/apscheduler/issues"
 
