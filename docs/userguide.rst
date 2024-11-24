@@ -458,6 +458,28 @@ Example::
     scheduler.add_listener(my_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
 
+Exporting and importing jobs
+----------------------------
+
+If you need to migrate your jobs to a different job store, you need to first export the
+jobs to a JSON document and then import them back again.
+
+Here's an example for exporting the jobs from all the scheduler's job stores::
+
+    # The scheduler has to be initialized, but can be paused
+    scheduler.export_jobs("/tmp/jobs.json")
+
+Then you will import the jobs in the destination scheduler::
+
+    # Again, the scheduler needs to be either running or paused
+    scheduler.import_jobs("/tmp/jobs.json")
+
+Both methods take a ``jobstore`` argument which can limit the source job store (on
+export), or specify a non-default target job store (on import). The first argument for
+both methods can either be an open file, a :class:`~pathlib.Path` or a file system path
+as a string.
+
+
 .. _troubleshooting:
 
 Troubleshooting
