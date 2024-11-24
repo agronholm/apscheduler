@@ -44,7 +44,6 @@ from apscheduler.util import (
     asint,
     astimezone,
     maybe_ref,
-    timedelta_seconds,
     undefined,
 )
 
@@ -1151,7 +1150,7 @@ class BaseScheduler(metaclass=ABCMeta):
         else:
             now = datetime.now(self.timezone)
             wait_seconds = min(
-                max(timedelta_seconds(next_wakeup_time - now), 0), TIMEOUT_MAX
+                max((next_wakeup_time - now).total_seconds(), 0), TIMEOUT_MAX
             )
             self._logger.debug(
                 "Next wakeup is due at %s (in %f seconds)",

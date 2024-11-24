@@ -7,7 +7,6 @@ __all__ = (
     "convert_to_datetime",
     "datetime_to_utc_timestamp",
     "utc_timestamp_to_datetime",
-    "timedelta_seconds",
     "datetime_ceil",
     "get_callable_name",
     "obj_to_ref",

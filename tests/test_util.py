@@ -24,7 +24,6 @@ from apscheduler.util import (
     maybe_ref,
     obj_to_ref,
     ref_to_obj,
-    timedelta_seconds,
     utc_timestamp_to_datetime,
 )
 
@@ -205,12 +204,6 @@ def test_datetime_to_utc_timestamp(timezone):
     timestamp = datetime_to_utc_timestamp(dt)
     dt2 = utc_timestamp_to_datetime(timestamp)
     assert dt2 == dt
-
-
-def test_timedelta_seconds():
-    delta = timedelta(minutes=2, seconds=30)
-    seconds = timedelta_seconds(delta)
-    assert seconds == 150
 
 
 @pytest.mark.parametrize(

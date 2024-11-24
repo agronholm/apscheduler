@@ -9,7 +9,6 @@ from apscheduler.util import (
     astimezone,
     convert_to_datetime,
     datetime_repr,
-    timedelta_seconds,
 )
 
 
@@ -53,7 +52,7 @@ class IntervalTrigger(BaseTrigger):
         self.interval = timedelta(
             weeks=weeks, days=days, hours=hours, minutes=minutes, seconds=seconds
         )
-        self.interval_length = timedelta_seconds(self.interval)
+        self.interval_length = self.interval.total_seconds()
         if self.interval_length == 0:
             self.interval = timedelta(seconds=1)
             self.interval_length = 1
@@ -116,7 +115,7 @@ class IntervalTrigger(BaseTrigger):
         self.start_date = state["start_date"]
         self.end_date = state["end_date"]
         self.interval = state["interval"]
-        self.interval_length = timedelta_seconds(self.interval)
+        self.interval_length = self.interval.total_seconds()
         self.jitter = state.get("jitter")
 
     def __str__(self):
