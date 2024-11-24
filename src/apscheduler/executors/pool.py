@@ -24,19 +24,9 @@ class BasePoolExecutor(BaseExecutor):
             else:
                 self._run_job_success(job.id, f.result())
 
-        try:
-            f = self._pool.submit(
-                run_job, job, job._jobstore_alias, run_times, self._logger.name
-            )
-        except BrokenProcessPool:
-            self._logger.warning(
-                "Process pool is broken; replacing pool with a fresh instance"
-            )
-            self._pool = self._pool.__class__(self._pool._max_workers)
-            f = self._pool.submit(
-                run_job, job, job._jobstore_alias, run_times, self._logger.name
-            )
-
+        f = self._pool.submit(
+            run_job, job, job._jobstore_alias, run_times, self._logger.name
+        )
         f.add_done_callback(callback)
 
     def shutdown(self, wait=True):
@@ -72,7 +62,21 @@ class ProcessPoolExecutor(BasePoolExecutor):
     """
 
     def __init__(self, max_workers=10, pool_kwargs=None):
-        pool_kwargs = pool_kwargs or {}
-        pool_kwargs.setdefault("mp_context", multiprocessing.get_context("spawn"))
-        pool = concurrent.futures.ProcessPoolExecutor(int(max_workers), **pool_kwargs)
+        self.pool_kwargs = pool_kwargs or {}
+        self.pool_kwargs.setdefault("mp_context", multiprocessing.get_context("spawn"))
+        pool = concurrent.futures.ProcessPoolExecutor(
+            int(max_workers), **self.pool_kwargs
+        )
         super().__init__(pool)
+
+    def _do_submit_job(self, job, run_times):
+        try:
+            super()._do_submit_job(job, run_times)
+        except BrokenProcessPool:
+            self._logger.warning(
+                "Process pool is broken; replacing pool with a fresh instance"
+            )
+            self._pool = self._pool.__class__(
+                self._pool._max_workers, **self.pool_kwargs
+            )
+            super()._do_submit_job(job, run_times)

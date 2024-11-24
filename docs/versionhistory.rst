@@ -15,6 +15,9 @@ UNRELEASED
   forking on all platform
 - Fixed ``AsyncIOScheduler`` inadvertently creating a defunct event loop at start,
   leading to the scheduler not working at all
+- Fixed ``ProcessPoolExecutor`` not respecting the passed keyword arguments when a
+  broken pool was being replaced
+
 
 3.10.4
 ------
