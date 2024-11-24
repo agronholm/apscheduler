@@ -9,6 +9,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Dropped support for Python 3.6 and 3.7
 - Added support for ``ZoneInfo`` time zones and deprecated support for pytz time zones
 - Added ``CalendarIntervalTrigger``, backported from the 4.x series
+- Added the ability to export and import jobs via ``scheduler.export_jobs()`` and
+  ``scheduler.import_jobs()``, respectively
 - Removed the dependency on ``six``
 - Changed ``ProcessPoolExecutor`` to spawn new subprocesses from scratch instead of
   forking on all platform

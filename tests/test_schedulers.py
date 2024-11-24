@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import pickle
 from copy import deepcopy
@@ -10,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apscheduler import version
 from apscheduler.events import (
     EVENT_ALL,
     EVENT_ALL_JOBS_REMOVED,
@@ -734,6 +736,80 @@ Jobstore other:
     test job 2 (trigger: date[2099-08-08 00:00:00 CEST], next run at: 2099-08-08 00:00:00 CEST)
 """
             )
+
+    def test_export_import_jobs(self, scheduler):
+        scheduler.start(paused=True)
+        scheduler.add_job(
+            print,
+            "cron",
+            name="cronjob",
+            args=["foo", "bar"],
+            kwargs={"end": ""},
+            hour="*/3",
+        )
+        scheduler.add_job(
+            print,
+            "date",
+            name="datejob",
+            args=("foo", "bar"),
+            kwargs={"end": ""},
+            run_date="2024-11-24 14:04:00+02:00",
+        )
+        scheduler.add_job(
+            print,
+            "interval",
+            name="intervaljob",
+            args=("foo", "bar"),
+            kwargs={"end": ""},
+            weeks=3,
+            start_date="2024-11-24 14:04:00+02:00",
+        )
+        buffer = StringIO()
+        scheduler.export_jobs(buffer)
+        data = json.loads(buffer.getvalue())
+        assert isinstance(data, dict)
+        assert data["version"] == 1
+        assert data["scheduler_version"] == version
+
+        new_scheduler = DummyScheduler()
+        new_scheduler.start(paused=True)
+        buffer.seek(0)
+        new_scheduler.import_jobs(buffer)
+        jobs = new_scheduler.get_jobs()
+        jobs.sort(key=lambda job: job.name)
+
+        job = jobs.pop(0)
+        assert job.name == "cronjob"
+        assert job.args == ["foo", "bar"]
+        assert job.kwargs == {"end": ""}
+        assert (
+            repr(job.trigger) == "<CronTrigger (hour='*/3', timezone='Europe/Berlin')>"
+        )
+
+        job = jobs.pop(0)
+        assert job.name == "datejob"
+        assert job.args == ["foo", "bar"]
+        assert job.kwargs == {"end": ""}
+        assert repr(job.trigger) == (
+            "<DateTrigger (run_date='2024-11-24 14:04:00 UTC+02:00')>"
+        )
+
+        job = jobs.pop(0)
+        assert job.name == "intervaljob"
+        assert job.args == ["foo", "bar"]
+        assert job.kwargs == {"end": ""}
+        assert repr(job.trigger) == (
+            "<IntervalTrigger (interval=datetime.timedelta(days=21), "
+            "start_date='2024-11-24 14:04:00 UTC+02:00', "
+            "timezone='Europe/Berlin')>"
+        )
+
+    def test_export_jobs_scheduler_not_started(self, scheduler):
+        with pytest.raises(
+            RuntimeError,
+            match="the scheduler must have been started for job export to work",
+        ):
+            scheduler.export_jobs(StringIO())
 
     @pytest.mark.parametrize(
         "config",
