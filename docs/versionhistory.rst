@@ -4,7 +4,7 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
-**UNRELEASED**
+**3.11.0**
 
 - Dropped support for Python 3.6 and 3.7
 - Added support for ``ZoneInfo`` time zones and deprecated support for pytz time zones
