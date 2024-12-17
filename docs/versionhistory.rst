@@ -62,6 +62,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   acquire the same schedules at once
 - Changed ``SQLAlchemyDataStore`` to automatically create the explicitly specified
   schema if it's missing (PR by @zhu0629)
+- Fixed an issue with ``CronTrigger`` infinitely looping to get next date when DST ends
+  (`#980 <https://github.com/agronholm/apscheduler/issues/980>`_; PR by @hlobit)
 
 **4.0.0a5**
 
