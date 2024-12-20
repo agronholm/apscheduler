@@ -220,12 +220,30 @@ class TestOrTrigger:
         assert trigger.next() == start_time + timedelta(seconds=16)
         assert trigger.next() == start_time + timedelta(seconds=18)
 
+    def test_max_iterations(self, timezone, serializer):
+        start_time = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
+        trigger = OrTrigger(
+            [
+                IntervalTrigger(seconds=1, start_time=start_time),
+                IntervalTrigger(seconds=1, start_time=start_time),
+            ],
+            cooldown_period=100,
+            # Max iterations should be reached before the cooldown period
+            max_iterations=10,
+        )
+        if serializer:
+            trigger = serializer.deserialize(serializer.serialize(trigger))
+
+        # The triggers will keep firing after each other indefinitely
+        assert trigger.next() == start_time
+        pytest.raises(MaxIterationsReached, trigger.next)
+
     def test_repr(self, timezone):
         date1 = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         date2 = datetime(2020, 5, 18, 15, 1, 53, 940564, tzinfo=timezone)
-        trigger = OrTrigger([DateTrigger(date1), DateTrigger(date2)], 1)
+        trigger = OrTrigger([DateTrigger(date1), DateTrigger(date2)], cooldown_period=1, max_iterations=10000)
         print(repr(trigger))
         assert repr(trigger) == (
             "OrTrigger([DateTrigger('2020-05-16 14:17:30.254212+02:00'), "
-            "DateTrigger('2020-05-18 15:01:53.940564+02:00')], cooldown_period=1.0)"
+            "DateTrigger('2020-05-18 15:01:53.940564+02:00')], cooldown_period=1.0, max_iterations=10000)"
         )

@@ -125,40 +125,53 @@ class OrTrigger(BaseCombiningTrigger):
 
     cooldown_period: timedelta = attrs.field(converter=as_timedelta, default=0)
     _last_fire_time: datetime | None = attrs.field(default=None, eq=False, init=False)
+    max_iterations: int | None = 10000
 
     def _get_next_valid_fire_time(self) -> tuple[datetime | None, list[int]]:
         """
         Find the next valid fire time that respects the cooldown period.
+
+        Raises:
+            MaxIterationsReached: If the maximum number of iterations is reached
 
         Returns:
             A tuple of (fire_time, trigger_indices) where fire_time is the next valid
             fire time (or None if no valid time exists) and trigger_indices is a list
             of indices of triggers that produced this fire time.
         """
-        earliest_time = min(
-            (fire_time for fire_time in self._next_fire_times if fire_time is not None),
-            default=None,
-        )
-        if earliest_time is None:
-            return None, []
+        for _ in range(self.max_iterations):
+            earliest_time = min(
+                (
+                    fire_time
+                    for fire_time in self._next_fire_times
+                    if fire_time is not None
+                ),
+                default=None,
+            )
+            if earliest_time is None:
+                return None, []
 
-        # Find all triggers that produced this fire time
-        trigger_indices = [
-            i for i, fire_time in enumerate(self._next_fire_times)
-            if fire_time == earliest_time
-        ]
+            # Find all triggers that produced this fire time
+            trigger_indices = [
+                i
+                for i, fire_time in enumerate(self._next_fire_times)
+                if fire_time == earliest_time
+            ]
 
-        # Check if we need to respect cooldown period
-        if (self.cooldown_period > timedelta(0) and
-                self._last_fire_time is not None and
-                earliest_time - self._last_fire_time < self.cooldown_period):
-            # Get next fire times for all triggers that would have fired
-            for i in trigger_indices:
-                self._next_fire_times[i] = self.triggers[i].next()
-            # Recursively find next valid fire time
-            return self._get_next_valid_fire_time()
+            # Check if we need to respect cooldown period
+            if (
+                self.cooldown_period > timedelta(0)
+                and self._last_fire_time is not None
+                and earliest_time - self._last_fire_time < self.cooldown_period
+            ):
+                # Get next fire times for all triggers that would have fired
+                for i in trigger_indices:
+                    self._next_fire_times[i] = self.triggers[i].next()
+                continue
 
-        return earliest_time, trigger_indices
+            return earliest_time, trigger_indices
+        else:
+            raise MaxIterationsReached
 
     def next(self) -> datetime | None:
         """
@@ -176,7 +189,6 @@ class OrTrigger(BaseCombiningTrigger):
         try:
             fire_time, trigger_indices = self._get_next_valid_fire_time()
         except RecursionError:
-            # TODO: Replace the recursion with a loop
             raise MaxIterationsReached
 
         if fire_time is not None:
@@ -191,11 +203,19 @@ class OrTrigger(BaseCombiningTrigger):
         require_state_version(self, state, 1)
         super().__setstate__(state)
         self.cooldown_period = state["cooldown_period"]
+        self._last_fire_time = state["last_fire_time"]
+        self.max_iterations = state["max_iterations"]
 
     def __getstate__(self) -> dict[str, Any]:
         state = super().__getstate__()
         state["cooldown_period"] = self.cooldown_period
+        state["last_fire_time"] = self._last_fire_time
+        state["max_iterations"] = self.max_iterations
         return state
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.triggers}, cooldown_period={self.cooldown_period.total_seconds()})"
+        return (
+            f"{self.__class__.__name__}"
+            f"({self.triggers}, cooldown_period={self.cooldown_period.total_seconds()}"
+            f", max_iterations={self.max_iterations})"
+        )
