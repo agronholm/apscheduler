@@ -123,28 +123,79 @@ class OrTrigger(BaseCombiningTrigger):
     :param triggers: triggers to combine
     """
 
-    def next(self) -> datetime | None:
-        # Fill out the fire times on the first run
-        if not self._next_fire_times:
-            self._next_fire_times = [t.next() for t in self.triggers]
+    cooldown_period: timedelta = attrs.field(converter=as_timedelta, default=0)
+    _last_fire_time: datetime | None = attrs.field(default=None, eq=False, init=False)
 
-        # Find out the earliest of the fire times
-        earliest_time: datetime | None = min(
+    def _get_next_valid_fire_time(self) -> tuple[datetime | None, list[int]]:
+        """
+        Find the next valid fire time that respects the cooldown period.
+
+        Returns:
+            A tuple of (fire_time, trigger_indices) where fire_time is the next valid
+            fire time (or None if no valid time exists) and trigger_indices is a list
+            of indices of triggers that produced this fire time.
+        """
+        earliest_time = min(
             (fire_time for fire_time in self._next_fire_times if fire_time is not None),
             default=None,
         )
-        if earliest_time is not None:
-            # Generate new fire times for the trigger(s) that generated the earliest
-            # fire time
-            for i, fire_time in enumerate(self._next_fire_times):
-                if fire_time == earliest_time:
-                    self._next_fire_times[i] = self.triggers[i].next()
+        if earliest_time is None:
+            return None, []
 
-        return earliest_time
+        # Find all triggers that produced this fire time
+        trigger_indices = [
+            i for i, fire_time in enumerate(self._next_fire_times)
+            if fire_time == earliest_time
+        ]
+
+        # Check if we need to respect cooldown period
+        if (self.cooldown_period > timedelta(0) and
+                self._last_fire_time is not None and
+                earliest_time - self._last_fire_time < self.cooldown_period):
+            # Get next fire times for all triggers that would have fired
+            for i in trigger_indices:
+                self._next_fire_times[i] = self.triggers[i].next()
+            # Recursively find next valid fire time
+            return self._get_next_valid_fire_time()
+
+        return earliest_time, trigger_indices
+
+    def next(self) -> datetime | None:
+        """
+        Get the next fire time that respects the cooldown period.
+
+        Returns:
+            The next valid fire time, or None if no more fire times exist.
+        """
+        # Initialize fire times if needed
+        if not self._next_fire_times:
+            self._next_fire_times = [t.next() for t in self.triggers]
+            self._last_fire_time = None
+
+        # Get next valid fire time and affected triggers
+        try:
+            fire_time, trigger_indices = self._get_next_valid_fire_time()
+        except RecursionError:
+            # TODO: Replace the recursion with a loop
+            raise MaxIterationsReached
+
+        if fire_time is not None:
+            # Update last fire time and get next fire times for triggered sources
+            self._last_fire_time = fire_time
+            for i in trigger_indices:
+                self._next_fire_times[i] = self.triggers[i].next()
+
+        return fire_time
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         require_state_version(self, state, 1)
         super().__setstate__(state)
+        self.cooldown_period = state["cooldown_period"]
+
+    def __getstate__(self) -> dict[str, Any]:
+        state = super().__getstate__()
+        state["cooldown_period"] = self.cooldown_period
+        return state
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.triggers})"
+        return f"{self.__class__.__name__}({self.triggers}, cooldown_period={self.cooldown_period.total_seconds()})"
