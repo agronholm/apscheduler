@@ -121,6 +121,8 @@ class OrTrigger(BaseCombiningTrigger):
     fire times.
 
     :param triggers: triggers to combine
+    :param cooldown_period: minimum time between two consecutive fires (in seconds, or as
+        timedelta)
     """
 
     cooldown_period: timedelta = attrs.field(converter=as_timedelta, default=0)
@@ -131,13 +133,10 @@ class OrTrigger(BaseCombiningTrigger):
         """
         Find the next valid fire time that respects the cooldown period.
 
-        Raises:
-            MaxIterationsReached: If the maximum number of iterations is reached
-
-        Returns:
-            A tuple of (fire_time, trigger_indices) where fire_time is the next valid
-            fire time (or None if no valid time exists) and trigger_indices is a list
-            of indices of triggers that produced this fire time.
+        :raises MaxIterationsReached: If the maximum number of iterations is reached
+        :returns: A tuple of (fire_time, trigger_indices) where fire_time is the next valid
+                  fire time (or None if no valid time exists) and trigger_indices is a list
+                  of indices of triggers that produced this fire time.
         """
         for _ in range(self.max_iterations):
             earliest_time = min(
@@ -174,12 +173,6 @@ class OrTrigger(BaseCombiningTrigger):
             raise MaxIterationsReached
 
     def next(self) -> datetime | None:
-        """
-        Get the next fire time that respects the cooldown period.
-
-        Returns:
-            The next valid fire time, or None if no more fire times exist.
-        """
         # Initialize fire times if needed
         if not self._next_fire_times:
             self._next_fire_times = [t.next() for t in self.triggers]
