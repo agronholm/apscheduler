@@ -216,7 +216,9 @@ class TestOrTrigger:
         assert trigger.next() == start_time + timedelta(seconds=4)
         assert trigger.next() == start_time + timedelta(seconds=6)
         assert trigger.next() == start_time + timedelta(seconds=8)
-        assert trigger.next() == start_time + timedelta(seconds=12)  # No second trigger -> cooldown
+        assert trigger.next() == start_time + timedelta(
+            seconds=12
+        )  # No second trigger -> cooldown
         assert trigger.next() == start_time + timedelta(seconds=16)
         assert trigger.next() == start_time + timedelta(seconds=18)
 
@@ -241,7 +243,11 @@ class TestOrTrigger:
     def test_repr(self, timezone):
         date1 = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         date2 = datetime(2020, 5, 18, 15, 1, 53, 940564, tzinfo=timezone)
-        trigger = OrTrigger([DateTrigger(date1), DateTrigger(date2)], cooldown_period=1, max_iterations=10000)
+        trigger = OrTrigger(
+            [DateTrigger(date1), DateTrigger(date2)],
+            cooldown_period=1,
+            max_iterations=10000,
+        )
         print(repr(trigger))
         assert repr(trigger) == (
             "OrTrigger([DateTrigger('2020-05-16 14:17:30.254212+02:00'), "
