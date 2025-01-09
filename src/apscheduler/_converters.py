@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -9,14 +9,14 @@ from zoneinfo import ZoneInfo
 from tzlocal import get_localzone
 
 
-def as_int(value: Any) -> Any:
+def as_int(value: int | str) -> int:
     if isinstance(value, str):
         return int(value)
 
     return value
 
 
-def as_aware_datetime(value: Any) -> Any:
+def as_aware_datetime(value: datetime | str) -> datetime:
     if isinstance(value, str):
         # Before Python 3.11, fromisoformat() could not handle the "Z" suffix
         if value.upper().endswith("Z"):
@@ -30,33 +30,30 @@ def as_aware_datetime(value: Any) -> Any:
     return value
 
 
-def as_date(value: Any) -> Any:
+def as_date(value: date | str) -> date:
     if isinstance(value, str):
         return date.fromisoformat(value)
 
     return value
 
 
-def as_timezone(value: Any) -> Any:
+def as_timezone(value: tzinfo | str) -> tzinfo:
     if isinstance(value, str):
-        if value is None or value == "local":
-            return get_localzone()
-
-        return ZoneInfo(value)
+        return get_localzone() if value == "local" else ZoneInfo(value)
     elif value is timezone.utc:
         return ZoneInfo("UTC")
 
     return value
 
 
-def as_uuid(value: Any) -> Any:
+def as_uuid(value: UUID | str) -> UUID:
     if isinstance(value, str):
         return UUID(value)
 
     return value
 
 
-def as_timedelta(value: Any) -> Any:
+def as_timedelta(value: timedelta | int) -> timedelta:
     if isinstance(value, (float, int)):
         return timedelta(seconds=value)
 
