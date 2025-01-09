@@ -63,7 +63,7 @@ def as_timedelta(value: timedelta | int) -> timedelta:
 def as_enum(enum_class: Any) -> Callable[[Any], Any]:
     def converter(value: Any) -> Any:
         if isinstance(value, str):
-            return enum_class.__members__[value]
+            return enum_class[value]
 
         return value
 
