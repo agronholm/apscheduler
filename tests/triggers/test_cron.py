@@ -160,6 +160,22 @@ def test_cron_trigger_4(timezone, serializer):
     )
 
 
+def test_cron_trigger_5(timezone, serializer):
+    start_time = datetime(2012, 2, 1, tzinfo=timezone)
+    trigger = CronTrigger(
+        year="2012", month="2", day="last-6", start_time=start_time, timezone=timezone
+    )
+    if serializer:
+        trigger = serializer.deserialize(serializer.serialize(trigger))
+
+    assert trigger.next() == datetime(2012, 2, 23, tzinfo=timezone)
+    assert repr(trigger) == (
+        "CronTrigger(year='2012', month='2', day='last-6', week='*', "
+        "day_of_week='*', hour='0', minute='0', second='0', "
+        "start_time='2012-02-01T00:00:00+01:00', timezone='Europe/Berlin')"
+    )
+
+
 @pytest.mark.parametrize("expr", ["3-5", "wed-fri"], ids=["numeric", "text"])
 def test_weekday_overlap(timezone, serializer, expr):
     start_time = datetime(2009, 1, 1, tzinfo=timezone)
