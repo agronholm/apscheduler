@@ -55,7 +55,7 @@ SEPARATOR = re.compile(" *, *")
 
 
 class BaseField:
-    __slots__ = "name", "expressions"
+    __slots__ = "expressions", "name"
 
     real: ClassVar[bool] = True
     compilers: ClassVar[Any] = (AllExpression, RangeExpression)

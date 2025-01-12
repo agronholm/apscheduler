@@ -118,7 +118,7 @@ class CronTrigger(Trigger):
         *,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
-        timezone: str | tzinfo = "local",
+        timezone: tzinfo | str = "local",
     ) -> CronTrigger:
         """
         Create a :class:`~CronTrigger` from a standard crontab expression.
