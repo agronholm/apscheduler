@@ -62,6 +62,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   acquire the same schedules at once
 - Changed ``SQLAlchemyDataStore`` to automatically create the explicitly specified
   schema if it's missing (PR by @zhu0629)
+- Added cooldown_period to OrTrigger
+  (#453 <https://github.com/agronholm/apscheduler/issues/453>_; PR by @HomerusJa)
 
 **4.0.0a5**
 
