@@ -434,8 +434,8 @@ def test_dst_change2(
     trigger.start_time = start_time.replace(tzinfo=timezone)
     for correct_next_date, fold in correct_next_dates:
         next_date = trigger.next()
-        assert next_date == correct_next_date.replace(tzinfo=timezone)
-        assert next_date.fold == fold
+        assert next_date == correct_next_date.replace(tzinfo=timezone, fold=fold)
+        assert str(next_date) == str(correct_next_date)
 
 
 def test_zero_value(timezone):

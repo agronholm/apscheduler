@@ -207,7 +207,7 @@ class CronTrigger(Trigger):
                 else:
                     values[field.name] = new_value
 
-        return datetime(**values, tzinfo=self.timezone).replace(fold=dateval.fold)
+        return datetime(**values, tzinfo=self.timezone, fold=dateval.fold)
 
     def next(self) -> datetime | None:
         if self._last_fire_time:
