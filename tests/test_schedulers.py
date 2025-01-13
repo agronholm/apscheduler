@@ -1058,9 +1058,9 @@ class TestSyncScheduler:
                     sync_args[param.kind].append(param)
 
                 for kind, args in async_args.items():
-                    assert (
-                        args == sync_args[kind]
-                    ), f"Parameter mismatch for {attrname}(): {args} != {sync_args[kind]}"
+                    assert args == sync_args[kind], (
+                        f"Parameter mismatch for {attrname}(): {args} != {sync_args[kind]}"
+                    )
 
     def test_repr(self) -> None:
         scheduler = Scheduler(identity="my identity")

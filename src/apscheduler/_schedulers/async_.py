@@ -843,8 +843,7 @@ class AsyncScheduler:
         """Run the scheduler until explicitly stopped."""
         if self._state is not RunState.stopped:
             raise RuntimeError(
-                f'Cannot start the scheduler when it is in the "{self._state}" '
-                f"state"
+                f'Cannot start the scheduler when it is in the "{self._state}" state'
             )
 
         self._state = RunState.starting
@@ -953,8 +952,7 @@ class AsyncScheduler:
                         extend_schedule_leases,
                         schedules,
                         name=(
-                            f"Scheduler {self.identity!r} schedule lease extension "
-                            f"loop"
+                            f"Scheduler {self.identity!r} schedule lease extension loop"
                         ),
                     )
                     exit_stack.callback(tg.cancel_scope.cancel)

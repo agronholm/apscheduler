@@ -157,4 +157,4 @@ class CalendarIntervalTrigger(Trigger):
             fields.append(f"end_date='{self.end_date}'")
 
         fields.append(f"timezone={timezone_repr(self.timezone)!r}")
-        return f'{self.__class__.__name__}({", ".join(fields)})'
+        return f"{self.__class__.__name__}({', '.join(fields)})"
