@@ -275,7 +275,7 @@ class CronTrigger(Trigger):
             fields.append(f"end_time={self.end_time.isoformat()!r}")
 
         fields.append(f"timezone={timezone_repr(self.timezone)!r}")
-        return f'CronTrigger({", ".join(fields)})'
+        return f"CronTrigger({', '.join(fields)})"
 
 
 def datetime_ceil(dateval: datetime) -> datetime:
