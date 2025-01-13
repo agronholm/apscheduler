@@ -10,7 +10,7 @@ from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 
-def tick():
+async def tick():
     print(f"Tick! The time is: {datetime.now()}")
 
 
