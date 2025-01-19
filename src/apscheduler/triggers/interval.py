@@ -130,4 +130,4 @@ class IntervalTrigger(Trigger):
         if self.end_time:
             fields.append(f"end_time='{self.end_time}'")
 
-        return f'{self.__class__.__name__}({", ".join(fields)})'
+        return f"{self.__class__.__name__}({', '.join(fields)})"
