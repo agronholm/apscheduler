@@ -433,8 +433,9 @@ def test_dst_change2(
     trigger = CronTrigger.from_crontab(cron_expression, timezone=timezone)
     trigger.start_time = start_time.replace(tzinfo=timezone)
     for correct_next_date, fold in correct_next_dates:
+        correct_next_date = correct_next_date.replace(tzinfo=timezone, fold=fold)
         next_date = trigger.next()
-        assert next_date == correct_next_date.replace(tzinfo=timezone, fold=fold)
+        assert next_date == correct_next_date
         assert str(next_date) == str(correct_next_date)
 
 
