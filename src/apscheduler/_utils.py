@@ -62,7 +62,7 @@ def require_state_version(
         if state["version"] > max_version:
             raise DeserializationError(
                 f"{trigger.__class__.__name__} received a serialized state with "
-                f'version {state["version"]}, but it only supports up to version '
+                f"version {state['version']}, but it only supports up to version "
                 f"{max_version}. This can happen when an older version of APScheduler "
                 f"is being used with a data store that was previously used with a "
                 f"newer APScheduler version."
