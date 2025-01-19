@@ -401,7 +401,7 @@ def test_dst_change(
 
 
 @pytest.mark.parametrize(
-    "hour, start_time, correct_next_dates",
+    "minute, start_time, correct_next_dates",
     [
         (
             0,
@@ -425,12 +425,12 @@ def test_dst_change(
     ids=["dst_change_0", "dst_change_1"],
 )
 def test_dst_change2(
-    hour,
+    minute,
     start_time,
     correct_next_dates,
     timezone,
 ):
-    trigger = CronTrigger(hour=hour, timezone=timezone)
+    trigger = CronTrigger(minute=minute, timezone=timezone)
     trigger.start_time = start_time.replace(tzinfo=timezone)
     for correct_next_date, fold in correct_next_dates:
         correct_next_date = correct_next_date.replace(tzinfo=timezone, fold=fold)
