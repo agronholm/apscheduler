@@ -1,6 +1,7 @@
 import asyncio
 from functools import partial, wraps
 
+from apscheduler.schedulers import SchedulerNotRunningError
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.util import maybe_ref
 
@@ -31,15 +32,22 @@ class AsyncIOScheduler(BaseScheduler):
     _timeout = None
 
     def start(self, paused=False):
-        if not self._eventloop:
+        if not self._eventloop or self._eventloop.is_closed():
             self._eventloop = asyncio.get_running_loop()
 
         super().start(paused)
 
     @run_in_event_loop
-    def shutdown(self, wait=True):
+    def _shutdown(self, wait=True):
         super().shutdown(wait)
         self._stop_timer()
+        self._eventloop = None
+
+    def shutdown(self, wait=True):
+        if not self.running:
+            raise SchedulerNotRunningError
+
+        self._shutdown(wait)
 
     def _configure(self, config):
         self._eventloop = maybe_ref(config.pop("event_loop", None))

@@ -4,6 +4,11 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+**UNRELEASED**
+
+- Fixed ``scheduler.shutdown()`` not raising ``SchedulerNotRunning`` (or raising the
+  wrong exception) for asynchronous schedulers when the scheduler is in fact not running
+
 **3.11.0**
 
 - Dropped support for Python 3.6 and 3.7

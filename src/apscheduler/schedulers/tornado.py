@@ -1,6 +1,7 @@
 from datetime import timedelta
 from functools import wraps
 
+from apscheduler.schedulers import SchedulerNotRunningError
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.util import maybe_ref
 
@@ -13,6 +14,9 @@ except ImportError as exc:  # pragma: nocover
 def run_in_ioloop(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
+        if self._ioloop is None:
+            raise SchedulerNotRunningError
+
         self._ioloop.add_callback(func, self, *args, **kwargs)
 
     return wrapper
@@ -33,9 +37,15 @@ class TornadoScheduler(BaseScheduler):
     _timeout = None
 
     @run_in_ioloop
-    def shutdown(self, wait=True):
+    def _shutdown(self, wait=True):
         super().shutdown(wait)
         self._stop_timer()
+
+    def shutdown(self, wait=True):
+        if not self.running:
+            raise SchedulerNotRunningError
+
+        self._shutdown(wait)
 
     def _configure(self, config):
         self._ioloop = maybe_ref(config.pop("io_loop", None)) or IOLoop.current()

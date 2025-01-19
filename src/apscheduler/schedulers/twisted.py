@@ -1,5 +1,6 @@
 from functools import wraps
 
+from apscheduler.schedulers import SchedulerNotRunningError
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.util import maybe_ref
 
@@ -36,9 +37,15 @@ class TwistedScheduler(BaseScheduler):
         super()._configure(config)
 
     @run_in_reactor
-    def shutdown(self, wait=True):
+    def _shutdown(self, wait=True):
         super().shutdown(wait)
         self._stop_timer()
+
+    def shutdown(self, wait=True):
+        if not self.running:
+            raise SchedulerNotRunningError
+
+        self._shutdown(wait)
 
     def _start_timer(self, wait_seconds):
         self._stop_timer()

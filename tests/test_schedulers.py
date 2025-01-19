@@ -1154,6 +1154,10 @@ class SchedulerImplementationTestBase:
     def wait_event(self, queue):
         return queue.get(True, 1)
 
+    def test_immediate_shutdown(self, scheduler):
+        with pytest.raises(SchedulerNotRunningError):
+            scheduler.shutdown()
+
     def test_add_pending_job(self, scheduler, freeze_time, eventqueue, start_scheduler):
         """Tests that pending jobs are added (and if due, executed) when the scheduler starts."""
         freeze_time.set_increment(timedelta(seconds=0.2))
