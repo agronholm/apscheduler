@@ -37,9 +37,7 @@ class BasePoolExecutor(BaseExecutor):
             # There is a possible race condition between shutdown being invoked and the job being submitted to pool.
             # This helps with not polluting logs with RuntimeError traces.
             if str(e) in SHUTDOWN_MESSAGES:
-                self._logger.warning(
-                    f"Executor has been shut down, skipping job {job.id}: {e}"
-                )
+                self._logger.warning("Executor has been shut down, skipping job %s: %s", job.id, e)
                 return
             else:
                 raise  # Re-raise unexpected RuntimeErrors
