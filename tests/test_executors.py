@@ -1,8 +1,8 @@
 import gc
+import logging
 import os
 import signal
 import time
-import logging
 from asyncio import CancelledError
 from datetime import datetime
 from threading import Event
@@ -274,12 +274,17 @@ async def test_run_coroutine_job(asyncio_scheduler, asyncio_executor, exception)
         assert events[0].retval is True
 
 
-@pytest.mark.parametrize('message,raise_error', [
-    ("cannot schedule new futures after shutdown", False),
-    ("cannot schedule new futures after interpreter shutdown", False),
-    ("random RuntimeError", True),
-])
-def test_pool_shutdown(mock_scheduler, executor, create_job, timezone, caplog, message, raise_error):
+@pytest.mark.parametrize(
+    "message,raise_error",
+    [
+        ("cannot schedule new futures after shutdown", False),
+        ("cannot schedule new futures after interpreter shutdown", False),
+        ("random RuntimeError", True),
+    ],
+)
+def test_pool_shutdown(
+    mock_scheduler, executor, create_job, timezone, caplog, message, raise_error
+):
     executor._pool.submit = MagicMock(side_effect=RuntimeError(message))
     with caplog.at_level(logging.WARNING):
         try:
@@ -290,7 +295,9 @@ def test_pool_shutdown(mock_scheduler, executor, create_job, timezone, caplog, m
                 pytest.fail("Random RuntimeErrors should be raised!")
         except RuntimeError:
             if not raise_error:
-                pytest.fail("Shutdown RuntimeErrors should be caught and logged, not raised!")
+                pytest.fail(
+                    "Shutdown RuntimeErrors should be caught and logged, not raised!"
+                )
 
 
 @pytest.mark.parametrize("exception", [False, True])

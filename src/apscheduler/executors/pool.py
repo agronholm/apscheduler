@@ -5,7 +5,6 @@ from concurrent.futures.process import BrokenProcessPool
 
 from apscheduler.executors.base import BaseExecutor, run_job
 
-
 SHUTDOWN_MESSAGES = {
     "cannot schedule new futures after shutdown",
     "cannot schedule new futures after interpreter shutdown",
@@ -38,12 +37,13 @@ class BasePoolExecutor(BaseExecutor):
             # There is a possible race condition between shutdown being invoked and the job being submitted to pool.
             # This helps with not polluting logs with RuntimeError traces.
             if str(e) in SHUTDOWN_MESSAGES:
-                self._logger.warning(f"Executor has been shut down, skipping job {job.id}: {e}")
+                self._logger.warning(
+                    f"Executor has been shut down, skipping job {job.id}: {e}"
+                )
                 return
             else:
                 raise  # Re-raise unexpected RuntimeErrors
         f.add_done_callback(callback)
-
 
     def shutdown(self, wait=True):
         self._pool.shutdown(wait)
