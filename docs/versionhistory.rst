@@ -8,6 +8,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - Fixed ``scheduler.shutdown()`` not raising ``SchedulerNotRunning`` (or raising the
   wrong exception) for asynchronous schedulers when the scheduler is in fact not running
+- Fixed "RuntimeError: cannot schedule new futures after interpreter shutdown" (#985
+<https://github.com/agronholm/apscheduler/issues/985>_; PR by @i-am-darshil)
 
 **3.11.0**
 
