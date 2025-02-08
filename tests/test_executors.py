@@ -2,6 +2,7 @@ import gc
 import os
 import signal
 import time
+import logging
 from asyncio import CancelledError
 from datetime import datetime
 from threading import Event
@@ -271,6 +272,25 @@ async def test_run_coroutine_job(asyncio_scheduler, asyncio_executor, exception)
         assert str(events[0].exception) == "dummy error"
     else:
         assert events[0].retval is True
+
+
+@pytest.mark.parametrize('message,raise_error', [
+    ("cannot schedule new futures after shutdown", False),
+    ("cannot schedule new futures after interpreter shutdown", False),
+    ("random RuntimeError", True),
+])
+def test_pool_shutdown(mock_scheduler, executor, create_job, timezone, caplog, message, raise_error):
+    executor._pool.submit = MagicMock(side_effect=RuntimeError(message))
+    with caplog.at_level(logging.WARNING):
+        try:
+            job = create_job(func=wait_event, max_instances=2, next_run_time=None)
+            run_time = datetime.now(timezone)
+            executor.submit_job(job, [run_time])
+            if raise_error:
+                pytest.fail("Random RuntimeErrors should be raised!")
+        except RuntimeError:
+            if not raise_error:
+                pytest.fail("Shutdown RuntimeErrors should be caught and logged, not raised!")
 
 
 @pytest.mark.parametrize("exception", [False, True])
