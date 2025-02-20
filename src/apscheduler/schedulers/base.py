@@ -70,6 +70,7 @@ class BaseScheduler(metaclass=ABCMeta):
     :param int|float jobstore_retry_interval: the minimum number of seconds to wait between
         retries in the scheduler's main loop if the job store raises an exception when getting
         the list of due jobs
+    :param float max_timeout: the maximum number of seconds to wait for main loop wakeup
     :param dict job_defaults: default values for newly added jobs
     :param dict jobstores: a dictionary of job store alias -> job store instance or configuration
         dict
@@ -902,6 +903,7 @@ class BaseScheduler(metaclass=ABCMeta):
         )
         self.timezone = astimezone(config.pop("timezone", None)) or get_localzone()
         self.jobstore_retry_interval = float(config.pop("jobstore_retry_interval", 10))
+        self.max_timeout = float(config.pop("max_timeout", TIMEOUT_MAX))
 
         # Set the job defaults
         job_defaults = config.get("job_defaults", {})

@@ -23,7 +23,7 @@ class BlockingScheduler(BaseScheduler):
         self._event.set()
 
     def _main_loop(self):
-        wait_seconds = TIMEOUT_MAX
+        wait_seconds = self.max_timeout
         while self.state != STATE_STOPPED:
             self._event.wait(wait_seconds)
             self._event.clear()
