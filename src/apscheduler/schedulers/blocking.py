@@ -1,4 +1,4 @@
-from threading import TIMEOUT_MAX, Event
+from threading import Event
 
 from apscheduler.schedulers.base import STATE_STOPPED, BaseScheduler
 
