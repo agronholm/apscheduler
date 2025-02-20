@@ -1255,7 +1255,7 @@ class BaseScheduler(metaclass=ABCMeta):
         else:
             now = datetime.now(self.timezone)
             wait_seconds = min(
-                max((next_wakeup_time - now).total_seconds(), 0), TIMEOUT_MAX
+                max((next_wakeup_time - now).total_seconds(), 0), self.max_timeout
             )
             self._logger.debug(
                 "Next wakeup is due at %s (in %f seconds)",
