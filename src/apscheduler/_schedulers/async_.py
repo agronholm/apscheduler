@@ -1106,7 +1106,7 @@ class AsyncScheduler:
                 wakeup_event.set()
 
         async def extend_job_leases() -> None:
-            while self._state is RunState.started:
+            while self._state in (RunState.starting, RunState.started):
                 await sleep(self.lease_duration.total_seconds() / 2)
                 if job_ids := {job.id for job in self._running_jobs}:
                     await self.data_store.extend_acquired_job_leases(
