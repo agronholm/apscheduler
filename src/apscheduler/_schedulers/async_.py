@@ -1108,10 +1108,10 @@ class AsyncScheduler:
         async def extend_job_leases() -> None:
             while self._state is RunState.started:
                 await sleep(self.lease_duration.total_seconds() / 2)
-                job_ids = {job.id for job in self._running_jobs}
-                await self.data_store.extend_acquired_job_leases(
-                    self.identity, job_ids, self.lease_duration
-                )
+                if job_ids := {job.id for job in self._running_jobs}:
+                    await self.data_store.extend_acquired_job_leases(
+                        self.identity, job_ids, self.lease_duration
+                    )
 
         async with AsyncExitStack() as exit_stack:
             # Start the job executors
