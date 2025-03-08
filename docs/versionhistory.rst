@@ -64,8 +64,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   schema if it's missing (PR by @zhu0629)
 - Fixed an issue with ``CronTrigger`` infinitely looping to get next date when DST ends
   (`#980 <https://github.com/agronholm/apscheduler/issues/980>`_; PR by @hlobit)
-- Skip dispatching extend_acquired_job_leases with no jobs (`#1031
-  <https://github.com/agronholm/apscheduler/issues/1031>`_; PR by @JacobHayes)
+- Skip dispatching extend_acquired_job_leases with no jobs (PR by @JacobHayes)
 
 **4.0.0a5**
 
