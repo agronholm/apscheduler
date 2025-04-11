@@ -118,7 +118,8 @@ def marshal_timestamp(timestamp: datetime | None, key: str) -> Mapping[str, Any]
 
     return {
         key: int(timestamp.timestamp() * 1000_000),
-        key + "_utcoffset": cast(timedelta, timestamp.utcoffset()).total_seconds() // 60,
+        key + "_utcoffset": cast(timedelta, timestamp.utcoffset()).total_seconds()
+        // 60,
     }
 
 
@@ -554,9 +555,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         self, schedule: Schedule, conflict_policy: ConflictPolicy
     ) -> None:
         event: DataStoreEvent
-        values = self._convert_outgoing_fire_times(
-            schedule.marshal(self.serializer)
-        )
+        values = self._convert_outgoing_fire_times(schedule.marshal(self.serializer))
         insert = self._t_schedules.insert().values(**values)
         try:
             async for attempt in self._retry():
@@ -736,8 +735,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                                 {
                                     "p_id": result.schedule_id,
                                     "p_trigger": serialized_trigger,
-                                    **marshal_timestamp(result.last_fire_time, "p_last_fire_time"),
-                                    **marshal_timestamp(result.next_fire_time, "p_next_fire_time"),
+                                    **marshal_timestamp(
+                                        result.last_fire_time, "p_last_fire_time"
+                                    ),
+                                    **marshal_timestamp(
+                                        result.next_fire_time, "p_next_fire_time"
+                                    ),
                                 }
                             )
 
