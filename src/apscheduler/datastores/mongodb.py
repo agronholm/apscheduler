@@ -207,6 +207,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                 self._jobs_results.delete_many({}, session=session)
 
             self._schedules.create_index("task_id", session=session)
+            self._schedules.create_index("last_fire_time", session=session)
             self._schedules.create_index("next_fire_time", session=session)
             self._schedules.create_index("acquired_by", session=session)
             self._jobs.create_index("task_id", session=session)
@@ -503,6 +504,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                 },
                 "$set": {
                     "trigger": serialized_trigger,
+                    **marshal_timestamp(result.last_fire_time, "last_fire_time"),
                     **marshal_timestamp(result.next_fire_time, "next_fire_time"),
                 },
             }

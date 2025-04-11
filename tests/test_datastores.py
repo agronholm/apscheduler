@@ -281,9 +281,14 @@ async def test_acquire_release_schedules(
         assert len(schedules) == 3
         schedules.sort(key=lambda s: s.id)
         assert schedules[0].id == "s1"
+        assert schedules[0].last_fire_time == datetime(2020, 9, 14, tzinfo=timezone.utc)
         assert schedules[0].next_fire_time is None
         assert schedules[1].id == "s2"
+        assert schedules[1].last_fire_time == datetime(2020, 9, 14, tzinfo=timezone.utc)
+        assert schedules[1].next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
         assert schedules[2].id == "s3"
+        assert schedules[2].last_fire_time is None
+        assert schedules[2].next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
 
     # Check for the appropriate update and delete events
     received_event = events.pop(0)
