@@ -65,6 +65,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed an issue with ``CronTrigger`` infinitely looping to get next date when DST ends
   (`#980 <https://github.com/agronholm/apscheduler/issues/980>`_; PR by @hlobit)
 - Skip dispatching extend_acquired_job_leases with no jobs (PR by @JacobHayes)
+- Added logic to store ``last_fire_time`` in datastore implementations (PR by @hlobit)
 
 **4.0.0a5**
 
