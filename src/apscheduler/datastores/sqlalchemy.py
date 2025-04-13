@@ -112,6 +112,17 @@ class EmulatedInterval(TypeDecorator[timedelta]):
         return timedelta(seconds=value / 1000000) if value is not None else None
 
 
+def marshal_timestamp(timestamp: datetime | None, key: str) -> Mapping[str, Any]:
+    if timestamp is None:
+        return {key: None, key + "_utcoffset": None}
+
+    return {
+        key: int(timestamp.timestamp() * 1000_000),
+        key + "_utcoffset": cast(timedelta, timestamp.utcoffset()).total_seconds()
+        // 60,
+    }
+
+
 @attrs.define(eq=False, frozen=True)
 class _JobDiscard:
     job_id: UUID
@@ -257,37 +268,46 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
         return InterfaceError, OSError
 
-    def _convert_incoming_next_fire_time(self, data: dict[str, Any]) -> dict[str, Any]:
-        if not self._supports_tzaware_timestamps:
-            utcoffset_minutes = data.pop("next_fire_time_utcoffset", None)
-            if utcoffset_minutes is not None:
-                tz = timezone(timedelta(minutes=utcoffset_minutes))
-                timestamp = data["next_fire_time"] / 1000_000
-                data["next_fire_time"] = datetime.fromtimestamp(timestamp, tz=tz)
+    def _convert_incoming_fire_times(self, data: dict[str, Any]) -> dict[str, Any]:
+        for field in ("last_fire_time", "next_fire_time"):
+            if not self._supports_tzaware_timestamps:
+                utcoffset_minutes = data.pop(f"{field}_utcoffset", None)
+                if utcoffset_minutes is not None:
+                    tz = timezone(timedelta(minutes=utcoffset_minutes))
+                    timestamp = data[field] / 1000_000
+                    data[field] = datetime.fromtimestamp(timestamp, tz=tz)
 
         return data
 
-    def _convert_outgoing_next_fire_time(self, data: dict[str, Any]) -> dict[str, Any]:
-        if not self._supports_tzaware_timestamps:
-            next_fire_time = data["next_fire_time"]
-            if next_fire_time is not None:
-                data["next_fire_time"] = int(next_fire_time.timestamp() * 1000_000)
-                data["next_fire_time_utcoffset"] = (
-                    next_fire_time.utcoffset().total_seconds() // 60
-                )
-            else:
-                data["next_fire_time_utcoffset"] = None
+    def _convert_outgoing_fire_times(self, data: dict[str, Any]) -> dict[str, Any]:
+        for field in ("last_fire_time", "next_fire_time"):
+            if not self._supports_tzaware_timestamps:
+                field_value = data[field]
+                if field_value is not None:
+                    data[field] = int(field_value.timestamp() * 1000_000)
+                    data[f"{field}_utcoffset"] = (
+                        field_value.utcoffset().total_seconds() // 60
+                    )
+                else:
+                    data[f"{field}_utcoffset"] = None
 
         return data
 
     def get_table_definitions(self) -> MetaData:
         if self._supports_tzaware_timestamps:
             timestamp_type: TypeEngine[datetime] = DateTime(timezone=True)
+            last_fire_time_tzoffset_columns: tuple[Column, ...] = (
+                Column("last_fire_time", timestamp_type),
+            )
             next_fire_time_tzoffset_columns: tuple[Column, ...] = (
                 Column("next_fire_time", timestamp_type, index=True),
             )
         else:
             timestamp_type = EmulatedTimestampTZ()
+            last_fire_time_tzoffset_columns = (
+                Column("last_fire_time", BigInteger),
+                Column("last_fire_time_utcoffset", SmallInteger),
+            )
             next_fire_time_tzoffset_columns = (
                 Column("next_fire_time", BigInteger, index=True),
                 Column("next_fire_time_utcoffset", SmallInteger),
@@ -333,8 +353,8 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             Column("job_executor", Unicode(500), nullable=False),
             Column("job_result_expiration_time", interval_type),
             Column("metadata", json_type, nullable=False),
+            *last_fire_time_tzoffset_columns,
             *next_fire_time_tzoffset_columns,
-            Column("last_fire_time", timestamp_type),
             Column("acquired_by", Unicode(500), index=True),
             Column("acquired_until", timestamp_type),
         )
@@ -438,7 +458,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                 schedules.append(
                     Schedule.unmarshal(
                         self.serializer,
-                        self._convert_incoming_next_fire_time(row._asdict()),
+                        self._convert_incoming_fire_times(row._asdict()),
                     )
                 )
             except SerializationError as exc:
@@ -535,9 +555,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         self, schedule: Schedule, conflict_policy: ConflictPolicy
     ) -> None:
         event: DataStoreEvent
-        values = self._convert_outgoing_next_fire_time(
-            schedule.marshal(self.serializer)
-        )
+        values = self._convert_outgoing_fire_times(schedule.marshal(self.serializer))
         insert = self._t_schedules.insert().values(**values)
         try:
             async for attempt in self._retry():
@@ -708,29 +726,21 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                                 {
                                     "p_id": result.schedule_id,
                                     "p_trigger": serialized_trigger,
+                                    "p_last_fire_time": result.last_fire_time,
                                     "p_next_fire_time": result.next_fire_time,
                                 }
                             )
                         else:
-                            if result.next_fire_time is not None:
-                                timestamp: int | None = int(
-                                    result.next_fire_time.timestamp() * 1000_000
-                                )
-                                utcoffset = (
-                                    cast(
-                                        timedelta, result.next_fire_time.utcoffset()
-                                    ).total_seconds()
-                                    // 60
-                                )
-                            else:
-                                timestamp = utcoffset = None
-
                             update_args.append(
                                 {
                                     "p_id": result.schedule_id,
                                     "p_trigger": serialized_trigger,
-                                    "p_next_fire_time": timestamp,
-                                    "p_next_fire_time_utcoffset": utcoffset,
+                                    **marshal_timestamp(
+                                        result.last_fire_time, "p_last_fire_time"
+                                    ),
+                                    **marshal_timestamp(
+                                        result.next_fire_time, "p_next_fire_time"
+                                    ),
                                 }
                             )
 
@@ -739,8 +749,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         extra_values: dict[str, BindParameter] = {}
                         p_id: BindParameter = bindparam("p_id")
                         p_trigger: BindParameter = bindparam("p_trigger")
+                        p_last_fire_time: BindParameter = bindparam("p_last_fire_time")
                         p_next_fire_time: BindParameter = bindparam("p_next_fire_time")
                         if not self._supports_tzaware_timestamps:
+                            extra_values["last_fire_time_utcoffset"] = bindparam(
+                                "p_last_fire_time_utcoffset"
+                            )
                             extra_values["next_fire_time_utcoffset"] = bindparam(
                                 "p_next_fire_time_utcoffset"
                             )
@@ -755,6 +769,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             )
                             .values(
                                 trigger=p_trigger,
+                                last_fire_time=p_last_fire_time,
                                 next_fire_time=p_next_fire_time,
                                 acquired_by=None,
                                 acquired_until=None,

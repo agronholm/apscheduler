@@ -503,6 +503,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                 },
                 "$set": {
                     "trigger": serialized_trigger,
+                    **marshal_timestamp(result.last_fire_time, "last_fire_time"),
                     **marshal_timestamp(result.next_fire_time, "next_fire_time"),
                 },
             }
