@@ -297,7 +297,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         if self._supports_tzaware_timestamps:
             timestamp_type: TypeEngine[datetime] = DateTime(timezone=True)
             last_fire_time_tzoffset_columns: tuple[Column, ...] = (
-                Column("last_fire_time", timestamp_type, index=True),
+                Column("last_fire_time", timestamp_type),
             )
             next_fire_time_tzoffset_columns: tuple[Column, ...] = (
                 Column("next_fire_time", timestamp_type, index=True),
@@ -305,7 +305,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         else:
             timestamp_type = EmulatedTimestampTZ()
             last_fire_time_tzoffset_columns = (
-                Column("last_fire_time", BigInteger, index=True),
+                Column("last_fire_time", BigInteger),
                 Column("last_fire_time_utcoffset", SmallInteger),
             )
             next_fire_time_tzoffset_columns = (
