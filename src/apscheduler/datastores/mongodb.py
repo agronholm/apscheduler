@@ -401,6 +401,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                                     },
                                     {
                                         "$or": [
+                                            {"acquired_by": scheduler_id},
                                             {"acquired_until": {"$exists": False}},
                                             {
                                                 "acquired_until": {

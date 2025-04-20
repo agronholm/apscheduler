@@ -664,6 +664,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                                 comparison,
                                 self._t_schedules.c.paused == false(),
                                 or_(
+                                    self._t_schedules.c.acquired_by == scheduler_id,
                                     self._t_schedules.c.acquired_until.is_(None),
                                     self._t_schedules.c.acquired_until < now,
                                 ),
