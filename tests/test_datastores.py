@@ -856,6 +856,9 @@ async def test_reap_abandoned_jobs(
     abandoned_job_result = await datastore.get_job_result(jobs[0].id)
     assert abandoned_job_result.outcome is JobOutcome.abandoned
 
+    task = await datastore.get_task("task1")
+    assert task.running_jobs == 0
+
 
 class TestRepr:
     async def test_memory(self, memory_store: MemoryDataStore) -> None:
