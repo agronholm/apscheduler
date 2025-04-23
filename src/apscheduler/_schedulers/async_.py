@@ -1119,6 +1119,10 @@ class AsyncScheduler:
                         self.identity, job_ids, self.lease_duration
                     )
 
+        # If there are any jobs marked as being acquired by this scheduler, release them
+        # with the "abandoned" outcome right away
+        await self.data_store.reap_abandoned_jobs(self.identity)
+
         async with AsyncExitStack() as exit_stack:
             # Start the job executors
             for job_executor in self.job_executors.values():

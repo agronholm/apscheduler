@@ -870,6 +870,36 @@ class MongoDBDataStore(BaseExternalDataStore):
                     )
                 )
 
+    async def reap_abandoned_jobs(self, scheduler_id: str) -> None:
+        async for attempt in self._retry():
+            events: list[JobReleased] = []
+            with attempt, self._client.start_session() as session:
+                async with await AsyncCursor.create(
+                    lambda: self._jobs.find(
+                        filter={"acquired_by": scheduler_id},
+                        sort=[("created_at", ASCENDING)],
+                    )
+                ) as cursor:
+                    async for doc in cursor:
+                        doc["id"] = doc.pop("_id")
+                        unmarshal_timestamps(doc)
+                        job = Job.unmarshal(
+                            self.serializer, {**doc, "args": (), "kwargs": {}}
+                        )
+                        result = JobResult.from_job(job, JobOutcome.abandoned)
+                        event = await self._release_job(
+                            session,
+                            result,
+                            scheduler_id,
+                            job.task_id,
+                            job.schedule_id,
+                            job.scheduled_fire_time,
+                        )
+                        events.append(event)
+
+            for event in events:
+                await self._event_broker.publish(event)
+
     async def cleanup(self) -> None:
         events: list[JobReleased | ScheduleRemoved] = []
         async for attempt in self._retry():

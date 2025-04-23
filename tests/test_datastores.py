@@ -834,6 +834,29 @@ async def test_acquire_jobs_deserialization_failure(
     assert await datastore.acquire_jobs("scheduler_id", timedelta(seconds=30), 1) == []
 
 
+async def test_reap_abandoned_jobs(
+    datastore: DataStore, local_broker: EventBroker, logger: Logger
+) -> None:
+    # Add a task, schedule and job and acquire the latter two
+    task = Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    await datastore.add_task(task)
+
+    job = Job(
+        task_id="task1",
+        executor="async",
+        result_expiration_time=timedelta(seconds=30),
+    )
+    await datastore.add_job(job)
+    await datastore.reap_abandoned_jobs("testscheduler")
+    jobs = await datastore.acquire_jobs("testscheduler", timedelta(seconds=30), 1)
+    assert len(jobs) == 1
+
+    await datastore.reap_abandoned_jobs("testscheduler")
+    assert not await datastore.get_jobs()
+    abandoned_job_result = await datastore.get_job_result(jobs[0].id)
+    assert abandoned_job_result.outcome is JobOutcome.abandoned
+
+
 class TestRepr:
     async def test_memory(self, memory_store: MemoryDataStore) -> None:
         assert repr(memory_store) == "MemoryDataStore()"

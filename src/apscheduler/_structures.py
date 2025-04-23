@@ -344,8 +344,12 @@ class Job:
 
     @classmethod
     def unmarshal(cls, serializer: Serializer, marshalled: dict[str, Any]) -> Job:
-        marshalled["args"] = serializer.deserialize(marshalled["args"])
-        marshalled["kwargs"] = serializer.deserialize(marshalled["kwargs"])
+        if args := marshalled["args"]:
+            marshalled["args"] = serializer.deserialize(args)
+
+        if kwargs := marshalled["kwargs"]:
+            marshalled["kwargs"] = serializer.deserialize(kwargs)
+
         return cls(**marshalled)
 
     def __hash__(self) -> int:

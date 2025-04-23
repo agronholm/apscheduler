@@ -15,7 +15,7 @@ from inspect import signature
 from pathlib import Path
 from queue import Queue
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
 from unittest.mock import patch
 
 import anyio
@@ -24,7 +24,6 @@ from anyio import (
     Lock,
     WouldBlock,
     create_memory_object_stream,
-    create_task_group,
     fail_after,
     move_on_after,
     sleep,
@@ -1067,21 +1066,78 @@ class TestAsyncScheduler:
 
         # Now reinitialize the scheduler and make sure the schedule gets processed
         # immediately
-        job_added_event = anyio.Event()
-        async with create_task_group() as tg, scheduler:
+        async with scheduler:
             # Check that the schedule was left in an acquired state
             schedules = await scheduler.get_schedules()
             assert len(schedules) == 1
             assert schedules[0].acquired_by == scheduler.identity
             assert schedules[0].acquired_until > datetime.now(timezone)
 
-            # Start the scheduler and wait for it to be processed
-            with scheduler.subscribe(lambda _: job_added_event.set(), {JobAdded}):
-                await tg.start(scheduler.run_until_stopped)
-                with fail_after(scheduler.lease_duration.total_seconds() / 2):
-                    await job_added_event.wait()
+            # Start the scheduler and wait for the schedule to be processed
+            await scheduler.start_in_background()
+            with fail_after(scheduler.lease_duration.total_seconds() / 2):
+                job_added_event = await scheduler.get_next_event(JobAdded)
 
-                await scheduler.stop()
+            assert job_added_event.schedule_id == "foo"
+
+    async def test_scheduler_crash_reap_abandoned_jobs(
+        self, raw_datastore: DataStore, timezone: ZoneInfo
+    ) -> None:
+        """
+        Test that after the scheduler has crashed and been restarted, it immediately
+        detects an abandoned job and releases it with the appropriate result code.
+
+        """
+        scheduler = AsyncScheduler(data_store=raw_datastore)
+        error_patch = patch.object(
+            raw_datastore, "release_job", side_effect=RuntimeError("Fake failure")
+        )
+        with pytest.raises(ExceptionGroup) as exc_info, error_patch:
+            async with scheduler:
+                job_id = await scheduler.add_job(dummy_async_job)
+                with move_on_after(3):
+                    await scheduler.run_until_stopped()
+
+                pytest.fail("The scheduler did not crash")
+
+        exc = exc_info.value
+        while isinstance(exc, ExceptionGroup) and len(exc.exceptions) == 1:
+            exc = exc.exceptions[0]
+
+        assert isinstance(exc, RuntimeError)
+        assert exc.args == ("Fake failure",)
+
+        # Don't clear the data store at launch
+        if isinstance(raw_datastore, BaseExternalDataStore):
+            raw_datastore.start_from_scratch = False
+
+        # Now reinitialize the scheduler and make sure the job gets processed
+        # immediately
+        async with scheduler:
+            # Check that the job was left in an acquired state
+            jobs = await scheduler.get_jobs()
+            assert len(jobs) == 1
+            assert jobs[0].acquired_by == scheduler.identity
+            assert jobs[0].acquired_until > datetime.now(timezone)
+
+            trigger_event = anyio.Event()
+            job_released_event: JobReleased | None = None
+
+            def event_callback(event: Event) -> None:
+                nonlocal job_released_event
+                job_released_event = cast(JobReleased, event)
+                trigger_event.set()
+
+            # Start the scheduler and wait for the job to be processed
+            with scheduler.subscribe(event_callback, {JobReleased}):
+                await scheduler.start_in_background()
+                with fail_after(scheduler.lease_duration.total_seconds() / 2):
+                    await trigger_event.wait()
+
+            assert job_released_event
+            assert job_released_event.job_id == job_id
+            assert job_released_event.outcome is JobOutcome.abandoned
+            assert not await scheduler.get_jobs()
 
 
 class TestSyncScheduler:

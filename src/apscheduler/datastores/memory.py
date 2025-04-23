@@ -343,6 +343,15 @@ class MemoryDataStore(BaseDataStore):
             if job.acquired_by == scheduler_id and job.id in job_ids:
                 job.acquired_until = acquired_until
 
+    async def reap_abandoned_jobs(self, scheduler_id: str) -> None:
+        now = datetime.now(timezone.utc)
+        for job in list(self._jobs_by_id.values()):
+            if job.acquired_by == scheduler_id:
+                result = JobResult.from_job(
+                    job=job, outcome=JobOutcome.abandoned, finished_at=now
+                )
+                await self.release_job(job.acquired_by, job, result)
+
     async def cleanup(self) -> None:
         # Clean up expired job results
         now = datetime.now(timezone.utc)

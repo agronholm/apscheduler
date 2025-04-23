@@ -1132,6 +1132,36 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     )
                     await self._execute(conn, update)
 
+    async def reap_abandoned_jobs(self, scheduler_id: str) -> None:
+        query = (
+            select(self._t_jobs)
+            .where(self._t_jobs.c.acquired_by == scheduler_id)
+            .with_for_update()
+        )
+        async for attempt in self._retry():
+            events: list[JobReleased] = []
+            with attempt:
+                async with self._begin_transaction() as conn:
+                    if results := await self._execute(conn, query):
+                        for row in results:
+                            job_dict = self._convert_incoming_fire_times(row._asdict())
+                            job = Job.unmarshal(
+                                self.serializer, {**job_dict, "args": (), "kwargs": {}}
+                            )
+                            result = JobResult.from_job(job, JobOutcome.abandoned)
+                            event = await self._release_job(
+                                conn,
+                                result,
+                                scheduler_id,
+                                job.task_id,
+                                job.schedule_id,
+                                job.scheduled_fire_time,
+                            )
+                            events.append(event)
+
+            for event in events:
+                await self._event_broker.publish(event)
+
     async def cleanup(self) -> None:
         async for attempt in self._retry():
             with attempt:

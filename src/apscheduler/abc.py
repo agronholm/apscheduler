@@ -377,6 +377,20 @@ class DataStore(metaclass=ABCMeta):
         """
 
     @abstractmethod
+    async def reap_abandoned_jobs(self, scheduler_id: str) -> None:
+        """
+        Find jobs marked as acquired by the given scheduler ID and release them with the
+        outcome of :attr:`~JobOutcome.abandoned`.
+
+        Implementers must ensure that the proper :class:`JobReleased` events are
+        published.
+
+        This method is called once during the scheduler startup sequence.
+
+        :param scheduler_id: unique identifier of the scheduler
+        """
+
+    @abstractmethod
     async def cleanup(self) -> None:
         """
         Perform clean-up operations on the data store.

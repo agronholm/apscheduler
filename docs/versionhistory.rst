@@ -44,6 +44,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** Added the ``metadata`` field to tasks, schedules and jobs
 - **BREAKING** Added logic to store ``last_fire_time`` in datastore implementations
   (PR by @hlobit)
+- **BREAKING** Added the ``reap_abandoned_jobs()`` abstract method to ``DataStore``
+  which the scheduler calls before processing any jobs in order to immediately mark jobs
+  left in an acquired state when the scheduler crashed
 - Added the ``start_time`` and ``end_time`` arguments to ``CronTrigger.from_crontab()``
   (`#676 <https://github.com/agronholm/apscheduler/issues/676>`_)
 - Added the ``psycopg`` event broker
