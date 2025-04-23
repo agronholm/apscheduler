@@ -287,6 +287,12 @@ class AsyncScheduler:
             callback, event_types, is_async=is_async, one_shot=one_shot
         )
 
+    @overload
+    async def get_next_event(self, event_types: type[T_Event]) -> T_Event: ...
+
+    @overload
+    async def get_next_event(self, event_types: Iterable[type[Event]]) -> Event: ...
+
     async def get_next_event(
         self, event_types: type[Event] | Iterable[type[Event]]
     ) -> Event:

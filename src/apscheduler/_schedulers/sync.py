@@ -226,6 +226,12 @@ class Scheduler:
             )
         )
 
+    @overload
+    def get_next_event(self, event_types: type[T_Event]) -> T_Event: ...
+
+    @overload
+    def get_next_event(self, event_types: Iterable[type[Event]]) -> Event: ...
+
     def get_next_event(self, event_types: type[Event] | Iterable[type[Event]]) -> Event:
         portal = self._ensure_services_ready()
         return portal.call(partial(self._async_scheduler.get_next_event, event_types))
