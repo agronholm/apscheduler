@@ -281,9 +281,14 @@ async def test_acquire_release_schedules(
         assert len(schedules) == 3
         schedules.sort(key=lambda s: s.id)
         assert schedules[0].id == "s1"
+        assert schedules[0].last_fire_time == datetime(2020, 9, 14, tzinfo=timezone.utc)
         assert schedules[0].next_fire_time is None
         assert schedules[1].id == "s2"
+        assert schedules[1].last_fire_time == datetime(2020, 9, 14, tzinfo=timezone.utc)
+        assert schedules[1].next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
         assert schedules[2].id == "s3"
+        assert schedules[2].last_fire_time is None
+        assert schedules[2].next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
 
     # Check for the appropriate update and delete events
     received_event = events.pop(0)
@@ -827,6 +832,29 @@ async def test_acquire_jobs_deserialization_failure(
 
     # This should not yield any jobs
     assert await datastore.acquire_jobs("scheduler_id", timedelta(seconds=30), 1) == []
+
+
+async def test_reap_abandoned_jobs(
+    datastore: DataStore, local_broker: EventBroker, logger: Logger
+) -> None:
+    # Add a task, schedule and job and acquire the latter two
+    task = Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    await datastore.add_task(task)
+
+    job = Job(
+        task_id="task1",
+        executor="async",
+        result_expiration_time=timedelta(seconds=30),
+    )
+    await datastore.add_job(job)
+    await datastore.reap_abandoned_jobs("testscheduler")
+    jobs = await datastore.acquire_jobs("testscheduler", timedelta(seconds=30), 1)
+    assert len(jobs) == 1
+
+    await datastore.reap_abandoned_jobs("testscheduler")
+    assert not await datastore.get_jobs()
+    abandoned_job_result = await datastore.get_job_result(jobs[0].id)
+    assert abandoned_job_result.outcome is JobOutcome.abandoned
 
 
 class TestRepr:

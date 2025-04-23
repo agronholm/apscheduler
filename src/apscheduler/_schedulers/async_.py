@@ -181,6 +181,7 @@ class AsyncScheduler:
                 create_task_group()
             )
             exit_stack.callback(setattr, self, "_services_task_group", None)
+            exit_stack.push_async_callback(self.stop)
             self._exit_stack = exit_stack.pop_all()
 
         return self
@@ -191,7 +192,6 @@ class AsyncScheduler:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        await self.stop()
         await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
 
     def __repr__(self) -> str:
@@ -286,6 +286,12 @@ class AsyncScheduler:
         return self.event_broker.subscribe(
             callback, event_types, is_async=is_async, one_shot=one_shot
         )
+
+    @overload
+    async def get_next_event(self, event_types: type[T_Event]) -> T_Event: ...
+
+    @overload
+    async def get_next_event(self, event_types: Iterable[type[Event]]) -> Event: ...
 
     async def get_next_event(
         self, event_types: type[Event] | Iterable[type[Event]]
@@ -1112,6 +1118,10 @@ class AsyncScheduler:
                     await self.data_store.extend_acquired_job_leases(
                         self.identity, job_ids, self.lease_duration
                     )
+
+        # If there are any jobs marked as being acquired by this scheduler, release them
+        # with the "abandoned" outcome right away
+        await self.data_store.reap_abandoned_jobs(self.identity)
 
         async with AsyncExitStack() as exit_stack:
             # Start the job executors

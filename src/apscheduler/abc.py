@@ -256,6 +256,13 @@ class DataStore(metaclass=ABCMeta):
         This method claims up to the requested number of schedules for the given
         scheduler and returns them.
 
+        For a stored schedule to be eligible for acquisition, it must fulfill one of the
+        following conditions:
+
+        * It is unclaimed (``acquired_until`` is ``None``)
+        * Its claim has expired (``acquired_until`` is less than the current datetime)
+        * It is claimed by the given scheduler (``acquired_by`` equals ``scheduler_id``)
+
         :param scheduler_id: unique identifier of the scheduler
         :param lease_duration: the duration of the lease, after which the schedules can be
             acquired by another scheduler even if ``acquired_by`` is not ``None``
@@ -367,6 +374,20 @@ class DataStore(metaclass=ABCMeta):
         :param scheduler_id: unique identifier of the scheduler
         :param job_ids: the identifiers of the jobs the scheduler is running
         :param duration: the duration by which to extend the leases
+        """
+
+    @abstractmethod
+    async def reap_abandoned_jobs(self, scheduler_id: str) -> None:
+        """
+        Find jobs marked as acquired by the given scheduler ID and release them with the
+        outcome of :attr:`~JobOutcome.abandoned`.
+
+        Implementers must ensure that the proper :class:`JobReleased` events are
+        published.
+
+        This method is called once during the scheduler startup sequence.
+
+        :param scheduler_id: unique identifier of the scheduler
         """
 
     @abstractmethod

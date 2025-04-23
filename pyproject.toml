@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "setuptools >= 64",
+    "setuptools >= 77",
     "setuptools_scm >= 6.4"
 ]
 build-backend = "setuptools.build_meta"
@@ -13,7 +13,6 @@ authors = [{name = "Alex Grönholm", email = "alex.gronholm@nextday.fi"}]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Typing :: Typed",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
@@ -24,7 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 keywords = ["scheduling", "cron"]
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">= 3.9"
 dependencies = [
     "anyio ~= 4.0",
