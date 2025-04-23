@@ -65,7 +65,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed an issue with ``CronTrigger`` infinitely looping to get next date when DST ends
   (`#980 <https://github.com/agronholm/apscheduler/issues/980>`_; PR by @hlobit)
 - Skip dispatching extend_acquired_job_leases with no jobs (PR by @JacobHayes)
-- Fix broken job lease extension (PR by @JacobHayes)
+- Fixed the job lease extension task exiting prematurely while the scheduler is starting
+  (PR by @JacobHayes)
 
 **4.0.0a5**
 
