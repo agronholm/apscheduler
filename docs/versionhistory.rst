@@ -72,6 +72,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Skip dispatching extend_acquired_job_leases with no jobs (PR by @JacobHayes)
 - Fixed schedulers not immediately processing schedules that the scheduler left in an
   acquired state after a crash
+- Fixed the job lease extension task exiting prematurely while the scheduler is starting
+  (PR by @JacobHayes)
 
 **4.0.0a5**
 
