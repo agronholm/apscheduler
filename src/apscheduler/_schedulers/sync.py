@@ -144,8 +144,7 @@ class Scheduler:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        if self._exit_stack:
-            self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
+        self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
 
     def _ensure_services_ready(
         self, exit_stack: ExitStack | None = None

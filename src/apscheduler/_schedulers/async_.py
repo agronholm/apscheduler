@@ -181,6 +181,7 @@ class AsyncScheduler:
                 create_task_group()
             )
             exit_stack.callback(setattr, self, "_services_task_group", None)
+            exit_stack.push_async_callback(self.stop)
             self._exit_stack = exit_stack.pop_all()
 
         return self
@@ -191,7 +192,6 @@ class AsyncScheduler:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        await self.stop()
         await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
 
     def __repr__(self) -> str:
