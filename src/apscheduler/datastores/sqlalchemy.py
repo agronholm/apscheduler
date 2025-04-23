@@ -158,6 +158,10 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     .. note:: The data store will not manage the life cycle of any engine instance
         passed to it, so you need to close the engine afterwards when you're done with
         it.
+
+    .. warning:: Do not use SQLite when sharing the data store with multiple schedulers,
+        as there is an unresolved issue with that
+        (`#959 <https://github.com/agronholm/apscheduler/issues/959>`_).
     """
 
     engine_or_url: str | URL | Engine | AsyncEngine = attrs.field(
