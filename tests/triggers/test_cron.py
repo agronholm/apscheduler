@@ -400,6 +400,45 @@ def test_dst_change(
     )
 
 
+@pytest.mark.parametrize(
+    "minute, start_time, correct_next_dates",
+    [
+        (
+            0,
+            datetime(2024, 10, 27, 2, 0, 0, 0),
+            [
+                (datetime(2024, 10, 27, 2, 0, 0, 0), 0),
+                (datetime(2024, 10, 27, 2, 0, 0, 0), 1),
+                (datetime(2024, 10, 27, 3, 0, 0, 0), 0),
+            ],
+        ),
+        (
+            1,
+            datetime(2024, 10, 27, 2, 1, 0, 0),
+            [
+                (datetime(2024, 10, 27, 2, 1, 0, 0), 0),
+                (datetime(2024, 10, 27, 2, 1, 0, 0), 1),
+                (datetime(2024, 10, 27, 3, 1, 0, 0), 0),
+            ],
+        ),
+    ],
+    ids=["dst_change_0", "dst_change_1"],
+)
+def test_dst_change2(
+    minute,
+    start_time,
+    correct_next_dates,
+    timezone,
+):
+    trigger = CronTrigger(minute=minute, timezone=timezone)
+    trigger.start_time = start_time.replace(tzinfo=timezone)
+    for correct_next_date, fold in correct_next_dates:
+        correct_next_date = correct_next_date.replace(tzinfo=timezone, fold=fold)
+        next_date = trigger.next()
+        assert next_date == correct_next_date
+        assert str(next_date) == str(correct_next_date)
+
+
 def test_zero_value(timezone):
     start_time = datetime(2020, 1, 1, tzinfo=timezone)
     trigger = CronTrigger(

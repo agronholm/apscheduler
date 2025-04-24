@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime, timedelta, tzinfo
+from datetime import datetime, tzinfo
 from typing import Any, ClassVar
 
 import attrs
@@ -118,7 +118,7 @@ class CronTrigger(Trigger):
         *,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
-        timezone: str | tzinfo = "local",
+        timezone: tzinfo | str = "local",
     ) -> CronTrigger:
         """
         Create a :class:`~CronTrigger` from a standard crontab expression.
@@ -207,16 +207,17 @@ class CronTrigger(Trigger):
                 else:
                     values[field.name] = new_value
 
-        return datetime(**values, tzinfo=self.timezone)
+        return datetime(**values, tzinfo=self.timezone, fold=dateval.fold)
 
     def next(self) -> datetime | None:
         if self._last_fire_time:
-            start_time = self._last_fire_time + timedelta(microseconds=1)
+            next_time = datetime.fromtimestamp(
+                self._last_fire_time.timestamp() + 1, self.timezone
+            )
         else:
-            start_time = self.start_time
+            next_time = self.start_time
 
         fieldnum = 0
-        next_time = datetime_ceil(start_time).astimezone(self.timezone)
         while 0 <= fieldnum < len(self._fields):
             field = self._fields[fieldnum]
             curr_value = field.get_value(next_time)
@@ -275,12 +276,4 @@ class CronTrigger(Trigger):
             fields.append(f"end_time={self.end_time.isoformat()!r}")
 
         fields.append(f"timezone={timezone_repr(self.timezone)!r}")
-        return f'CronTrigger({", ".join(fields)})'
-
-
-def datetime_ceil(dateval: datetime) -> datetime:
-    """Round the given datetime object upwards."""
-    if dateval.microsecond > 0:
-        return dateval + timedelta(seconds=1, microseconds=-dateval.microsecond)
-
-    return dateval
+        return f"CronTrigger({', '.join(fields)})"

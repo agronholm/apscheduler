@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "setuptools >= 64",
+    "setuptools >= 77",
     "setuptools_scm >= 6.4"
 ]
 build-backend = "setuptools.build_meta"
@@ -13,7 +13,6 @@ authors = [{name = "Alex Grönholm", email = "alex.gronholm@nextday.fi"}]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Typing :: Typed",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
@@ -24,7 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 keywords = ["scheduling", "cron"]
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">= 3.9"
 dependencies = [
     "anyio ~= 4.0",
@@ -119,25 +118,18 @@ ignore_missing_imports = true
 disable_error_code = "type-abstract"
 
 [tool.tox]
-legacy_tox_ini = """
-[tox]
-envlist = py38, py39, py310, py311, py312, py313, pypy3
+env_list = ["py39", "py310", "py311", "py312", "py313", "py314", "pypy3"]
 skip_missing_interpreters = true
-minversion = 4.0
 
-[testenv]
-extras = test
-package = editable
-commands = coverage run -m pytest {posargs}
+[tool.tox.env_run_base]
+commands = [["pytest", { replace = "posargs", extend = true }]]
+package = "editable"
+extras = ["test"]
 
-[testenv:pypy3]
-commands = pytest {posargs}
+[tool.tox.env.pyright]
+commands = [["pyright", "--verifytypes", "apscheduler"]]
+deps = ["pyright"]
 
-[testenv:pyright]
-deps = pyright
-commands = pyright --verifytypes apscheduler
-
-[testenv:docs]
-extras = doc
-commands = sphinx-build -W -n docs build/sphinx
-"""
+[tool.tox.env.docs]
+commands = [["sphinx-build", "-W", "-n", "docs", "build/sphinx"]]
+extras = ["doc"]

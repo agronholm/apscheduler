@@ -181,6 +181,7 @@ class AsyncScheduler:
                 create_task_group()
             )
             exit_stack.callback(setattr, self, "_services_task_group", None)
+            exit_stack.push_async_callback(self.stop)
             self._exit_stack = exit_stack.pop_all()
 
         return self
@@ -191,7 +192,6 @@ class AsyncScheduler:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        await self.stop()
         await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
 
     def __repr__(self) -> str:
@@ -286,6 +286,12 @@ class AsyncScheduler:
         return self.event_broker.subscribe(
             callback, event_types, is_async=is_async, one_shot=one_shot
         )
+
+    @overload
+    async def get_next_event(self, event_types: type[T_Event]) -> T_Event: ...
+
+    @overload
+    async def get_next_event(self, event_types: Iterable[type[Event]]) -> Event: ...
 
     async def get_next_event(
         self, event_types: type[Event] | Iterable[type[Event]]
@@ -854,8 +860,7 @@ class AsyncScheduler:
         """Run the scheduler until explicitly stopped."""
         if self._state is not RunState.stopped:
             raise RuntimeError(
-                f'Cannot start the scheduler when it is in the "{self._state}" '
-                f"state"
+                f'Cannot start the scheduler when it is in the "{self._state}" state'
             )
 
         self._state = RunState.starting
@@ -964,8 +969,7 @@ class AsyncScheduler:
                         extend_schedule_leases,
                         schedules,
                         name=(
-                            f"Scheduler {self.identity!r} schedule lease extension "
-                            f"loop"
+                            f"Scheduler {self.identity!r} schedule lease extension loop"
                         ),
                     )
                     exit_stack.callback(tg.cancel_scope.cancel)
@@ -1119,12 +1123,16 @@ class AsyncScheduler:
                 wakeup_event.set()
 
         async def extend_job_leases() -> None:
-            while self._state is RunState.started:
+            while self._state in (RunState.starting, RunState.started):
                 await sleep(self.lease_duration.total_seconds() / 2)
-                job_ids = {job.id for job in self._running_jobs}
-                await self.data_store.extend_acquired_job_leases(
-                    self.identity, job_ids, self.lease_duration
-                )
+                if job_ids := {job.id for job in self._running_jobs}:
+                    await self.data_store.extend_acquired_job_leases(
+                        self.identity, job_ids, self.lease_duration
+                    )
+
+        # If there are any jobs marked as being acquired by this scheduler, release them
+        # with the "abandoned" outcome right away
+        await self.data_store.reap_abandoned_jobs(self.identity)
 
         async with AsyncExitStack() as exit_stack:
             # Start the job executors

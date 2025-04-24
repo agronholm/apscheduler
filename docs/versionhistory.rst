@@ -42,6 +42,11 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** Changed the ``timezone`` argument to ``CronTrigger.from_crontab()`` into
   a keyword-only argument
 - **BREAKING** Added the ``metadata`` field to tasks, schedules and jobs
+- **BREAKING** Added logic to store ``last_fire_time`` in datastore implementations
+  (PR by @hlobit)
+- **BREAKING** Added the ``reap_abandoned_jobs()`` abstract method to ``DataStore``
+  which the scheduler calls before processing any jobs in order to immediately mark jobs
+  left in an acquired state when the scheduler crashed
 - Added the ``start_time`` and ``end_time`` arguments to ``CronTrigger.from_crontab()``
   (`#676 <https://github.com/agronholm/apscheduler/issues/676>`_)
 - Added the ``psycopg`` event broker
@@ -62,6 +67,13 @@ APScheduler, see the :doc:`migration section <migration>`.
   acquire the same schedules at once
 - Changed ``SQLAlchemyDataStore`` to automatically create the explicitly specified
   schema if it's missing (PR by @zhu0629)
+- Fixed an issue with ``CronTrigger`` infinitely looping to get next date when DST ends
+  (`#980 <https://github.com/agronholm/apscheduler/issues/980>`_; PR by @hlobit)
+- Skip dispatching extend_acquired_job_leases with no jobs (PR by @JacobHayes)
+- Fixed schedulers not immediately processing schedules that the scheduler left in an
+  acquired state after a crash
+- Fixed the job lease extension task exiting prematurely while the scheduler is starting
+  (PR by @JacobHayes)
 
 **4.0.0a5**
 
