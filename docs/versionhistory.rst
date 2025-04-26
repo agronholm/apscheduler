@@ -74,6 +74,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   acquired state after a crash
 - Fixed the job lease extension task exiting prematurely while the scheduler is starting
   (PR by @JacobHayes)
+- Migrated test and documentation dependencies from extras to dependency groups
 
 **4.0.0a5**
 

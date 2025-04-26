@@ -47,6 +47,8 @@ mongodb = ["pymongo >= 4"]
 mqtt = ["paho-mqtt >= 2.0"]
 redis = ["redis >= 5.0.1"]
 sqlalchemy = ["sqlalchemy[asyncio] >= 2.0.24"]
+
+[dependency-groups]
 test = [
     "APScheduler[cbor,mongodb,mqtt,redis,sqlalchemy]",
     "asyncpg >= 0.20; python_implementation == 'CPython' and python_version < '3.13'",
@@ -120,11 +122,12 @@ disable_error_code = "type-abstract"
 [tool.tox]
 env_list = ["py39", "py310", "py311", "py312", "py313", "py314", "pypy3"]
 skip_missing_interpreters = true
+requires = ["tox >= 4.22"]
 
 [tool.tox.env_run_base]
 commands = [["pytest", { replace = "posargs", extend = true }]]
 package = "editable"
-extras = ["test"]
+dependency_groups = ["test"]
 
 [tool.tox.env.pyright]
 commands = [["pyright", "--verifytypes", "apscheduler"]]
@@ -132,4 +135,4 @@ deps = ["pyright"]
 
 [tool.tox.env.docs]
 commands = [["sphinx-build", "-W", "-n", "docs", "build/sphinx"]]
-extras = ["doc"]
+dependency_groups = ["doc"]

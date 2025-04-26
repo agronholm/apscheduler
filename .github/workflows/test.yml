@@ -47,8 +47,10 @@ jobs:
         cache-dependency-path: pyproject.toml
     - name: Start external services
       run: docker compose up -d
+    - name: Ensure pip >= v25.1
+      run: pip install "pip >= 25.1"
     - name: Install the project and its dependencies
-      run: pip install -e .[test]
+      run: pip install --group test -e .
     - name: Test with pytest
       run: pytest -v
 
