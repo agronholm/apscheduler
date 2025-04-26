@@ -6,6 +6,7 @@ build:
     python: "3.12"
   jobs:
     install:
+      - python -m pip install --no-cache-dir "pip >= 25.1"
       - python -m pip install --upgrade --upgrade-strategy only-if-needed --no-cache-dir --group doc .
 
 sphinx:
