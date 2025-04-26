@@ -26,6 +26,6 @@ services:
       - 127.0.0.1:1883:1883
 
   valkey:
-    image: valkey/valkey:7.2
+    image: valkey/valkey
     ports:
       - 127.0.0.1:6379:6379
