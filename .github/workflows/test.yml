@@ -24,7 +24,7 @@ jobs:
     - name: Start external services
       run: docker compose up -d
     - name: Ensure pip >= v25.1
-      run: pip install "pip >= 25.1"
+      run: python -m pip install "pip >= 25.1"
     - name: Install the project and its dependencies
       run: pip install --group test -e .
     - name: Test with pytest
@@ -50,7 +50,7 @@ jobs:
     - name: Start external services
       run: docker compose up -d
     - name: Ensure pip >= v25.1
-      run: pip install "pip >= 25.1"
+      run: python -m pip install "pip >= 25.1"
     - name: Install the project and its dependencies
       run: pip install --group test -e .
     - name: Test with pytest
@@ -73,7 +73,7 @@ jobs:
         cache: pip
         cache-dependency-path: pyproject.toml
     - name: Ensure pip >= v25.1
-      run: pip install "pip >= 25.1"
+      run: python -m pip install "pip >= 25.1"
     - name: Install the project and its dependencies
       run: pip install --group test -e .
     - name: Test with pytest
