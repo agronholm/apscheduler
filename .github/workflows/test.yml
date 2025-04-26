@@ -23,8 +23,10 @@ jobs:
         cache-dependency-path: pyproject.toml
     - name: Start external services
       run: docker compose up -d
+    - name: Ensure pip >= v25.1
+      run: pip install "pip >= 25.1"
     - name: Install the project and its dependencies
-      run: pip install -e .[test]
+      run: pip install --group test -e .
     - name: Test with pytest
       run: coverage run -m pytest -v
     - name: Generate coverage report
@@ -70,8 +72,10 @@ jobs:
         allow-prereleases: true
         cache: pip
         cache-dependency-path: pyproject.toml
+    - name: Ensure pip >= v25.1
+      run: pip install "pip >= 25.1"
     - name: Install the project and its dependencies
-      run: pip install -e .[test]
+      run: pip install --group test -e .
     - name: Test with pytest
       run: coverage run -m pytest -v -m "not external_service"
     - name: Generate coverage report
