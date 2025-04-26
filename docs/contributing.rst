@@ -43,7 +43,7 @@ for Linux and macOS; on Windows you need ``venv\Scripts\activate`` instead)::
 
     python -m venv venv
     source venv/bin/activate
-    pip install -e .[test]
+    pip install --group test -e .
 
 Now you can just run pytest_::
 
