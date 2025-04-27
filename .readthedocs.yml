@@ -12,9 +12,3 @@ build:
 sphinx:
   configuration: docs/conf.py
   fail_on_warning: true
-
-python:
-   install:
-      - method: pip
-        path: .
-        extra_requirements: [doc]
