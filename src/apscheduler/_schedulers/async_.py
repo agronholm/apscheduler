@@ -354,6 +354,7 @@ class AsyncScheduler:
 
         """
         func_ref: str | None = None
+        task: Task | None = None
         if callable(func_or_task_id):
             task_params = get_task_params(func_or_task_id)
             if task_params.id is unset:
@@ -370,12 +371,26 @@ class AsyncScheduler:
                 metadata=func_or_task_id.metadata,
             )
         elif isinstance(func_or_task_id, str) and func_or_task_id:
-            task_params = get_task_params(func) if callable(func) else TaskParameters()
-            task_params.id = func_or_task_id
+            try:
+                task = await self.data_store.get_task(func_or_task_id)
+                task_params = TaskParameters(
+                    id=task.id,
+                    job_executor=task.job_executor,
+                    max_running_jobs=task.max_running_jobs,
+                    misfire_grace_time=task.misfire_grace_time,
+                    metadata=task.metadata,
+                )
+            except TaskLookupError:
+                task_params = (
+                    get_task_params(func) if callable(func) else TaskParameters()
+                )
+                task_params.id = func_or_task_id
         else:
             raise TypeError(
                 "func_or_task_id must be either a task, its identifier or a callable"
             )
+
+        assert task_params.id
 
         # Apply any settings passed directly to this function as arguments
         if job_executor is not unset:
@@ -399,7 +414,6 @@ class AsyncScheduler:
             self.task_defaults.metadata, task_params.metadata, metadata
         )
 
-        assert task_params.id
         if callable(func):
             self._task_callables[task_params.id] = func
             try:
@@ -409,7 +423,7 @@ class AsyncScheduler:
 
         modified = False
         try:
-            task = await self.data_store.get_task(cast(str, task_params.id))
+            task = task or await self.data_store.get_task(cast(str, task_params.id))
         except TaskLookupError:
             task = Task(
                 id=task_params.id,
@@ -424,25 +438,22 @@ class AsyncScheduler:
             changes: dict[str, Any] = {}
             if func is not unset and task.func != func_ref:
                 changes["func"] = func_ref
-                modified = True
 
             if task_params.job_executor != task.job_executor:
                 changes["job_executor"] = task_params.job_executor
-                modified = True
 
             if task_params.max_running_jobs != task.max_running_jobs:
                 changes["max_running_jobs"] = task_params.max_running_jobs
-                modified = True
 
             if task_params.misfire_grace_time != task.misfire_grace_time:
                 changes["misfire_grace_time"] = task_params.misfire_grace_time
-                modified = True
 
             if task_params.metadata != task.metadata:
                 changes["metadata"] = task_params.metadata
-                modified = True
 
-            task = attrs.evolve(task, **changes)
+            if changes:
+                task = attrs.evolve(task, **changes)
+                modified = True
 
         if modified:
             await self.data_store.add_task(task)
