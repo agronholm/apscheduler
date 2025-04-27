@@ -149,7 +149,8 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
      * PostgreSQL (asyncpg and psycopg drivers)
      * MySQL (asyncmy driver)
-     * aiosqlite
+     * aiosqlite (not recommended right now, as issues like
+       `#1032 <https://github.com/agronholm/apscheduler/issues/1032>`_ exist)
 
     :param engine_or_url: a SQLAlchemy URL or engine (preferably asynchronous, but can
         be synchronous)
