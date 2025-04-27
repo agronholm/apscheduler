@@ -4,7 +4,7 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
-**UNRELEASED**
+**4.0.0a6**
 
 - **BREAKING** Refactored ``AsyncpgEventBroker`` to directly accept a connection string,
   thus eliminating the need for the ``AsyncpgEventBroker.from_dsn()`` class method
