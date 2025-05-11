@@ -11,6 +11,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1061 <https://github.com/agronholm/apscheduler/issues/1061>`_; PR by @jonasitzmann)
 - Fixed an issue where ``CronTrigger.next()`` returned a non-existing date on a DST change
   (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
+- Fixed jobs that were being run when the scheduler was gracefully stopped being left in
+  an acquired state (`#946 <https://github.com/agronholm/apscheduler/issues/946>`_)
 
 **4.0.0a6**
 

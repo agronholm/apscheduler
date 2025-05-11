@@ -1166,6 +1166,46 @@ class TestAsyncScheduler:
             assert job_released_event.outcome is JobOutcome.abandoned
             assert not await scheduler.get_jobs()
 
+    async def test_stop_scheduler_while_job_running(
+        self, raw_datastore: DataStore
+    ) -> None:
+        event = anyio.Event()
+
+        async def delay_job() -> None:
+            event.set()
+            await sleep(8)
+
+        async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+            await scheduler.configure_task("delay_job", func=delay_job)
+            await scheduler.add_job("delay_job", result_expiration_time=15)
+            await scheduler.start_in_background()
+
+            with fail_after(5):
+                await event.wait()
+
+            assert len(scheduler._running_jobs) == 1
+            job_id = next(iter(scheduler._running_jobs)).id
+            event = anyio.Event()
+            scheduler.subscribe(lambda _: event.set(), SchedulerStopped, one_shot=True)
+            await scheduler.stop()
+            with fail_after(5):
+                await event.wait()
+
+            assert len(scheduler._running_jobs) == 0
+
+            # Check that the task has 0 running jobs
+            datastore_tasks = await scheduler.get_tasks()
+            assert len(datastore_tasks) == 1
+            assert datastore_tasks[0].running_jobs == 0
+
+            # Check that the job was removed
+            datastore_jobs = await scheduler.get_jobs()
+            assert len(datastore_jobs) == 0
+
+            # Check that the job outcome was set to "cancelled"
+            result = await scheduler.get_job_result(job_id)
+            assert result.outcome is JobOutcome.cancelled
+
 
 class TestSyncScheduler:
     def test_interface_parity(self) -> None:
