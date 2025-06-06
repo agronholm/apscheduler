@@ -8,6 +8,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - Fixed ``scheduler.shutdown()`` not raising ``SchedulerNotRunning`` (or raising the
   wrong exception) for asynchronous schedulers when the scheduler is in fact not running
+- Fixed ``SQLAlchemyJobStore`` not support the argument ``create_table``, raising the wrong excepotion
+  ``[apscheduler jobs] already exists`` in some db which not supposed ``if not exists``
 
 **3.11.0**
 
