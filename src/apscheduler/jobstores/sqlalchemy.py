@@ -46,6 +46,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         should be
     :param dict engine_options: keyword arguments to :func:`~sqlalchemy.create_engine`
         (ignored if ``engine`` is given)
+    :param bool create_table: specify whether table should be created, defaults to true
     """
 
     def __init__(
@@ -57,6 +58,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         pickle_protocol=pickle.HIGHEST_PROTOCOL,
         tableschema=None,
         engine_options=None,
+        create_table=True,
     ):
         super().__init__()
         self.pickle_protocol = pickle_protocol
@@ -79,10 +81,12 @@ class SQLAlchemyJobStore(BaseJobStore):
             Column("job_state", LargeBinary, nullable=False),
             schema=tableschema,
         )
+        self.create_table = create_table
 
     def start(self, scheduler, alias):
         super().start(scheduler, alias)
-        self.jobs_t.create(self.engine, True)
+        if self.create_table:
+            self.jobs_t.create(self.engine, True)
 
     def lookup_job(self, job_id):
         selectable = select(self.jobs_t.c.job_state).where(self.jobs_t.c.id == job_id)
