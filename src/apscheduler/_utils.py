@@ -103,7 +103,10 @@ def create_repr(instance: object, *attrnames: str, **kwargs) -> str:
 
 def time_exists(dt: datetime) -> bool:
     """
-    like `dateutil.tz.datetime_exists`: Determine whether a datetime falls in a gap.
+    Determine whether a datetime exists in its time zone.
+
+    :return: ``False`` if the given datetime falls within a gap created by a
+        forward daylight savings shift, otherwise ``True``
+
     """
-    existing_dt = datetime.fromtimestamp(dt.timestamp(), dt.tzinfo)
-    return dt == existing_dt
+    return dt == datetime.fromtimestamp(dt.timestamp(), dt.tzinfo)
