@@ -7,7 +7,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 **UNRELEASED**
 
 - Fixed an issue where ``CronTrigger.next()`` returned a non-existing date on a DST change
-  (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_)
+  (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
 
 **4.0.0a6**
 
