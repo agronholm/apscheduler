@@ -356,7 +356,13 @@ def test_week_2(timezone, serializer, weekday):
     "trigger_args, start_time, start_time_fold, correct_next_date,"
     "correct_next_date_fold",
     [
-        ({"hour": 2}, datetime(2013, 3, 9, 20), 0, datetime(2013, 3, 11, 2),0,),
+        (
+            {"hour": 2},
+            datetime(2013, 3, 9, 20),
+            0,
+            datetime(2013, 3, 11, 2),
+            0,
+        ),
         ({"hour": 8}, datetime(2013, 3, 9, 12), 0, datetime(2013, 3, 10, 8), 0),
         ({"hour": 8}, datetime(2013, 11, 2, 12), 0, datetime(2013, 11, 3, 8), 0),
         (
@@ -374,7 +380,13 @@ def test_week_2(timezone, serializer, weekday):
             1,
         ),
     ],
-    ids=["spring_skip_hour", "absolute_spring", "absolute_autumn", "interval_spring", "interval_autumn",],
+    ids=[
+        "spring_skip_hour",
+        "absolute_spring",
+        "absolute_autumn",
+        "interval_spring",
+        "interval_autumn",
+    ],
 )
 def test_dst_change(
     trigger_args,
