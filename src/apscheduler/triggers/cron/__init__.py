@@ -100,7 +100,7 @@ class CronTrigger(Trigger):
         self._fields = []
         assigned_values = {
             field_name: value
-            for (field_name, _), value in zip(self.FIELDS_MAP, values, strict=False)
+            for (field_name, _), value in zip(self.FIELDS_MAP, values)
             if value is not None
         }
         for field_name, field_class in self.FIELDS_MAP:
