@@ -239,7 +239,6 @@ class CronTrigger(Trigger):
                         next_time, fieldnum = self._increment_field_value(
                             next_time, fieldnum
                         )
-
                 else:
                     next_time, fieldnum = self._increment_field_value(
                         next_time, fieldnum
