@@ -374,7 +374,13 @@ def test_week_2(timezone, serializer, weekday):
             1,
         ),
     ],
-    ids=["spring_skip_hour", "absolute_spring", "absolute_autumn", "interval_spring", "interval_autumn"],
+    ids=[
+        "spring_skip_hour",
+        "absolute_spring",
+        "absolute_autumn",
+        "interval_spring",
+        "interval_autumn",
+    ],
 )
 def test_dst_change(
     trigger_args,
