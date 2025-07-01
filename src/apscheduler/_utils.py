@@ -102,5 +102,8 @@ def create_repr(instance: object, *attrnames: str, **kwargs) -> str:
 
 
 def time_exists(dt: datetime) -> bool:
+    """
+    like `dateutil.tz.datetime_exists`: Determine whether a datetime falls in a gap.
+    """
     existing_dt = datetime.fromtimestamp(dt.timestamp(), dt.tzinfo)
     return dt == existing_dt
