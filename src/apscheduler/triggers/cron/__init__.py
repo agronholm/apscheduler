@@ -9,7 +9,7 @@ from attr.validators import instance_of, optional
 from tzlocal import get_localzone
 
 from ..._converters import as_aware_datetime, as_timezone
-from ..._utils import require_state_version, timezone_repr, time_exists
+from ..._utils import require_state_version, time_exists, timezone_repr
 from ...abc import Trigger
 from .fields import (
     DEFAULT_VALUES,
