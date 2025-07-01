@@ -6,6 +6,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **4.0.0a6**
 
+- Fixed an issue where `CronTrigger.next` returned a non-existing date on a DST change
+  (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_)
 - **BREAKING** Refactored ``AsyncpgEventBroker`` to directly accept a connection string,
   thus eliminating the need for the ``AsyncpgEventBroker.from_dsn()`` class method
 - **BREAKING** Added the ``extend_acquired_schedule_leases()`` data store method to
