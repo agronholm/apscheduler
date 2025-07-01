@@ -9,7 +9,7 @@ from attr.validators import instance_of, optional
 from tzlocal import get_localzone
 
 from ..._converters import as_aware_datetime, as_timezone
-from ..._utils import require_state_version, timezone_repr
+from ..._utils import require_state_version, timezone_repr, time_exists
 from ...abc import Trigger
 from .fields import (
     DEFAULT_VALUES,
@@ -19,11 +19,6 @@ from .fields import (
     MonthField,
     WeekField,
 )
-
-
-def time_exists(dt: datetime) -> bool:
-    existing_dt = datetime.fromtimestamp(dt.timestamp(), dt.tzinfo)
-    return dt == existing_dt
 
 
 @attrs.define(kw_only=True)

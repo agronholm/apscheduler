@@ -99,3 +99,8 @@ def create_repr(instance: object, *attrnames: str, **kwargs) -> str:
 
     rendered_attrs = ", ".join(f"{key}={value!r}" for key, value in kv_pairs)
     return f"{instance.__class__.__name__}({rendered_attrs})"
+
+
+def time_exists(dt: datetime) -> bool:
+    existing_dt = datetime.fromtimestamp(dt.timestamp(), dt.tzinfo)
+    return dt == existing_dt
