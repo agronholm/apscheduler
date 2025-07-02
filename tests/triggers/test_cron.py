@@ -550,7 +550,7 @@ def test_from_crontab_start_end_time(timezone: ZoneInfo) -> None:
     assert trigger.end_time == end_time
 
 
-def test_timezone_change() -> None:
+def test_start_time_timezone_change() -> None:
     est = ZoneInfo("America/New_York")
     cst = ZoneInfo("America/Chicago")
     start_time = datetime(2009, 9, 26, 10, 16, tzinfo=cst)
@@ -558,6 +558,18 @@ def test_timezone_change() -> None:
     correct_next_time = datetime(2009, 9, 26, 11, 20, tzinfo=est)
     next_time = trigger.next()
     assert str(next_time) == str(correct_next_time)
+
+
+def test_end_time_timezone_change() -> None:
+    est = ZoneInfo("America/New_York")
+    cst = ZoneInfo("America/Chicago")
+    start_time = datetime(2009, 9, 26, 10, 16, tzinfo=cst)
+    end_time = datetime(2009, 9, 26, 11, tzinfo=est)
+    trigger = CronTrigger(
+        hour=10, minute="*/5", timezone=cst, start_time=start_time, end_time=end_time
+    )
+    next_time = trigger.next()
+    assert next_time is None
 
 
 def test_non_existing_start_time() -> None:
