@@ -32,6 +32,7 @@ def as_aware_datetime(value: datetime | str) -> datetime:
         value_as_datetime = value_as_datetime.astimezone(get_localzone())
     return value_as_datetime
 
+
 def as_date(value: date | str) -> date:
     if isinstance(value, str):
         return date.fromisoformat(value)

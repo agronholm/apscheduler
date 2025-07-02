@@ -85,7 +85,9 @@ class CronTrigger(Trigger):
     def __attrs_post_init__(self) -> None:
         self.start_time = self._to_trigger_timezone(self.start_time, "start_time")
         self.end_time = self._to_trigger_timezone(self.end_time, "end_time")
-        self._last_fire_time = self._to_trigger_timezone(self._last_fire_time, "_lase_fire_time")
+        self._last_fire_time = self._to_trigger_timezone(
+            self._last_fire_time, "_lase_fire_time"
+        )
         self._set_fields(
             [
                 self.year,
@@ -152,7 +154,9 @@ class CronTrigger(Trigger):
             timezone=timezone,
         )
 
-    def _to_trigger_timezone[T: datetime | None](self, time: T, name: str = "time") -> T:
+    def _to_trigger_timezone[T: datetime | None](
+        self, time: T, name: str = "time"
+    ) -> T:
         if time is None:
             return None
         if time.tzinfo is None:
@@ -162,7 +166,6 @@ class CronTrigger(Trigger):
         if not time_exists(time):
             raise ValueError(f"{name}={time} does not exist")
         return time
-
 
     def _increment_field_value(
         self, dateval: datetime, fieldnum: int
