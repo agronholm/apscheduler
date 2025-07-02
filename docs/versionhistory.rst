@@ -4,6 +4,11 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+**UNRELEASED**
+
+- Fixed an issue where ``CronTrigger.next()`` returned a non-existing date on a DST change
+  (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
+
 **4.0.0a6**
 
 - **BREAKING** Refactored ``AsyncpgEventBroker`` to directly accept a connection string,

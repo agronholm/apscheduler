@@ -99,3 +99,14 @@ def create_repr(instance: object, *attrnames: str, **kwargs) -> str:
 
     rendered_attrs = ", ".join(f"{key}={value!r}" for key, value in kv_pairs)
     return f"{instance.__class__.__name__}({rendered_attrs})"
+
+
+def time_exists(dt: datetime) -> bool:
+    """
+    Determine whether a datetime exists in its time zone.
+
+    :return: ``False`` if the given datetime falls within a gap created by a
+        forward daylight savings shift, otherwise ``True``
+
+    """
+    return dt == datetime.fromtimestamp(dt.timestamp(), dt.tzinfo)

@@ -9,7 +9,7 @@ from attr.validators import instance_of, optional
 from tzlocal import get_localzone
 
 from ..._converters import as_aware_datetime, as_timezone
-from ..._utils import require_state_version, timezone_repr
+from ..._utils import require_state_version, time_exists, timezone_repr
 from ...abc import Trigger
 from .fields import (
     DEFAULT_VALUES,
@@ -232,7 +232,13 @@ class CronTrigger(Trigger):
                 # A valid, but higher than the starting value, was found
                 if field.real:
                     next_time = self._set_field_value(next_time, fieldnum, next_value)
-                    fieldnum += 1
+                    if time_exists(next_time):
+                        fieldnum += 1
+                    else:
+                        # skip non-existent date
+                        next_time, fieldnum = self._increment_field_value(
+                            next_time, fieldnum
+                        )
                 else:
                     next_time, fieldnum = self._increment_field_value(
                         next_time, fieldnum
