@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime, tzinfo
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar
 
 import attrs
 from attr.validators import instance_of, optional
@@ -154,9 +154,7 @@ class CronTrigger(Trigger):
             timezone=timezone,
         )
 
-    def _to_trigger_timezone(
-        self, time: Optional[datetime], name: str = "time"
-    ) -> Optional[datetime]:
+    def _to_trigger_timezone(self, time: datetime | None, name: str = "time") -> datetime | None:
         if time is None:
             return None
         if time.tzinfo is None:
