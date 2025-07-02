@@ -552,8 +552,8 @@ def test_from_crontab_start_end_time(timezone: ZoneInfo) -> None:
 
 
 def test_timezone_change() -> None:
-    est = datetime_timezone(offset=timedelta(hours=-5))
-    cst = datetime_timezone(offset=timedelta(hours=-6))
+    est = ZoneInfo("America/New_York")
+    cst = ZoneInfo("America/Chicago")
     start_time = datetime(2009, 9, 26, 10, 16, tzinfo=cst)
     trigger = CronTrigger(hour=11, minute="*/5", timezone=est, start_time=start_time)
     correct_next_time = datetime(2009, 9, 26, 11, 20, tzinfo=est)
