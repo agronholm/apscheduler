@@ -548,3 +548,41 @@ def test_from_crontab_start_end_time(timezone: ZoneInfo) -> None:
     )
     assert trigger.start_time == start_time
     assert trigger.end_time == end_time
+
+
+def test_aware_start_time_timezone_conversion() -> None:
+    est = ZoneInfo("America/New_York")
+    cst = ZoneInfo("America/Chicago")
+    start_time = datetime(2009, 9, 26, 10, 16, tzinfo=cst)
+    trigger = CronTrigger(hour=11, minute="*/5", timezone=est, start_time=start_time)
+    correct_next_time = datetime(2009, 9, 26, 11, 20, tzinfo=est)
+    next_time = trigger.next()
+    assert str(next_time) == str(correct_next_time)
+
+
+def test_aware_end_time_timezone_conversion() -> None:
+    est = ZoneInfo("America/New_York")
+    cst = ZoneInfo("America/Chicago")
+    start_time = datetime(2009, 9, 26, 10, 16, tzinfo=cst)
+    end_time = datetime(2009, 9, 26, 11, tzinfo=est)
+    trigger = CronTrigger(
+        hour=10, minute="*/5", timezone=cst, start_time=start_time, end_time=end_time
+    )
+    next_time = trigger.next()
+    assert next_time is None
+
+
+def test_non_existing_naive_start_time() -> None:
+    tz = ZoneInfo("Europe/Berlin")
+    start_time = datetime(2025, 3, 30, 2, 30, tzinfo=tz)
+    with pytest.raises(ValueError):
+        CronTrigger(timezone=tz, start_time=start_time)
+
+
+def test_non_existing_naive_end_time() -> None:
+    tz = ZoneInfo("Europe/Berlin")
+    start_time = datetime(2025, 3, 30, 1, 30)
+    CronTrigger(timezone=tz, start_time=start_time)  # start time is ok
+    end_time = datetime(2025, 3, 30, 2, 30)
+    with pytest.raises(ValueError):
+        CronTrigger(timezone=tz, start_time=start_time, end_time=end_time)

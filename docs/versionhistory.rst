@@ -6,6 +6,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Fixed an issue where ``CronTrigger`` does not convert ``start_time`` to ``self.timezone``
+  (`#1061 <https://github.com/agronholm/apscheduler/issues/1061>`_; PR by @jonasitzmann)
 - Fixed an issue where ``CronTrigger.next()`` returned a non-existing date on a DST change
   (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
 
