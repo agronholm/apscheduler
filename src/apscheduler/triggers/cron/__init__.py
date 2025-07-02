@@ -154,7 +154,9 @@ class CronTrigger(Trigger):
             timezone=timezone,
         )
 
-    def _to_trigger_timezone(self, time: datetime | None, name: str = "time") -> datetime | None:
+    def _to_trigger_timezone(
+        self, time: datetime | None, name: str = "time"
+    ) -> datetime | None:
         if time is None:
             return None
         if time.tzinfo is None:
