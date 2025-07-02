@@ -86,6 +86,7 @@ class CronTrigger(Trigger):
         self.start_time = self.start_time.astimezone(self.timezone)
         if self.end_time is not None:
             self.end_time = self.end_time.astimezone(self.timezone)
+
         self._set_fields(
             [
                 self.year,
