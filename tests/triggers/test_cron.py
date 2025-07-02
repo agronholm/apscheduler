@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone as datetime_timezone
+from datetime import datetime, timedelta
+from datetime import timezone as datetime_timezone
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -548,6 +549,7 @@ def test_from_crontab_start_end_time(timezone: ZoneInfo) -> None:
     )
     assert trigger.start_time == start_time
     assert trigger.end_time == end_time
+
 
 def test_timezone_change() -> None:
     est = datetime_timezone(offset=timedelta(hours=-5))
