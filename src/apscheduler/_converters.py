@@ -16,19 +16,21 @@ def as_int(value: int | str) -> int:
     return value
 
 
-def as_aware_datetime(value: datetime | str) -> datetime:
+def as_datetime(value: datetime | str) -> datetime:
     if isinstance(value, str):
         # Before Python 3.11, fromisoformat() could not handle the "Z" suffix
         if value.upper().endswith("Z"):
             value = value[:-1] + "+00:00"
 
         value = datetime.fromisoformat(value)
-
-    if isinstance(value, datetime) and value.tzinfo is None:
-        value = value.astimezone(get_localzone())
-
     return value
 
+
+def as_aware_datetime(value: datetime | str) -> datetime:
+    value_as_datetime = as_datetime(value)
+    if isinstance(value_as_datetime, datetime) and value_as_datetime.tzinfo is None:
+        value_as_datetime = value_as_datetime.astimezone(get_localzone())
+    return value_as_datetime
 
 def as_date(value: date | str) -> date:
     if isinstance(value, str):

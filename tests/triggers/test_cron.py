@@ -559,3 +559,17 @@ def test_timezone_change() -> None:
     correct_next_time = datetime(2009, 9, 26, 11, 20, tzinfo=est)
     next_time = trigger.next()
     assert str(next_time) == str(correct_next_time)
+
+def test_non_existing_start_time() -> None:
+    tz = ZoneInfo("Europe/Berlin")
+    start_time = datetime(2025, 3, 30, 2, 30, tzinfo=tz)
+    with pytest.raises(ValueError):
+        CronTrigger(timezone=tz, start_time=start_time)
+
+def test_non_existing_naive_end_time() -> None:
+    tz = ZoneInfo("Europe/Berlin")
+    start_time = datetime(2025, 3, 30, 1, 30)
+    CronTrigger(timezone=tz, start_time=start_time)  # start time is ok
+    end_time = datetime(2025, 3, 30, 2, 30)
+    with pytest.raises(ValueError):
+        CronTrigger(timezone=tz, start_time=start_time, end_time=end_time)

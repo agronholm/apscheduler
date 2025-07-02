@@ -8,7 +8,7 @@ import attrs
 from attr.validators import instance_of, optional
 from tzlocal import get_localzone
 
-from ..._converters import as_aware_datetime, as_timezone
+from ..._converters import as_datetime, as_timezone
 from ..._utils import require_state_version, time_exists, timezone_repr
 from ...abc import Trigger
 from .fields import (
@@ -65,12 +65,12 @@ class CronTrigger(Trigger):
     minute: int | str | None = None
     second: int | str | None = None
     start_time: datetime = attrs.field(
-        converter=as_aware_datetime,
+        converter=as_datetime,
         validator=instance_of(datetime),
         factory=datetime.now,
     )
     end_time: datetime | None = attrs.field(
-        converter=as_aware_datetime,
+        converter=as_datetime,
         validator=optional(instance_of(datetime)),
         default=None,
     )
@@ -79,14 +79,13 @@ class CronTrigger(Trigger):
     )
     _fields: list[BaseField] = attrs.field(init=False, eq=False, factory=list)
     _last_fire_time: datetime | None = attrs.field(
-        converter=as_aware_datetime, init=False, eq=False, default=None
+        converter=as_datetime, init=False, eq=False, default=None
     )
 
     def __attrs_post_init__(self) -> None:
-        self.start_time = self.start_time.astimezone(self.timezone)
-        if self.end_time is not None:
-            self.end_time = self.end_time.astimezone(self.timezone)
-
+        self.start_time = self._to_trigger_timezone(self.start_time, "start_time")
+        self.end_time = self._to_trigger_timezone(self.end_time, "end_time")
+        self._last_fire_time = self._to_trigger_timezone(self._last_fire_time, "_lase_fire_time")
         self._set_fields(
             [
                 self.year,
@@ -104,7 +103,7 @@ class CronTrigger(Trigger):
         self._fields = []
         assigned_values = {
             field_name: value
-            for (field_name, _), value in zip(self.FIELDS_MAP, values)
+            for (field_name, _), value in zip(self.FIELDS_MAP, values, strict=False)
             if value is not None
         }
         for field_name, field_class in self.FIELDS_MAP:
@@ -152,6 +151,18 @@ class CronTrigger(Trigger):
             end_time=end_time,
             timezone=timezone,
         )
+
+    def _to_trigger_timezone[T: datetime | None](self, time: T, name: str = "time") -> T:
+        if time is None:
+            return None
+        if time.tzinfo is None:
+            time = time.replace(tzinfo=self.timezone)
+        else:
+            time = time.astimezone(self.timezone)
+        if not time_exists(time):
+            raise ValueError(f"{name}={time} does not exist")
+        return time
+
 
     def _increment_field_value(
         self, dateval: datetime, fieldnum: int
