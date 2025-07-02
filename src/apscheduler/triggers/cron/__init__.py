@@ -86,7 +86,7 @@ class CronTrigger(Trigger):
         self.start_time = self._to_trigger_timezone(self.start_time, "start_time")
         self.end_time = self._to_trigger_timezone(self.end_time, "end_time")
         self._last_fire_time = self._to_trigger_timezone(
-            self._last_fire_time, "_lase_fire_time"
+            self._last_fire_time, "_last_fire_time"
         )
         self._set_fields(
             [
