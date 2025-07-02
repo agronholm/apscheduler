@@ -8,7 +8,7 @@ import attrs
 from attr.validators import instance_of, optional
 from tzlocal import get_localzone
 
-from ..._converters import as_datetime, as_timezone
+from ..._converters import as_aware_datetime, as_datetime, as_timezone
 from ..._utils import require_state_version, time_exists, timezone_repr
 from ...abc import Trigger
 from .fields import (
@@ -79,7 +79,7 @@ class CronTrigger(Trigger):
     )
     _fields: list[BaseField] = attrs.field(init=False, eq=False, factory=list)
     _last_fire_time: datetime | None = attrs.field(
-        converter=as_datetime, init=False, eq=False, default=None
+        converter=as_aware_datetime, init=False, eq=False, default=None
     )
 
     def __attrs_post_init__(self) -> None:
@@ -154,17 +154,18 @@ class CronTrigger(Trigger):
             timezone=timezone,
         )
 
-    def _to_trigger_timezone(
-        self, time: datetime | None, name: str = "time"
-    ) -> datetime | None:
-        if time is None:
+    def _to_trigger_timezone(self, dt: datetime | None, name: str) -> datetime | None:
+        if dt is None:
             return None
-        if time.tzinfo is None:
-            time = time.replace(tzinfo=self.timezone)
+
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=self.timezone)
         else:
-            time = time.astimezone(self.timezone)
-        if not time_exists(time):
-            raise ValueError(f"{name}={time} does not exist")
+            dt = dt.astimezone(self.timezone)
+
+        if not time_exists(dt):
+            raise ValueError(f"{name}={dt} does not exist")
+
         return time
 
     def _increment_field_value(

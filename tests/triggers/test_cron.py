@@ -550,7 +550,7 @@ def test_from_crontab_start_end_time(timezone: ZoneInfo) -> None:
     assert trigger.end_time == end_time
 
 
-def test_start_time_timezone_change() -> None:
+def test_aware_start_time_timezone_conversion() -> None:
     est = ZoneInfo("America/New_York")
     cst = ZoneInfo("America/Chicago")
     start_time = datetime(2009, 9, 26, 10, 16, tzinfo=cst)
@@ -560,7 +560,7 @@ def test_start_time_timezone_change() -> None:
     assert str(next_time) == str(correct_next_time)
 
 
-def test_end_time_timezone_change() -> None:
+def test_aware_end_time_timezone_conversion() -> None:
     est = ZoneInfo("America/New_York")
     cst = ZoneInfo("America/Chicago")
     start_time = datetime(2009, 9, 26, 10, 16, tzinfo=cst)
@@ -572,7 +572,7 @@ def test_end_time_timezone_change() -> None:
     assert next_time is None
 
 
-def test_non_existing_start_time() -> None:
+def test_non_existing_naive_start_time() -> None:
     tz = ZoneInfo("Europe/Berlin")
     start_time = datetime(2025, 3, 30, 2, 30, tzinfo=tz)
     with pytest.raises(ValueError):

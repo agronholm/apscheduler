@@ -23,6 +23,7 @@ def as_datetime(value: datetime | str) -> datetime:
             value = value[:-1] + "+00:00"
 
         value = datetime.fromisoformat(value)
+
     return value
 
 
