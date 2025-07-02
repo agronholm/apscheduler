@@ -31,6 +31,7 @@ def as_aware_datetime(value: datetime | str) -> datetime:
     value_as_datetime = as_datetime(value)
     if isinstance(value_as_datetime, datetime) and value_as_datetime.tzinfo is None:
         value_as_datetime = value_as_datetime.astimezone(get_localzone())
+
     return value_as_datetime
 
 
