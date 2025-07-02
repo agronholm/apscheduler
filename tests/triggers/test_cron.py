@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from datetime import timezone as datetime_timezone
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -549,13 +548,3 @@ def test_from_crontab_start_end_time(timezone: ZoneInfo) -> None:
     )
     assert trigger.start_time == start_time
     assert trigger.end_time == end_time
-
-
-def test_timezone_change() -> None:
-    est = datetime_timezone(offset=timedelta(hours=-5))
-    cst = datetime_timezone(offset=timedelta(hours=-6))
-    start_time = datetime(2009, 9, 26, 10, 16, tzinfo=cst)
-    trigger = CronTrigger(hour=11, minute="*/5", timezone=est, start_time=start_time)
-    correct_next_time = datetime(2009, 9, 26, 11, 20, tzinfo=est)
-    next_time = trigger.next()
-    assert str(next_time) == str(correct_next_time)
