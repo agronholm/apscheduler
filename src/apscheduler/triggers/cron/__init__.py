@@ -166,7 +166,7 @@ class CronTrigger(Trigger):
         if not time_exists(dt):
             raise ValueError(f"{name}={dt} does not exist")
 
-        return time
+        return dt
 
     def _increment_field_value(
         self, dateval: datetime, fieldnum: int
