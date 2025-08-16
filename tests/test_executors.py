@@ -163,6 +163,7 @@ def test_submit_job(mock_scheduler, executor, create_job, timezone, event_code, 
 class FauxJob:
     id = "abc"
     max_instances = 1
+    func = success
     _jobstore_alias = "foo"
 
 
@@ -266,6 +267,36 @@ async def test_run_coroutine_job(asyncio_scheduler, asyncio_executor, exception)
     asyncio_executor._run_job_error = lambda job_id, exc, tb: future.set_exception(exc)
     asyncio_executor.submit_job(job, [datetime.now(utc)])
     events = await future
+    assert len(events) == 1
+    if exception:
+        assert str(events[0].exception) == "dummy error"
+    else:
+        assert events[0].retval is True
+
+
+@pytest.mark.parametrize("exception", [False, True])
+@pytest.mark.anyio
+async def test_run_coroutine_job_pool(create_job, executor, exception):
+    from asyncio import sleep
+
+    job = create_job(func=waiter, args=[sleep, exception])
+    complete_event = Event()
+    complete_event.clear()
+
+    events = []
+
+    def cb(job_id, e):
+        nonlocal events
+        events = e
+        complete_event.set()
+
+    executor._run_job_success = cb
+    executor._run_job_error = cb
+    executor.submit_job(job, [datetime.now(utc)])
+    was_set = complete_event.wait(3)
+    if not was_set:
+        raise TimeoutError("Job completion callback was not called")
+
     assert len(events) == 1
     if exception:
         assert str(events[0].exception) == "dummy error"

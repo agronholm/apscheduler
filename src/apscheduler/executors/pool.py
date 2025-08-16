@@ -1,9 +1,11 @@
+import asyncio
 import concurrent.futures
 import multiprocessing
 from abc import abstractmethod
 from concurrent.futures.process import BrokenProcessPool
 
-from apscheduler.executors.base import BaseExecutor, run_job
+from apscheduler.executors.base import BaseExecutor, run_coroutine_job, run_job
+from apscheduler.util import iscoroutinefunction_partial
 
 
 class BasePoolExecutor(BaseExecutor):
@@ -24,9 +26,18 @@ class BasePoolExecutor(BaseExecutor):
             else:
                 self._run_job_success(job.id, f.result())
 
-        f = self._pool.submit(
-            run_job, job, job._jobstore_alias, run_times, self._logger.name
-        )
+        if iscoroutinefunction_partial(job.func):
+            f = self._pool.submit(
+                run_in_event_loop,
+                job,
+                job._jobstore_alias,
+                run_times,
+                self._logger.name,
+            )
+        else:
+            f = self._pool.submit(
+                run_job, job, job._jobstore_alias, run_times, self._logger.name
+            )
         f.add_done_callback(callback)
 
     def shutdown(self, wait=True):
@@ -80,3 +91,27 @@ class ProcessPoolExecutor(BasePoolExecutor):
                 self._pool._max_workers, **self.pool_kwargs
             )
             super()._do_submit_job(job, run_times)
+
+
+def run_in_event_loop(job, jobstore_alias, run_times, logger_name):
+    """
+    Run a coroutine with `asyncio.run` inside a pool executor.
+
+    Rather than `EventLoop.run_in_executor` where the event loop is on the "outside" of the pool,
+    we want the event loop *inside* of the pool's threads/processes.
+    """
+
+    coro = run_coroutine_job(job, jobstore_alias, run_times, logger_name)
+
+    try:
+        # event loop already running, use it without closing
+        loop = asyncio.get_running_loop()
+        return loop.run_until_complete(coro)
+    except RuntimeError:
+        # no running event loop - create, use, and close one.
+        loop = asyncio.new_event_loop()
+        try:
+            res = loop.run_until_complete(coro)
+            return res
+        finally:
+            loop.close()
