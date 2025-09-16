@@ -50,3 +50,6 @@ repos:
     - id: rst-backticks
     - id: rst-directive-colons
     - id: rst-inline-touching-normal
+
+ci:
+  autoupdate_schedule: quarterly
