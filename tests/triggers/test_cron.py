@@ -303,6 +303,24 @@ def test_dst_change(trigger_args, start_date, start_date_fold, correct_next_date
     assert str(trigger.get_next_fire_time(None, start_date)) == str(correct_next_date)
 
 
+def test_dst_change_2(timezone):
+    """
+    Ensure that get_next_fire_time doesn't become stuck when trying to progress a
+    fold=1 datetime (during the fall back DST change) to the next matching time.
+    """
+    timezone = ZoneInfo("Europe/Helsinki")
+    trigger = CronTrigger(minute=30, timezone=timezone)
+    start_date = datetime(2017, 10, 29, 3, 30, tzinfo=timezone, fold=1)
+    correct_next_date = datetime(2017, 10, 29, 4, 30, tzinfo=timezone, fold=0)
+    assert str(trigger.get_next_fire_time(None, start_date)) == str(correct_next_date)
+    assert str(trigger.get_next_fire_time(start_date, start_date)) == str(
+        correct_next_date
+    )
+    assert str(trigger.get_next_fire_time(start_date, correct_next_date)) == str(
+        correct_next_date
+    )
+
+
 def test_timezone_change(timezone):
     """
     Ensure that get_next_fire_time method returns datetimes in the timezone of the trigger and
