@@ -205,6 +205,7 @@ class CronTrigger(BaseTrigger):
         # If datetime is folded, cast in ISO format to ensure they advance correctly
         if previous_fire_time and previous_fire_time.fold == 1:
             previous_fire_time = datetime.fromisoformat(previous_fire_time.isoformat())
+
         if now.fold == 1:
             now = datetime.fromisoformat(now.isoformat()) + timedelta(microseconds=1)
 
