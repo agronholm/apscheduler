@@ -8,6 +8,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - Fixed ``scheduler.shutdown()`` not raising ``SchedulerNotRunning`` (or raising the
   wrong exception) for asynchronous schedulers when the scheduler is in fact not running
+- Fixed ``CronTrigger`` sticking on a folded datetime during the fall-back DST transition
+  (#1021 <https://github.com/agronholm/apscheduler/issues/1021>_; PR by @berianjames)`
 
 **3.11.0**
 

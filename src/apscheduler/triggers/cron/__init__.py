@@ -202,6 +202,13 @@ class CronTrigger(BaseTrigger):
         return datetime(**values, tzinfo=self.timezone, fold=dateval.fold)
 
     def get_next_fire_time(self, previous_fire_time, now):
+        # If datetime is folded, cast in ISO format to ensure they advance correctly
+        if previous_fire_time and previous_fire_time.fold == 1:
+            previous_fire_time = datetime.fromisoformat(previous_fire_time.isoformat())
+
+        if now.fold == 1:
+            now = datetime.fromisoformat(now.isoformat()) + timedelta(microseconds=1)
+
         if previous_fire_time:
             start_date = min(now, previous_fire_time + timedelta(microseconds=1))
             if start_date == previous_fire_time:
