@@ -4,14 +4,14 @@ import os
 import platform
 import random
 import sys
-from collections.abc import Iterable, Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from inspect import isbuiltin, isclass, ismethod, ismodule
 from logging import Logger, getLogger
 from types import TracebackType
-from typing import Any, Callable, Literal, TypeVar, cast, overload
+from typing import Any, Literal, TypeAlias, TypeVar, cast, overload
 from uuid import UUID, uuid4
 
 import anyio
@@ -72,11 +72,6 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
 
 _microsecond_delta = timedelta(microseconds=1)
 _zero_timedelta = timedelta()

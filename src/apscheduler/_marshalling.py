@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import tzinfo
 from functools import partial
 from inspect import isclass, ismethod, ismethoddescriptor
-from typing import Any, Callable
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from ._exceptions import DeserializationError, SerializationError
