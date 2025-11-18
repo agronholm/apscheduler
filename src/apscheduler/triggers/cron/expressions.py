@@ -251,3 +251,20 @@ class LastDayOfMonthExpression(AllExpression):
 
     def __str__(self) -> str:
         return "last"
+
+
+class LastNDayOfMonthExpression(AllExpression):
+    value_re = re.compile(r"last-(?P<last_day>[0-9]+)", re.IGNORECASE)
+
+    def __init__(self, last_day: str):
+        super().__init__(None)
+        self.last_day = as_int(last_day)
+
+    def get_next_value(self, dateval: datetime, field: BaseField) -> int | None:
+        currval = field.get_value(dateval)
+        nextval = monthrange(dateval.year, dateval.month)[1] - self.last_day
+
+        return nextval if currval <= nextval else None
+
+    def __str__(self) -> str:
+        return f"last-{self.last_day}"
