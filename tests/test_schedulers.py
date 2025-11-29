@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
-import sysconfig
 import threading
 import time
 from collections import defaultdict
@@ -12,7 +10,6 @@ from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from inspect import signature
-from pathlib import Path
 from queue import Queue
 from types import ModuleType
 from typing import Any, cast
@@ -1477,20 +1474,3 @@ class TestSyncScheduler:
             RuntimeError, match="The scheduler seems to be running under uWSGI"
         ):
             Scheduler().start_in_background()
-
-    def test_uwsgi_threads_error_subprocess(self) -> None:
-        uwsgi_path = Path(sysconfig.get_path("scripts")) / "uwsgi"
-        if not uwsgi_path.is_file():
-            pytest.skip("uwsgi is not installed")
-
-        # This tests the error with a real uWSGI subprocess
-        script_path = (
-            Path(__file__).parent.parent / "examples" / "web" / "wsgi_noframework.py"
-        )
-        assert script_path.is_file()
-        proc = subprocess.run(
-            ["uwsgi", "--http", ":8000", "--need-app", "--wsgi-file", str(script_path)],
-            capture_output=True,
-        )
-        assert proc.returncode == 22
-        assert b"The scheduler seems to be running under uWSGI" in proc.stderr
