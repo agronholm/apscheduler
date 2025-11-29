@@ -1,31 +1,27 @@
 from __future__ import annotations
 
 import operator
-import sys
 from collections.abc import (
-    AsyncGenerator,
-    AsyncIterator,
     Callable,
     Iterable,
     Mapping,
     Sequence,
 )
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from logging import Logger
-from typing import Any, ClassVar, Generic, TypeVar, cast
+from typing import Any, ClassVar, TypeVar, cast
 from uuid import UUID
 
 import attrs
 import pymongo
-from anyio import to_thread
 from attrs.validators import instance_of
 from bson import CodecOptions, UuidRepresentation
 from bson.codec_options import TypeEncoder, TypeRegistry
-from pymongo import ASCENDING, DeleteOne, MongoClient, UpdateOne
-from pymongo.client_session import ClientSession
-from pymongo.collection import Collection
-from pymongo.cursor import Cursor
+from pymongo import ASCENDING, DeleteOne, UpdateOne
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.asynchronous.mongo_client import AsyncMongoClient
 from pymongo.errors import ConnectionFailure, DuplicateKeyError
 
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome
@@ -51,11 +47,6 @@ from .._structures import Job, JobResult, Schedule, ScheduleResult, Task
 from .._utils import create_repr
 from ..abc import EventBroker
 from .base import BaseExternalDataStore
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 T = TypeVar("T", bound=Mapping[str, Any])
 
@@ -103,34 +94,6 @@ def unmarshal_timestamps(document: dict[str, Any]) -> None:
 
 
 @attrs.define(eq=False, repr=False)
-class AsyncCursor(Generic[T]):
-    cursor: Cursor[T]
-
-    def __aiter__(self) -> AsyncIterator[T]:
-        return self
-
-    async def __aenter__(self) -> Self:
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        await to_thread.run_sync(self.cursor.close)
-
-    def __next__(self) -> T:
-        try:
-            return next(self.cursor)
-        except StopIteration:
-            raise StopAsyncIteration from None
-
-    async def __anext__(self) -> T:
-        return await to_thread.run_sync(next, self)
-
-    @classmethod
-    async def create(cls, func: Callable[..., Cursor[T]]) -> AsyncCursor[T]:
-        cursor = await to_thread.run_sync(func)
-        return AsyncCursor(cursor)
-
-
-@attrs.define(eq=False, repr=False)
 class MongoDBDataStore(BaseExternalDataStore):
     """
     Uses a MongoDB server to store data.
@@ -141,36 +104,35 @@ class MongoDBDataStore(BaseExternalDataStore):
     Operations are retried (in accordance to ``retry_settings``) when an operation
     raises :exc:`pymongo.errors.ConnectionFailure`.
 
-    :param client_or_uri: a PyMongo client or a MongoDB connection URI
+    :param client_or_uri: an asynchronous PyMongo client or a MongoDB connection URI
     :param database: name of the database to use
 
     .. note:: The data store will not manage the life cycle of any client instance
-        passed to it, so you need to close the client afterwards when you're done with
-        it.
+        passed to it, so you need to close the client after you're done with it.
 
     .. note:: Datetimes are stored as integers along with their UTC offsets instead of
         BSON datetimes due to the BSON datetimes only being accurate to the millisecond
         while Python datetimes are accurate to the microsecond.
     """
 
-    client_or_uri: MongoClient | str = attrs.field(
-        validator=instance_of((MongoClient, str))
+    client_or_uri: AsyncMongoClient | str = attrs.field(
+        validator=instance_of((AsyncMongoClient, str))
     )
     database: str = attrs.field(
         default="apscheduler", kw_only=True, validator=instance_of(str)
     )
 
-    _client: MongoClient = attrs.field(init=False)
+    _client: AsyncMongoClient = attrs.field(init=False)
     _close_on_exit: bool = attrs.field(init=False, default=False)
     _task_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Task)]
     _schedule_attrs: ClassVar[list[str]] = [
         field.name for field in attrs.fields(Schedule)
     ]
     _job_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Job)]
-    _tasks: Collection = attrs.field(init=False)
-    _schedules: Collection = attrs.field(init=False)
-    _jobs: Collection = attrs.field(init=False)
-    _jobs_results: Collection = attrs.field(init=False)
+    _tasks: AsyncCollection = attrs.field(init=False)
+    _schedules: AsyncCollection = attrs.field(init=False)
+    _jobs: AsyncCollection = attrs.field(init=False)
+    _jobs_results: AsyncCollection = attrs.field(init=False)
 
     @property
     def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:
@@ -178,7 +140,7 @@ class MongoDBDataStore(BaseExternalDataStore):
 
     def __attrs_post_init__(self) -> None:
         if isinstance(self.client_or_uri, str):
-            self._client = MongoClient(self.client_or_uri)
+            self._client = AsyncMongoClient(self.client_or_uri)
             self._close_on_exit = True
         else:
             self._client = self.client_or_uri
@@ -205,39 +167,31 @@ class MongoDBDataStore(BaseExternalDataStore):
         server_descriptions = self._client.topology_description.server_descriptions()
         return create_repr(self, host=list(server_descriptions))
 
-    def _initialize(self) -> None:
-        with self._client.start_session() as session:
+    async def _initialize(self) -> None:
+        async with self._client.start_session() as session:
             if self.start_from_scratch:
-                self._tasks.delete_many({}, session=session)
-                self._schedules.delete_many({}, session=session)
-                self._jobs.delete_many({}, session=session)
-                self._jobs_results.delete_many({}, session=session)
+                await self._tasks.delete_many({}, session=session)
+                await self._schedules.delete_many({}, session=session)
+                await self._jobs.delete_many({}, session=session)
+                await self._jobs_results.delete_many({}, session=session)
 
-            self._schedules.create_index("task_id", session=session)
-            self._schedules.create_index("next_fire_time", session=session)
-            self._schedules.create_index("acquired_by", session=session)
-            self._jobs.create_index("task_id", session=session)
-            self._jobs.create_index("schedule_id", session=session)
-            self._jobs.create_index("created_at", session=session)
-            self._jobs.create_index("acquired_by", session=session)
-            self._jobs_results.create_index("expires_at", session=session)
-
-    @asynccontextmanager
-    async def _get_session(self) -> AsyncGenerator[ClientSession, None]:
-        session = await to_thread.run_sync(self._client.start_session)
-        try:
-            yield session
-        finally:
-            await to_thread.run_sync(session.end_session)
+            await self._schedules.create_index("task_id", session=session)
+            await self._schedules.create_index("next_fire_time", session=session)
+            await self._schedules.create_index("acquired_by", session=session)
+            await self._jobs.create_index("task_id", session=session)
+            await self._jobs.create_index("schedule_id", session=session)
+            await self._jobs.create_index("created_at", session=session)
+            await self._jobs.create_index("acquired_by", session=session)
+            await self._jobs_results.create_index("expires_at", session=session)
 
     async def start(
         self, exit_stack: AsyncExitStack, event_broker: EventBroker, logger: Logger
     ) -> None:
         if self._close_on_exit:
-            exit_stack.push_async_callback(to_thread.run_sync, self._client.close)
+            exit_stack.push_async_callback(self._client.close)
 
         await super().start(exit_stack, event_broker, logger)
-        server_info = await to_thread.run_sync(self._client.server_info)
+        server_info = await self._client.server_info()
         if server_info["versionArray"] < [4, 0]:
             raise RuntimeError(
                 f"MongoDB server must be at least v4.0; current version = "
@@ -246,17 +200,15 @@ class MongoDBDataStore(BaseExternalDataStore):
 
         async for attempt in self._retry():
             with attempt:
-                await to_thread.run_sync(self._initialize)
+                await self._initialize()
 
     async def add_task(self, task: Task) -> None:
         async for attempt in self._retry():
             with attempt:
-                previous = await to_thread.run_sync(
-                    lambda: self._tasks.find_one_and_update(
-                        {"_id": task.id},
-                        {"$set": task.marshal(self.serializer)},
-                        upsert=True,
-                    )
+                previous = await self._tasks.find_one_and_update(
+                    {"_id": task.id},
+                    {"$set": task.marshal(self.serializer)},
+                    upsert=True,
                 )
 
         if previous:
@@ -267,9 +219,7 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def remove_task(self, task_id: str) -> None:
         async for attempt in self._retry():
             with attempt:
-                if not await to_thread.run_sync(
-                    self._tasks.find_one_and_delete, {"_id": task_id}
-                ):
+                if not await self._tasks.find_one_and_delete({"_id": task_id}):
                     raise TaskLookupError(task_id)
 
         await self._event_broker.publish(TaskRemoved(task_id=task_id))
@@ -277,10 +227,8 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def get_task(self, task_id: str) -> Task:
         async for attempt in self._retry():
             with attempt:
-                document = await to_thread.run_sync(
-                    lambda: self._tasks.find_one(
-                        {"_id": task_id}, projection=self._task_attrs
-                    )
+                document = await self._tasks.find_one(
+                    {"_id": task_id}, projection=self._task_attrs
                 )
 
         if not document:
@@ -294,10 +242,8 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 tasks: list[Task] = []
-                async with await AsyncCursor.create(
-                    lambda: self._tasks.find(
-                        projection=self._task_attrs, sort=[("_id", pymongo.ASCENDING)]
-                    )
+                async with self._tasks.find(
+                    projection=self._task_attrs, sort=[("_id", pymongo.ASCENDING)]
                 ) as cursor:
                     async for document in cursor:
                         document["id"] = document.pop("_id")
@@ -310,9 +256,7 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 schedules: list[Schedule] = []
-                async with await AsyncCursor.create(
-                    lambda: self._schedules.find(filters).sort("_id")
-                ) as cursor:
+                async with self._schedules.find(filters).sort("_id") as cursor:
                     async for document in cursor:
                         document["id"] = document.pop("_id")
                         unmarshal_timestamps(document)
@@ -337,15 +281,14 @@ class MongoDBDataStore(BaseExternalDataStore):
         try:
             async for attempt in self._retry():
                 with attempt:
-                    await to_thread.run_sync(self._schedules.insert_one, document)
+                    await self._schedules.insert_one(document)
         except DuplicateKeyError:
             if conflict_policy is ConflictPolicy.exception:
                 raise ConflictingIdError(schedule.id) from None
             elif conflict_policy is ConflictPolicy.replace:
                 async for attempt in self._retry():
                     with attempt:
-                        await to_thread.run_sync(
-                            self._schedules.replace_one,
+                        await self._schedules.replace_one(
                             {"_id": schedule.id},
                             document,
                             True,
@@ -368,15 +311,16 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def remove_schedules(self, ids: Iterable[str]) -> None:
         filters = {"_id": {"$in": list(ids)}} if ids is not None else {}
         async for attempt in self._retry():
-            with attempt, self._client.start_session() as session:
-                async with await AsyncCursor.create(
-                    lambda: self._schedules.find(
+            with attempt:
+                async with (
+                    self._client.start_session() as session,
+                    self._schedules.find(
                         filters, projection=["_id", "task_id"], session=session
-                    )
-                ) as cursor:
+                    ) as cursor,
+                ):
                     new_ids = [(doc["_id"], doc["task_id"]) async for doc in cursor]
                     if new_ids:
-                        self._schedules.delete_many(filters, session=session)
+                        await self._schedules.delete_many(filters, session=session)
 
         for schedule_id, task_id in new_ids:
             await self._event_broker.publish(
@@ -393,10 +337,14 @@ class MongoDBDataStore(BaseExternalDataStore):
         # Fetch up to {limit} schedules
         while len(schedules) < limit:
             async for attempt in self._retry():
-                with attempt, self._client.start_session() as session:
+                async with AsyncExitStack() as exit_stack:
+                    exit_stack.enter_context(attempt)
+                    session = await exit_stack.enter_async_context(
+                        self._client.start_session()
+                    )
                     now = datetime.now(timezone.utc)
-                    async with await AsyncCursor.create(
-                        lambda: self._schedules.find(
+                    cursor = await exit_stack.enter_async_context(
+                        self._schedules.find(
                             {
                                 "next_fire_time": {"$lte": now.timestamp()},
                                 "$and": [
@@ -423,8 +371,8 @@ class MongoDBDataStore(BaseExternalDataStore):
                         )
                         .sort("next_fire_time")
                         .limit(limit - len(schedules))
-                    ) as cursor:
-                        documents = [doc async for doc in cursor]
+                    )
+                    documents = [doc async for doc in cursor]
 
                     # Bail out if there are no more schedules to be acquired
                     if not documents:
@@ -433,39 +381,34 @@ class MongoDBDataStore(BaseExternalDataStore):
                     now = datetime.now(timezone.utc)
                     acquired_until = now + lease_duration
                     schedule_ids = [doc["_id"] for doc in documents]
-                    result = await to_thread.run_sync(
-                        lambda: self._schedules.update_many(
-                            {
-                                "_id": {"$in": schedule_ids},
-                                "$or": [
-                                    {"acquired_until": {"$exists": False}},
-                                    {"acquired_until": {"$lt": now.timestamp()}},
-                                ],
-                            },
-                            {
-                                "$set": {
-                                    "acquired_by": scheduler_id,
-                                    **marshal_timestamp(
-                                        acquired_until, "acquired_until"
-                                    ),
-                                }
-                            },
-                        )
+                    result = await self._schedules.update_many(
+                        {
+                            "_id": {"$in": schedule_ids},
+                            "$or": [
+                                {"acquired_until": {"$exists": False}},
+                                {"acquired_until": {"$lt": now.timestamp()}},
+                            ],
+                        },
+                        {
+                            "$set": {
+                                "acquired_by": scheduler_id,
+                                **marshal_timestamp(acquired_until, "acquired_until"),
+                            }
+                        },
+                        session=session,
                     )
 
                     # If the number of modified schedules was smaller than expected,
                     # manually check which ones were successfully acquired
                     if result.modified_count != len(schedule_ids):
-                        async with await AsyncCursor.create(
-                            lambda: self._schedules.find(
-                                {
-                                    "_id": {"$in": schedule_ids},
-                                    "acquired_by": scheduler_id,
-                                },
-                                sort=[("created_at", ASCENDING)],
-                                projection=["_id"],
-                                session=session,
-                            )
+                        async with self._schedules.find(
+                            {
+                                "_id": {"$in": schedule_ids},
+                                "acquired_by": scheduler_id,
+                            },
+                            sort=[("created_at", ASCENDING)],
+                            projection=["_id"],
+                            session=session,
                         ) as cursor:
                             acquired_schedule_ids = {doc["_id"] async for doc in cursor}
                             documents = [
@@ -520,12 +463,11 @@ class MongoDBDataStore(BaseExternalDataStore):
 
         if requests:
             async for attempt in self._retry():
-                with attempt, self._client.start_session() as session:
-                    await to_thread.run_sync(
-                        lambda: self._schedules.bulk_write(
+                with attempt:
+                    async with self._client.start_session() as session:
+                        await self._schedules.bulk_write(
                             requests, ordered=False, session=session
                         )
-                    )
 
         for schedule_id, next_fire_time in updated_schedules:
             event = ScheduleUpdated(
@@ -547,12 +489,10 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def get_next_schedule_run_time(self) -> datetime | None:
         async for attempt in self._retry():
             with attempt:
-                document = await to_thread.run_sync(
-                    lambda: self._schedules.find_one(
-                        {"next_fire_time": {"$ne": None}},
-                        projection=["next_fire_time", "next_fire_time_utcoffset"],
-                        sort=[("next_fire_time", ASCENDING)],
-                    )
+                document = await self._schedules.find_one(
+                    {"next_fire_time": {"$ne": None}},
+                    projection=["next_fire_time", "next_fire_time_utcoffset"],
+                    sort=[("next_fire_time", ASCENDING)],
                 )
 
         if document:
@@ -566,7 +506,7 @@ class MongoDBDataStore(BaseExternalDataStore):
         marshal_document(document)
         async for attempt in self._retry():
             with attempt:
-                await to_thread.run_sync(self._jobs.insert_one, document)
+                await self._jobs.insert_one(document)
 
         event = JobAdded(
             job_id=job.id,
@@ -580,9 +520,7 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 jobs: list[Job] = []
-                async with await AsyncCursor.create(
-                    lambda: self._jobs.find(filters).sort("_id")
-                ) as cursor:
+                async with self._jobs.find(filters).sort("_id") as cursor:
                     async for document in cursor:
                         document["id"] = document.pop("_id")
                         unmarshal_timestamps(document)
@@ -605,59 +543,55 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             async with AsyncExitStack() as exit_stack:
                 exit_stack.enter_context(attempt)
-                session = await exit_stack.enter_async_context(self._get_session())
+                session = await exit_stack.enter_async_context(
+                    self._client.start_session()
+                )
 
                 # Fetch up to {limit} jobs
                 now = datetime.now(timezone.utc)
-                async with await AsyncCursor.create(
-                    lambda: self._jobs.find(
-                        {
-                            "$or": [
-                                {"acquired_until": {"$exists": False}},
-                                {"acquired_until": {"$lt": now.timestamp()}},
-                            ]
-                        },
-                        sort=[("created_at", ASCENDING)],
-                        limit=limit,
-                        session=session,
-                    )
+                async with self._jobs.find(
+                    {
+                        "$or": [
+                            {"acquired_until": {"$exists": False}},
+                            {"acquired_until": {"$lt": now.timestamp()}},
+                        ]
+                    },
+                    sort=[("created_at", ASCENDING)],
+                    limit=limit,
+                    session=session,
                 ) as cursor:
                     documents = [doc async for doc in cursor]
 
                 # Mark them as acquired by this scheduler
                 acquired_until = now + lease_duration
                 job_ids = [doc["_id"] for doc in documents]
-                result = await to_thread.run_sync(
-                    lambda: self._jobs.update_many(
-                        {
-                            "_id": {"$in": job_ids},
-                            "$or": [
-                                {"acquired_until": {"$exists": False}},
-                                {"acquired_until": {"$lt": now.timestamp()}},
-                            ],
-                        },
-                        {
-                            "$set": {
-                                "acquired_by": scheduler_id,
-                                **marshal_timestamp(acquired_until, "acquired_until"),
-                            }
-                        },
-                    )
+                result = await self._jobs.update_many(
+                    {
+                        "_id": {"$in": job_ids},
+                        "$or": [
+                            {"acquired_until": {"$exists": False}},
+                            {"acquired_until": {"$lt": now.timestamp()}},
+                        ],
+                    },
+                    {
+                        "$set": {
+                            "acquired_by": scheduler_id,
+                            **marshal_timestamp(acquired_until, "acquired_until"),
+                        }
+                    },
                 )
 
                 # If the number of modified jobs was smaller than expected, manually
                 # check which jobs were successfully acquired
                 if result.modified_count != len(job_ids):
-                    async with await AsyncCursor.create(
-                        lambda: self._jobs.find(
-                            {
-                                "_id": {"$in": job_ids},
-                                "acquired_by": scheduler_id,
-                            },
-                            sort=[("created_at", ASCENDING)],
-                            projection=["_id"],
-                            session=session,
-                        )
+                    async with self._jobs.find(
+                        {
+                            "_id": {"$in": job_ids},
+                            "acquired_by": scheduler_id,
+                        },
+                        sort=[("created_at", ASCENDING)],
+                        projection=["_id"],
+                        session=session,
                     ) as cursor:
                         acquired_job_ids = {doc["_id"] async for doc in cursor}
                         documents = [
@@ -717,25 +651,23 @@ class MongoDBDataStore(BaseExternalDataStore):
                         continue
 
                     # Try to increment the task's running jobs count
-                    update_task_result = await to_thread.run_sync(
-                        lambda: self._tasks.update_one(
-                            {
-                                "_id": job.task_id,
-                                "$or": [
-                                    {"max_running_jobs": None},
-                                    {
-                                        "$expr": {
-                                            "$gt": [
-                                                "$max_running_jobs",
-                                                "$running_jobs",
-                                            ]
-                                        }
-                                    },
-                                ],
-                            },
-                            {"$inc": {"running_jobs": 1}},
-                            session=session,
-                        )
+                    update_task_result = await self._tasks.update_one(
+                        {
+                            "_id": job.task_id,
+                            "$or": [
+                                {"max_running_jobs": None},
+                                {
+                                    "$expr": {
+                                        "$gt": [
+                                            "$max_running_jobs",
+                                            "$running_jobs",
+                                        ]
+                                    }
+                                },
+                            ],
+                        },
+                        {"$inc": {"running_jobs": 1}},
+                        session=session,
                     )
                     if not update_task_result.matched_count:
                         self._logger.debug(
@@ -754,20 +686,18 @@ class MongoDBDataStore(BaseExternalDataStore):
 
                 # Release jobs skipped due to max job slots being reached
                 if skipped_job_ids:
-                    await to_thread.run_sync(
-                        lambda: self._jobs.update_many(
-                            {
-                                "_id": {"$in": skipped_job_ids},
-                                "acquired_by": scheduler_id,
+                    await self._jobs.update_many(
+                        {
+                            "_id": {"$in": skipped_job_ids},
+                            "acquired_by": scheduler_id,
+                        },
+                        {
+                            "$unset": {
+                                "acquired_by": True,
+                                "acquired_until": True,
+                                "acquired_until_utcoffset": True,
                             },
-                            {
-                                "$unset": {
-                                    "acquired_by": True,
-                                    "acquired_until": True,
-                                    "acquired_until_utcoffset": True,
-                                },
-                            },
-                        )
+                        },
                     )
 
         # Publish the appropriate events
@@ -778,7 +708,7 @@ class MongoDBDataStore(BaseExternalDataStore):
 
     async def _release_job(
         self,
-        session: ClientSession,
+        session: AsyncClientSession,
         result: JobResult,
         scheduler_id: str,
         task_id: str,
@@ -792,21 +722,17 @@ class MongoDBDataStore(BaseExternalDataStore):
             document = result.marshal(self.serializer)
             document["_id"] = document.pop("job_id")
             marshal_document(document)
-            self._jobs_results.insert_one(document, session=session)
+            await self._jobs_results.insert_one(document, session=session)
 
         # Delete the job
-        await to_thread.run_sync(
-            lambda: self._jobs.delete_one({"_id": result.job_id}, session=session)
-        )
+        await self._jobs.delete_one({"_id": result.job_id}, session=session)
 
         # Decrement the running jobs counter if the job had been successfully acquired
         if decrement_running_job_count:
-            await to_thread.run_sync(
-                lambda: self._tasks.find_one_and_update(
-                    {"_id": task_id},
-                    {"$inc": {"running_jobs": -1}},
-                    session=session,
-                )
+            await self._tasks.find_one_and_update(
+                {"_id": task_id},
+                {"$inc": {"running_jobs": -1}},
+                session=session,
             )
 
         # Notify other schedulers
@@ -816,25 +742,24 @@ class MongoDBDataStore(BaseExternalDataStore):
 
     async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
         async for attempt in self._retry():
-            with attempt, self._client.start_session() as session:
-                event = await self._release_job(
-                    session,
-                    result,
-                    scheduler_id,
-                    job.task_id,
-                    job.schedule_id,
-                    job.scheduled_fire_time,
-                )
+            with attempt:
+                async with self._client.start_session() as session:
+                    event = await self._release_job(
+                        session,
+                        result,
+                        scheduler_id,
+                        job.task_id,
+                        job.schedule_id,
+                        job.scheduled_fire_time,
+                    )
 
-                # Notify other schedulers
-                await self._event_broker.publish(event)
+                    # Notify other schedulers
+                    await self._event_broker.publish(event)
 
     async def get_job_result(self, job_id: UUID) -> JobResult | None:
         async for attempt in self._retry():
             with attempt:
-                document = await to_thread.run_sync(
-                    lambda: self._jobs_results.find_one_and_delete({"_id": job_id})
-                )
+                document = await self._jobs_results.find_one_and_delete({"_id": job_id})
 
         if document:
             document["job_id"] = document.pop("_id")
@@ -847,10 +772,12 @@ class MongoDBDataStore(BaseExternalDataStore):
         self, scheduler_id: str, schedule_ids: set[str], duration: timedelta
     ) -> None:
         async for attempt in self._retry():
-            with attempt, self._client.start_session() as session:
-                new_acquired_until = (datetime.now(timezone.utc) + duration).timestamp()
-                await to_thread.run_sync(
-                    lambda: self._schedules.update_many(
+            with attempt:
+                async with self._client.start_session() as session:
+                    new_acquired_until = (
+                        datetime.now(timezone.utc) + duration
+                    ).timestamp()
+                    await self._schedules.update_many(
                         filter={
                             "acquired_by": scheduler_id,
                             "_id": {"$in": list(schedule_ids)},
@@ -858,16 +785,17 @@ class MongoDBDataStore(BaseExternalDataStore):
                         update={"$set": {"acquired_until": new_acquired_until}},
                         session=session,
                     )
-                )
 
     async def extend_acquired_job_leases(
         self, scheduler_id: str, job_ids: set[UUID], duration: timedelta
     ) -> None:
         async for attempt in self._retry():
-            with attempt, self._client.start_session() as session:
-                new_acquired_until = (datetime.now(timezone.utc) + duration).timestamp()
-                await to_thread.run_sync(
-                    lambda: self._jobs.update_many(
+            with attempt:
+                async with self._client.start_session() as session:
+                    new_acquired_until = (
+                        datetime.now(timezone.utc) + duration
+                    ).timestamp()
+                    await self._jobs.update_many(
                         filter={
                             "acquired_by": scheduler_id,
                             "_id": {"$in": list(job_ids)},
@@ -875,18 +803,18 @@ class MongoDBDataStore(BaseExternalDataStore):
                         update={"$set": {"acquired_until": new_acquired_until}},
                         session=session,
                     )
-                )
 
     async def reap_abandoned_jobs(self, scheduler_id: str) -> None:
         async for attempt in self._retry():
             events: list[JobReleased] = []
-            with attempt, self._client.start_session() as session:
-                async with await AsyncCursor.create(
-                    lambda: self._jobs.find(
+            with attempt:
+                async with (
+                    self._client.start_session() as session,
+                    self._jobs.find(
                         filter={"acquired_by": scheduler_id},
                         sort=[("created_at", ASCENDING)],
-                    )
-                ) as cursor:
+                    ) as cursor,
+                ):
                     async for doc in cursor:
                         doc["id"] = doc.pop("_id")
                         unmarshal_timestamps(doc)
@@ -910,41 +838,35 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def cleanup(self) -> None:
         events: list[JobReleased | ScheduleRemoved] = []
         async for attempt in self._retry():
-            with attempt, self._client.start_session() as session:
-                # Purge expired job results
-                now = datetime.now(timezone.utc)
-                await to_thread.run_sync(
-                    lambda: self._jobs_results.delete_many(
+            with attempt:
+                async with self._client.start_session() as session:
+                    # Purge expired job results
+                    now = datetime.now(timezone.utc)
+                    await self._jobs_results.delete_many(
                         {"expires_at": {"$lte": now.timestamp()}}, session=session
                     )
-                )
 
-                # Find finished schedules
-                async with await AsyncCursor.create(
-                    lambda: self._schedules.find(
+                    # Find finished schedules
+                    async with self._schedules.find(
                         {"next_fire_time": None},
                         projection=["_id", "task_id"],
                         session=session,
-                    )
-                ) as cursor:
-                    if finished_schedules := {
-                        item["_id"]: item["task_id"] async for item in cursor
-                    }:
-                        # Find distinct schedule IDs of jobs associated with these
-                        # schedules
-                        for schedule_id in await to_thread.run_sync(
-                            lambda: self._jobs.distinct(
+                    ) as cursor:
+                        if finished_schedules := {
+                            item["_id"]: item["task_id"] async for item in cursor
+                        }:
+                            # Find distinct schedule IDs of jobs associated with these
+                            # schedules
+                            for schedule_id in await self._jobs.distinct(
                                 "schedule_id",
                                 {"schedule_id": {"$in": list(finished_schedules)}},
                                 session=session,
-                            )
-                        ):
-                            finished_schedules.pop(schedule_id)
+                            ):
+                                finished_schedules.pop(schedule_id)
 
-                # Finish any jobs whose leases have expired
-                filters = {"acquired_until": {"$lt": now.timestamp()}}
-                async with await AsyncCursor.create(
-                    lambda: self._jobs.find(
+                    # Finish any jobs whose leases have expired
+                    filters = {"acquired_until": {"$lt": now.timestamp()}}
+                    async with self._jobs.find(
                         filters,
                         projection=[
                             "_id",
@@ -955,44 +877,41 @@ class MongoDBDataStore(BaseExternalDataStore):
                             "scheduled_fire_time_utcoffset",
                             "result_expiration_time",
                         ],
-                    )
-                ) as cursor:
-                    async for doc in cursor:
-                        unmarshal_timestamps(doc)
-                        result = JobResult(
-                            job_id=doc["_id"],
-                            outcome=JobOutcome.abandoned,
-                            finished_at=now,
-                            expires_at=now
-                            + timedelta(seconds=doc["result_expiration_time"]),
-                        )
-                        events.append(
-                            await self._release_job(
-                                session,
-                                result,
-                                doc["acquired_by"],
-                                doc["task_id"],
-                                doc["schedule_id"],
-                                doc["scheduled_fire_time"],
+                    ) as cursor:
+                        async for doc in cursor:
+                            unmarshal_timestamps(doc)
+                            result = JobResult(
+                                job_id=doc["_id"],
+                                outcome=JobOutcome.abandoned,
+                                finished_at=now,
+                                expires_at=now
+                                + timedelta(seconds=doc["result_expiration_time"]),
                             )
-                        )
+                            events.append(
+                                await self._release_job(
+                                    session,
+                                    result,
+                                    doc["acquired_by"],
+                                    doc["task_id"],
+                                    doc["schedule_id"],
+                                    doc["scheduled_fire_time"],
+                                )
+                            )
 
-                # Delete finished schedules that not having any associated jobs
-                if finished_schedules:
-                    await to_thread.run_sync(
-                        lambda: self._schedules.delete_many(
+                    # Delete finished schedules that not having any associated jobs
+                    if finished_schedules:
+                        await self._schedules.delete_many(
                             {"_id": {"$in": list(finished_schedules)}},
                             session=session,
                         )
-                    )
-                    for schedule_id, task_id in finished_schedules.items():
-                        events.append(
-                            ScheduleRemoved(
-                                schedule_id=schedule_id,
-                                task_id=task_id,
-                                finished=True,
+                        for schedule_id, task_id in finished_schedules.items():
+                            events.append(
+                                ScheduleRemoved(
+                                    schedule_id=schedule_id,
+                                    task_id=task_id,
+                                    finished=True,
+                                )
                             )
-                        )
 
         # Publish any events produced from the operations
         for event in events:

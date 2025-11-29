@@ -430,5 +430,5 @@ for attrname in dir(AsyncScheduler):
     value = getattr(AsyncScheduler, attrname)
     if callable(value):
         sync_method = getattr(Scheduler, attrname, None)
-        if sync_method and not getattr(sync_method, "__doc__"):
+        if sync_method and not sync_method.__doc__:
             sync_method.__doc__ = value.__doc__

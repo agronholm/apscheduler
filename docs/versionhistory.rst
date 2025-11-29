@@ -6,6 +6,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- **BREAKING** Switched the MongoDB data store to use the asynchronous API in
+  ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Dropped support for Python 3.9
 - Fixed an issue where ``CronTrigger`` does not convert ``start_time`` to ``self.timezone``
   (`#1061 <https://github.com/agronholm/apscheduler/issues/1061>`_; PR by @jonasitzmann)
