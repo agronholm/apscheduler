@@ -23,8 +23,8 @@ these instructions.
 If there are no entries after the last release, use `**UNRELEASED**` as the version.
 If, say, your patch fixes issue #999, the entry should look like this:
 
-`* Fix big bad boo-boo in the async scheduler (#999
-<https://github.com/agronholm/apscheduler/issues/999>_; PR by @yourgithubaccount)`
+`* Fix big bad boo-boo in the async scheduler
+  (`#123 <https://github.com/agronholm/apscheduler/issues/123>`_; PR by @yourgithubaccount)
 
 If there's no issue linked, just link to your pull request instead by updating the
 changelog after you've created the PR.
