@@ -13,6 +13,7 @@ authors = [{name = "Alex Grönholm", email = "alex.gronholm@nextday.fi"}]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
+    "Framework :: AnyIO",
     "Typing :: Typed",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
