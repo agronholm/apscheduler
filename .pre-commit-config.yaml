@@ -22,7 +22,7 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.4
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix, --show-fixes]
       - id: ruff-format
 
