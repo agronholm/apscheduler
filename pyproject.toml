@@ -66,7 +66,7 @@ test = [
     "pytest-mock",
     "time-machine >= 2.13.0; python_implementation == 'CPython'",
     """\
-    uwsgi <= 2.0.26; python_implementation == 'CPython' and platform_system == 'Linux'\
+    uwsgi >= 2.0.31; python_implementation == 'CPython' and platform_system == 'Linux'\
     and python_version < '3.13'\
     """,
 ]
@@ -98,15 +98,20 @@ show_missing = true
 [tool.ruff.lint]
 extend-select = [
     "ASYNC",        # flake8-async
+    "B",            # flake8-bugbear
+    "C4",           # flake8-comprehensions
     "G",            # flake8-logging-format
     "I",            # isort
     "ISC",          # flake8-implicit-str-concat
+    "PERF",         # flake8-performance
     "PGH",          # pygrep-hooks
-    "RUF",          # ruff specific rules
+    "RUF100",       # unused noqa (yesqa)
+    "T201",         # print
     "UP",           # pyupgrade
     "W",            # pycodestyle warnings
 ]
 ignore = [
+    "PERF203",
     "RUF001",
     "RUF002",
 ]
@@ -114,6 +119,9 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["apscheduler"]
 required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/**/*.py" = ["T201"]
 
 [tool.mypy]
 python_version = "3.14"

@@ -93,16 +93,18 @@ def callable_from_ref(ref: str) -> Callable:
     modulename, rest = ref.split(":", 1)
     try:
         obj = __import__(modulename, fromlist=[rest])
-    except ImportError:
-        raise LookupError(f"Error resolving reference {ref!r}: could not import module")
+    except ImportError as exc:
+        raise LookupError(
+            f"Error resolving reference {ref!r}: could not import module"
+        ) from exc
 
     try:
         for name in rest.split("."):
             obj = getattr(obj, name)
-    except Exception:
+    except Exception as exc:
         raise DeserializationError(
             f"Error resolving reference {ref!r}: error looking up object"
-        )
+        ) from exc
 
     if not callable(obj):
         raise DeserializationError(

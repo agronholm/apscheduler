@@ -68,7 +68,7 @@ class BaseEventBroker(EventBroker):
     async def publish_local(self, event: Event) -> None:
         event_type = type(event)
         one_shot_tokens: list[object] = []
-        for _token, subscription in self._subscriptions.items():
+        for subscription in self._subscriptions.values():
             if (
                 subscription.event_types is None
                 or event_type in subscription.event_types

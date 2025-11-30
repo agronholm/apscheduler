@@ -860,7 +860,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     async def get_jobs(self, ids: Iterable[UUID] | None = None) -> list[Job]:
         query = self._t_jobs.select().order_by(self._t_jobs.c.id)
         if ids:
-            job_ids = [job_id for job_id in ids]
+            job_ids = list(ids)
             query = query.where(self._t_jobs.c.id.in_(job_ids))
 
         async for attempt in self._retry():

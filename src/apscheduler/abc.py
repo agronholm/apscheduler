@@ -353,6 +353,7 @@ class DataStore(metaclass=ABCMeta):
         :return: the result, or ``None`` if the result was not found
         """
 
+    @abstractmethod
     async def extend_acquired_schedule_leases(
         self, scheduler_id: str, schedule_ids: set[str], duration: timedelta
     ) -> None:
@@ -365,6 +366,7 @@ class DataStore(metaclass=ABCMeta):
         :param duration: the duration by which to extend the leases
         """
 
+    @abstractmethod
     async def extend_acquired_job_leases(
         self, scheduler_id: str, job_ids: set[UUID], duration: timedelta
     ) -> None:
@@ -406,7 +408,7 @@ class DataStore(metaclass=ABCMeta):
 
 
 class JobExecutor(metaclass=ABCMeta):
-    async def start(self, exit_stack: AsyncExitStack) -> None:
+    async def start(self, exit_stack: AsyncExitStack) -> None:  # noqa: B027
         """
         Start the job executor.
 

@@ -145,7 +145,7 @@ async def test_add_schedules(datastore: DataStore, schedules: list[Schedule]) ->
         assert await datastore.get_schedules({"s2"}) == [schedules[1]]
         assert await datastore.get_schedules({"s3"}) == [schedules[2]]
 
-    for event, schedule in zip(events, schedules):
+    for event, schedule in zip(events, schedules, strict=True):
         assert isinstance(event, ScheduleAdded)
         assert event.schedule_id == schedule.id
         assert event.task_id == schedule.task_id

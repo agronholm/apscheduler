@@ -1091,7 +1091,7 @@ class AsyncScheduler:
     def _get_task_callable(self, task: Task) -> Callable:
         try:
             return self._task_callables[task.id]
-        except KeyError:
+        except KeyError as exc:
             if task.func:
                 try:
                     func = self._task_callables[task.id] = callable_from_ref(task.func)
@@ -1108,7 +1108,7 @@ class AsyncScheduler:
                 f"such callable has been defined. Call "
                 f"scheduler.configure_task({task.id!r}, func=...) to define the local "
                 f"callable."
-            )
+            ) from exc
 
     async def _process_jobs(self, *, task_status: TaskStatus[None]) -> None:
         wakeup_event = anyio.Event()

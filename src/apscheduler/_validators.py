@@ -53,5 +53,5 @@ def valid_metadata(instance: Any, attribute: Attribute, value: Any) -> None:
     if not isinstance(value, dict):
         raise ValueError(f"{attribute.name} must be a dict, got: {value!r}")
 
-    for key, value in value.items():
-        check_value(key, value)
+    for key, val in value.items():
+        check_value(key, val)

@@ -586,7 +586,7 @@ class TestAsyncScheduler:
                     assert isinstance(event, SchedulerStarted)
 
                     # The schedule was processed and one or more jobs weres added
-                    for index in range(expected_jobs):
+                    for _ in range(expected_jobs):
                         event = await receive.receive()
                         assert isinstance(event, JobAdded)
                         assert event.schedule_id == "foo"
