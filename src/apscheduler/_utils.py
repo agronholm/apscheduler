@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, tzinfo
 from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
 from zoneinfo import ZoneInfo
 
 from ._exceptions import DeserializationError
 from .abc import Trigger
+
+try:
+    import sniffio
+except ImportError:
+    sniffio = None
 
 if TYPE_CHECKING:
     from ._structures import MetadataType
@@ -110,3 +116,15 @@ def time_exists(dt: datetime) -> bool:
 
     """
     return dt == datetime.fromtimestamp(dt.timestamp(), dt.tzinfo)
+
+
+def current_async_library() -> str:
+    """Return the name of the currently used async library."""
+    if sniffio is not None:
+        return sniffio.current_async_library() or "(unknown)"
+
+    try:
+        asyncio.get_running_loop()
+        return "asyncio"
+    except RuntimeError:
+        return "(unknown)"
