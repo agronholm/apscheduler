@@ -65,15 +65,15 @@ class CalendarIntervalTrigger(BaseTrigger):
     """
 
     __slots__ = (
-        "years",
-        "months",
-        "weeks",
-        "days",
-        "start_date",
-        "end_date",
-        "timezone",
-        "jitter",
         "_time",
+        "days",
+        "end_date",
+        "jitter",
+        "months",
+        "start_date",
+        "timezone",
+        "weeks",
+        "years",
     )
 
     def __init__(
@@ -183,4 +183,4 @@ class CalendarIntervalTrigger(BaseTrigger):
             fields.append(f"end_date='{self.end_date}'")
 
         fields.append(f"timezone={timezone_repr(self.timezone)!r}")
-        return f'{self.__class__.__name__}({", ".join(fields)})'
+        return f"{self.__class__.__name__}({', '.join(fields)})"

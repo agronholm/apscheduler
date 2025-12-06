@@ -190,8 +190,7 @@ class TestConvertToDatetime:
             ValueError, convert_to_datetime, "2009-8-1", None, "argname"
         )
         assert str(exc.value) == (
-            'The "tz" argument must be specified if argname has no timezone '
-            "information"
+            'The "tz" argument must be specified if argname has no timezone information'
         )
 
     def test_text_timezone(self):
@@ -460,8 +459,7 @@ class TestCheckCallableArgs:
         func = eval("lambda x, *, y, z=1: None")
         exc = pytest.raises(ValueError, check_callable_args, func, [1], {})
         assert str(exc.value) == (
-            "The following keyword-only arguments have not been supplied in "
-            "kwargs: y"
+            "The following keyword-only arguments have not been supplied in kwargs: y"
         )
 
     def test_wrapped_func(self):

@@ -17,8 +17,8 @@ from apscheduler.events import (
 class MaxInstancesReachedError(Exception):
     def __init__(self, job):
         super().__init__(
-            'Job "%s" has already reached its maximum number of instances (%d)'
-            % (job.id, job.max_instances)
+            f'Job "{job.id}" has already reached its maximum number of instances '
+            f"({job.max_instances})"
         )
 
 

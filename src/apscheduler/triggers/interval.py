@@ -29,12 +29,12 @@ class IntervalTrigger(BaseTrigger):
     """
 
     __slots__ = (
-        "timezone",
-        "start_date",
         "end_date",
         "interval",
         "interval_length",
         "jitter",
+        "start_date",
+        "timezone",
     )
 
     def __init__(
@@ -79,7 +79,7 @@ class IntervalTrigger(BaseTrigger):
             next_fire_time = self.start_date.timestamp()
         else:
             timediff = now.timestamp() - self.start_date.timestamp()
-            next_interval_num = int(ceil(timediff / self.interval_length))
+            next_interval_num = ceil(timediff / self.interval_length)
             next_fire_time = (
                 self.start_date.timestamp() + self.interval_length * next_interval_num
             )

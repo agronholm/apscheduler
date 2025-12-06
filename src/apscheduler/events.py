@@ -1,26 +1,26 @@
 __all__ = (
-    "EVENT_SCHEDULER_STARTED",
-    "EVENT_SCHEDULER_SHUTDOWN",
-    "EVENT_SCHEDULER_PAUSED",
-    "EVENT_SCHEDULER_RESUMED",
+    "EVENT_ALL",
+    "EVENT_ALL_JOBS_REMOVED",
     "EVENT_EXECUTOR_ADDED",
     "EVENT_EXECUTOR_REMOVED",
     "EVENT_JOBSTORE_ADDED",
     "EVENT_JOBSTORE_REMOVED",
-    "EVENT_ALL_JOBS_REMOVED",
     "EVENT_JOB_ADDED",
-    "EVENT_JOB_REMOVED",
-    "EVENT_JOB_MODIFIED",
-    "EVENT_JOB_EXECUTED",
     "EVENT_JOB_ERROR",
-    "EVENT_JOB_MISSED",
-    "EVENT_JOB_SUBMITTED",
+    "EVENT_JOB_EXECUTED",
     "EVENT_JOB_MAX_INSTANCES",
-    "EVENT_ALL",
-    "SchedulerEvent",
+    "EVENT_JOB_MISSED",
+    "EVENT_JOB_MODIFIED",
+    "EVENT_JOB_REMOVED",
+    "EVENT_JOB_SUBMITTED",
+    "EVENT_SCHEDULER_PAUSED",
+    "EVENT_SCHEDULER_RESUMED",
+    "EVENT_SCHEDULER_SHUTDOWN",
+    "EVENT_SCHEDULER_STARTED",
     "JobEvent",
     "JobExecutionEvent",
     "JobSubmissionEvent",
+    "SchedulerEvent",
 )
 
 
@@ -76,7 +76,7 @@ class SchedulerEvent:
         self.alias = alias
 
     def __repr__(self):
-        return "<%s (code=%d)>" % (self.__class__.__name__, self.code)
+        return f"<self.__class__.__name__ (code={self.code})>"
 
 
 class JobEvent(SchedulerEvent):

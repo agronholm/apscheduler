@@ -3,7 +3,7 @@ from apscheduler.util import obj_to_ref, ref_to_obj
 
 
 class BaseCombiningTrigger(BaseTrigger):
-    __slots__ = ("triggers", "jitter")
+    __slots__ = ("jitter", "triggers")
 
     def __init__(self, triggers, jitter=None):
         self.triggers = triggers

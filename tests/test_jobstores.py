@@ -297,7 +297,7 @@ def test_update_job_clear_next_runtime(
 
     """
     jobs = [
-        create_add_job(jobstore, dummy_job, datetime(2014, 2, 26), "job%d" % i)
+        create_add_job(jobstore, dummy_job, datetime(2014, 2, 26), f"job{i}")
         for i in range(3)
     ]
     jobs[index].next_run_time = (

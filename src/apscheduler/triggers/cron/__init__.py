@@ -65,7 +65,7 @@ class CronTrigger(BaseTrigger):
         "second": BaseField,
     }
 
-    __slots__ = "timezone", "start_date", "end_date", "fields", "jitter"
+    __slots__ = "end_date", "fields", "jitter", "start_date", "timezone"
 
     def __init__(
         self,

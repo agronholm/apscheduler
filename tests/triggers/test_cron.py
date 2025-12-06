@@ -48,8 +48,7 @@ def test_cron_trigger_3(timezone):
 def test_cron_trigger_4(timezone):
     trigger = CronTrigger(year="2012", month="2", day="last", timezone=timezone)
     assert repr(trigger) == (
-        "<CronTrigger (year='2012', month='2', day='last', "
-        "timezone='Europe/Berlin')>"
+        "<CronTrigger (year='2012', month='2', day='last', timezone='Europe/Berlin')>"
     )
     start_date = localize(datetime(2012, 2, 1), timezone)
     correct_next_date = localize(datetime(2012, 2, 29), timezone)

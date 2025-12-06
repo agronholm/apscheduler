@@ -41,21 +41,21 @@ class Job:
     """
 
     __slots__ = (
-        "_scheduler",
+        "__weakref__",
         "_jobstore_alias",
-        "id",
-        "trigger",
+        "_scheduler",
+        "args",
+        "coalesce",
         "executor",
         "func",
         "func_ref",
-        "args",
+        "id",
         "kwargs",
-        "name",
-        "misfire_grace_time",
-        "coalesce",
         "max_instances",
+        "misfire_grace_time",
+        "name",
         "next_run_time",
-        "__weakref__",
+        "trigger",
     )
 
     def __init__(self, scheduler, id=None, **kwargs):
