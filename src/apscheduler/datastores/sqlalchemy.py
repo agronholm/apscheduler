@@ -11,7 +11,6 @@ from uuid import UUID
 
 import anyio
 import attrs
-import sniffio
 import tenacity
 from anyio import CancelScope, to_thread
 from attr.validators import instance_of
@@ -77,7 +76,7 @@ from .._exceptions import (
     TaskLookupError,
 )
 from .._structures import Job, JobResult, Schedule, ScheduleResult, Task
-from .._utils import create_repr
+from .._utils import create_repr, current_async_library
 from ..abc import EventBroker
 from .base import BaseExternalDataStore
 
@@ -397,8 +396,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     async def start(
         self, exit_stack: AsyncExitStack, event_broker: EventBroker, logger: Logger
     ) -> None:
-        asynclib = sniffio.current_async_library() or "(unknown)"
-        if asynclib != "asyncio":
+        if (asynclib := current_async_library()) != "asyncio":
             raise RuntimeError(
                 f"This data store requires asyncio; currently running: {asynclib}"
             )
