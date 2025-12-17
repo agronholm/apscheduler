@@ -36,7 +36,7 @@ else:
     from zoneinfo import ZoneInfo
 
 if sys.version_info < (3, 11):
-    UTC = timezone.UTC
+    UTC = timezone.utc
 else:
     from datetime import UTC
 
@@ -260,8 +260,9 @@ def datetime_utc_add(dateval: datetime, tdelta: timedelta) -> datetime:
     :rtype: datetime
     """
     original_tz = dateval.tzinfo
-    result = dateval.astimezone(UTC) + tdelta
-    return result.astimezone(original_tz) if original_tz is not None else result
+    if original_tz is None:
+        return dateval + tdelta
+    return (dateval.astimezone(UTC) + tdelta).astimezone(original_tz)
 
 
 def datetime_repr(dateval):

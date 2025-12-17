@@ -16,7 +16,7 @@ from apscheduler.util import (
 if sys.version_info < (3, 11):
     from datetime import timezone
 
-    UTC = timezone.UTC
+    UTC = timezone.utc
 else:
     from datetime import UTC
 
