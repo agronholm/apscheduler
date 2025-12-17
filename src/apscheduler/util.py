@@ -21,7 +21,7 @@ __all__ = (
 import re
 import sys
 from calendar import timegm
-from datetime import date, datetime, time, timedelta, timezone, tzinfo
+from datetime import UTC, date, datetime, time, timedelta, timezone, tzinfo
 from functools import partial
 from inspect import isbuiltin, isclass, isfunction, ismethod, signature
 
@@ -236,8 +236,26 @@ def datetime_ceil(dateval):
 
     """
     if dateval.microsecond > 0:
-        return dateval + timedelta(seconds=1, microseconds=-dateval.microsecond)
+        return datetime_utc_add(
+            dateval, timedelta(seconds=1, microseconds=-dateval.microsecond)
+        )
     return dateval
+
+
+def datetime_utc_add(dateval: datetime, tdelta: timedelta) -> datetime:
+    """
+    Adds an timedelta to a datetime in UTC for correct datetime arithmetic across
+    Daylight Saving Time changes
+
+    :param dateval: The date to add to
+    :type dateval: datetime
+    :param operand: The timedelta to add to the datetime
+    :type operand: timedelta
+    :return: The sum of the datetime and the timedelta
+    :rtype: datetime
+    """
+    original_tz = dateval.tzinfo
+    return (dateval.astimezone(UTC) + tdelta).astimezone(original_tz)
 
 
 def datetime_repr(dateval):
