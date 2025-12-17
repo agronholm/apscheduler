@@ -1,5 +1,5 @@
+import sys
 from collections.abc import Iterable, Mapping
-from datetime import UTC
 from inspect import isclass, ismethod
 from uuid import uuid4
 
@@ -12,6 +12,13 @@ from apscheduler.util import (
     obj_to_ref,
     ref_to_obj,
 )
+
+if sys.version_info < (3, 11):
+    from datetime import timezone
+
+    UTC = timezone.UTC
+else:
+    from datetime import UTC
 
 
 class Job:

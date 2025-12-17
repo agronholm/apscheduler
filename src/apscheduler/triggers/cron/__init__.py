@@ -1,4 +1,5 @@
-from datetime import UTC, datetime, timedelta
+import sys
+from datetime import datetime, timedelta
 
 from tzlocal import get_localzone
 
@@ -18,6 +19,13 @@ from apscheduler.util import (
     datetime_repr,
     datetime_utc_add,
 )
+
+if sys.version_info < (3, 11):
+    from datetime import timezone
+
+    UTC = timezone.UTC
+else:
+    from datetime import UTC
 
 
 class CronTrigger(BaseTrigger):

@@ -21,7 +21,7 @@ __all__ = (
 import re
 import sys
 from calendar import timegm
-from datetime import UTC, date, datetime, time, timedelta, timezone, tzinfo
+from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from functools import partial
 from inspect import isbuiltin, isclass, isfunction, ismethod, signature
 
@@ -34,6 +34,11 @@ if sys.version_info < (3, 9):
     from backports.zoneinfo import ZoneInfo
 else:
     from zoneinfo import ZoneInfo
+
+if sys.version_info < (3, 11):
+    UTC = timezone.UTC
+else:
+    from datetime import UTC
 
 
 class _Undefined:
@@ -255,7 +260,8 @@ def datetime_utc_add(dateval: datetime, tdelta: timedelta) -> datetime:
     :rtype: datetime
     """
     original_tz = dateval.tzinfo
-    return (dateval.astimezone(UTC) + tdelta).astimezone(original_tz)
+    result = dateval.astimezone(UTC) + tdelta
+    return result.astimezone(original_tz) if original_tz is not None else result
 
 
 def datetime_repr(dateval):
