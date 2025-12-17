@@ -201,7 +201,6 @@ class CronTrigger(BaseTrigger):
         return datetime(**values, tzinfo=self.timezone, fold=dateval.fold)
 
     def get_next_fire_time(self, previous_fire_time, now):
-
         if previous_fire_time:
             start_date = min(
                 now.astimezone(UTC),
