@@ -51,6 +51,7 @@ zookeeper = ["kazoo"]
 test = [
     "APScheduler[mongodb,redis,rethinkdb,sqlalchemy,tornado,zookeeper,etcd]",
     "pytest",
+    "pytest-timeout",
     "anyio >= 4.5.2",
     "PySide6; python_implementation == 'CPython' and python_version < '3.14'",
     "gevent; python_version < '3.14'",

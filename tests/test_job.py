@@ -5,6 +5,7 @@ from functools import partial
 from unittest.mock import MagicMock, patch
 
 import pytest
+from zoneinfo import ZoneInfo
 
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
@@ -101,6 +102,32 @@ def test_get_run_times(create_job, timezone):
 
     run_times = job._get_run_times(expected_times[1])
     assert run_times == expected_times
+
+
+@pytest.mark.timeout(5)
+def test_get_run_times_dst_transition(create_job):
+    """Tests that Job._get_run_times does not run into an endless loop due to datetime comparison"""
+    timezone = ZoneInfo("US/Eastern")
+    next_run_time = datetime(2025, 11, 2, 1, 0, 10, tzinfo=timezone)
+    now = datetime(2025, 11, 2, 1, 0, 10, 10, tzinfo=timezone)
+    next_next_run_time = datetime(2025, 11, 2, 1, 0, 10, fold=1, tzinfo=timezone)
+    job = create_job(
+        trigger="cron",
+        trigger_args={"timezone": timezone, "hour": 1, "minute": 0, "second": 10},
+        next_run_time=next_next_run_time,
+        func=dummyfunc,
+    )
+    job.next_run_time = next_run_time
+
+    run_times = job._get_run_times(now)
+    assert len(run_times) == 1
+    assert str(run_times[0]) == str(next_run_time)
+
+    run_times = job._get_run_times(now.replace(fold=1))
+    assert len(run_times) == 2
+    assert list(map(str, run_times)) == list(
+        map(str, [next_run_time, next_next_run_time])
+    )
 
 
 def test_private_modify_bad_id(job):
