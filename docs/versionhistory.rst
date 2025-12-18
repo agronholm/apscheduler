@@ -4,6 +4,11 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+**UNRELEASED**
+
+- Fixed the logic of ``Job``'s next run time calculation during DST transitions
+  (#1021 <https://github.com/agronholm/apscheduler/issues/1021>_; PR by @soulofakuma)
+
 **3.11.1**
 
 - Fixed ``scheduler.shutdown()`` not raising ``SchedulerNotRunning`` (or raising the
