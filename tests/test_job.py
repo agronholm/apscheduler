@@ -1,16 +1,21 @@
 import gc
+import sys
 import weakref
 from datetime import datetime, timedelta
 from functools import partial
 from unittest.mock import MagicMock, patch
 
 import pytest
-from zoneinfo import ZoneInfo
 
 from apscheduler.job import Job
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.util import localize
+
+if sys.version_info < (3, 9):
+    from backports.zoneinfo import ZoneInfo
+else:
+    from zoneinfo import ZoneInfo
 
 
 def dummyfunc():
