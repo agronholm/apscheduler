@@ -268,7 +268,6 @@ def test_different_tz(timezone):
     "trigger_args, start_date, start_date_fold, correct_next_date, correct_next_date_fold",
     [
         ({"hour": 8}, datetime(2013, 3, 9, 12), 0, datetime(2013, 3, 10, 8), 0),
-        # ({"hour": 2, "minute": 30}, datetime(2013, 3, 9, 2, 31), 0, datetime(2013, 3, 11, 2, 30), 0),
         ({"hour": 8}, datetime(2013, 11, 2, 12), 1, datetime(2013, 11, 3, 8), 0),
         (
             {"hour": 1, "minute": 30},
@@ -308,7 +307,6 @@ def test_different_tz(timezone):
     ],
     ids=[
         "absolute_spring",
-        # "absolute_spring_in_skipped_interval",
         "absolute_autumn",
         "absolute_autumn_from_before_into_repeated_interval",
         "absolute_autumn_from_repeated_into_repeated_interval",
