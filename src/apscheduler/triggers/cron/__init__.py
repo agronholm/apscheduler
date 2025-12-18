@@ -229,7 +229,6 @@ class CronTrigger(BaseTrigger):
 
         fieldnum = 0
         next_date = datetime_ceil(start_date).astimezone(self.timezone)
-        print("start_next", repr(start_date))
         while 0 <= fieldnum < len(self.fields):
             field = self.fields[fieldnum]
             curr_value = field.get_value(next_date)
