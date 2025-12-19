@@ -151,7 +151,6 @@ class Job:
         while next_run_time and next_run_time.astimezone(UTC) <= now.astimezone(UTC):
             run_times.append(next_run_time)
             next_run_time = self.trigger.get_next_fire_time(next_run_time, now)
-            print("next", repr(next_run_time))
 
         return run_times
 
