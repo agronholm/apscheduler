@@ -35,10 +35,7 @@ if sys.version_info < (3, 9):
 else:
     from zoneinfo import ZoneInfo
 
-if sys.version_info < (3, 11):
-    UTC = timezone.utc
-else:
-    from datetime import UTC
+UTC = timezone.utc
 
 
 class _Undefined:

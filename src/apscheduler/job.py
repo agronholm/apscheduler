@@ -1,5 +1,5 @@
-import sys
 from collections.abc import Iterable, Mapping
+from datetime import timezone
 from inspect import isclass, ismethod
 from uuid import uuid4
 
@@ -13,12 +13,7 @@ from apscheduler.util import (
     ref_to_obj,
 )
 
-if sys.version_info < (3, 11):
-    from datetime import timezone
-
-    UTC = timezone.utc
-else:
-    from datetime import UTC
+UTC = timezone.utc
 
 
 class Job:
@@ -156,6 +151,7 @@ class Job:
         while next_run_time and next_run_time.astimezone(UTC) <= now.astimezone(UTC):
             run_times.append(next_run_time)
             next_run_time = self.trigger.get_next_fire_time(next_run_time, now)
+            print("next", repr(next_run_time))
 
         return run_times
 
