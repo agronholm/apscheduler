@@ -265,31 +265,59 @@ def test_different_tz(timezone):
 
 
 @pytest.mark.parametrize(
-    "trigger_args, start_date, start_date_fold, correct_next_date",
+    "trigger_args, start_date, start_date_fold, correct_next_date, correct_next_date_fold",
     [
-        ({"hour": 8}, datetime(2013, 3, 9, 12), False, datetime(2013, 3, 10, 8)),
-        ({"hour": 8}, datetime(2013, 11, 2, 12), True, datetime(2013, 11, 3, 8)),
+        ({"hour": 8}, datetime(2013, 3, 9, 12), 0, datetime(2013, 3, 10, 8), 0),
+        ({"hour": 8}, datetime(2013, 11, 2, 12), 1, datetime(2013, 11, 3, 8), 0),
+        (
+            {"hour": 1, "minute": 30},
+            datetime(2013, 11, 3, 0, 30),
+            0,
+            datetime(2013, 11, 3, 1, 30),
+            0,
+        ),
+        (
+            {"hour": 1, "minute": 30},
+            datetime(2013, 11, 3, 1, 30, 5),
+            0,
+            datetime(2013, 11, 3, 1, 30),
+            1,
+        ),
+        (
+            {"hour": 1, "minute": 30},
+            datetime(2013, 11, 3, 1, 30, 5),
+            1,
+            datetime(2013, 11, 4, 1, 30),
+            0,
+        ),
         (
             {"minute": "*/30"},
             datetime(2013, 3, 10, 1, 35),
             1,
             datetime(2013, 3, 10, 3),
+            0,
         ),
         (
             {"minute": "*/30"},
             datetime(2013, 11, 3, 1, 35),
             0,
             datetime(2013, 11, 3, 1),
+            1,
         ),
     ],
     ids=[
         "absolute_spring",
         "absolute_autumn",
+        "absolute_autumn_from_before_into_repeated_interval",
+        "absolute_autumn_from_repeated_into_repeated_interval",
+        "absolute_autumn_from_repeated_interval_to_after",
         "interval_spring",
         "interval_autumn",
     ],
 )
-def test_dst_change(trigger_args, start_date, start_date_fold, correct_next_date):
+def test_dst_change(
+    trigger_args, start_date, start_date_fold, correct_next_date, correct_next_date_fold
+):
     """
     Making sure that CronTrigger works correctly when crossing the DST switch threshold.
     Note that you should explicitly compare datetimes as strings to avoid the internal datetime
@@ -299,8 +327,16 @@ def test_dst_change(trigger_args, start_date, start_date_fold, correct_next_date
     timezone = ZoneInfo("US/Eastern")
     trigger = CronTrigger(timezone=timezone, **trigger_args)
     start_date = start_date.replace(tzinfo=timezone, fold=start_date_fold)
-    correct_next_date = correct_next_date.replace(tzinfo=timezone, fold=1)
+    correct_next_date = correct_next_date.replace(
+        tzinfo=timezone, fold=correct_next_date_fold
+    )
     assert str(trigger.get_next_fire_time(None, start_date)) == str(correct_next_date)
+    assert str(trigger.get_next_fire_time(start_date, start_date)) == str(
+        correct_next_date
+    )
+    assert str(trigger.get_next_fire_time(start_date, correct_next_date)) == str(
+        correct_next_date
+    )
 
 
 def test_dst_change_2(timezone):
@@ -310,7 +346,7 @@ def test_dst_change_2(timezone):
     """
     timezone = ZoneInfo("Europe/Helsinki")
     trigger = CronTrigger(minute=30, timezone=timezone)
-    start_date = datetime(2017, 10, 29, 3, 30, tzinfo=timezone, fold=1)
+    start_date = datetime(2017, 10, 29, 3, 30, 0, 5, tzinfo=timezone, fold=1)
     correct_next_date = datetime(2017, 10, 29, 4, 30, tzinfo=timezone, fold=0)
     assert str(trigger.get_next_fire_time(None, start_date)) == str(correct_next_date)
     assert str(trigger.get_next_fire_time(start_date, start_date)) == str(

@@ -4,6 +4,13 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+**UNRELEASED**
+
+- Fixed an issue where a job using a ``CronTrigger`` scheduled in a repeated time
+  interval during DST transitions could cause the scheduler to get stuck in an infinite
+  loop
+  (#1021 <https://github.com/agronholm/apscheduler/issues/1021>_; PR by @soulofakuma)
+
 **3.11.1**
 
 - Fixed ``scheduler.shutdown()`` not raising ``SchedulerNotRunning`` (or raising the

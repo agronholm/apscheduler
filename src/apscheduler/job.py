@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Mapping
+from datetime import timezone
 from inspect import isclass, ismethod
 from uuid import uuid4
 
@@ -11,6 +12,8 @@ from apscheduler.util import (
     obj_to_ref,
     ref_to_obj,
 )
+
+UTC = timezone.utc
 
 
 class Job:
@@ -145,7 +148,7 @@ class Job:
         """
         run_times = []
         next_run_time = self.next_run_time
-        while next_run_time and next_run_time <= now:
+        while next_run_time and next_run_time.astimezone(UTC) <= now.astimezone(UTC):
             run_times.append(next_run_time)
             next_run_time = self.trigger.get_next_fire_time(next_run_time, now)
 

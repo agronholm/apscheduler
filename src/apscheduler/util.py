@@ -35,6 +35,8 @@ if sys.version_info < (3, 9):
 else:
     from zoneinfo import ZoneInfo
 
+UTC = timezone.utc
+
 
 class _Undefined:
     def __nonzero__(self):
@@ -236,8 +238,30 @@ def datetime_ceil(dateval):
 
     """
     if dateval.microsecond > 0:
-        return dateval + timedelta(seconds=1, microseconds=-dateval.microsecond)
+        return datetime_utc_add(
+            dateval, timedelta(seconds=1, microseconds=-dateval.microsecond)
+        )
+
     return dateval
+
+
+def datetime_utc_add(dateval: datetime, tdelta: timedelta) -> datetime:
+    """
+    Adds an timedelta to a datetime in UTC for correct datetime arithmetic across
+    Daylight Saving Time changes
+
+    :param dateval: The date to add to
+    :type dateval: datetime
+    :param operand: The timedelta to add to the datetime
+    :type operand: timedelta
+    :return: The sum of the datetime and the timedelta
+    :rtype: datetime
+    """
+    original_tz = dateval.tzinfo
+    if original_tz is None:
+        return dateval + tdelta
+
+    return (dateval.astimezone(UTC) + tdelta).astimezone(original_tz)
 
 
 def datetime_repr(dateval):
