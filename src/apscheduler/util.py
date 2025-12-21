@@ -241,6 +241,7 @@ def datetime_ceil(dateval):
         return datetime_utc_add(
             dateval, timedelta(seconds=1, microseconds=-dateval.microsecond)
         )
+
     return dateval
 
 
