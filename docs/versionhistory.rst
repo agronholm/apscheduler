@@ -6,7 +6,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
-- Fixed the logic of ``Job``'s next run time calculation during DST transitions
+- Fixed an issue where ``Job``s scheduled in a repeated time interval during DST transitions could cause the corresponding scheduler to stop executing any further ``Job``s and consume all machine memory.
   (#1021 <https://github.com/agronholm/apscheduler/issues/1021>_; PR by @soulofakuma)
 
 **3.11.1**
