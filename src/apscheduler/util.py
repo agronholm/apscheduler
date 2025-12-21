@@ -260,6 +260,7 @@ def datetime_utc_add(dateval: datetime, tdelta: timedelta) -> datetime:
     original_tz = dateval.tzinfo
     if original_tz is None:
         return dateval + tdelta
+
     return (dateval.astimezone(UTC) + tdelta).astimezone(original_tz)
 
 
