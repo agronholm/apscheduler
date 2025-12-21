@@ -214,10 +214,9 @@ class CronTrigger(BaseTrigger):
                 start_date = datetime_utc_add(start_date, timedelta(microseconds=1))
         else:
             start_date = (
-                max(
-                    now.astimezone(UTC),
-                    self.start_date.astimezone(UTC)
-                ).astimezone(self.timezone)
+                max(now.astimezone(UTC), self.start_date.astimezone(UTC)).astimezone(
+                    self.timezone
+                )
                 if self.start_date
                 else now
             )
