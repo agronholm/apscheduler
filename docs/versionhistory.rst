@@ -9,14 +9,15 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed an issue where a job using a ``CronTrigger`` scheduled in a repeated time
   interval during DST transitions could cause the scheduler to get stuck in an infinite
   loop
-  (#1021 <https://github.com/agronholm/apscheduler/issues/1021>_; PR by @soulofakuma)
+  (`#1021 <https://github.com/agronholm/apscheduler/issues/1021>`_; PR by @soulofakuma)
 
 **3.11.1**
 
 - Fixed ``scheduler.shutdown()`` not raising ``SchedulerNotRunning`` (or raising the
   wrong exception) for asynchronous schedulers when the scheduler is in fact not running
-- Fixed ``CronTrigger`` sticking on a folded datetime during the fall-back DST transition
-  (#1021 <https://github.com/agronholm/apscheduler/issues/1021>_; PR by @berianjames)`
+- Fixed ``CronTrigger`` sticking on a folded datetime during the fall-back DST
+  transition
+  (`#1021 <https://github.com/agronholm/apscheduler/issues/1021>`_; PR by @berianjames)`
 
 **3.11.0**
 
