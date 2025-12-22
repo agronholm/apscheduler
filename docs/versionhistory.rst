@@ -4,7 +4,7 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
-**UNRELEASED**
+**3.11.2**
 
 - Fixed an issue where a job using a ``CronTrigger`` scheduled in a repeated time
   interval during DST transitions could cause the scheduler to get stuck in an infinite
