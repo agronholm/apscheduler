@@ -1073,25 +1073,28 @@ class BaseScheduler(metaclass=ABCMeta):
         # Add the job to the given job store
         store = self._lookup_jobstore(jobstore_alias)
         try:
-            store.add_job(job)
-        except ConflictingIdError:
-            if replace_existing:
-                store.update_job(job)
-            else:
-                raise
+            try:
+                store.add_job(job)
+            except ConflictingIdError:
+                if replace_existing:
+                    store.update_job(job)
+                else:
+                    raise
 
-        # Mark the job as no longer pending
-        job._jobstore_alias = jobstore_alias
+            # Mark the job as no longer pending
+            job._jobstore_alias = jobstore_alias
 
-        # Notify listeners that a new job has been added
-        event = JobEvent(EVENT_JOB_ADDED, job.id, jobstore_alias)
-        self._dispatch_event(event)
+            # Notify listeners that a new job has been added
+            event = JobEvent(EVENT_JOB_ADDED, job.id, jobstore_alias)
+            self._dispatch_event(event)
 
-        self._logger.info('Added job "%s" to job store "%s"', job.name, jobstore_alias)
-
-        # Notify the scheduler about the new job
-        if self.state == STATE_RUNNING:
-            self.wakeup()
+            self._logger.info('Added job "%s" to job store "%s"', job.name, jobstore_alias)
+        finally:
+            # Notify the scheduler about the new job. This is done in a
+            # ``finally`` block so that a failed add_job() does not prevent
+            # already-scheduled jobs from being triggered.
+            if self.state == STATE_RUNNING:
+                self.wakeup()
 
     def _create_plugin_instance(self, type_, alias, constructor_kwargs):
         """Creates an instance of the given plugin type, loading the plugin first if necessary."""
