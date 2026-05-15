@@ -11,8 +11,8 @@ from apscheduler.util import (
 
 class IntervalTrigger(BaseTrigger):
     """
-    Triggers on specified intervals, starting on ``start_date`` if specified, ``datetime.now()`` +
-    interval otherwise.
+    Triggers on specified intervals, starting on ``start_date`` if specified,
+    ``datetime.now()`` + interval otherwise.
 
     :param int weeks: number of weeks to wait
     :param int days: number of days to wait
@@ -52,12 +52,25 @@ class IntervalTrigger(BaseTrigger):
         self.jitter = jitter
 
     def get_next_fire_time(self, previous_fire_time, now):
-        if previous_fire_time:
-            next_fire_time = previous_fire_time + self.interval
+        if previous_fire_time is not None:
+            candidate = previous_fire_time + self.interval
+            # Handle large forward OS time jumps safely
+            if candidate < now:
+                timediff_seconds = max(
+                    timedelta_seconds(now - self.start_date), 0
+                )
+
+                next_interval_num = int(
+                    ceil(timediff_seconds / self.interval_length)
+                )
+
+                next_fire_time = (self.start_date + self.interval * next_interval_num)
+            else:
+                next_fire_time = candidate
         elif self.start_date > now:
             next_fire_time = self.start_date
         else:
-            timediff_seconds = timedelta_seconds(now - self.start_date)
+            timediff_seconds = max(timedelta_seconds(now - self.start_date), 0)
             next_interval_num = int(ceil(timediff_seconds / self.interval_length))
             next_fire_time = self.start_date + self.interval * next_interval_num
 
@@ -78,7 +91,6 @@ class IntervalTrigger(BaseTrigger):
         }
 
     def __setstate__(self, state):
-        # This is for compatibility with APScheduler 3.0.x
         if isinstance(state, tuple):
             state = state[1]
 

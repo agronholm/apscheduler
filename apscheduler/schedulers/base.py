@@ -9,6 +9,7 @@ import sys
 
 from tzlocal import get_localzone
 import six
+import time
 
 from apscheduler.schedulers import SchedulerAlreadyRunningError, SchedulerNotRunningError
 from apscheduler.executors.base import MaxInstancesReachedError, BaseExecutor
@@ -95,6 +96,27 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         self._pending_jobs = []
         self.state = STATE_STOPPED
         self.configure(gconfig, **options)
+        # =========================================================
+        # PATCH START  monotonic drift protection
+        # =========================================================
+
+        # Last wall clock timestamp
+        self._last_wall_time = datetime.now(get_localzone())
+
+        # Last monotonic reference (immune to OS time changes)
+        self._last_monotonic = time.monotonic()
+        print("\n ************self._last_monotonic = ************* \n")
+        print(self._last_monotonic )
+
+        # Threshold for normal clock jump detection (seconds)
+        self._clock_jump_threshold = 30
+
+        # Threshold for extreme time jump safe-mode (seconds)
+        self._extreme_jump_threshold = 86400  # 1 hour
+
+        # =========================================================
+        # PATCH END
+        # =========================================================
 
     def __getstate__(self):
         raise TypeError("Schedulers cannot be serialized. Ensure that you are not passing a "
@@ -940,17 +962,90 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
 
     def _process_jobs(self):
         """
-        Iterates through jobs in every jobstore, starts jobs that are due and figures out how long
-        to wait for the next round.
+        Iterates through jobs in every jobstore, starts jobs that are due and
+        figures out how long to wait for the next round.
 
-        If the ``get_due_jobs()`` call raises an exception, a new wakeup is scheduled in at least
-        ``jobstore_retry_interval`` seconds.
-
-        """
+        Enhanced Features:
+        - Monotonic clock drift detection
+        - Backward system time jump handling
+        - Forward system time jump handling
+        - Extreme time jump safe-mode
+        - Improved scheduler wakeup recalculation
+        """   
         if self.state == STATE_PAUSED:
             self._logger.debug('Scheduler is paused -- not processing jobs')
             return None
 
+        # =========================================================
+        # CLOCK JUMP DETECTION USING MONOTONIC CLOCK
+        # =========================================================
+
+        wall_now = datetime.now(self.timezone)
+        mono_now = time.monotonic()
+
+        wall_elapsed = (wall_now - self._last_wall_time).total_seconds()
+        mono_elapsed = mono_now - self._last_monotonic
+        print("*** wall clock elapsed")
+        print(wall_elapsed)
+        print("*** mono elapsed")
+        print(mono_elapsed)
+
+        drift = wall_elapsed - mono_elapsed
+        print("*** drift")
+        print(drift)
+        abs_drift = abs(drift)
+        if abs_drift > self._clock_jump_threshold:
+            # -----------------------------------------------------
+            # EXTREME JUMP SAFE MODE
+            # Example:
+            # changing system date by years (2036, 2040 etc.)
+            # -----------------------------------------------------
+            if drift < 0 and abs_drift > self._extreme_jump_threshold:
+                self._logger.warning('Extreme system clock jump detected (drift=%s sec). Recalculating all jobs.',drift)
+                print("**** Extreme back ward jump")
+                self._recalculate_all_jobs(wall_now,clamp_future=True,reset_schedule=True,force_immediate=False)
+                self._last_wall_time = wall_now
+                self._last_monotonic = mono_now
+                return 1
+            
+            # -----------------------------------------------------
+            # BACKWARD TIME JUMP
+            # Example:
+            # 10:30 ? 09:00
+            # Prevent duplicate execution
+            # -----------------------------------------------------
+            elif drift < 0:
+                self._logger.warning('Backward system clock jump detected (drift=%s sec). Recalculating schedules.',drift)
+                print("**** backward  jump")
+                self._recalculate_all_jobs(wall_now,clamp_future=False, reset_schedule=True,force_immediate=False)
+                self._last_wall_time = wall_now
+                self._last_monotonic = mono_now
+                return 0
+
+            elif abs_drift > self._extreme_jump_threshold:
+                self._logger.warning('Extreme forward system clock jump detected (drift=%s sec). Recalculating all jobs.',drift)
+                print("**** Extreme forward jump")
+                self._recalculate_all_jobs( wall_now,clamp_future=True,reset_schedule=False,force_immediate=False)
+                self._last_wall_time = wall_now
+                self._last_monotonic = mono_now
+                return 0
+
+            # -----------------------------------------------------
+            # FORWARD TIME JUMP
+            # Example:
+            # 10:30 ? 14:00
+            # Execute overdue jobs immediately
+            # -----------------------------------------------------
+            else:
+                self._logger.warning('Forward system clock jump detected (drift=%s sec). Processing overdue jobs immediately.',drift)
+                print("**** forward jump")
+                self._recalculate_all_jobs(wall_now,clamp_future=False,reset_schedule=False,force_immediate=True)                           
+                self._last_wall_time = wall_now
+                self._last_monotonic = mono_now
+                return 0
+        # =========================================================
+        # NORMAL APSCHEDULER JOB PROCESSING
+        # =========================================================
         self._logger.debug('Looking for jobs to run')
         now = datetime.now(self.timezone)
         next_wakeup_time = None
@@ -961,7 +1056,6 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                 try:
                     due_jobs = jobstore.get_due_jobs(now)
                 except Exception as e:
-                    # Schedule a wakeup at least in jobstore_retry_interval seconds
                     self._logger.warning('Error getting due jobs from job store %r: %s',
                                          jobstore_alias, e)
                     retry_wakeup_time = now + timedelta(seconds=self.jobstore_retry_interval)
@@ -974,15 +1068,20 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                     # Look up the job's executor
                     try:
                         executor = self._lookup_executor(job.executor)
+
                     except BaseException:
                         self._logger.error(
                             'Executor lookup ("%s") failed for job "%s" -- removing it from the '
                             'job store', job.executor, job)
+
                         self.remove_job(job.id, jobstore_alias)
                         continue
 
                     run_times = job._get_run_times(now)
-                    run_times = run_times[-1:] if run_times and job.coalesce else run_times
+
+                    if run_times and job.coalesce:
+                        run_times = run_times[-1:]
+
                     if run_times:
                         try:
                             executor.submit_job(job, run_times)
@@ -1001,27 +1100,27 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
                                                        run_times)
                             events.append(event)
 
-                        # Update the job if it has a next execution time.
-                        # Otherwise remove it from the job store.
-                        job_next_run = job.trigger.get_next_fire_time(run_times[-1], now)
+                        # Update next execution time
+                        job_next_run = job.trigger.get_next_fire_time(run_times[-1],now)
                         if job_next_run:
                             job._modify(next_run_time=job_next_run)
                             jobstore.update_job(job)
                         else:
                             self.remove_job(job.id, jobstore_alias)
 
-                # Set a new next wakeup time if there isn't one yet or
-                # the jobstore has an even earlier one
+                # Find earliest next wakeup time
                 jobstore_next_run_time = jobstore.get_next_run_time()
-                if jobstore_next_run_time and (next_wakeup_time is None or
-                                               jobstore_next_run_time < next_wakeup_time):
+                if (jobstore_next_run_time and (next_wakeup_time is None or jobstore_next_run_time < next_wakeup_time)):
                     next_wakeup_time = jobstore_next_run_time.astimezone(self.timezone)
 
-        # Dispatch collected events
+        # Dispatch events after releasing lock
         for event in events:
             self._dispatch_event(event)
 
-        # Determine the delay until this method should be called again
+        # =========================================================
+        # IMPROVED WAKEUP CALCULATION
+        # =========================================================
+
         if self.state == STATE_PAUSED:
             wait_seconds = None
             self._logger.debug('Scheduler is paused; waiting until resume() is called')
@@ -1030,8 +1129,47 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
             self._logger.debug('No jobs; waiting until a job is added')
         else:
             now = datetime.now(self.timezone)
-            wait_seconds = min(max(timedelta_seconds(next_wakeup_time - now), 0), TIMEOUT_MAX)
-            self._logger.debug('Next wakeup is due at %s (in %f seconds)', next_wakeup_time,
-                               wait_seconds)
+            # Raw delay calculation
+            raw_wait = timedelta_seconds(next_wakeup_time - now)
+            print("**** raw wait ")
+            print(raw_wait)
+            # Prevent negative waits
+            wait_seconds = max(raw_wait, 0)
+            # Prevent very large sleeps after time jumps
+            wait_seconds = min(wait_seconds, TIMEOUT_MAX)
+            print("****  wait_seconds")
+            print(wait_seconds)
 
+            self._logger.debug('Next wakeup due at %s (in %f seconds)',next_wakeup_time,wait_seconds)
+        self._last_wall_time = wall_now
+        self._last_monotonic = mono_now
         return wait_seconds
+
+    def _recalculate_all_jobs(self, wall_now, clamp_future=False,reset_schedule=False, force_immediate=False):
+        '''
+        Helper function to calculate the all jobs
+        '''
+        with self._jobstores_lock:
+            for jobstore_alias, jobstore in six.iteritems(self._jobstores):
+                for job in jobstore.get_all_jobs():
+                    try:
+                        if force_immediate:
+                            next_run_time = wall_now
+                        elif reset_schedule:
+                            next_run_time = wall_now
+                        else:
+                            next_run_time = job.trigger.get_next_fire_time(job.next_run_time,wall_now)
+                            
+                        if clamp_future and next_run_time is not None:
+                            max_future = wall_now + timedelta(hours=1)
+
+                            if next_run_time > max_future:
+                                next_run_time = wall_now + timedelta(seconds=5)
+
+                        if next_run_time is not None:
+                            job._modify(next_run_time=next_run_time)
+                            jobstore.update_job(job)
+                            self._dispatch_event(JobEvent(EVENT_JOB_MODIFIED,job.id,jobstore_alias))
+                    except Exception:
+                        self._logger.exception('Failed to recalculate job: %s',job.id)
+                        
