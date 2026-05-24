@@ -43,7 +43,7 @@ from apscheduler.schedulers import (
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.base import STATE_RUNNING, STATE_STOPPED, BaseScheduler
 from apscheduler.triggers.base import BaseTrigger
-from apscheduler.util import undefined
+from apscheduler.util import localize, undefined
 
 
 class DummyScheduler(BaseScheduler):
@@ -1132,6 +1132,35 @@ class TestProcessJobs:
         }
 
         assert scheduler._process_jobs() == 5
+
+    def test_wait_time_across_dst_transition(self, scheduler, freeze_time, timezone):
+        """
+        Tests that the wait time is computed from absolute (UTC) instants across a
+        DST spring-forward transition.
+
+        Regression test for #1103: when the scheduler time zone is a ``ZoneInfo``
+        object, ``next_wakeup_time`` and ``now`` share the same ``tzinfo``
+        instance, so subtracting them used to ignore the UTC offsets and produce
+        the naive wall-clock difference. Across the spring-forward gap that
+        yielded a ~1 hour wait instead of ~1 second, stalling sub-minute interval
+        jobs for the entire DST gap.
+
+        """
+        # The DST transition must happen in the scheduler's own time zone, so pin
+        # it to the (parametrized) fixture zone rather than the host's local zone.
+        scheduler.timezone = timezone
+        # Europe/Berlin springs forward on 2026-03-29: 02:00 CET (+01:00) jumps to
+        # 03:00 CEST (+02:00). These two instants are one second apart in UTC.
+        now = localize(datetime(2026, 3, 29, 1, 59, 59), timezone)
+        next_run_time = localize(datetime(2026, 3, 29, 3, 0, 0), timezone)
+        freeze_time.set(now)
+        scheduler._jobstores = {
+            "default": MagicMock(
+                get_next_run_time=MagicMock(return_value=next_run_time)
+            )
+        }
+
+        assert scheduler._process_jobs() == 1
 
 
 class SchedulerImplementationTestBase:

@@ -3,7 +3,7 @@ import warnings
 from abc import ABCMeta, abstractmethod
 from collections.abc import Mapping, MutableMapping
 from contextlib import ExitStack
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from importlib.metadata import entry_points
 from logging import getLogger
 from threading import TIMEOUT_MAX, RLock
@@ -1252,8 +1252,22 @@ class BaseScheduler(metaclass=ABCMeta):
             self._logger.debug("No jobs; waiting until a job is added")
         else:
             now = datetime.now(self.timezone)
+            # Compute the delay from UTC instants. Subtracting two aware datetimes
+            # that share the same tzinfo object (here both carry ``self.timezone``)
+            # makes Python ignore the offsets and use the naive wall-clock
+            # difference. Across a DST spring-forward that yields ~3600 seconds
+            # instead of ~1, stalling the scheduler for the whole gap. ZoneInfo
+            # zones hit this; pytz dodges it by handing out a distinct fixed-offset
+            # tzinfo per instant.
             wait_seconds = min(
-                max((next_wakeup_time - now).total_seconds(), 0), TIMEOUT_MAX
+                max(
+                    (
+                        next_wakeup_time.astimezone(timezone.utc)
+                        - now.astimezone(timezone.utc)
+                    ).total_seconds(),
+                    0,
+                ),
+                TIMEOUT_MAX,
             )
             self._logger.debug(
                 "Next wakeup is due at %s (in %f seconds)",

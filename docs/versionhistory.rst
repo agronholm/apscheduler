@@ -4,6 +4,14 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+**UNRELEASED**
+
+- Fixed sub-minute interval jobs stalling for the duration of a DST spring-forward gap
+  when the scheduler was configured with a ``ZoneInfo`` time zone, caused by the wakeup
+  delay being computed from the naive wall-clock difference instead of the actual UTC
+  difference
+  (`#1103 <https://github.com/agronholm/apscheduler/issues/1103>`_)
+
 **3.11.2**
 
 - Fixed an issue where a job using a ``CronTrigger`` scheduled in a repeated time
