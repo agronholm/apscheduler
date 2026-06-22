@@ -150,8 +150,8 @@ def test_private_modify_id(job):
 
 def test_private_modify_bad_func(job):
     """Tests that given a func of something else than a callable or string raises a TypeError."""
-    exc = pytest.raises(TypeError, job._modify, func=1)
-    assert str(exc.value) == "func must be a callable or a textual reference to one"
+    with pytest.raises(match="func must be a callable or a textual reference to one"):
+        job._modify(func=1)
 
 
 def test_private_modify_func_ref(job):
