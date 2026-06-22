@@ -3,7 +3,7 @@ import warnings
 from abc import ABCMeta, abstractmethod
 from collections.abc import Mapping, MutableMapping
 from contextlib import ExitStack
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from importlib.metadata import entry_points
 from logging import getLogger
 from threading import TIMEOUT_MAX, RLock
