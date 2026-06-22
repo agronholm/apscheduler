@@ -17,7 +17,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   an acquired state (`#946 <https://github.com/agronholm/apscheduler/issues/946>`_)
 - Fixed the CBOR serializer raising ``DeserializationError`` with cbor2 v6.0 and newer,
   caused by a change in the ``tag_hook`` signature and tag contents now being deserialized
-  as immutable objects (PR by @Labib-Bin-Salam)
+  as immutable objects
+  (`#1118 <https://github.com/agronholm/apscheduler/pull/1118>`_; PR by @Labib-Bin-Salam)
 
 **4.0.0a6**
 
