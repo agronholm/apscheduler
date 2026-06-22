@@ -1146,20 +1146,12 @@ class TestProcessJobs:
         jobs for the entire DST gap.
 
         """
-        # The DST transition must happen in the scheduler's own time zone, so pin
-        # it to the (parametrized) fixture zone rather than the host's local zone.
-        scheduler.timezone = timezone
-        # Europe/Berlin springs forward on 2026-03-29: 02:00 CET (+01:00) jumps to
-        # 03:00 CEST (+02:00). These two instants are one second apart in UTC.
         now = localize(datetime(2026, 3, 29, 1, 59, 59), timezone)
         next_run_time = localize(datetime(2026, 3, 29, 3, 0, 0), timezone)
+        jobstore = MagicMock(BaseJobStore)
+        jobstore.get_next_run_time.configure_mock(return_value=next_run_time)
+        scheduler = DummyScheduler(jobstores={"default": jobstore}, timezone=timezone)
         freeze_time.set(now)
-        scheduler._jobstores = {
-            "default": MagicMock(
-                get_next_run_time=MagicMock(return_value=next_run_time)
-            )
-        }
-
         assert scheduler._process_jobs() == 1
 
 
