@@ -206,6 +206,33 @@ def test_weekday_range(timezone, serializer):
     )
 
 
+def test_weekday_numeric_range_with_step(timezone, serializer):
+    # A step in a numeric day_of_week range must be honored: "1-5/2" selects
+    # every second weekday in the Mon-Fri range (Mon, Wed, Fri), not all of
+    # them. Regression test for the step being silently dropped.
+    start_time = datetime(2020, 1, 1, tzinfo=timezone)
+    trigger = CronTrigger(
+        year=2020,
+        month=1,
+        week=2,
+        day_of_week="1-5/2",
+        start_time=start_time,
+        timezone=timezone,
+    )
+    if serializer:
+        trigger = serializer.deserialize(serializer.serialize(trigger))
+
+    assert trigger.next() == datetime(2020, 1, 6, tzinfo=timezone)  # Monday
+    assert trigger.next() == datetime(2020, 1, 8, tzinfo=timezone)  # Wednesday
+    assert trigger.next() == datetime(2020, 1, 10, tzinfo=timezone)  # Friday
+    assert trigger.next() is None
+    assert repr(trigger) == (
+        "CronTrigger(year='2020', month='1', day='*', week='2', "
+        "day_of_week='mon,wed,fri', hour='0', minute='0', second='0', "
+        "start_time='2020-01-01T00:00:00+01:00', timezone='Europe/Berlin')"
+    )
+
+
 def test_last_weekday(timezone, serializer):
     start_time = datetime(2020, 1, 1, tzinfo=timezone)
     trigger = CronTrigger(
