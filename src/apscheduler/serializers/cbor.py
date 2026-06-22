@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any
 
 import attrs
-from cbor2 import CBORDecoder, CBOREncoder, CBOREncodeTypeError, CBORTag, dumps, loads
+from cbor2 import CBOREncoder, CBOREncodeTypeError, CBORTag, dumps, loads
 
 from .. import DeserializationError, SerializationError
 from .._marshalling import marshal_object, marshal_timezone, unmarshal_object
@@ -50,12 +50,16 @@ class CBORSerializer(Serializer):
                 f"cannot serialize type {value.__class__.__name__}"
             )
 
-    def _tag_hook(
-        self, decoder: CBORDecoder, tag: CBORTag, shareable_index: int | None = None
-    ) -> object:
+    def _tag_hook(self, *args: Any) -> object:
+        # cbor2 < 6 calls the tag hook as (decoder, tag, shareable_index=None),
+        # while cbor2 >= 6 calls it as (tag, immutable). Pick out the CBORTag so
+        # that deserialization works regardless of the installed cbor2 version.
+        tag = next(arg for arg in args if isinstance(arg, CBORTag))
         if tag.tag == self.type_tag:
             cls_ref, state = tag.value
             return unmarshal_object(cls_ref, state)
+
+        return tag
 
     def serialize(self, obj: object) -> bytes:
         try:

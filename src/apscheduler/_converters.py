@@ -77,7 +77,10 @@ def as_enum(enum_class: Any) -> Callable[[Any], Any]:
 
 def list_converter(converter: Callable[[Any], Any]) -> Callable[[Any], Any]:
     def convert(value: Any) -> Any:
-        if isinstance(value, list):
+        # Accept tuples too: the cbor2 >= 6 deserializer returns the contents of
+        # a tag as immutable objects, so a serialized list comes back as a tuple
+        # which must be coerced back to a (mutable) list.
+        if isinstance(value, (list, tuple)):
             return [converter(item) for item in value]
 
         return value

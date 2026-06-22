@@ -15,6 +15,8 @@ from apscheduler import (
     SerializationError,
 )
 from apscheduler.abc import Serializer
+from apscheduler.triggers.combining import OrTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 
 @pytest.mark.parametrize(
@@ -46,6 +48,35 @@ def test_serialize_event(event: Event, serializer: Serializer) -> None:
     payload = serializer.serialize(event.marshal())
     deserialized = type(event).unmarshal(serializer.deserialize(payload))
     assert deserialized == event
+
+
+def test_serialize_trigger_with_mutable_list_state(serializer: Serializer) -> None:
+    # Regression test for cbor2 >= 6: a custom object is serialized as a tag and
+    # its contents are deserialized as immutable objects, so a list stored in the
+    # object's state comes back as a tuple. OrTrigger keeps a mutable list of the
+    # next fire times that must survive the round-trip and stay usable.
+    start_time = datetime(2020, 1, 1, tzinfo=timezone.utc)
+
+    def make_trigger() -> OrTrigger:
+        return OrTrigger(
+            triggers=[
+                IntervalTrigger(hours=1, start_time=start_time),
+                IntervalTrigger(hours=2, start_time=start_time),
+            ]
+        )
+
+    control = make_trigger()
+    trigger = make_trigger()
+
+    # Advance both once so the internal list of fire times is populated, then
+    # round-trip the trigger through the serializer.
+    assert trigger.next() == control.next()
+    trigger = serializer.deserialize(serializer.serialize(trigger))
+
+    # The restored trigger must keep producing the same fire times; this is what
+    # raised "'tuple' object does not support item assignment" under cbor2 >= 6.
+    for _ in range(3):
+        assert trigger.next() == control.next()
 
 
 def test_serialization_error(serializer: Serializer) -> None:

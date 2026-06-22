@@ -15,6 +15,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
 - Fixed jobs that were being run when the scheduler was gracefully stopped being left in
   an acquired state (`#946 <https://github.com/agronholm/apscheduler/issues/946>`_)
+- Fixed the CBOR serializer raising ``DeserializationError`` with cbor2 v6.0 and newer,
+  caused by a change in the ``tag_hook`` signature and tag contents now being deserialized
+  as immutable objects (PR by @Labib-Bin-Salam)
 
 **4.0.0a6**
 
