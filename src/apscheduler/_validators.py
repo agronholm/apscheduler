@@ -35,7 +35,7 @@ def if_not_unset(validator: Callable[[Any, Any, Any], None]) -> Callable:
 
 def valid_metadata(instance: Any, attribute: Attribute, value: Any) -> None:
     def check_value(path: str, val: object) -> None:
-        if value is None:
+        if val is None:
             return
 
         if isinstance(val, list):
@@ -44,7 +44,7 @@ def valid_metadata(instance: Any, attribute: Attribute, value: Any) -> None:
         elif isinstance(val, dict):
             for k, v in val.items():
                 if not isinstance(k, str):
-                    raise ValueError(f"{path} has a non-string key ({key!r})")
+                    raise ValueError(f"{path} has a non-string key ({k!r})")
 
                 check_value(f"{path}[{k!r}]", v)
         elif not isinstance(val, (str, int, float, bool)):
