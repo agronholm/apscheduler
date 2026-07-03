@@ -601,6 +601,54 @@ async def test_acquire_jobs_lock_timeout(
     assert acquired[0].id == job.id
 
 
+async def test_release_job_after_lease_expired(
+    datastore: DataStore, time_machine: TimeMachineFixture
+) -> None:
+    """
+    Test that when a job is acquired again because the original scheduler's lease
+    expired while the job was still running, the belated release from the original
+    scheduler is a no-op instead of an error, and does not decrement the task's
+    running jobs counter a second time (#1116).
+
+    """
+    await datastore.add_task(
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    )
+    # the default result_expiration_time of 0 keeps both releases from recording a
+    # result; this test is about the release of the job itself
+    job = Job(task_id="task1", executor="async")
+    await datastore.add_job(job)
+
+    # The first scheduler acquires the job, but doesn't finish within the lease
+    time_machine.move_to(datetime.now(timezone.utc), tick=False)
+    acquired1 = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
+    assert len(acquired1) == 1
+    assert acquired1[0].id == job.id
+
+    # After the lease expires, a second scheduler acquires the job
+    time_machine.shift(31)
+    acquired2 = await datastore.acquire_jobs("worker2", timedelta(seconds=30), 1)
+    assert len(acquired2) == 1
+    assert acquired2[0].id == job.id
+
+    # The second scheduler finishes the job and releases it
+    await datastore.release_job(
+        "worker2",
+        acquired2[0],
+        JobResult.from_job(acquired2[0], JobOutcome.success),
+    )
+
+    # The belated release from the first scheduler must be a no-op
+    await datastore.release_job(
+        "worker1",
+        acquired1[0],
+        JobResult.from_job(acquired1[0], JobOutcome.success),
+    )
+
+    # The task's running jobs counter must not have gone negative
+    assert (await datastore.get_task("task1")).running_jobs == 0
+
+
 async def test_acquire_jobs_max_number_exceeded(datastore: DataStore) -> None:
     await datastore.add_task(
         Task(

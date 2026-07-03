@@ -288,6 +288,17 @@ class MemoryDataStore(BaseDataStore):
         return jobs
 
     async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
+        # Delete the job. If it's already gone, it was released before: its lease
+        # expired while it was still running and the job was acquired (and released)
+        # again. The redundant release must then be a no-op, like the idempotent
+        # DELETE in the external data stores — in particular, the task's running
+        # jobs counter must not be decremented a second time (#1116).
+        stored_job = self._jobs_by_id.pop(result.job_id, None)
+        if stored_job is None:
+            return
+
+        job = stored_job
+
         # Record the job result
         if result.expires_at > result.finished_at:
             self._job_results[result.job_id] = result
@@ -295,9 +306,6 @@ class MemoryDataStore(BaseDataStore):
         # Decrement the number of running jobs for this task
         if job.acquired_by:
             self._tasks[job.task_id].running_jobs -= 1
-
-        # Delete the job
-        job = self._jobs_by_id.pop(result.job_id)
 
         # Remove the job from the jobs belonging to its task
         task_jobs = self._jobs_by_task_id[job.task_id]

@@ -15,6 +15,12 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
 - Fixed jobs that were being run when the scheduler was gracefully stopped being left in
   an acquired state (`#946 <https://github.com/agronholm/apscheduler/issues/946>`_)
+- Fixed the scheduler crashing with ``KeyError`` when a job's lease expired while the
+  job was still running and the job was then acquired (and run) a second time: the
+  scheduler now skips acquired jobs that are still running in it, and releasing an
+  already-released job is a no-op in ``MemoryDataStore`` (as it already was in the
+  external data stores), no longer corrupting the task's running jobs counter
+  (`#1116 <https://github.com/agronholm/apscheduler/issues/1116>`_; PR by @leobaray)
 
 **4.0.0a6**
 
