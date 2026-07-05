@@ -47,6 +47,7 @@ from apscheduler import (
     SchedulerStarted,
     SchedulerStopped,
     ScheduleUpdated,
+    Task,
     TaskAdded,
     TaskDefaults,
     TaskUpdated,
@@ -211,6 +212,24 @@ class TestAsyncScheduler:
                 event = await receive.receive()
                 assert isinstance(event, TaskUpdated)
                 assert event.task_id == "mytask"
+
+    async def test_configure_task_from_task_object(self) -> None:
+        # Passing a Task object must preserve its callable reference; otherwise
+        # the task is stored with func=None and jobs fail to look up the
+        # callable when they run (#1001).
+        async with AsyncScheduler() as scheduler:
+            await scheduler.configure_task(
+                Task(
+                    id="mytask",
+                    func=f"{__name__}:dummy_async_job",
+                    job_executor="async",
+                )
+            )
+            tasks = await scheduler.get_tasks()
+            assert len(tasks) == 1
+            assert tasks[0].id == "mytask"
+            assert tasks[0].func == f"{__name__}:dummy_async_job"
+            assert tasks[0].job_executor == "async"
 
     async def test_configure_task_with_decorator(self) -> None:
         async with AsyncScheduler() as scheduler:
