@@ -15,6 +15,10 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
 - Fixed jobs that were being run when the scheduler was gracefully stopped being left in
   an acquired state (`#946 <https://github.com/agronholm/apscheduler/issues/946>`_)
+- Fixed the memory data store raising ``KeyError`` and crashing the scheduler when
+  releasing a schedule that was removed (e.g. from a ``JobReleased`` event handler) while
+  it was being processed
+  (`#1076 <https://github.com/agronholm/apscheduler/issues/1076>`_)
 
 **4.0.0a6**
 

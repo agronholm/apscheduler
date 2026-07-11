@@ -365,6 +365,39 @@ async def test_release_two_schedules_at_once(datastore: DataStore) -> None:
     assert len(remaining) == 2
 
 
+async def test_release_schedule_removed_meanwhile(datastore: DataStore) -> None:
+    """Releasing a schedule that was removed in the meantime is a no-op.
+
+    Regression test for #1076: removing a schedule from a ``JobReleased`` event
+    handler deletes it before ``release_schedules()`` runs, which previously
+    raised a ``KeyError`` and crashed the scheduler.
+    """
+    trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
+    schedule = Schedule(id="s1", task_id="task1", job_executor="async", trigger=trigger)
+    schedule.next_fire_time = trigger.next()
+    await datastore.add_schedule(schedule, ConflictPolicy.exception)
+
+    (acquired,) = await datastore.acquire_schedules("foo", timedelta(seconds=30), 1)
+
+    # Simulate a concurrent removal (e.g. from a JobReleased event handler)
+    # between acquiring and releasing the schedule.
+    await datastore.remove_schedules([acquired.id])
+
+    results = [
+        ScheduleResult(
+            schedule_id=acquired.id,
+            task_id=acquired.task_id,
+            trigger=acquired.trigger,
+            last_fire_time=datetime(2020, 9, 10, tzinfo=timezone.utc),
+            next_fire_time=None,
+        ),
+    ]
+    # Must not raise, and the schedule must stay removed.
+    await datastore.release_schedules("foo", results)
+
+    assert await datastore.get_schedules({acquired.id}) == []
+
+
 @pytest.mark.skipif(
     platform.python_implementation() != "CPython",
     reason="time-machine is not available",
