@@ -1158,6 +1158,20 @@ class AsyncScheduler:
                         self.identity, self.lease_duration, limit
                     )
                     for job in jobs:
+                        # A job can be reacquired while still running in this
+                        # scheduler if its lease expired in the meantime (e.g. the
+                        # lease renewal task was starved by a saturated event
+                        # loop). Running a second copy would make the duplicate
+                        # release crash the scheduler (#1116).
+                        if job in self._running_jobs:
+                            self.logger.warning(
+                                "Skipping job %s: it was reacquired after its "
+                                "lease expired, but is still running in this "
+                                "scheduler",
+                                job.id,
+                            )
+                            continue
+
                         task = await self.data_store.get_task(job.task_id)
                         func = self._get_task_callable(task)
                         self._running_jobs.add(job)
@@ -1230,4 +1244,7 @@ class AsyncScheduler:
             finally:
                 current_job.reset(token)
         finally:
-            self._running_jobs.remove(job)
+            # discard() instead of remove(): if the job's lease expired mid-run and
+            # it was run a second time, the earlier finisher already removed the
+            # (id-equal) entry, and remove() would crash the scheduler (#1116)
+            self._running_jobs.discard(job)
