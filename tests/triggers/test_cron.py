@@ -103,6 +103,22 @@ def test_cron_trigger_1(timezone, serializer):
     )
 
 
+def test_month_named_range_step(timezone):
+    # A step on a named month range must be honored, exactly like the numeric
+    # form ("1-12/3"); it used to be silently dropped, so the schedule fired
+    # every month instead of quarterly.
+    start_time = datetime(2024, 1, 1, tzinfo=timezone)
+    trigger = CronTrigger(
+        month="jan-dec/3", day=1, start_time=start_time, timezone=timezone
+    )
+    assert trigger.next() == datetime(2024, 1, 1, tzinfo=timezone)
+    assert trigger.next() == datetime(2024, 4, 1, tzinfo=timezone)
+    assert trigger.next() == datetime(2024, 7, 1, tzinfo=timezone)
+    assert trigger.next() == datetime(2024, 10, 1, tzinfo=timezone)
+    assert trigger.next() == datetime(2025, 1, 1, tzinfo=timezone)
+    assert "month='jan-dec/3'" in repr(trigger)
+
+
 def test_cron_trigger_2(timezone, serializer):
     start_time = datetime(2009, 10, 14, tzinfo=timezone)
     trigger = CronTrigger(
