@@ -85,6 +85,9 @@ jobs:
       with:
         parallel: true
         file: coverage.xml
+        # the action installs coveralls via homebrew on macos, which currently
+        # fails with "untrusted tap"; don't let a coverage upload fail the job
+        fail-on-error: false
 
   coveralls:
     name: Finish Coveralls
