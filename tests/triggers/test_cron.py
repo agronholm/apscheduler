@@ -41,6 +41,31 @@ def test_invalid_weekday_position_name():
 
 
 @pytest.mark.parametrize(
+    "number, name",
+    [
+        (0, "sun"),
+        (1, "mon"),
+        (2, "tue"),
+        (3, "wed"),
+        (4, "thu"),
+        (5, "fri"),
+        (6, "sat"),
+        (7, "sun"),
+    ],
+)
+def test_numeric_day_of_week_follows_cron_convention(number, name):
+    """
+    Numeric ``day_of_week`` values must use the standard cron convention where both
+    ``0`` and ``7`` mean Sunday, ``1`` means Monday and ``6`` means Saturday.
+    """
+    start_time = datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC"))
+    numeric_trigger = CronTrigger(day_of_week=number, start_time=start_time)
+    named_trigger = CronTrigger(day_of_week=name, start_time=start_time)
+    assert f"day_of_week='{name}'" in repr(numeric_trigger)
+    assert repr(numeric_trigger) == repr(named_trigger)
+
+
+@pytest.mark.parametrize(
     "values, expected",
     [
         (
