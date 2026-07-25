@@ -29,10 +29,11 @@ class CronTrigger(Trigger):
 
     :param year: 4-digit year
     :param month: month (1-12)
-    :param day: day of the (1-31)
+    :param day: day of the month (1-31)
     :param week: ISO week (1-53)
-    :param day_of_week: number or name of weekday (0-7 or sun,mon,tue,wed,thu,fri,sat,
-        sun)
+    :param day_of_week: number or name of weekday (0-7 or mon,tue,wed,thu,fri,sat,sun);
+        numeric values follow the standard cron convention where both ``0`` and ``7``
+        mean Sunday, ``1`` means Monday and ``6`` means Saturday
     :param hour: hour (0-23)
     :param minute: minute (0-59)
     :param second: second (0-59)
@@ -42,7 +43,11 @@ class CronTrigger(Trigger):
     :param timezone: time zone to use for the date/time calculations
         (defaults to the local timezone)
 
-    .. note:: The first weekday is always **monday**.
+    .. note:: Numeric ``day_of_week`` values follow the standard cron convention, in
+        which ``0`` and ``7`` both mean Sunday, ``1`` means Monday and so on up to ``6``
+        for Saturday. Weekday **names** and name ranges (such as ``mon-fri``) instead use
+        an ordering that starts on Monday, so a wrapping range like ``sat-tue`` covers
+        Saturday, Sunday, Monday and Tuesday.
     """
 
     FIELDS_MAP: ClassVar[list[tuple[str, type[BaseField]]]] = [

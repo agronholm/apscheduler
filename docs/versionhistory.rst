@@ -15,6 +15,10 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
 - Fixed jobs that were being run when the scheduler was gracefully stopped being left in
   an acquired state (`#946 <https://github.com/agronholm/apscheduler/issues/946>`_)
+- Clarified in the ``CronTrigger`` documentation that numeric ``day_of_week`` values
+  follow the standard cron convention (``0`` and ``7`` are Sunday), as opposed to the
+  Monday-based ordering used by weekday names
+  (`#931 <https://github.com/agronholm/apscheduler/issues/931>`_)
 
 **4.0.0a6**
 
