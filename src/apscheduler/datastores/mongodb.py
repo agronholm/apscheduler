@@ -836,7 +836,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                 await self._event_broker.publish(event)
 
     async def cleanup(self) -> None:
-        events: list[JobReleased | ScheduleRemoved] = []
+        events: list[JobReleased | ScheduleRemoved | ScheduleUpdated] = []
         async for attempt in self._retry():
             with attempt:
                 async with self._client.start_session() as session:
@@ -897,6 +897,42 @@ class MongoDBDataStore(BaseExternalDataStore):
                                     doc["scheduled_fire_time"],
                                 )
                             )
+
+                    # Release any schedules whose leases have expired
+                    expired_schedule_ids: list[str] = []
+                    async with self._schedules.find(
+                        {"acquired_until": {"$lt": now.timestamp()}},
+                        projection=[
+                            "_id",
+                            "task_id",
+                            "next_fire_time",
+                            "next_fire_time_utcoffset",
+                        ],
+                        session=session,
+                    ) as cursor:
+                        async for doc in cursor:
+                            unmarshal_timestamps(doc)
+                            expired_schedule_ids.append(doc["_id"])
+                            events.append(
+                                ScheduleUpdated(
+                                    schedule_id=doc["_id"],
+                                    task_id=doc["task_id"],
+                                    next_fire_time=doc["next_fire_time"],
+                                )
+                            )
+
+                    if expired_schedule_ids:
+                        await self._schedules.update_many(
+                            {"_id": {"$in": expired_schedule_ids}},
+                            {
+                                "$unset": {
+                                    "acquired_by": True,
+                                    "acquired_until": True,
+                                    "acquired_until_utcoffset": True,
+                                }
+                            },
+                            session=session,
+                        )
 
                     # Delete finished schedules that not having any associated jobs
                     if finished_schedules:

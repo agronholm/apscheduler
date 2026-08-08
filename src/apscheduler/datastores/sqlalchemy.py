@@ -1207,6 +1207,39 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             )
                         )
 
+                    # Release any schedules whose leases have expired
+                    columns = [
+                        self._t_schedules.c.id,
+                        self._t_schedules.c.task_id,
+                        self._t_schedules.c.next_fire_time,
+                    ]
+                    if not self._supports_tzaware_timestamps:
+                        columns.append(self._t_schedules.c.next_fire_time_utcoffset)
+
+                    query = select(*columns).where(
+                        self._t_schedules.c.acquired_by.isnot(None),
+                        self._t_schedules.c.acquired_until < now,
+                    )
+                    expired_schedule_ids: list[str] = []
+                    for row in await self._execute(conn, query):
+                        schedule_dict = self._convert_incoming_fire_times(row._asdict())
+                        expired_schedule_ids.append(schedule_dict["id"])
+                        events.append(
+                            ScheduleUpdated(
+                                schedule_id=schedule_dict["id"],
+                                task_id=schedule_dict["task_id"],
+                                next_fire_time=schedule_dict["next_fire_time"],
+                            )
+                        )
+
+                    if expired_schedule_ids:
+                        update = (
+                            self._t_schedules.update()
+                            .where(self._t_schedules.c.id.in_(expired_schedule_ids))
+                            .values(acquired_by=None, acquired_until=None)
+                        )
+                        await self._execute(conn, update)
+
                     # Clean up finished schedules that have no running jobs
                     query = (
                         select(self._t_schedules.c.id, self._t_schedules.c.task_id)

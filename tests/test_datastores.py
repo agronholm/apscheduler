@@ -697,6 +697,46 @@ async def test_next_schedule_run_time(datastore: DataStore, schedules: list[Sche
     platform.python_implementation() != "CPython",
     reason="time-machine is not available",
 )
+async def test_cleanup_expired_schedule_leases(
+    datastore: DataStore, schedules: list[Schedule], time_machine: TimeMachineFixture
+) -> None:
+    """
+    Test that clean-up releases schedules whose leases have expired, and notifies
+    schedulers about it.
+
+    """
+    time_machine.move_to(datetime(2020, 9, 14, tzinfo=timezone.utc))
+    await datastore.add_schedule(schedules[0], ConflictPolicy.exception)
+
+    # Acquire the schedule with a scheduler that then dies without releasing it
+    acquired = await datastore.acquire_schedules("scheduler1", timedelta(seconds=30), 1)
+    assert len(acquired) == 1
+
+    # The lease has not expired yet, so clean-up must leave the schedule alone
+    time_machine.shift(20)
+    await datastore.cleanup()
+    assert not await datastore.acquire_schedules("scheduler2", timedelta(seconds=30), 1)
+
+    # The lease has expired now, so clean-up releases the schedule
+    time_machine.shift(20)
+    async with capture_events(datastore, 1, {ScheduleUpdated}) as events:
+        await datastore.cleanup()
+
+    assert len(events) == 1
+    event = events[0]
+    assert isinstance(event, ScheduleUpdated)
+    assert event.schedule_id == schedules[0].id
+    assert event.task_id == schedules[0].task_id
+    assert event.next_fire_time == schedules[0].next_fire_time
+
+    acquired = await datastore.acquire_schedules("scheduler2", timedelta(seconds=30), 1)
+    assert [schedule.id for schedule in acquired] == [schedules[0].id]
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
 async def test_extend_acquired_schedule_leases(
     datastore: DataStore, time_machine: TimeMachineFixture, schedules: list[Schedule]
 ) -> None:

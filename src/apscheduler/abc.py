@@ -402,6 +402,8 @@ class DataStore(metaclass=ABCMeta):
         * Purge expired job results (where ``expires_at`` is less or equal to the
           current time)
         * Release jobs with expired leases with the ``cancelled`` outcome
+        * Release schedules with expired leases, publishing a
+          :class:`~apscheduler.ScheduleUpdated` event for each of them
         * Purge finished schedules (where ``next_run_time`` is ``None``) that have no
           running jobs associated with them
         """

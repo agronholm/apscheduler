@@ -376,6 +376,18 @@ class MemoryDataStore(BaseDataStore):
             assert job.acquired_by is not None
             await self.release_job(job.acquired_by, job, result)
 
+        # Release any schedules whose leases have expired
+        for schedule in self._schedules:
+            if schedule.acquired_until is not None and schedule.acquired_until < now:
+                schedule.acquired_by = None
+                schedule.acquired_until = None
+                event = ScheduleUpdated(
+                    schedule_id=schedule.id,
+                    task_id=schedule.task_id,
+                    next_fire_time=schedule.next_fire_time,
+                )
+                await self._event_broker.publish(event)
+
         # Clean up finished schedules that have no running jobs
         finished_schedule_ids = [
             schedule_id
