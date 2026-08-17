@@ -4,6 +4,13 @@ Version history
 To find out how to migrate your application from a previous version of
 APScheduler, see the :doc:`migration section <migration>`.
 
+**UNRELEASED**
+
+- Fixed ``AsyncIOScheduler`` permanently stopping the processing of jobs if
+  ``_process_jobs()`` raised an exception, as the wakeup timer was then never rearmed
+  (`#PRNUM <https://github.com/agronholm/apscheduler/pull/PRNUM>`_; PR by
+  @sundasnoreen-sr)
+
 **3.11.3**
 
 - Fixed sub-minute interval jobs stalling for the duration of a DST spring-forward gap
