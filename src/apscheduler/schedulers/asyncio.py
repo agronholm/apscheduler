@@ -66,7 +66,11 @@ class AsyncIOScheduler(BaseScheduler):
     @run_in_event_loop
     def wakeup(self):
         self._stop_timer()
-        wait_seconds = self._process_jobs()
+        try:
+            wait_seconds = self._process_jobs()
+        except Exception:
+            self._logger.exception('Error processing jobs')
+            wait_seconds = self.jobstore_retry_interval
         self._start_timer(wait_seconds)
 
     def _create_default_executor(self):
