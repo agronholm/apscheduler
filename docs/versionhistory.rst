@@ -15,6 +15,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
 - Fixed jobs that were being run when the scheduler was gracefully stopped being left in
   an acquired state (`#946 <https://github.com/agronholm/apscheduler/issues/946>`_)
+- Fixed the documented ``psycopg`` extra not being declared in the project metadata, so
+  ``pip install apscheduler[psycopg]`` silently installed nothing for the Psycopg event
+  broker (`#1133 <https://github.com/agronholm/apscheduler/issues/1133>`_)
 
 **4.0.0a6**
 

@@ -46,6 +46,7 @@ asyncpg = ["asyncpg >= 0.20"]
 cbor = ["cbor2 >= 5.0"]
 mongodb = ["pymongo >= 4.13.0"]
 mqtt = ["paho-mqtt >= 2.0"]
+psycopg = ["psycopg >= 3.0"]
 redis = ["redis >= 5.0.1"]
 sqlalchemy = ["sqlalchemy[asyncio] >= 2.0.24"]
 
