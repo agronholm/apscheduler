@@ -1,4 +1,8 @@
 <!-- Thank you for your contribution! -->
+
+**NOTE** Erasing or replacing the contents of this template will result in your pull
+request being summarily closed without consideration!
+
 ## Changes
 
 Fixes #. <!-- Provide issue number if exists -->
@@ -23,8 +27,10 @@ these instructions.
 If there are no entries after the last release, use `**UNRELEASED**` as the version.
 If, say, your patch fixes issue #999, the entry should look like this:
 
-`* Fix big bad boo-boo in the async scheduler
+```
+- Fix big bad boo-boo in task groups
   (`#123 <https://github.com/agronholm/apscheduler/issues/123>`_; PR by @yourgithubaccount)
+```
 
 If there's no issue linked, just link to your pull request instead by updating the
 changelog after you've created the PR.
