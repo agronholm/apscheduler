@@ -71,6 +71,7 @@ class AsyncIOScheduler(BaseScheduler):
         except Exception:
             self._logger.exception("Error processing jobs")
             wait_seconds = self.jobstore_retry_interval
+
         self._start_timer(wait_seconds)
 
     def _create_default_executor(self):
