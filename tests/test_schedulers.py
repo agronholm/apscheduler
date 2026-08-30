@@ -16,6 +16,7 @@ from typing import Any, cast
 from unittest.mock import patch
 
 import anyio
+import attrs
 import pytest
 from anyio import (
     Lock,
@@ -1238,6 +1239,57 @@ class TestSyncScheduler:
                         f"Parameter mismatch for {attrname}(): {args} != {sync_args[kind]}"
                     )
 
+    def test_constructor_parity(self) -> None:
+        """
+        Ensure that the sync scheduler accepts the same constructor arguments as the
+        async scheduler, with the same default values.
+
+        The loop in :meth:`test_interface_parity` skips ``__init__`` because it only
+        looks at public attributes, so the constructor defaults – the one place where
+        the two schedulers can silently drift apart – are compared here instead.
+
+        """
+        # Constructor arguments whose declared defaults intentionally differ.
+        # Scheduler only forwards the options it was actually given, so it uses None as
+        # an "argument not passed" sentinel for every option whose real default is an
+        # object built by AsyncScheduler itself (an attrs factory, or the module level
+        # logger); the effective default still comes from AsyncScheduler.
+        # task_defaults is additionally sync-specific, as Scheduler fills in the
+        # "threadpool" job executor.
+        exceptions = {
+            "data_store",
+            "event_broker",
+            "job_executors",
+            "task_defaults",
+            "logger",
+        }
+        async_params = signature(AsyncScheduler.__init__).parameters
+        sync_params = signature(Scheduler.__init__).parameters
+        converters = {
+            field.name: field.converter for field in attrs.fields(AsyncScheduler)
+        }
+        for name, async_param in async_params.items():
+            if name == "self":
+                continue
+
+            if name not in sync_params:
+                pytest.fail(f"Scheduler() is missing the {name!r} argument")
+
+            if name in exceptions:
+                continue
+
+            # Compare the defaults the way AsyncScheduler stores them, by running both
+            # through the field's converter (if any), as lease_duration is declared as a
+            # plain number of seconds on the async side but as a timedelta on the sync
+            # side.
+            convert = converters[name] or (lambda value: value)
+            async_default = convert(async_param.default)
+            sync_default = convert(sync_params[name].default)
+            assert sync_default == async_default, (
+                f"Default value mismatch for the {name!r} argument of Scheduler(): "
+                f"{sync_default!r} != {async_default!r}"
+            )
+
     def test_repr(self) -> None:
         scheduler = Scheduler(identity="my identity")
         assert repr(scheduler) == (
@@ -1445,6 +1497,18 @@ class TestSyncScheduler:
             scheduler.cleanup()
             with pytest.raises(ScheduleLookupError):
                 scheduler.get_schedule("event_set")
+
+    def test_implicit_cleanup(self, mocker: MockerFixture) -> None:
+        """
+        Test that the data store's cleanup() method is called when a scheduler
+        configured with the default options is started.
+
+        """
+        with Scheduler() as scheduler:
+            event = threading.Event()
+            mocker.patch.object(scheduler.data_store, "cleanup", side_effect=event.set)
+            scheduler.start_in_background()
+            assert event.wait(3)
 
     def test_run_until_stopped(self) -> None:
         queue: Queue[Event] = Queue()

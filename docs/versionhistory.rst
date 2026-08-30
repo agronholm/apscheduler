@@ -23,6 +23,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   them; clean-up now releases schedules whose leases have expired and wakes up the
   other schedulers so they can acquire them
   (`#1053 <https://github.com/agronholm/apscheduler/issues/1053>`_)
+- Fixed the synchronous ``Scheduler`` not enabling automatic clean-up by default,
+  unlike ``AsyncScheduler``
+  (`#1135 <https://github.com/agronholm/apscheduler/pull/1135>`_; PR by @dylanpulver)
 
 **4.0.0a6**
 

@@ -55,7 +55,7 @@ class Scheduler:
         identity: str = "",
         role: SchedulerRole = SchedulerRole.both,
         max_concurrent_jobs: int = 100,
-        cleanup_interval: float | timedelta | None = None,
+        cleanup_interval: float | timedelta | None = timedelta(minutes=15),
         lease_duration: timedelta = timedelta(seconds=30),
         job_executors: MutableMapping[str, JobExecutor] | None = None,
         task_defaults: TaskDefaults | None = None,
