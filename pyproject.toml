@@ -43,9 +43,10 @@ Changelog = "https://apscheduler.readthedocs.io/en/master/versionhistory.html"
 
 [project.optional-dependencies]
 asyncpg = ["asyncpg >= 0.20"]
-cbor = ["cbor2 >= 5.0"]
+cbor = ["cbor2 >= 6.0"]
 mongodb = ["pymongo >= 4.13.0"]
 mqtt = ["paho-mqtt >= 2.0"]
+psycopg = ["psycopg >= 3.0"]
 redis = ["redis >= 5.0.1"]
 sqlalchemy = ["sqlalchemy[asyncio] >= 2.0.24"]
 
@@ -56,14 +57,11 @@ test = [
     "aiosqlite >= 0.19",
     "anyio[trio]",
     "asyncmy >= 0.2.5; python_implementation == 'CPython'",
-    # cbor2 6.x changed the tag_hook signature and breaks the CBOR serializer (#1118)
-    "cbor2 >= 5.0, < 6",
     "coverage >= 7",
     "psycopg[binary]",
     "pymongo >= 4",
     "pymysql[rsa]",
     "PySide6 >= 6.6; python_implementation == 'CPython' and python_version < '3.13'",
-    # pytest 9.1 errors out remaining params of a parametrized fixture after a skip
     "pytest >= 7.4, < 9.1",
     "pytest-lazy-fixtures",
     "pytest-mock",

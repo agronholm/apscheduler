@@ -8,6 +8,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
+- Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
 - Dropped support for Python 3.9
 - Fixed an issue where ``CronTrigger`` does not convert ``start_time`` to ``self.timezone``
   (`#1061 <https://github.com/agronholm/apscheduler/issues/1061>`_; PR by @jonasitzmann)
@@ -15,6 +16,13 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
 - Fixed jobs that were being run when the scheduler was gracefully stopped being left in
   an acquired state (`#946 <https://github.com/agronholm/apscheduler/issues/946>`_)
+- Fixed the documented ``psycopg`` extra not being declared in the project metadata, so
+  ``pip install apscheduler[psycopg]`` silently installed nothing for the Psycopg event
+  broker (`#1133 <https://github.com/agronholm/apscheduler/issues/1133>`_)
+- Fixed schedules staying stuck when the scheduler holding them died without releasing
+  them; clean-up now releases schedules whose leases have expired and wakes up the
+  other schedulers so they can acquire them
+  (`#1053 <https://github.com/agronholm/apscheduler/issues/1053>`_)
 - Fixed the memory data store raising ``KeyError`` and crashing the scheduler when
   releasing a schedule that was removed (e.g. from a ``JobReleased`` event handler) while
   it was being processed
