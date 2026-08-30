@@ -23,6 +23,10 @@ APScheduler, see the :doc:`migration section <migration>`.
   them; clean-up now releases schedules whose leases have expired and wakes up the
   other schedulers so they can acquire them
   (`#1053 <https://github.com/agronholm/apscheduler/issues/1053>`_)
+- Fixed the memory data store raising ``KeyError`` and crashing the scheduler when
+  releasing a schedule that was removed (e.g. from a ``JobReleased`` event handler) while
+  it was being processed
+  (`#1076 <https://github.com/agronholm/apscheduler/issues/1076>`_)
 
 **4.0.0a6**
 
