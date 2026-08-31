@@ -8,8 +8,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - Fixed ``AsyncIOScheduler`` permanently stopping the processing of jobs if
   ``_process_jobs()`` raised an exception, as the wakeup timer was then never rearmed
-  (`#PRNUM <https://github.com/agronholm/apscheduler/pull/PRNUM>`_; PR by
-  @sundasnoreen-sr)
+  (`#1132 <https://github.com/agronholm/apscheduler/pull/1132>`_; PR by @sundasnoreen-sr)
 
 **3.11.3**
 
