@@ -1275,6 +1275,25 @@ class TestAsyncIOScheduler(SchedulerImplementationTestBase):
         thread.join()
         event_loop.close()
 
+    def test_wakeup_rearms_timer_on_error(self, scheduler, caplog):
+        """
+        Test that the wakeup timer is rearmed even if ``_process_jobs()`` raises, so the
+        scheduler does not stop processing jobs entirely.
+
+        """
+        caplog.set_level(logging.ERROR, logger="apscheduler.scheduler")
+        scheduler._eventloop = MagicMock()
+        scheduler._process_jobs = MagicMock(side_effect=RuntimeError("Boom"))
+
+        # Bypass the run_in_event_loop decorator to run wakeup() synchronously
+        AsyncIOScheduler.wakeup.__wrapped__(scheduler)
+
+        scheduler._eventloop.call_later.assert_called_once_with(
+            scheduler.jobstore_retry_interval, scheduler.wakeup
+        )
+        assert "Error processing jobs" in caplog.text
+        assert "RuntimeError: Boom" in caplog.text
+
 
 class TestGeventScheduler(SchedulerImplementationTestBase):
     @pytest.fixture
