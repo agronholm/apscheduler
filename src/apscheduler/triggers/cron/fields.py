@@ -138,6 +138,21 @@ class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpress
         match = RangeExpression.value_re.match(expr)
         if match:
             groups = match.groups()
+            # A step selects every nth weekday in the range, using cron's own
+            # numbering where both 0 and 7 mean Sunday. That numbering does not
+            # map linearly onto the internal, Monday-based numbering, so a
+            # stepped range cannot be rewritten as a single internal range;
+            # expand it into the individual weekdays it matches instead.
+            # Otherwise the step is silently dropped and the range ends up
+            # matching every one of its days.
+            if groups[2] and int(groups[0]) <= int(groups[1] or groups[0]):
+                first = int(groups[0])
+                last = int(groups[1] or groups[0])
+                step = int(groups[2])
+                for value in range(first, last + 1, step):
+                    super().append_expression(WEEKDAYS[(value - 1) % 7])
+                return
+
             first = int(groups[0]) - 1
             first = 6 if first < 0 else first
             if groups[1]:
