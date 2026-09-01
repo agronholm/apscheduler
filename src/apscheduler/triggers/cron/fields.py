@@ -138,6 +138,10 @@ class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpress
         match = RangeExpression.value_re.match(expr)
         if match:
             groups = match.groups()
+            for group in groups[:2]:
+                if group is not None and not 0 <= int(group) <= 7:
+                    raise ValueError(f"Invalid weekday number {group!r}")
+
             first = int(groups[0]) - 1
             first = 6 if first < 0 else first
             if groups[1]:
