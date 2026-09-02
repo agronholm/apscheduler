@@ -14,6 +14,7 @@ from .expressions import (
     WEEKDAYS,
     AllExpression,
     LastDayOfMonthExpression,
+    LastNDayOfMonthExpression,
     MonthRangeExpression,
     RangeExpression,
     WeekdayPositionExpression,
@@ -122,7 +123,12 @@ class WeekField(BaseField, real=False):
 
 
 class DayOfMonthField(
-    BaseField, extra_compilers=(WeekdayPositionExpression, LastDayOfMonthExpression)
+    BaseField,
+    extra_compilers=(
+        WeekdayPositionExpression,
+        LastNDayOfMonthExpression,
+        LastDayOfMonthExpression,
+    ),
 ):
     __slots__ = ()
 
