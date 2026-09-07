@@ -28,7 +28,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1135 <https://github.com/agronholm/apscheduler/pull/1135>`_; PR by @dylanpulver)
 - Fixed type annotation of ``AndTrigger.max_iterations`` to only allow ``int`` and never
   ``None``
-  (`#1131 <https://github.com/agronholm/apscheduler/issues/1131>`_)
+  (`#1131 <https://github.com/agronholm/apscheduler/issues/1131>`_; PR by @afonsojanu)
 
 **4.0.0a6**
 
