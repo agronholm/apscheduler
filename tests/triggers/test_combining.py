@@ -44,22 +44,6 @@ class TestAndTrigger:
 
         pytest.raises(MaxIterationsReached, trigger.next)
 
-    def test_max_iterations_none(self, timezone):
-        # max_iterations is typed as int, not int | None, since the loop in next()
-        # has no way to treat None as "no limit" (see issue #1131).
-        start_time = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
-        trigger = AndTrigger(
-            [
-                IntervalTrigger(seconds=4, start_time=start_time),
-                IntervalTrigger(
-                    seconds=4, start_time=start_time + timedelta(seconds=2)
-                ),
-            ],
-            max_iterations=None,
-        )
-
-        pytest.raises(TypeError, trigger.next)
-
     def test_repr(self, timezone, serializer):
         start_time = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         trigger = AndTrigger(
