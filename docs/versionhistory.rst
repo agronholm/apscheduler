@@ -26,6 +26,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed the synchronous ``Scheduler`` not enabling automatic clean-up by default,
   unlike ``AsyncScheduler``
   (`#1135 <https://github.com/agronholm/apscheduler/pull/1135>`_; PR by @dylanpulver)
+- Fixed type annotation of ``AndTrigger.max_iterations`` to only allow ``int`` and never
+  ``None``
+  (`#1131 <https://github.com/agronholm/apscheduler/issues/1131>`_; PR by @afonsojanu)
 
 **4.0.0a6**
 
