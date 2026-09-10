@@ -33,6 +33,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed type annotation of ``AndTrigger.max_iterations`` to only allow ``int`` and never
   ``None``
   (`#1131 <https://github.com/agronholm/apscheduler/issues/1131>`_; PR by @afonsojanu)
+- Fixed ``CalendarIntervalTrigger`` skipping valid dates or shifting subsequent run dates
+  when a nonexistent local time normalizes past midnight during a forward DST shift
 
 **4.0.0a6**
 
