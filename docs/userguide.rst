@@ -437,11 +437,6 @@ If this trigger is created on 2022-06-07 at 09:00:00, its first run times would 
 
 Notably, 2022-08-07 is skipped because it falls on a Sunday.
 
-Both combining triggers compare run times as absolute instants. During a daylight saving
-time rollback, two occurrences of the same local clock time remain distinct. The
-``AndTrigger`` threshold measures elapsed time, including across daylight saving time
-transitions. Returned run times retain the time zones of their originating triggers.
-
 Removing schedules
 ------------------
 

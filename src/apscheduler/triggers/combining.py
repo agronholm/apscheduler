@@ -9,7 +9,7 @@ import attrs
 from .._converters import as_aware_datetime, as_timedelta, list_converter
 from .._exceptions import MaxIterationsReached
 from .._marshalling import marshal_object, unmarshal_object
-from .._utils import require_state_version
+from .._utils import absolute_datetime_diff, require_state_version
 from ..abc import Trigger
 
 
@@ -65,6 +65,7 @@ class AndTrigger(BaseCombiningTrigger):
             # Fill out the fire times on the first run
             self._next_fire_times = [t.next() for t in self.triggers]
 
+        threshold = self.threshold.total_seconds()
         for _ in range(self.max_iterations):
             # Find the earliest and latest fire times
             earliest_fire_time: datetime | None = None
@@ -74,32 +75,30 @@ class AndTrigger(BaseCombiningTrigger):
                 if fire_time is None:
                     return None
 
-                # Compare instants, not wall times: datetime comparisons ignore fold
-                # when both operands share the same tzinfo.
-                if earliest_fire_time is None or earliest_fire_time.astimezone(
-                    timezone.utc
-                ) > fire_time.astimezone(timezone.utc):
+                if (
+                    earliest_fire_time is None
+                    or absolute_datetime_diff(earliest_fire_time, fire_time) > 0
+                ):
                     earliest_fire_time = fire_time
 
-                if latest_fire_time is None or latest_fire_time.astimezone(
-                    timezone.utc
-                ) < fire_time.astimezone(timezone.utc):
+                if (
+                    latest_fire_time is None
+                    or absolute_datetime_diff(latest_fire_time, fire_time) < 0
+                ):
                     latest_fire_time = fire_time
 
             # Replace all the fire times that were within the threshold
             for i, _trigger in enumerate(self.triggers):
                 if (
-                    self._next_fire_times[i].astimezone(timezone.utc)
-                    - earliest_fire_time.astimezone(timezone.utc)
-                    <= self.threshold
+                    absolute_datetime_diff(self._next_fire_times[i], earliest_fire_time)
+                    <= threshold
                 ):
                     self._next_fire_times[i] = self.triggers[i].next()
 
             # If all the fire times were within the threshold, return the earliest one
             if (
-                latest_fire_time.astimezone(timezone.utc)
-                - earliest_fire_time.astimezone(timezone.utc)
-                <= self.threshold
+                absolute_datetime_diff(latest_fire_time, earliest_fire_time)
+                <= threshold
             ):
                 return earliest_fire_time
         else:
@@ -152,9 +151,10 @@ class OrTrigger(BaseCombiningTrigger):
             # Generate new fire times for the trigger(s) that generated the earliest
             # fire time
             for i, fire_time in enumerate(self._next_fire_times):
-                if fire_time is not None and fire_time.astimezone(
-                    timezone.utc
-                ) == earliest_time.astimezone(timezone.utc):
+                if (
+                    fire_time is not None
+                    and absolute_datetime_diff(fire_time, earliest_time) == 0
+                ):
                     self._next_fire_times[i] = self.triggers[i].next()
 
         return earliest_time

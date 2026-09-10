@@ -13,6 +13,17 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 
 class TestAndTrigger:
+    def test_microsecond_threshold(self, timezone):
+        date1 = datetime(2024, 10, 27, 2, 30, microsecond=2, tzinfo=timezone)
+        date2 = date1 + timedelta(microseconds=1)
+        trigger = AndTrigger(
+            [DateTrigger(date1), DateTrigger(date2)],
+            threshold=timedelta(microseconds=1),
+        )
+
+        assert trigger.next() == date1
+        assert trigger.next() is None
+
     @pytest.mark.parametrize(
         "date1,date2,threshold,expected_match",
         [
