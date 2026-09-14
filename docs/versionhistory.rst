@@ -14,6 +14,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1061 <https://github.com/agronholm/apscheduler/issues/1061>`_; PR by @jonasitzmann)
 - Fixed an issue where ``CronTrigger.next()`` returned a non-existing date on a DST change
   (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
+- Fixed a numeric ``day_of_week`` range with a step (e.g. ``"1-5/2"``) ignoring the step in
+  ``CronTrigger`` and matching every day in the range instead
+  (`#1117 <https://github.com/agronholm/apscheduler/pull/1117>`_; PR by @Labib-Bin-Salam)
 - Fixed jobs that were being run when the scheduler was gracefully stopped being left in
   an acquired state (`#946 <https://github.com/agronholm/apscheduler/issues/946>`_)
 - Fixed the documented ``psycopg`` extra not being declared in the project metadata, so
