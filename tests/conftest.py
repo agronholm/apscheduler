@@ -134,13 +134,12 @@ def memory_store() -> Generator[DataStore, None, None]:
 
 
 @pytest.fixture
-def mongodb_store() -> Generator[DataStore, None, None]:
-    from pymongo import MongoClient
+async def mongodb_store() -> AsyncGenerator[DataStore, Any]:
+    from pymongo.asynchronous.mongo_client import AsyncMongoClient
 
     from apscheduler.datastores.mongodb import MongoDBDataStore
 
-    client: MongoClient
-    with MongoClient(tz_aware=True, serverSelectionTimeoutMS=1000) as client:
+    async with AsyncMongoClient(tz_aware=True, serverSelectionTimeoutMS=1000) as client:
         yield MongoDBDataStore(client, start_from_scratch=True)
 
 

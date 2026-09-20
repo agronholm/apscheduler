@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import sys
 from datetime import datetime, timedelta, timezone
 from functools import partial
-from typing import Any
+from typing import Any, TypeAlias
 from uuid import UUID, uuid4
 
 import attrs
@@ -16,14 +15,9 @@ from ._utils import UnsetValue, unset
 from ._validators import if_not_unset, valid_metadata
 from .abc import Serializer, Trigger
 
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
-
-MetadataType: TypeAlias = (
-    "dict[str, str | int | bool | None | list[MetadataType] | dict[str, MetadataType]]"
-)
+MetadataType: TypeAlias = dict[
+    str, str | int | bool | None | list["MetadataType"] | dict[str, "MetadataType"]
+]
 
 
 def serialize(inst: Any, field: attrs.Attribute, value: Any) -> Any:
@@ -344,8 +338,12 @@ class Job:
 
     @classmethod
     def unmarshal(cls, serializer: Serializer, marshalled: dict[str, Any]) -> Job:
-        marshalled["args"] = serializer.deserialize(marshalled["args"])
-        marshalled["kwargs"] = serializer.deserialize(marshalled["kwargs"])
+        if args := marshalled["args"]:
+            marshalled["args"] = serializer.deserialize(args)
+
+        if kwargs := marshalled["kwargs"]:
+            marshalled["kwargs"] = serializer.deserialize(kwargs)
+
         return cls(**marshalled)
 
     def __hash__(self) -> int:

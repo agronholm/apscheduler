@@ -19,13 +19,16 @@ services:
     image: mongo
     ports:
       - 127.0.0.1:27017:27017
+    environment:
+      # https://forums.docker.com/t/docker-compose-mongo-exit-code-139/151353/10
+      - GLIBC_TUNABLES=glibc.pthread.rseq=1
 
   emqx:
     image: emqx/emqx
     ports:
       - 127.0.0.1:1883:1883
 
-  valkey:
-    image: valkey/valkey:7.2
+  redis:
+    image: redis
     ports:
       - 127.0.0.1:6379:6379

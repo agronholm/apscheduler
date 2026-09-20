@@ -119,7 +119,7 @@ class CalendarIntervalTrigger(Trigger):
 
             # Check if the time is off due to normalization and a forward DST shift
             if next_time.timetz() != self._time:
-                previous_date = next_time.date()
+                previous_date = next_date
             else:
                 self._last_fire_date = next_date
                 return next_time
@@ -157,4 +157,4 @@ class CalendarIntervalTrigger(Trigger):
             fields.append(f"end_date='{self.end_date}'")
 
         fields.append(f"timezone={timezone_repr(self.timezone)!r}")
-        return f'{self.__class__.__name__}({", ".join(fields)})'
+        return f"{self.__class__.__name__}({', '.join(fields)})"

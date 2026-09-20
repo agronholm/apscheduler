@@ -3,13 +3,13 @@ from __future__ import annotations
 import atexit
 import sys
 import threading
-from collections.abc import Iterable, Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from contextlib import ExitStack
 from datetime import datetime, timedelta
 from functools import partial
 from logging import Logger
 from types import TracebackType
-from typing import Any, Callable, Literal, overload
+from typing import Any, Literal, overload
 from uuid import UUID
 
 import attrs
@@ -55,7 +55,7 @@ class Scheduler:
         identity: str = "",
         role: SchedulerRole = SchedulerRole.both,
         max_concurrent_jobs: int = 100,
-        cleanup_interval: float | timedelta | None = None,
+        cleanup_interval: float | timedelta | None = timedelta(minutes=15),
         lease_duration: timedelta = timedelta(seconds=30),
         job_executors: MutableMapping[str, JobExecutor] | None = None,
         task_defaults: TaskDefaults | None = None,
@@ -144,8 +144,7 @@ class Scheduler:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        if self._exit_stack:
-            self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
+        self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
 
     def _ensure_services_ready(
         self, exit_stack: ExitStack | None = None
@@ -226,6 +225,12 @@ class Scheduler:
                 one_shot=one_shot,
             )
         )
+
+    @overload
+    def get_next_event(self, event_types: type[T_Event]) -> T_Event: ...
+
+    @overload
+    def get_next_event(self, event_types: Iterable[type[Event]]) -> Event: ...
 
     def get_next_event(self, event_types: type[Event] | Iterable[type[Event]]) -> Event:
         portal = self._ensure_services_ready()
@@ -425,5 +430,5 @@ for attrname in dir(AsyncScheduler):
     value = getattr(AsyncScheduler, attrname)
     if callable(value):
         sync_method = getattr(Scheduler, attrname, None)
-        if sync_method and not getattr(sync_method, "__doc__"):
+        if sync_method and not sync_method.__doc__:
             sync_method.__doc__ = value.__doc__

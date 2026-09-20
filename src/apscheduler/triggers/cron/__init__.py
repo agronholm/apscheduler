@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime, timedelta, tzinfo
+from datetime import datetime, tzinfo
 from typing import Any, ClassVar
 
 import attrs
 from attr.validators import instance_of, optional
 from tzlocal import get_localzone
 
-from ..._converters import as_aware_datetime, as_timezone
-from ..._utils import require_state_version, timezone_repr
+from ..._converters import as_aware_datetime, as_datetime, as_timezone
+from ..._utils import require_state_version, time_exists, timezone_repr
 from ...abc import Trigger
 from .fields import (
     DEFAULT_VALUES,
@@ -65,12 +65,12 @@ class CronTrigger(Trigger):
     minute: int | str | None = None
     second: int | str | None = None
     start_time: datetime = attrs.field(
-        converter=as_aware_datetime,
+        converter=as_datetime,
         validator=instance_of(datetime),
         factory=datetime.now,
     )
     end_time: datetime | None = attrs.field(
-        converter=as_aware_datetime,
+        converter=as_datetime,
         validator=optional(instance_of(datetime)),
         default=None,
     )
@@ -83,6 +83,8 @@ class CronTrigger(Trigger):
     )
 
     def __attrs_post_init__(self) -> None:
+        self.start_time = self._to_trigger_timezone(self.start_time, "start_time")
+        self.end_time = self._to_trigger_timezone(self.end_time, "end_time")
         self._set_fields(
             [
                 self.year,
@@ -100,7 +102,7 @@ class CronTrigger(Trigger):
         self._fields = []
         assigned_values = {
             field_name: value
-            for (field_name, _), value in zip(self.FIELDS_MAP, values)
+            for (field_name, _), value in zip(self.FIELDS_MAP, values, strict=True)
             if value is not None
         }
         for field_name, field_class in self.FIELDS_MAP:
@@ -118,7 +120,7 @@ class CronTrigger(Trigger):
         *,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
-        timezone: str | tzinfo = "local",
+        timezone: tzinfo | str = "local",
     ) -> CronTrigger:
         """
         Create a :class:`~CronTrigger` from a standard crontab expression.
@@ -148,6 +150,20 @@ class CronTrigger(Trigger):
             end_time=end_time,
             timezone=timezone,
         )
+
+    def _to_trigger_timezone(self, dt: datetime | None, name: str) -> datetime | None:
+        if dt is None:
+            return None
+
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=self.timezone)
+        else:
+            dt = dt.astimezone(self.timezone)
+
+        if not time_exists(dt):
+            raise ValueError(f"{name}={dt} does not exist")
+
+        return dt
 
     def _increment_field_value(
         self, dateval: datetime, fieldnum: int
@@ -207,16 +223,17 @@ class CronTrigger(Trigger):
                 else:
                     values[field.name] = new_value
 
-        return datetime(**values, tzinfo=self.timezone)
+        return datetime(**values, tzinfo=self.timezone, fold=dateval.fold)
 
     def next(self) -> datetime | None:
         if self._last_fire_time:
-            start_time = self._last_fire_time + timedelta(microseconds=1)
+            next_time = datetime.fromtimestamp(
+                self._last_fire_time.timestamp() + 1, self.timezone
+            )
         else:
-            start_time = self.start_time
+            next_time = self.start_time
 
         fieldnum = 0
-        next_time = datetime_ceil(start_time).astimezone(self.timezone)
         while 0 <= fieldnum < len(self._fields):
             field = self._fields[fieldnum]
             curr_value = field.get_value(next_time)
@@ -231,7 +248,13 @@ class CronTrigger(Trigger):
                 # A valid, but higher than the starting value, was found
                 if field.real:
                     next_time = self._set_field_value(next_time, fieldnum, next_value)
-                    fieldnum += 1
+                    if time_exists(next_time):
+                        fieldnum += 1
+                    else:
+                        # skip non-existent date
+                        next_time, fieldnum = self._increment_field_value(
+                            next_time, fieldnum
+                        )
                 else:
                     next_time, fieldnum = self._increment_field_value(
                         next_time, fieldnum
@@ -275,12 +298,4 @@ class CronTrigger(Trigger):
             fields.append(f"end_time={self.end_time.isoformat()!r}")
 
         fields.append(f"timezone={timezone_repr(self.timezone)!r}")
-        return f'CronTrigger({", ".join(fields)})'
-
-
-def datetime_ceil(dateval: datetime) -> datetime:
-    """Round the given datetime object upwards."""
-    if dateval.microsecond > 0:
-        return dateval + timedelta(seconds=1, microseconds=-dateval.microsecond)
-
-    return dateval
+        return f"CronTrigger({', '.join(fields)})"

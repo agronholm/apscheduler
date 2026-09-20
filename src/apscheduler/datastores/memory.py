@@ -183,6 +183,7 @@ class MemoryDataStore(BaseDataStore):
             del self._schedules[index]
 
             # Re-add the schedule to its new position
+            schedule.last_fire_time = result.last_fire_time
             schedule.next_fire_time = result.next_fire_time
             schedule.acquired_by = None
             schedule.acquired_until = None
@@ -342,6 +343,15 @@ class MemoryDataStore(BaseDataStore):
             if job.acquired_by == scheduler_id and job.id in job_ids:
                 job.acquired_until = acquired_until
 
+    async def reap_abandoned_jobs(self, scheduler_id: str) -> None:
+        now = datetime.now(timezone.utc)
+        for job in list(self._jobs_by_id.values()):
+            if job.acquired_by == scheduler_id:
+                result = JobResult.from_job(
+                    job=job, outcome=JobOutcome.abandoned, finished_at=now
+                )
+                await self.release_job(job.acquired_by, job, result)
+
     async def cleanup(self) -> None:
         # Clean up expired job results
         now = datetime.now(timezone.utc)
@@ -365,6 +375,18 @@ class MemoryDataStore(BaseDataStore):
             )
             assert job.acquired_by is not None
             await self.release_job(job.acquired_by, job, result)
+
+        # Release any schedules whose leases have expired
+        for schedule in self._schedules:
+            if schedule.acquired_until is not None and schedule.acquired_until < now:
+                schedule.acquired_by = None
+                schedule.acquired_until = None
+                event = ScheduleUpdated(
+                    schedule_id=schedule.id,
+                    task_id=schedule.task_id,
+                    next_fire_time=schedule.next_fire_time,
+                )
+                await self._event_broker.publish(event)
 
         # Clean up finished schedules that have no running jobs
         finished_schedule_ids = [

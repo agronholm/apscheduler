@@ -4,14 +4,14 @@ import os
 import platform
 import random
 import sys
-from collections.abc import Iterable, Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from inspect import isbuiltin, isclass, ismethod, ismodule
 from logging import Logger, getLogger
 from types import TracebackType
-from typing import Any, Callable, Literal, TypeVar, cast, overload
+from typing import Any, Literal, TypeAlias, TypeVar, cast, overload
 from uuid import UUID, uuid4
 
 import anyio
@@ -72,11 +72,6 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
 
 _microsecond_delta = timedelta(microseconds=1)
 _zero_timedelta = timedelta()
@@ -181,6 +176,7 @@ class AsyncScheduler:
                 create_task_group()
             )
             exit_stack.callback(setattr, self, "_services_task_group", None)
+            exit_stack.push_async_callback(self.stop)
             self._exit_stack = exit_stack.pop_all()
 
         return self
@@ -191,7 +187,6 @@ class AsyncScheduler:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        await self.stop()
         await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
 
     def __repr__(self) -> str:
@@ -287,6 +282,12 @@ class AsyncScheduler:
             callback, event_types, is_async=is_async, one_shot=one_shot
         )
 
+    @overload
+    async def get_next_event(self, event_types: type[T_Event]) -> T_Event: ...
+
+    @overload
+    async def get_next_event(self, event_types: Iterable[type[Event]]) -> Event: ...
+
     async def get_next_event(
         self, event_types: type[Event] | Iterable[type[Event]]
     ) -> Event:
@@ -348,6 +349,7 @@ class AsyncScheduler:
 
         """
         func_ref: str | None = None
+        task: Task | None = None
         if callable(func_or_task_id):
             task_params = get_task_params(func_or_task_id)
             if task_params.id is unset:
@@ -364,12 +366,26 @@ class AsyncScheduler:
                 metadata=func_or_task_id.metadata,
             )
         elif isinstance(func_or_task_id, str) and func_or_task_id:
-            task_params = get_task_params(func) if callable(func) else TaskParameters()
-            task_params.id = func_or_task_id
+            try:
+                task = await self.data_store.get_task(func_or_task_id)
+                task_params = TaskParameters(
+                    id=task.id,
+                    job_executor=task.job_executor,
+                    max_running_jobs=task.max_running_jobs,
+                    misfire_grace_time=task.misfire_grace_time,
+                    metadata=task.metadata,
+                )
+            except TaskLookupError:
+                task_params = (
+                    get_task_params(func) if callable(func) else TaskParameters()
+                )
+                task_params.id = func_or_task_id
         else:
             raise TypeError(
                 "func_or_task_id must be either a task, its identifier or a callable"
             )
+
+        assert task_params.id
 
         # Apply any settings passed directly to this function as arguments
         if job_executor is not unset:
@@ -393,7 +409,6 @@ class AsyncScheduler:
             self.task_defaults.metadata, task_params.metadata, metadata
         )
 
-        assert task_params.id
         if callable(func):
             self._task_callables[task_params.id] = func
             try:
@@ -403,7 +418,7 @@ class AsyncScheduler:
 
         modified = False
         try:
-            task = await self.data_store.get_task(cast(str, task_params.id))
+            task = task or await self.data_store.get_task(cast(str, task_params.id))
         except TaskLookupError:
             task = Task(
                 id=task_params.id,
@@ -418,25 +433,22 @@ class AsyncScheduler:
             changes: dict[str, Any] = {}
             if func is not unset and task.func != func_ref:
                 changes["func"] = func_ref
-                modified = True
 
             if task_params.job_executor != task.job_executor:
                 changes["job_executor"] = task_params.job_executor
-                modified = True
 
             if task_params.max_running_jobs != task.max_running_jobs:
                 changes["max_running_jobs"] = task_params.max_running_jobs
-                modified = True
 
             if task_params.misfire_grace_time != task.misfire_grace_time:
                 changes["misfire_grace_time"] = task_params.misfire_grace_time
-                modified = True
 
             if task_params.metadata != task.metadata:
                 changes["metadata"] = task_params.metadata
-                modified = True
 
-            task = attrs.evolve(task, **changes)
+            if changes:
+                task = attrs.evolve(task, **changes)
+                modified = True
 
         if modified:
             await self.data_store.add_task(task)
@@ -843,8 +855,7 @@ class AsyncScheduler:
         """Run the scheduler until explicitly stopped."""
         if self._state is not RunState.stopped:
             raise RuntimeError(
-                f'Cannot start the scheduler when it is in the "{self._state}" '
-                f"state"
+                f'Cannot start the scheduler when it is in the "{self._state}" state'
             )
 
         self._state = RunState.starting
@@ -953,8 +964,7 @@ class AsyncScheduler:
                         extend_schedule_leases,
                         schedules,
                         name=(
-                            f"Scheduler {self.identity!r} schedule lease extension "
-                            f"loop"
+                            f"Scheduler {self.identity!r} schedule lease extension loop"
                         ),
                     )
                     exit_stack.callback(tg.cancel_scope.cancel)
@@ -1081,7 +1091,7 @@ class AsyncScheduler:
     def _get_task_callable(self, task: Task) -> Callable:
         try:
             return self._task_callables[task.id]
-        except KeyError:
+        except KeyError as exc:
             if task.func:
                 try:
                     func = self._task_callables[task.id] = callable_from_ref(task.func)
@@ -1098,7 +1108,7 @@ class AsyncScheduler:
                 f"such callable has been defined. Call "
                 f"scheduler.configure_task({task.id!r}, func=...) to define the local "
                 f"callable."
-            )
+            ) from exc
 
     async def _process_jobs(self, *, task_status: TaskStatus[None]) -> None:
         wakeup_event = anyio.Event()
@@ -1108,12 +1118,16 @@ class AsyncScheduler:
                 wakeup_event.set()
 
         async def extend_job_leases() -> None:
-            while self._state is RunState.started:
+            while self._state in (RunState.starting, RunState.started):
                 await sleep(self.lease_duration.total_seconds() / 2)
-                job_ids = {job.id for job in self._running_jobs}
-                await self.data_store.extend_acquired_job_leases(
-                    self.identity, job_ids, self.lease_duration
-                )
+                if job_ids := {job.id for job in self._running_jobs}:
+                    await self.data_store.extend_acquired_job_leases(
+                        self.identity, job_ids, self.lease_duration
+                    )
+
+        # If there are any jobs marked as being acquired by this scheduler, release them
+        # with the "abandoned" outcome right away
+        await self.data_store.reap_abandoned_jobs(self.identity)
 
         async with AsyncExitStack() as exit_stack:
             # Start the job executors

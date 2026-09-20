@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import sys
 from abc import ABCMeta, abstractmethod
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta
 from logging import Logger
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 if sys.version_info >= (3, 11):
@@ -256,6 +256,13 @@ class DataStore(metaclass=ABCMeta):
         This method claims up to the requested number of schedules for the given
         scheduler and returns them.
 
+        For a stored schedule to be eligible for acquisition, it must fulfill one of the
+        following conditions:
+
+        * It is unclaimed (``acquired_until`` is ``None``)
+        * Its claim has expired (``acquired_until`` is less than the current datetime)
+        * It is claimed by the given scheduler (``acquired_by`` equals ``scheduler_id``)
+
         :param scheduler_id: unique identifier of the scheduler
         :param lease_duration: the duration of the lease, after which the schedules can be
             acquired by another scheduler even if ``acquired_by`` is not ``None``
@@ -346,6 +353,7 @@ class DataStore(metaclass=ABCMeta):
         :return: the result, or ``None`` if the result was not found
         """
 
+    @abstractmethod
     async def extend_acquired_schedule_leases(
         self, scheduler_id: str, schedule_ids: set[str], duration: timedelta
     ) -> None:
@@ -358,6 +366,7 @@ class DataStore(metaclass=ABCMeta):
         :param duration: the duration by which to extend the leases
         """
 
+    @abstractmethod
     async def extend_acquired_job_leases(
         self, scheduler_id: str, job_ids: set[UUID], duration: timedelta
     ) -> None:
@@ -370,6 +379,20 @@ class DataStore(metaclass=ABCMeta):
         """
 
     @abstractmethod
+    async def reap_abandoned_jobs(self, scheduler_id: str) -> None:
+        """
+        Find jobs marked as acquired by the given scheduler ID and release them with the
+        outcome of :attr:`~apscheduler.JobOutcome.abandoned`.
+
+        Implementers must ensure that the proper :class:`~apscheduler.JobReleased`
+        events are published.
+
+        This method is called once during the scheduler startup sequence.
+
+        :param scheduler_id: unique identifier of the scheduler
+        """
+
+    @abstractmethod
     async def cleanup(self) -> None:
         """
         Perform clean-up operations on the data store.
@@ -379,13 +402,15 @@ class DataStore(metaclass=ABCMeta):
         * Purge expired job results (where ``expires_at`` is less or equal to the
           current time)
         * Release jobs with expired leases with the ``cancelled`` outcome
+        * Release schedules with expired leases, publishing a
+          :class:`~apscheduler.ScheduleUpdated` event for each of them
         * Purge finished schedules (where ``next_run_time`` is ``None``) that have no
           running jobs associated with them
         """
 
 
 class JobExecutor(metaclass=ABCMeta):
-    async def start(self, exit_stack: AsyncExitStack) -> None:
+    async def start(self, exit_stack: AsyncExitStack) -> None:  # noqa: B027
         """
         Start the job executor.
 

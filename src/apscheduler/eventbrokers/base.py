@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from base64 import b64decode, b64encode
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextlib import AsyncExitStack
 from inspect import iscoroutine
 from logging import Logger
-from typing import Any, Callable
+from typing import Any
 
 import attrs
 from anyio import CapacityLimiter, create_task_group, to_thread
@@ -68,7 +68,7 @@ class BaseEventBroker(EventBroker):
     async def publish_local(self, event: Event) -> None:
         event_type = type(event)
         one_shot_tokens: list[object] = []
-        for _token, subscription in self._subscriptions.items():
+        for subscription in self._subscriptions.values():
             if (
                 subscription.event_types is None
                 or event_type in subscription.event_types

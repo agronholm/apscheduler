@@ -6,6 +6,37 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- **BREAKING** Switched the MongoDB data store to use the asynchronous API in
+  ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
+- Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
+- Dropped support for Python 3.9
+- Fixed an issue where ``CronTrigger`` does not convert ``start_time`` to ``self.timezone``
+  (`#1061 <https://github.com/agronholm/apscheduler/issues/1061>`_; PR by @jonasitzmann)
+- Fixed an issue where ``CronTrigger.next()`` returned a non-existing date on a DST change
+  (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
+- Fixed jobs that were being run when the scheduler was gracefully stopped being left in
+  an acquired state (`#946 <https://github.com/agronholm/apscheduler/issues/946>`_)
+- Fixed the documented ``psycopg`` extra not being declared in the project metadata, so
+  ``pip install apscheduler[psycopg]`` silently installed nothing for the Psycopg event
+  broker (`#1133 <https://github.com/agronholm/apscheduler/issues/1133>`_)
+- Fixed schedules staying stuck when the scheduler holding them died without releasing
+  them; clean-up now releases schedules whose leases have expired and wakes up the
+  other schedulers so they can acquire them
+  (`#1053 <https://github.com/agronholm/apscheduler/issues/1053>`_)
+- Fixed the synchronous ``Scheduler`` not enabling automatic clean-up by default,
+  unlike ``AsyncScheduler``
+  (`#1135 <https://github.com/agronholm/apscheduler/pull/1135>`_; PR by @dylanpulver)
+- Fixed type annotation of ``AndTrigger.max_iterations`` to only allow ``int`` and never
+  ``None``
+  (`#1131 <https://github.com/agronholm/apscheduler/issues/1131>`_; PR by @afonsojanu)
+- Fixed ``CalendarIntervalTrigger`` skipping valid dates or shifting subsequent run dates
+  when a nonexistent local time normalizes past midnight during a forward DST shift
+- Fixed ``CronTrigger`` raising an unhelpful ``IndexError`` instead of a descriptive
+  ``ValueError`` when given a numeric ``day_of_week`` value outside the 0–7 range
+  (`#1130 <https://github.com/agronholm/apscheduler/pull/1130>`_; PR by @nikolauspschuetz)
+
+**4.0.0a6**
+
 - **BREAKING** Refactored ``AsyncpgEventBroker`` to directly accept a connection string,
   thus eliminating the need for the ``AsyncpgEventBroker.from_dsn()`` class method
 - **BREAKING** Added the ``extend_acquired_schedule_leases()`` data store method to
@@ -42,6 +73,11 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** Changed the ``timezone`` argument to ``CronTrigger.from_crontab()`` into
   a keyword-only argument
 - **BREAKING** Added the ``metadata`` field to tasks, schedules and jobs
+- **BREAKING** Added logic to store ``last_fire_time`` in datastore implementations
+  (PR by @hlobit)
+- **BREAKING** Added the ``reap_abandoned_jobs()`` abstract method to ``DataStore``
+  which the scheduler calls before processing any jobs in order to immediately mark jobs
+  left in an acquired state when the scheduler crashed
 - Added the ``start_time`` and ``end_time`` arguments to ``CronTrigger.from_crontab()``
   (`#676 <https://github.com/agronholm/apscheduler/issues/676>`_)
 - Added the ``psycopg`` event broker
@@ -62,6 +98,15 @@ APScheduler, see the :doc:`migration section <migration>`.
   acquire the same schedules at once
 - Changed ``SQLAlchemyDataStore`` to automatically create the explicitly specified
   schema if it's missing (PR by @zhu0629)
+- Fixed an issue with ``CronTrigger`` infinitely looping to get next date when DST ends
+  (`#980 <https://github.com/agronholm/apscheduler/issues/980>`_; PR by @hlobit)
+- Skip dispatching extend_acquired_job_leases with no jobs (PR by @JacobHayes)
+- Fixed schedulers not immediately processing schedules that the scheduler left in an
+  acquired state after a crash
+- Fixed the job lease extension task exiting prematurely while the scheduler is starting
+  (PR by @JacobHayes)
+- Migrated test and documentation dependencies from extras to dependency groups
+- Fixed ``add_job()`` overwriting task configuration (PR by @mattewid)
 
 **4.0.0a5**
 

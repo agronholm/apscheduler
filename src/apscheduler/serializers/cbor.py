@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any
 
 import attrs
-from cbor2 import CBORDecoder, CBOREncoder, CBOREncodeTypeError, CBORTag, dumps, loads
+from cbor2 import CBOREncoder, CBOREncodeTypeError, dumps, loads
 
 from .. import DeserializationError, SerializationError
 from .._marshalling import marshal_object, marshal_timezone, unmarshal_object
@@ -31,7 +31,9 @@ class CBORSerializer(Serializer):
 
     def __attrs_post_init__(self) -> None:
         self.dump_options.setdefault("default", self._default_hook)
-        self.load_options.setdefault("tag_hook", self._tag_hook)
+        self.load_options.setdefault(
+            "semantic_decoders", {self.type_tag: self._semantic_decoder}
+        )
 
     def _default_hook(self, encoder: CBOREncoder, value: object) -> None:
         if isinstance(value, date):
@@ -44,18 +46,15 @@ class CBORSerializer(Serializer):
             encoder.encode(value.name)
         elif hasattr(value, "__getstate__"):
             marshalled = marshal_object(value)
-            encoder.encode(CBORTag(self.type_tag, marshalled))
+            encoder.encode_semantic(self.type_tag, marshalled)
         else:
             raise CBOREncodeTypeError(
                 f"cannot serialize type {value.__class__.__name__}"
             )
 
-    def _tag_hook(
-        self, decoder: CBORDecoder, tag: CBORTag, shareable_index: int | None = None
-    ) -> object:
-        if tag.tag == self.type_tag:
-            cls_ref, state = tag.value
-            return unmarshal_object(cls_ref, state)
+    def _semantic_decoder(self, decoded_value: tuple[str, dict], tag: Any) -> object:
+        cls_ref, state = decoded_value
+        return unmarshal_object(cls_ref, state)
 
     def serialize(self, obj: object) -> bytes:
         try:

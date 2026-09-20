@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
-import sysconfig
 import threading
 import time
 from collections import defaultdict
@@ -12,18 +10,20 @@ from contextlib import AsyncExitStack
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from inspect import signature
-from pathlib import Path
 from queue import Queue
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
+from unittest.mock import patch
 
 import anyio
+import attrs
 import pytest
 from anyio import (
     Lock,
     WouldBlock,
     create_memory_object_stream,
     fail_after,
+    move_on_after,
     sleep,
 )
 from pytest import MonkeyPatch
@@ -56,6 +56,7 @@ from apscheduler import (
     task,
 )
 from apscheduler.abc import DataStore
+from apscheduler.datastores.base import BaseExternalDataStore
 from apscheduler.datastores.memory import MemoryDataStore
 from apscheduler.eventbrokers.local import LocalEventBroker
 from apscheduler.executors.async_ import AsyncJobExecutor
@@ -69,6 +70,7 @@ if sys.version_info >= (3, 11):
     from datetime import UTC
 else:
     UTC = timezone.utc
+    from exceptiongroup import ExceptionGroup
 
 from zoneinfo import ZoneInfo
 
@@ -585,7 +587,7 @@ class TestAsyncScheduler:
                     assert isinstance(event, SchedulerStarted)
 
                     # The schedule was processed and one or more jobs weres added
-                    for index in range(expected_jobs):
+                    for _ in range(expected_jobs):
                         event = await receive.receive()
                         assert isinstance(event, JobAdded)
                         assert event.schedule_id == "foo"
@@ -760,6 +762,33 @@ class TestAsyncScheduler:
 
             with pytest.raises(JobLookupError), fail_after(1):
                 await scheduler.get_job_result(job_id, wait=False)
+
+    async def test_add_job_not_rewriting_task_config(
+        self, raw_datastore: DataStore
+    ) -> None:
+        async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+            TASK_ID = "task_dummy_async_job"
+            JOB_EXECUTOR = "async"
+            MISFIRE_GRACE_TIME = timedelta(seconds=10)
+            MAX_RUNNING_JOBS = 5
+            METADATA = {"key": "value"}
+
+            await scheduler.configure_task(
+                func_or_task_id=TASK_ID,
+                func=dummy_async_job,
+                job_executor=JOB_EXECUTOR,
+                misfire_grace_time=MISFIRE_GRACE_TIME,
+                max_running_jobs=MAX_RUNNING_JOBS,
+                metadata=METADATA,
+            )
+
+            assert await scheduler.add_job(TASK_ID)
+
+            task = await scheduler.data_store.get_task(TASK_ID)
+            assert task.job_executor == JOB_EXECUTOR
+            assert task.misfire_grace_time == MISFIRE_GRACE_TIME
+            assert task.max_running_jobs == MAX_RUNNING_JOBS
+            assert task.metadata == METADATA
 
     async def test_contextvars(self, mocker: MockerFixture, timezone: ZoneInfo) -> None:
         def check_contextvars() -> None:
@@ -1027,6 +1056,154 @@ class TestAsyncScheduler:
                 assert result.outcome is JobOutcome.success
                 assert result.return_value == "returnvalue"
 
+    async def test_scheduler_crash_restart_schedule_immediately(
+        self, raw_datastore: DataStore, timezone: ZoneInfo
+    ) -> None:
+        """
+        Test that the scheduler can immediately start processing a schedule it had
+        acquired while the crash occurred.
+
+        """
+        scheduler = AsyncScheduler(data_store=raw_datastore)
+        error_patch = patch.object(
+            raw_datastore, "release_schedules", side_effect=RuntimeError("Fake failure")
+        )
+        with pytest.raises(ExceptionGroup) as exc_info, error_patch:
+            async with scheduler:
+                await scheduler.add_schedule(
+                    dummy_async_job, IntervalTrigger(minutes=1), id="foo"
+                )
+                with move_on_after(3):
+                    await scheduler.run_until_stopped()
+
+                pytest.fail("The scheduler did not crash")
+
+        exc = exc_info.value
+        while isinstance(exc, ExceptionGroup) and len(exc.exceptions) == 1:
+            exc = exc.exceptions[0]
+
+        assert isinstance(exc, RuntimeError)
+        assert exc.args == ("Fake failure",)
+
+        # Don't clear the data store at launch
+        if isinstance(raw_datastore, BaseExternalDataStore):
+            raw_datastore.start_from_scratch = False
+
+        # Now reinitialize the scheduler and make sure the schedule gets processed
+        # immediately
+        async with scheduler:
+            # Check that the schedule was left in an acquired state
+            schedules = await scheduler.get_schedules()
+            assert len(schedules) == 1
+            assert schedules[0].acquired_by == scheduler.identity
+            assert schedules[0].acquired_until > datetime.now(timezone)
+
+            # Start the scheduler and wait for the schedule to be processed
+            await scheduler.start_in_background()
+            with fail_after(scheduler.lease_duration.total_seconds() / 2):
+                job_added_event = await scheduler.get_next_event(JobAdded)
+
+            assert job_added_event.schedule_id == "foo"
+
+    async def test_scheduler_crash_reap_abandoned_jobs(
+        self, raw_datastore: DataStore, timezone: ZoneInfo
+    ) -> None:
+        """
+        Test that after the scheduler has crashed and been restarted, it immediately
+        detects an abandoned job and releases it with the appropriate result code.
+
+        """
+        scheduler = AsyncScheduler(data_store=raw_datastore)
+        error_patch = patch.object(
+            raw_datastore, "release_job", side_effect=RuntimeError("Fake failure")
+        )
+        with pytest.raises(ExceptionGroup) as exc_info, error_patch:
+            async with scheduler:
+                job_id = await scheduler.add_job(dummy_async_job)
+                with move_on_after(3):
+                    await scheduler.run_until_stopped()
+
+                pytest.fail("The scheduler did not crash")
+
+        exc = exc_info.value
+        while isinstance(exc, ExceptionGroup) and len(exc.exceptions) == 1:
+            exc = exc.exceptions[0]
+
+        assert isinstance(exc, RuntimeError)
+        assert exc.args == ("Fake failure",)
+
+        # Don't clear the data store at launch
+        if isinstance(raw_datastore, BaseExternalDataStore):
+            raw_datastore.start_from_scratch = False
+
+        # Now reinitialize the scheduler and make sure the job gets processed
+        # immediately
+        async with scheduler:
+            # Check that the job was left in an acquired state
+            jobs = await scheduler.get_jobs()
+            assert len(jobs) == 1
+            assert jobs[0].acquired_by == scheduler.identity
+            assert jobs[0].acquired_until > datetime.now(timezone)
+
+            trigger_event = anyio.Event()
+            job_released_event: JobReleased | None = None
+
+            def event_callback(event: Event) -> None:
+                nonlocal job_released_event
+                job_released_event = cast(JobReleased, event)
+                trigger_event.set()
+
+            # Start the scheduler and wait for the job to be processed
+            with scheduler.subscribe(event_callback, {JobReleased}):
+                await scheduler.start_in_background()
+                with fail_after(scheduler.lease_duration.total_seconds() / 2):
+                    await trigger_event.wait()
+
+            assert job_released_event
+            assert job_released_event.job_id == job_id
+            assert job_released_event.outcome is JobOutcome.abandoned
+            assert not await scheduler.get_jobs()
+
+    async def test_stop_scheduler_while_job_running(
+        self, raw_datastore: DataStore
+    ) -> None:
+        event = anyio.Event()
+
+        async def delay_job() -> None:
+            event.set()
+            await sleep(8)
+
+        async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+            await scheduler.configure_task("delay_job", func=delay_job)
+            await scheduler.add_job("delay_job", result_expiration_time=15)
+            await scheduler.start_in_background()
+
+            with fail_after(5):
+                await event.wait()
+
+            assert len(scheduler._running_jobs) == 1
+            job_id = next(iter(scheduler._running_jobs)).id
+            event = anyio.Event()
+            scheduler.subscribe(lambda _: event.set(), SchedulerStopped, one_shot=True)
+            await scheduler.stop()
+            with fail_after(5):
+                await event.wait()
+
+            assert len(scheduler._running_jobs) == 0
+
+            # Check that the task has 0 running jobs
+            datastore_tasks = await scheduler.get_tasks()
+            assert len(datastore_tasks) == 1
+            assert datastore_tasks[0].running_jobs == 0
+
+            # Check that the job was removed
+            datastore_jobs = await scheduler.get_jobs()
+            assert len(datastore_jobs) == 0
+
+            # Check that the job outcome was set to "cancelled"
+            result = await scheduler.get_job_result(job_id)
+            assert result.outcome is JobOutcome.cancelled
+
 
 class TestSyncScheduler:
     def test_interface_parity(self) -> None:
@@ -1058,9 +1235,60 @@ class TestSyncScheduler:
                     sync_args[param.kind].append(param)
 
                 for kind, args in async_args.items():
-                    assert (
-                        args == sync_args[kind]
-                    ), f"Parameter mismatch for {attrname}(): {args} != {sync_args[kind]}"
+                    assert args == sync_args[kind], (
+                        f"Parameter mismatch for {attrname}(): {args} != {sync_args[kind]}"
+                    )
+
+    def test_constructor_parity(self) -> None:
+        """
+        Ensure that the sync scheduler accepts the same constructor arguments as the
+        async scheduler, with the same default values.
+
+        The loop in :meth:`test_interface_parity` skips ``__init__`` because it only
+        looks at public attributes, so the constructor defaults – the one place where
+        the two schedulers can silently drift apart – are compared here instead.
+
+        """
+        # Constructor arguments whose declared defaults intentionally differ.
+        # Scheduler only forwards the options it was actually given, so it uses None as
+        # an "argument not passed" sentinel for every option whose real default is an
+        # object built by AsyncScheduler itself (an attrs factory, or the module level
+        # logger); the effective default still comes from AsyncScheduler.
+        # task_defaults is additionally sync-specific, as Scheduler fills in the
+        # "threadpool" job executor.
+        exceptions = {
+            "data_store",
+            "event_broker",
+            "job_executors",
+            "task_defaults",
+            "logger",
+        }
+        async_params = signature(AsyncScheduler.__init__).parameters
+        sync_params = signature(Scheduler.__init__).parameters
+        converters = {
+            field.name: field.converter for field in attrs.fields(AsyncScheduler)
+        }
+        for name, async_param in async_params.items():
+            if name == "self":
+                continue
+
+            if name not in sync_params:
+                pytest.fail(f"Scheduler() is missing the {name!r} argument")
+
+            if name in exceptions:
+                continue
+
+            # Compare the defaults the way AsyncScheduler stores them, by running both
+            # through the field's converter (if any), as lease_duration is declared as a
+            # plain number of seconds on the async side but as a timedelta on the sync
+            # side.
+            convert = converters[name] or (lambda value: value)
+            async_default = convert(async_param.default)
+            sync_default = convert(sync_params[name].default)
+            assert sync_default == async_default, (
+                f"Default value mismatch for the {name!r} argument of Scheduler(): "
+                f"{sync_default!r} != {async_default!r}"
+            )
 
     def test_repr(self) -> None:
         scheduler = Scheduler(identity="my identity")
@@ -1270,6 +1498,18 @@ class TestSyncScheduler:
             with pytest.raises(ScheduleLookupError):
                 scheduler.get_schedule("event_set")
 
+    def test_implicit_cleanup(self, mocker: MockerFixture) -> None:
+        """
+        Test that the data store's cleanup() method is called when a scheduler
+        configured with the default options is started.
+
+        """
+        with Scheduler() as scheduler:
+            event = threading.Event()
+            mocker.patch.object(scheduler.data_store, "cleanup", side_effect=event.set)
+            scheduler.start_in_background()
+            assert event.wait(3)
+
     def test_run_until_stopped(self) -> None:
         queue: Queue[Event] = Queue()
         with Scheduler() as scheduler:
@@ -1298,20 +1538,3 @@ class TestSyncScheduler:
             RuntimeError, match="The scheduler seems to be running under uWSGI"
         ):
             Scheduler().start_in_background()
-
-    def test_uwsgi_threads_error_subprocess(self) -> None:
-        uwsgi_path = Path(sysconfig.get_path("scripts")) / "uwsgi"
-        if not uwsgi_path.is_file():
-            pytest.skip("uwsgi is not installed")
-
-        # This tests the error with a real uWSGI subprocess
-        script_path = (
-            Path(__file__).parent.parent / "examples" / "web" / "wsgi_noframework.py"
-        )
-        assert script_path.is_file()
-        proc = subprocess.run(
-            ["uwsgi", "--http", ":8000", "--need-app", "--wsgi-file", str(script_path)],
-            capture_output=True,
-        )
-        assert proc.returncode == 22
-        assert b"The scheduler seems to be running under uWSGI" in proc.stderr

@@ -145,7 +145,7 @@ async def test_add_schedules(datastore: DataStore, schedules: list[Schedule]) ->
         assert await datastore.get_schedules({"s2"}) == [schedules[1]]
         assert await datastore.get_schedules({"s3"}) == [schedules[2]]
 
-    for event, schedule in zip(events, schedules):
+    for event, schedule in zip(events, schedules, strict=True):
         assert isinstance(event, ScheduleAdded)
         assert event.schedule_id == schedule.id
         assert event.task_id == schedule.task_id
@@ -281,9 +281,14 @@ async def test_acquire_release_schedules(
         assert len(schedules) == 3
         schedules.sort(key=lambda s: s.id)
         assert schedules[0].id == "s1"
+        assert schedules[0].last_fire_time == datetime(2020, 9, 14, tzinfo=timezone.utc)
         assert schedules[0].next_fire_time is None
         assert schedules[1].id == "s2"
+        assert schedules[1].last_fire_time == datetime(2020, 9, 14, tzinfo=timezone.utc)
+        assert schedules[1].next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
         assert schedules[2].id == "s3"
+        assert schedules[2].last_fire_time is None
+        assert schedules[2].next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
 
     # Check for the appropriate update and delete events
     received_event = events.pop(0)
@@ -692,6 +697,46 @@ async def test_next_schedule_run_time(datastore: DataStore, schedules: list[Sche
     platform.python_implementation() != "CPython",
     reason="time-machine is not available",
 )
+async def test_cleanup_expired_schedule_leases(
+    datastore: DataStore, schedules: list[Schedule], time_machine: TimeMachineFixture
+) -> None:
+    """
+    Test that clean-up releases schedules whose leases have expired, and notifies
+    schedulers about it.
+
+    """
+    time_machine.move_to(datetime(2020, 9, 14, tzinfo=timezone.utc))
+    await datastore.add_schedule(schedules[0], ConflictPolicy.exception)
+
+    # Acquire the schedule with a scheduler that then dies without releasing it
+    acquired = await datastore.acquire_schedules("scheduler1", timedelta(seconds=30), 1)
+    assert len(acquired) == 1
+
+    # The lease has not expired yet, so clean-up must leave the schedule alone
+    time_machine.shift(20)
+    await datastore.cleanup()
+    assert not await datastore.acquire_schedules("scheduler2", timedelta(seconds=30), 1)
+
+    # The lease has expired now, so clean-up releases the schedule
+    time_machine.shift(20)
+    async with capture_events(datastore, 1, {ScheduleUpdated}) as events:
+        await datastore.cleanup()
+
+    assert len(events) == 1
+    event = events[0]
+    assert isinstance(event, ScheduleUpdated)
+    assert event.schedule_id == schedules[0].id
+    assert event.task_id == schedules[0].task_id
+    assert event.next_fire_time == schedules[0].next_fire_time
+
+    acquired = await datastore.acquire_schedules("scheduler2", timedelta(seconds=30), 1)
+    assert [schedule.id for schedule in acquired] == [schedules[0].id]
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
 async def test_extend_acquired_schedule_leases(
     datastore: DataStore, time_machine: TimeMachineFixture, schedules: list[Schedule]
 ) -> None:
@@ -829,6 +874,32 @@ async def test_acquire_jobs_deserialization_failure(
     assert await datastore.acquire_jobs("scheduler_id", timedelta(seconds=30), 1) == []
 
 
+async def test_reap_abandoned_jobs(
+    datastore: DataStore, local_broker: EventBroker, logger: Logger
+) -> None:
+    # Add a task, schedule and job and acquire the latter two
+    task = Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    await datastore.add_task(task)
+
+    job = Job(
+        task_id="task1",
+        executor="async",
+        result_expiration_time=timedelta(seconds=30),
+    )
+    await datastore.add_job(job)
+    await datastore.reap_abandoned_jobs("testscheduler")
+    jobs = await datastore.acquire_jobs("testscheduler", timedelta(seconds=30), 1)
+    assert len(jobs) == 1
+
+    await datastore.reap_abandoned_jobs("testscheduler")
+    assert not await datastore.get_jobs()
+    abandoned_job_result = await datastore.get_job_result(jobs[0].id)
+    assert abandoned_job_result.outcome is JobOutcome.abandoned
+
+    task = await datastore.get_task("task1")
+    assert task.running_jobs == 0
+
+
 class TestRepr:
     async def test_memory(self, memory_store: MemoryDataStore) -> None:
         assert repr(memory_store) == "MemoryDataStore()"
@@ -857,8 +928,8 @@ class TestRepr:
         )
 
     async def test_mongodb(self) -> None:
-        from pymongo import MongoClient
+        from pymongo.asynchronous.mongo_client import AsyncMongoClient
 
-        with MongoClient() as client:
+        async with AsyncMongoClient() as client:
             data_store = MongoDBDataStore(client)
             assert repr(data_store) == "MongoDBDataStore(host=[('localhost', 27017)])"
