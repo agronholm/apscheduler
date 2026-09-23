@@ -35,6 +35,12 @@ def test_invalid_weekday_name(expr):
     exc.match("Invalid weekday name 'web'")
 
 
+@pytest.mark.parametrize("expr", ["8", "0-8"], ids=["start", "end"])
+def test_invalid_weekday_number(expr):
+    exc = pytest.raises(ValueError, CronTrigger, day_of_week=expr)
+    exc.match("Invalid weekday number '8'")
+
+
 def test_invalid_weekday_position_name():
     exc = pytest.raises(ValueError, CronTrigger, day="1st web")
     exc.match("Invalid weekday name 'web'")
