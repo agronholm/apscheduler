@@ -141,7 +141,7 @@ class CalendarIntervalTrigger(BaseTrigger):
 
             # Check if the time is off due to normalization and a forward DST shift
             if next_time.timetz() != self._time:
-                previous_fire_time = next_time.date()
+                previous_fire_time = next_date
             else:
                 return self._apply_jitter(next_time, self.jitter, now)
 

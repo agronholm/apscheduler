@@ -121,3 +121,61 @@ def test_utc_timezone() -> None:
     assert trigger.get_next_fire_time(None, now) == datetime(
         2016, 3, 31, 1, tzinfo=timezone_type.utc
     )
+
+
+@pytest.mark.parametrize("serialize", [False, True], ids=["direct", "pickle"])
+@pytest.mark.parametrize(
+    "interval, start_date, end_date, expected_dates",
+    [
+        ({"days": 1}, "2024-03-29", None, ["2024-03-29", "2024-03-31", "2024-04-01"]),
+        ({"days": 2}, "2024-03-28", None, ["2024-03-28", "2024-04-01", "2024-04-03"]),
+        ({"weeks": 1}, "2024-03-23", None, ["2024-03-23", "2024-04-06", "2024-04-13"]),
+        ({"months": 1}, "2024-01-30", None, ["2024-01-30", "2024-04-30", "2024-05-30"]),
+        ({"years": 1}, "2023-03-30", None, ["2023-03-30", "2025-03-30", "2026-03-30"]),
+        ({"days": 1}, "2024-03-30", None, ["2024-03-31", "2024-04-01"]),
+        ({"days": 1}, "2024-03-29", "2024-03-31", ["2024-03-29", "2024-03-31"]),
+        (
+            {"days": 1},
+            "2024-03-27",
+            "2024-03-29",
+            ["2024-03-27", "2024-03-28", "2024-03-29"],
+        ),
+    ],
+    ids=[
+        "daily",
+        "two-days",
+        "weekly",
+        "monthly",
+        "yearly",
+        "start-in-gap",
+        "end-date",
+        "control",
+    ],
+)
+def test_midnight_dst_gap(interval, start_date, end_date, expected_dates, serialize):
+    """A discarded wall time must not change the calendar interval's reference date."""
+    timezone = ZoneInfo("America/Nuuk")
+    trigger = CalendarIntervalTrigger(
+        **interval,
+        hour=23,
+        minute=30,
+        start_date=start_date,
+        end_date=end_date,
+        timezone=timezone,
+    )
+    now = datetime(2024, 1, 1, tzinfo=timezone)
+    previous_fire_time = None
+    for expected_date in expected_dates:
+        if serialize:
+            trigger = pickle.loads(
+                pickle.dumps(trigger, protocol=pickle.HIGHEST_PROTOCOL)
+            )
+
+        next_fire_time = trigger.get_next_fire_time(previous_fire_time, now)
+        assert next_fire_time is not None
+        assert next_fire_time.date() == date.fromisoformat(expected_date)
+        assert (next_fire_time.hour, next_fire_time.minute) == (23, 30)
+        previous_fire_time = next_fire_time
+
+    if end_date:
+        assert trigger.get_next_fire_time(previous_fire_time, now) is None

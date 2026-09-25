@@ -135,6 +135,29 @@ def test_get_run_times_dst_transition(create_job):
     )
 
 
+def test_get_run_times_calendar_midnight_dst_gap(create_job):
+    timezone = ZoneInfo("America/Nuuk")
+    first_run_time = datetime(2024, 3, 29, 23, 30, tzinfo=timezone)
+    job = create_job(
+        trigger="calendarinterval",
+        trigger_args={
+            "timezone": timezone,
+            "days": 1,
+            "hour": 23,
+            "minute": 30,
+            "start_date": first_run_time.date(),
+        },
+        next_run_time=first_run_time,
+        func=dummyfunc,
+    )
+    now = datetime(2024, 4, 1, 23, 30, tzinfo=timezone)
+    assert job._get_run_times(now) == [
+        first_run_time,
+        datetime(2024, 3, 31, 23, 30, tzinfo=timezone),
+        now,
+    ]
+
+
 def test_private_modify_bad_id(job):
     """Tests that only strings are accepted for job IDs."""
     del job.id
