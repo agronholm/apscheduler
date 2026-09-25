@@ -9,6 +9,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``AsyncIOScheduler`` permanently stopping the processing of jobs if
   ``_process_jobs()`` raised an exception, as the wakeup timer was then never rearmed
   (`#1132 <https://github.com/agronholm/apscheduler/pull/1132>`_; PR by @sundasnoreen-sr)
+- Fixed compatibility with pytz 2026.4
 
 **3.11.3**
 
