@@ -115,7 +115,11 @@ def astimezone(obj):
             if obj.zone:
                 return ZoneInfo(obj.zone)
 
-            return timezone(obj._offset)
+            try:
+                return timezone(obj._utcoffset)
+            except AttributeError:  # pragma: no cover
+                # pytz 2626.3 and earlier
+                return timezone(obj._offset)
 
         return obj
 
