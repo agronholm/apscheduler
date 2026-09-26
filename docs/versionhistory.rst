@@ -10,6 +10,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   ``_process_jobs()`` raised an exception, as the wakeup timer was then never rearmed
   (`#1132 <https://github.com/agronholm/apscheduler/pull/1132>`_; PR by @sundasnoreen-sr)
 - Fixed compatibility with pytz 2026.4
+- Fixed ``CalendarIntervalTrigger`` skipping valid dates after a forward DST shift
+  that crosses midnight (backported from
+  `#1138 <https://github.com/agronholm/apscheduler/pull/1138>`_, by @Yukibei)
 
 **3.11.3**
 
