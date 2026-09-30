@@ -8,6 +8,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
+- Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
 - Dropped support for Python 3.9
 - Fixed an issue where ``CronTrigger`` does not convert ``start_time`` to ``self.timezone``
   (`#1061 <https://github.com/agronholm/apscheduler/issues/1061>`_; PR by @jonasitzmann)
@@ -18,6 +19,24 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``configure_task()`` dropping the callable reference when passed a ``Task``
   object, causing the configured task to be stored with ``func=None``
   (`#1001 <https://github.com/agronholm/apscheduler/issues/1001>`_)
+- Fixed the documented ``psycopg`` extra not being declared in the project metadata, so
+  ``pip install apscheduler[psycopg]`` silently installed nothing for the Psycopg event
+  broker (`#1133 <https://github.com/agronholm/apscheduler/issues/1133>`_)
+- Fixed schedules staying stuck when the scheduler holding them died without releasing
+  them; clean-up now releases schedules whose leases have expired and wakes up the
+  other schedulers so they can acquire them
+  (`#1053 <https://github.com/agronholm/apscheduler/issues/1053>`_)
+- Fixed the synchronous ``Scheduler`` not enabling automatic clean-up by default,
+  unlike ``AsyncScheduler``
+  (`#1135 <https://github.com/agronholm/apscheduler/pull/1135>`_; PR by @dylanpulver)
+- Fixed type annotation of ``AndTrigger.max_iterations`` to only allow ``int`` and never
+  ``None``
+  (`#1131 <https://github.com/agronholm/apscheduler/issues/1131>`_; PR by @afonsojanu)
+- Fixed ``CalendarIntervalTrigger`` skipping valid dates or shifting subsequent run dates
+  when a nonexistent local time normalizes past midnight during a forward DST shift
+- Fixed ``CronTrigger`` raising an unhelpful ``IndexError`` instead of a descriptive
+  ``ValueError`` when given a numeric ``day_of_week`` value outside the 0–7 range
+  (`#1130 <https://github.com/agronholm/apscheduler/pull/1130>`_; PR by @nikolauspschuetz)
 
 **4.0.0a6**
 
