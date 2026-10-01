@@ -34,6 +34,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``CronTrigger`` raising an unhelpful ``IndexError`` instead of a descriptive
   ``ValueError`` when given a numeric ``day_of_week`` value outside the 0–7 range
   (`#1130 <https://github.com/agronholm/apscheduler/pull/1130>`_; PR by @nikolauspschuetz)
+- **BREAKING** MongoDB data store now requires a MongoDB server configured with a replica 
+  set to support transactional document updates. 
+  (`#PR-NUM <https://github.com/agronholm/apscheduler/pull/PR-NUM>`_; PR by @mattewid)
 
 **4.0.0a6**
 

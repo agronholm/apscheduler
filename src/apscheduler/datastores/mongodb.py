@@ -21,6 +21,7 @@ from bson.codec_options import TypeEncoder, TypeRegistry
 from pymongo import ASCENDING, DeleteOne, UpdateOne
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.asynchronous.mongo_client import AsyncMongoClient
 from pymongo.errors import ConnectionFailure, DuplicateKeyError
 
@@ -123,6 +124,7 @@ class MongoDBDataStore(BaseExternalDataStore):
     )
 
     _client: AsyncMongoClient = attrs.field(init=False)
+    _database: AsyncDatabase = attrs.field(init=False)
     _close_on_exit: bool = attrs.field(init=False, default=False)
     _task_attrs: ClassVar[list[str]] = [field.name for field in attrs.fields(Task)]
     _schedule_attrs: ClassVar[list[str]] = [
@@ -157,11 +159,13 @@ class MongoDBDataStore(BaseExternalDataStore):
             type_registry=type_registry,
             uuid_representation=UuidRepresentation.STANDARD,
         )
-        database = self._client.get_database(self.database, codec_options=codec_options)
-        self._tasks = database["tasks"]
-        self._schedules = database["schedules"]
-        self._jobs = database["jobs"]
-        self._jobs_results = database["job_results"]
+        self._database = self._client.get_database(
+            self.database, codec_options=codec_options
+        )
+        self._tasks = self._database["tasks"]
+        self._schedules = self._database["schedules"]
+        self._jobs = self._database["jobs"]
+        self._jobs_results = self._database["job_results"]
 
     def __repr__(self) -> str:
         server_descriptions = self._client.topology_description.server_descriptions()
@@ -196,6 +200,13 @@ class MongoDBDataStore(BaseExternalDataStore):
             raise RuntimeError(
                 f"MongoDB server must be at least v4.0; current version = "
                 f"{server_info['version']}"
+            )
+
+        cmd_result = await self._database.command("hello")
+        if "setName" not in cmd_result:
+            raise RuntimeError(
+                "MongoDB must be configured with a replica set to"
+                " use transactions for document updates"
             )
 
         async for attempt in self._retry():
