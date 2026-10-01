@@ -13,6 +13,61 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 
 class TestAndTrigger:
+    def test_microsecond_threshold(self, timezone):
+        date1 = datetime(2024, 10, 27, 2, 30, microsecond=2, tzinfo=timezone)
+        date2 = date1 + timedelta(microseconds=1)
+        trigger = AndTrigger(
+            [DateTrigger(date1), DateTrigger(date2)],
+            threshold=timedelta(microseconds=1),
+        )
+
+        assert trigger.next() == date1
+        assert trigger.next() is None
+
+    @pytest.mark.parametrize(
+        "date1,date2,threshold,expected_match",
+        [
+            (
+                datetime(2024, 10, 27, 2, 30),
+                datetime(2024, 10, 27, 2, 30, fold=1),
+                1,
+                False,
+            ),
+            (
+                datetime(2024, 10, 27, 2, 59, 59, 500000),
+                datetime(2024, 10, 27, 2, fold=1),
+                1,
+                True,
+            ),
+            (
+                datetime(2024, 3, 31, 1, 59, 59, 500000),
+                datetime(2024, 3, 31, 3),
+                1,
+                True,
+            ),
+        ],
+        ids=["distinct-folds", "fall-back-threshold", "spring-forward-threshold"],
+    )
+    @pytest.mark.parametrize("reverse", [False, True])
+    def test_dst_threshold(
+        self, timezone, date1, date2, threshold, expected_match, reverse
+    ):
+        date1 = date1.replace(tzinfo=timezone)
+        date2 = date2.replace(tzinfo=timezone)
+        dates = [date1, date2]
+        if reverse:
+            dates.reverse()
+
+        trigger = AndTrigger([DateTrigger(date) for date in dates], threshold=threshold)
+        result = trigger.next()
+        if expected_match:
+            assert result is not None
+            assert result.timestamp() == date1.timestamp()
+        else:
+            assert result is None
+
+        assert trigger.next() is None
+
     @pytest.mark.parametrize("threshold", [1, 0])
     def test_two_datetriggers(self, timezone, serializer, threshold):
         date1 = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
@@ -163,6 +218,44 @@ class TestAndTrigger:
 
 
 class TestOrTrigger:
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("same_wall_time", [False, True])
+    def test_dst_fall_back(self, timezone, serializer, reverse, same_wall_time):
+        date1 = datetime(2024, 10, 27, 2, 30, tzinfo=timezone)
+        date2 = datetime(
+            2024, 10, 27, 2, 30 if same_wall_time else 0, tzinfo=timezone, fold=1
+        )
+        dates = [date1, date2]
+        if reverse:
+            dates.reverse()
+
+        trigger = OrTrigger([DateTrigger(date) for date in dates])
+        result = trigger.next()
+        assert result is not None
+        assert result.timestamp() == date1.timestamp()
+
+        if serializer:
+            trigger = serializer.deserialize(serializer.serialize(trigger))
+
+        result = trigger.next()
+        assert result is not None
+        assert result.timestamp() == date2.timestamp()
+        assert trigger.next() is None
+
+    @pytest.mark.parametrize("fold", [0, 1])
+    @pytest.mark.parametrize("reverse", [False, True])
+    def test_dst_same_instant(self, timezone, utc_timezone, fold, reverse):
+        date = datetime(2024, 10, 27, 2, 30, tzinfo=timezone, fold=fold)
+        dates = [date, date.astimezone(utc_timezone)]
+        if reverse:
+            dates.reverse()
+
+        trigger = OrTrigger([DateTrigger(value) for value in dates])
+        result = trigger.next()
+        assert result is not None
+        assert result.timestamp() == date.timestamp()
+        assert trigger.next() is None
+
     def test_two_datetriggers(self, timezone, serializer):
         date1 = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         date2 = datetime(2020, 5, 18, 15, 1, 53, 940564, tzinfo=timezone)
