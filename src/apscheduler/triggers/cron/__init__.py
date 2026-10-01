@@ -225,6 +225,30 @@ class CronTrigger(Trigger):
 
         return datetime(**values, tzinfo=self.timezone, fold=dateval.fold)
 
+    def _first_existing_time(self, dateval: datetime) -> datetime:
+        """
+        Return the earliest local time at or after the given one that exists in this
+        trigger's time zone, thus stepping over any gap left behind by a forward DST
+        shift.
+
+        :return: ``dateval`` itself if it already exists, otherwise the first existing
+            local time after it
+        """
+        requested = dateval.replace(tzinfo=None)
+        timestamp = dateval.timestamp()
+        max_timestamp = datetime.max.replace(tzinfo=self.timezone).timestamp()
+        while timestamp <= max_timestamp:
+            # fromtimestamp() always yields an existing local time; local times do not
+            # go backwards as the timestamp advances, so this settles on the first
+            # existing time at or after the requested one
+            candidate = datetime.fromtimestamp(timestamp, self.timezone)
+            if candidate.replace(tzinfo=None) >= requested:
+                return candidate
+
+            timestamp += 1
+
+        return datetime.max.replace(tzinfo=self.timezone)
+
     def next(self) -> datetime | None:
         if self._last_fire_time:
             next_time = datetime.fromtimestamp(
@@ -251,10 +275,12 @@ class CronTrigger(Trigger):
                     if time_exists(next_time):
                         fieldnum += 1
                     else:
-                        # skip non-existent date
-                        next_time, fieldnum = self._increment_field_value(
-                            next_time, fieldnum
-                        )
+                        # The value was swallowed by a forward DST shift, so move on to
+                        # the first time that does exist and re-evaluate this field
+                        # against it: the shift may only have covered the beginning of
+                        # the field's range, in which case the requested fire time still
+                        # exists further along in it
+                        next_time = self._first_existing_time(next_time)
                 else:
                     next_time, fieldnum = self._increment_field_value(
                         next_time, fieldnum
