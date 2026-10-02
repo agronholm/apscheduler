@@ -34,6 +34,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``CronTrigger`` raising an unhelpful ``IndexError`` instead of a descriptive
   ``ValueError`` when given a numeric ``day_of_week`` value outside the 0–7 range
   (`#1130 <https://github.com/agronholm/apscheduler/pull/1130>`_; PR by @nikolauspschuetz)
+- Fixed ``CronTrigger`` silently ignoring trailing characters in special ``day``
+  expressions such as ``last/2`` and ``1st mon/2``
+  (`#1140 <https://github.com/agronholm/apscheduler/pull/1140>`_; PR by @jakezwang)
 
 **4.0.0a6**
 

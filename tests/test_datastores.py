@@ -5,7 +5,6 @@ from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from logging import Logger
-from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
@@ -904,15 +903,12 @@ class TestRepr:
     async def test_memory(self, memory_store: MemoryDataStore) -> None:
         assert repr(memory_store) == "MemoryDataStore()"
 
-    async def test_sqlite(self, tmp_path: Path) -> None:
+    async def test_sqlite(self) -> None:
         from sqlalchemy import create_engine
 
-        expected_path = str(tmp_path).replace("\\", "\\\\")
-        engine = create_engine(f"sqlite:///{tmp_path}")
+        engine = create_engine("sqlite:///test.db")
         data_store = SQLAlchemyDataStore(engine)
-        assert repr(data_store) == (
-            f"SQLAlchemyDataStore(url='sqlite:///{expected_path}')"
-        )
+        assert repr(data_store) == "SQLAlchemyDataStore(url='sqlite:///test.db')"
 
     async def test_psycopg(self) -> None:
         from sqlalchemy.ext.asyncio import create_async_engine
