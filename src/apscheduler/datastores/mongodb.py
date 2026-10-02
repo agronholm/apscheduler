@@ -198,7 +198,7 @@ class MongoDBDataStore(BaseExternalDataStore):
         server_info = await self._client.server_info()
         if server_info["versionArray"] < [4, 0]:
             raise RuntimeError(
-                f"MongoDB server must be at least v4.0; current version = "
+                "MongoDB server must be at least v4.0; current version = "
                 f"{server_info['version']}"
             )
 
