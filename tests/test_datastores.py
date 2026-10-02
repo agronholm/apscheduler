@@ -901,6 +901,7 @@ async def test_reap_abandoned_jobs(
     assert task.running_jobs == 0
 
 
+@pytest.mark.external_service
 async def test_mongodb_without_replica_set_config(
     local_broker: EventBroker, logger: Logger, mocker: MockFixture
 ) -> None:
