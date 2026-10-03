@@ -6,7 +6,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from logging import Logger
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest.mock import Mock
 
 import anyio
@@ -724,7 +724,8 @@ async def test_next_schedule_run_time_paused(
             task_id="task1",
             job_executor="async",
             trigger=DateTrigger(datetime(2000, 1, 1, tzinfo=timezone.utc)),
-            next_fire_time=fire_time,
+            # The converter accepts None for this nullable field at runtime.
+            next_fire_time=cast(datetime | str, fire_time),
             paused=paused,
         )
         await datastore.add_schedule(schedule, ConflictPolicy.exception)

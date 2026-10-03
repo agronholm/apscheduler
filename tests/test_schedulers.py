@@ -1047,8 +1047,9 @@ class TestAsyncScheduler:
         data_store = CountingMemoryDataStore()
         send, receive = create_memory_object_stream[JobReleased](1)
         with send, receive, fail_after(3):
+            # None disables cleanup; the attrs converter's input type omits it.
             async with AsyncScheduler(
-                data_store=data_store, cleanup_interval=None
+                data_store=data_store, cleanup_interval=cast(timedelta | int, None)
             ) as scheduler:
                 paused_time = datetime(2000, 1, 1, tzinfo=timezone.utc)
                 await scheduler.add_schedule(
