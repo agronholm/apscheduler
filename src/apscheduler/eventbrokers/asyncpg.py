@@ -110,7 +110,7 @@ class AsyncpgEventBroker(BaseExternalEventBroker):
     ) -> None:
         conn: Connection
 
-        def listen_callback(
+        async def listen_callback(
             connection: Connection, pid: int, channel: str, payload: str
         ) -> None:
             event = self.reconstitute_event_str(payload)
