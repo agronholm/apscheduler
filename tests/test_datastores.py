@@ -12,6 +12,7 @@ from unittest.mock import Mock
 import anyio
 import pytest
 from anyio import CancelScope
+from pytest_mock import MockFixture
 from pytest_mock.plugin import MockerFixture
 
 from apscheduler import (
@@ -898,6 +899,34 @@ async def test_reap_abandoned_jobs(
 
     task = await datastore.get_task("task1")
     assert task.running_jobs == 0
+
+
+@pytest.mark.external_service
+async def test_mongodb_without_replica_set_config(
+    local_broker: EventBroker, logger: Logger, mocker: MockFixture
+) -> None:
+    from pymongo.asynchronous.mongo_client import AsyncMongoClient
+
+    async with AsyncExitStack() as exit_stack:
+        client = await exit_stack.enter_async_context(AsyncMongoClient())
+        datastore = MongoDBDataStore(client)
+
+        mocker.patch.object(
+            datastore._database,
+            "command",
+            return_value={},
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="MongoDB must be configured with a replica set to"
+            " use transactions for document updates",
+        ):
+            await datastore.start(
+                exit_stack=exit_stack,
+                event_broker=local_broker,
+                logger=logger,
+            )
 
 
 class TestRepr:
