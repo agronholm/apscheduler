@@ -57,6 +57,7 @@ from apscheduler import (
     task,
 )
 from apscheduler._decorators import get_task_params
+from apscheduler._structures import MetadataType
 from apscheduler._utils import unset
 from apscheduler.abc import DataStore
 from apscheduler.datastores.base import BaseExternalDataStore
@@ -254,6 +255,7 @@ class TestAsyncScheduler:
 
     @pytest.mark.parametrize("use_alias", [False, True])
     async def test_decorator_configuration_isolated(self, use_alias: bool) -> None:
+        # JSON scalar lists are supported at runtime but omitted by MetadataType.
         declared_metadata = {"shared": ["decorator"], "declared": True}
 
         @task(
@@ -261,7 +263,7 @@ class TestAsyncScheduler:
             job_executor="async",
             max_running_jobs=1,
             misfire_grace_time=5,
-            metadata=declared_metadata,
+            metadata=cast(MetadataType, declared_metadata),
         )
         def taskfunc() -> None:
             pass
@@ -275,7 +277,7 @@ class TestAsyncScheduler:
                 job_executor="threadpool",
                 max_running_jobs=4,
                 misfire_grace_time=30,
-                metadata={"shared": ["first"], "first_only": True},
+                metadata=cast(MetadataType, {"shared": ["first"], "first_only": True}),
             )
             assert configured.id == ("first_alias" if use_alias else "declared")
             assert configured.job_executor == "threadpool"
@@ -460,7 +462,10 @@ class TestAsyncScheduler:
 
         # The first scheduler has fully exited before the second is created.
         with fail_after(3):
-            async with AsyncScheduler(cleanup_interval=None) as second:
+            # None disables cleanup; the attrs converter's input type omits it.
+            async with AsyncScheduler(
+                cleanup_interval=cast(timedelta | int, None)
+            ) as second:
                 if second_limit is None:
                     await second.configure_task(taskfunc)
                 else:
@@ -477,6 +482,7 @@ class TestAsyncScheduler:
                 release.set()
                 for job_id in jobs:
                     result = await second.get_job_result(job_id)
+                    assert result is not None
                     assert result.outcome is JobOutcome.success
 
                 await second.stop()
