@@ -8,6 +8,7 @@ from logging import Logger
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
+from urllib.parse import unquote
 
 import anyio
 import pytest
@@ -936,11 +937,11 @@ class TestRepr:
     async def test_sqlite(self, tmp_path: Path) -> None:
         from sqlalchemy import create_engine
 
-        expected_path = str(tmp_path).replace("\\", "\\\\")
         engine = create_engine(f"sqlite:///{tmp_path}")
         data_store = SQLAlchemyDataStore(engine)
-        assert repr(data_store) == (
-            f"SQLAlchemyDataStore(url='sqlite:///{expected_path}')"
+        data_store_repr = unquote(repr(data_store)).replace("\\\\", "\\")
+        assert data_store_repr == (
+            f"SQLAlchemyDataStore(url='sqlite:///{tmp_path}')"
         )
 
     async def test_psycopg(self) -> None:
