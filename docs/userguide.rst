@@ -458,6 +458,9 @@ schedule you want to pause as an argument. This is the ID you got from
 Pausing a schedule prevents any new jobs from being created from it, but does not cancel
 any jobs that have already been created from that schedule.
 
+The memory data store ignores paused schedules when determining the scheduler's next
+wake-up time, while retaining their next fire times for resuming them.
+
 The schedule can be unpaused by calling :meth:`~Scheduler.unpause_schedule` with the
 identifier of the schedule you want to unpause.
 

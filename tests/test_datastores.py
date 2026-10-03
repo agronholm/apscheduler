@@ -12,6 +12,7 @@ from unittest.mock import Mock
 import anyio
 import pytest
 from anyio import CancelScope
+from pytest_lazy_fixtures import lf
 from pytest_mock.plugin import MockerFixture
 
 from apscheduler import (
@@ -691,6 +692,55 @@ async def test_next_schedule_run_time(datastore: DataStore, schedules: list[Sche
 
     next_schedule_run_time = await datastore.get_next_schedule_run_time()
     assert next_schedule_run_time == datetime(2020, 9, 13, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize("raw_datastore", [lf("memory_store"), lf("aiosqlite_store")])
+@pytest.mark.parametrize(
+    "schedule_specs, expected",
+    [
+        pytest.param([], None, id="empty"),
+        pytest.param([(None, False)], None, id="exhausted"),
+        pytest.param([(2000, True)], None, id="paused-overdue"),
+        pytest.param([(2099, True)], None, id="paused-future"),
+        pytest.param([(2099, True), (2000, True)], None, id="all-paused"),
+        pytest.param([(2000, True), (2099, False)], 2099, id="paused-before-active"),
+        pytest.param([(2000, False), (2099, True)], 2000, id="active-before-paused"),
+        pytest.param(
+            [(2099, False), (2000, True), (None, False), (2098, False)],
+            2098,
+            id="mixed-active-ordering",
+        ),
+    ],
+)
+async def test_next_schedule_run_time_paused(
+    datastore: DataStore,
+    schedule_specs: list[tuple[int | None, bool]],
+    expected: int | None,
+) -> None:
+    for index, (year, paused) in enumerate(schedule_specs):
+        fire_time = datetime(year, 1, 1, tzinfo=timezone.utc) if year else None
+        schedule = Schedule(
+            id=str(index),
+            task_id="task1",
+            job_executor="async",
+            trigger=DateTrigger(datetime(2000, 1, 1, tzinfo=timezone.utc)),
+            next_fire_time=fire_time,
+            paused=paused,
+        )
+        await datastore.add_schedule(schedule, ConflictPolicy.exception)
+
+    assert await datastore.get_next_schedule_run_time() == (
+        datetime(expected, 1, 1, tzinfo=timezone.utc) if expected else None
+    )
+    # Querying must preserve paused schedules' fire times for resuming them.
+    stored_schedules = {
+        schedule.id: schedule for schedule in await datastore.get_schedules()
+    }
+    for index, (year, paused) in enumerate(schedule_specs):
+        assert stored_schedules[str(index)].paused is paused
+        assert stored_schedules[str(index)].next_fire_time == (
+            datetime(year, 1, 1, tzinfo=timezone.utc) if year else None
+        )
 
 
 @pytest.mark.skipif(

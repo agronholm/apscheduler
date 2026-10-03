@@ -1027,6 +1027,78 @@ class TestAsyncScheduler:
                 assert isinstance(job_added_event, JobAdded)
                 assert job_added_event.schedule_id == schedule_id
 
+    @pytest.mark.parametrize("wakeup", ["unpause", "add"])
+    async def test_paused_memory_schedule_waits(self, wakeup: str) -> None:
+        class CountingMemoryDataStore(MemoryDataStore):
+            acquisitions = 0
+
+            async def acquire_schedules(
+                self, scheduler_id: str, lease_duration: timedelta, limit: int
+            ) -> list:
+                self.acquisitions += 1
+                if self.acquisitions > 1:
+                    repeated_acquisition.set()
+
+                return await super().acquire_schedules(
+                    scheduler_id, lease_duration, limit
+                )
+
+        repeated_acquisition = anyio.Event()
+        data_store = CountingMemoryDataStore()
+        send, receive = create_memory_object_stream[JobReleased](1)
+        with send, receive, fail_after(3):
+            async with AsyncScheduler(
+                data_store=data_store, cleanup_interval=None
+            ) as scheduler:
+                paused_time = datetime(2000, 1, 1, tzinfo=timezone.utc)
+                await scheduler.add_schedule(
+                    dummy_async_job, DateTrigger(paused_time), id="paused", paused=True
+                )
+                if wakeup == "add":
+                    await scheduler.add_schedule(
+                        dummy_async_job,
+                        DateTrigger(datetime(2099, 1, 1, tzinfo=timezone.utc)),
+                        id="future",
+                    )
+
+                async def stop_on_repeated_acquisition() -> None:
+                    await repeated_acquisition.wait()
+                    await scheduler.stop()
+
+                # Bound a broken empty-poll loop by its second acquisition, rather
+                # than relying on a CPU measurement or a timed sleep.
+                async with anyio.create_task_group() as task_group:
+                    task_group.start_soon(stop_on_repeated_acquisition)
+                    await scheduler.start_in_background()
+                    await anyio.wait_all_tasks_blocked()
+                    task_group.cancel_scope.cancel()
+
+                assert data_store.acquisitions == 1
+                assert scheduler.state is RunState.started
+                assert not await scheduler.get_jobs()
+                assert (
+                    await scheduler.get_schedule("paused")
+                ).next_fire_time == paused_time
+                scheduler.subscribe(send.send, {JobReleased})
+                if wakeup == "unpause":
+                    await scheduler.unpause_schedule("paused")
+                    expected_schedule_id = "paused"
+                else:
+                    await scheduler.add_schedule(
+                        dummy_async_job, DateTrigger(paused_time), id="earlier"
+                    )
+                    expected_schedule_id = "earlier"
+
+                event = await receive.receive()
+                assert event.schedule_id == expected_schedule_id
+                assert event.outcome is JobOutcome.success
+                await anyio.wait_all_tasks_blocked()
+                assert data_store.acquisitions >= 2
+                assert not await scheduler.get_jobs()
+                await scheduler.stop()
+
+            assert scheduler.state is RunState.stopped
+
     async def test_schedule_job_result_expiration_time(
         self, raw_datastore: DataStore, timezone: ZoneInfo
     ) -> None:

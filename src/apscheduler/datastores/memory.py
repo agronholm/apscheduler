@@ -196,7 +196,11 @@ class MemoryDataStore(BaseDataStore):
             await self._event_broker.publish(event)
 
     async def get_next_schedule_run_time(self) -> datetime | None:
-        return self._schedules[0].next_fire_time if self._schedules else None
+        for schedule in self._schedules:
+            if not schedule.paused and schedule.next_fire_time is not None:
+                return schedule.next_fire_time
+
+        return None
 
     async def add_job(self, job: Job) -> None:
         self._jobs_by_id[job.id] = job
