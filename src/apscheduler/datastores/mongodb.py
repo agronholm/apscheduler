@@ -588,6 +588,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                                 **marshal_timestamp(acquired_until, "acquired_until"),
                             }
                         },
+                        session=session,
                     )
 
                     # If the number of modified jobs was smaller than expected, manually
@@ -711,6 +712,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                                     "acquired_until_utcoffset": True,
                                 },
                             },
+                            session=session,
                         )
 
         # Publish the appropriate events
