@@ -940,9 +940,7 @@ class TestRepr:
         engine = create_engine(f"sqlite:///{tmp_path}")
         data_store = SQLAlchemyDataStore(engine)
         data_store_repr = unquote(repr(data_store)).replace("\\\\", "\\")
-        assert data_store_repr == (
-            f"SQLAlchemyDataStore(url='sqlite:///{tmp_path}')"
-        )
+        assert data_store_repr == (f"SQLAlchemyDataStore(url='sqlite:///{tmp_path}')")
 
     async def test_psycopg(self) -> None:
         from sqlalchemy.ext.asyncio import create_async_engine
