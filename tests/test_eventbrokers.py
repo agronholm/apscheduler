@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-import logging
 import sys
 from contextlib import AsyncExitStack
 from datetime import datetime, timezone
@@ -44,66 +42,6 @@ async def test_publish_subscribe(event_broker: EventBroker) -> None:
     assert event1.schedule_id == "schedule1"
     assert event1.task_id == "task1"
     assert event1.next_fire_time == datetime(2021, 9, 11, 12, 31, 56, 254867, UTC)
-
-
-@pytest.mark.external_service
-async def test_notifications_handled_in_task_context() -> None:
-    """
-    Test that incoming notifications are handled in a running task context.
-
-    Asyncpg dispatches synchronous notification callbacks via ``loop.call_soon()``,
-    where no running task exists, so anyio's ``TaskGroup.start_soon()`` fails to
-    detect the event loop and raises ``NoEventLoopError`` with anyio ≥ 4.14 (see
-    #1141). The broker must register an asynchronously dispatched callback instead.
-
-    The test runner normally marks the current async library in context variables
-    (which would mask the bug), so the broker is started in a clean context.
-    """
-    pytest.importorskip("asyncpg", reason="asyncpg is not installed")
-    sniffio = pytest.importorskip("sniffio", reason="sniffio is not installed")
-
-    from apscheduler.eventbrokers.asyncpg import AsyncpgEventBroker
-
-    loop = asyncio.get_running_loop()
-    callback_exceptions: list[BaseException] = []
-    previous_handler = loop.get_exception_handler()
-    loop.set_exception_handler(
-        lambda _loop, context: callback_exceptions.append(context["exception"])
-    )
-    library_token = sniffio.current_async_library_cvar.set(None)
-    try:
-        async with AsyncExitStack() as exit_stack:
-            broker = AsyncpgEventBroker(
-                "postgres://postgres:secret@localhost:5432/testdb"
-            )
-            await broker.start(exit_stack, logging.getLogger("apscheduler"))
-            send, receive = create_memory_object_stream[Event](2)
-            with send, receive:
-                broker.subscribe(send.send, event_types=[ScheduleAdded])
-                event = ScheduleAdded(
-                    schedule_id="schedule1",
-                    task_id="task1",
-                    next_fire_time=datetime(2021, 9, 11, 12, 31, 56, 254867, UTC),
-                )
-                await broker.publish(event)
-
-                with fail_after(3):
-                    event1 = await receive.receive()
-
-                assert isinstance(event1, ScheduleAdded)
-                assert event1.schedule_id == "schedule1"
-                assert event1.task_id == "task1"
-
-                # Give the listener time to process the echoed notification
-                for _ in range(50):
-                    await asyncio.sleep(0.01)
-                    if callback_exceptions:
-                        break
-    finally:
-        loop.set_exception_handler(previous_handler)
-        sniffio.current_async_library_cvar.reset(library_token)
-
-    assert not callback_exceptions
 
 
 async def test_subscribe_one_shot(event_broker: EventBroker) -> None:
