@@ -34,6 +34,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``CronTrigger`` raising an unhelpful ``IndexError`` instead of a descriptive
   ``ValueError`` when given a numeric ``day_of_week`` value outside the 0–7 range
   (`#1130 <https://github.com/agronholm/apscheduler/pull/1130>`_; PR by @nikolauspschuetz)
+- Fixed ``AsyncpgEventBroker`` breaking with anyio ≥ 4.14 by handling incoming
+  notifications asynchronously, so they are dispatched in a running task context
+  (`#1141 <https://github.com/agronholm/apscheduler/issues/1141>`_)
 
 **4.0.0a6**
 
