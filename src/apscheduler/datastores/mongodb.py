@@ -18,7 +18,14 @@ import pymongo
 from attrs.validators import instance_of
 from bson import CodecOptions, UuidRepresentation
 from bson.codec_options import TypeEncoder, TypeRegistry
-from pymongo import ASCENDING, DeleteOne, ReadPreference, UpdateOne, WriteConcern
+from pymongo import (
+    ASCENDING,
+    DeleteOne,
+    InsertOne,
+    ReadPreference,
+    UpdateOne,
+    WriteConcern,
+)
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
@@ -93,6 +100,16 @@ def unmarshal_timestamps(document: dict[str, Any]) -> None:
             tzinfo = timezone(offset)
             time_micro = document[key[:-10]]
             document[key[:-10]] = datetime.fromtimestamp(time_micro, tzinfo)
+
+
+@attrs.define(eq=False, frozen=True)
+class _JobRelease:
+    result: JobResult
+    scheduler_id: str
+    task_id: str
+    schedule_id: str | None = None
+    scheduled_fire_time: datetime | None = None
+    decrement_running_job_count: bool = True
 
 
 @attrs.define(eq=False, repr=False)
@@ -611,6 +628,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                             ]
 
                     acquired_jobs: list[Job] = []
+                    release_jobs: list[_JobRelease] = []
                     skipped_job_ids: list[UUID] = []
                     for doc in documents:
                         # Deserialize the job
@@ -629,14 +647,13 @@ class MongoDBDataStore(BaseExternalDataStore):
                                 + timedelta(seconds=doc["result_expiration_time"]),
                                 exception=exc,
                             )
-                            events.append(
-                                await self._release_job(
-                                    session,
-                                    result,
-                                    scheduler_id,
-                                    doc["task_id"],
-                                    doc["schedule_id"],
-                                    doc["scheduled_fire_time"],
+                            release_jobs.append(
+                                _JobRelease(
+                                    result=result,
+                                    scheduler_id=scheduler_id,
+                                    task_id=doc["task_id"],
+                                    schedule_id=doc["schedule_id"],
+                                    scheduled_fire_time=doc["scheduled_fire_time"],
                                     decrement_running_job_count=False,
                                 )
                             )
@@ -649,14 +666,13 @@ class MongoDBDataStore(BaseExternalDataStore):
                                 JobOutcome.missed_start_deadline,
                                 finished_at=now,
                             )
-                            events.append(
-                                await self._release_job(
-                                    session,
-                                    result,
-                                    scheduler_id,
-                                    job.task_id,
-                                    job.schedule_id,
-                                    job.scheduled_fire_time,
+                            release_jobs.append(
+                                _JobRelease(
+                                    result=result,
+                                    scheduler_id=scheduler_id,
+                                    task_id=job.task_id,
+                                    schedule_id=job.schedule_id,
+                                    scheduled_fire_time=job.scheduled_fire_time,
                                     decrement_running_job_count=False,
                                 )
                             )
@@ -715,61 +731,101 @@ class MongoDBDataStore(BaseExternalDataStore):
                             session=session,
                         )
 
+                    # Release the jobs that could not start
+                    if release_jobs:
+                        events.extend(
+                            await self._release_jobs(session=session, jobs=release_jobs)
+                        )
+
         # Publish the appropriate events
         for event in events:
             await self._event_broker.publish(event)
 
         return acquired_jobs
 
-    async def _release_job(
+    async def _release_jobs(
         self,
         session: AsyncClientSession,
-        result: JobResult,
-        scheduler_id: str,
-        task_id: str,
-        schedule_id: str | None = None,
-        scheduled_fire_time: datetime | None = None,
-        *,
-        decrement_running_job_count: bool = True,
-    ) -> JobReleased:
-        # Record the job result
-        if result.expires_at > result.finished_at:
-            document = result.marshal(self.serializer)
-            document["_id"] = document.pop("job_id")
-            marshal_document(document)
-            await self._jobs_results.insert_one(document, session=session)
+        jobs: list[_JobRelease],
+    ) -> list[JobReleased]:
+        events: list[JobReleased] = []
+        jobs_results_ops: list[InsertOne] = []
+        jobs_ops: list[DeleteOne] = []
+        tasks_ops: list[UpdateOne] = []
 
-        # Delete the job
-        await self._jobs.delete_one({"_id": result.job_id}, session=session)
+        for job in jobs:
+            # Record the job result
+            if job.result.expires_at > job.result.finished_at:
+                document = job.result.marshal(self.serializer)
+                document["_id"] = document.pop("job_id")
+                marshal_document(document)
+                jobs_results_ops.append(InsertOne(document))
 
-        # Decrement the running jobs counter if the job had been successfully acquired
-        if decrement_running_job_count:
-            await self._tasks.find_one_and_update(
-                {"_id": task_id},
-                {"$inc": {"running_jobs": -1}},
-                session=session,
+            # Delete the job
+            jobs_ops.append(DeleteOne({"_id": job.result.job_id}))
+
+            # Decrement the running jobs counter if the job had been successfully acquired
+            if job.decrement_running_job_count:
+                tasks_ops.append(
+                    UpdateOne(
+                        {"_id": job.task_id},
+                        {"$inc": {"running_jobs": -1}},
+                    )
+                )
+
+            # Notify other schedulers
+            events.append(
+                JobReleased.from_result(
+                    job.result,
+                    job.scheduler_id,
+                    job.task_id,
+                    job.schedule_id,
+                    job.scheduled_fire_time,
+                )
             )
 
-        # Notify other schedulers
-        return JobReleased.from_result(
-            result, scheduler_id, task_id, schedule_id, scheduled_fire_time
-        )
+        if jobs_results_ops:
+            await self._jobs_results.bulk_write(jobs_results_ops, session=session)
+
+        if jobs_ops:
+            await self._jobs.bulk_write(jobs_ops, session=session)
+
+        if tasks_ops:
+            await self._tasks.bulk_write(tasks_ops, session=session)
+
+        return events
 
     async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
         async for attempt in self._retry():
             with attempt:
                 async with self._client.start_session() as session:
-                    event = await self._release_job(
-                        session,
-                        result,
-                        scheduler_id,
-                        job.task_id,
-                        job.schedule_id,
-                        job.scheduled_fire_time,
+                    # Record the job result
+                    if result.expires_at > result.finished_at:
+                        document = result.marshal(self.serializer)
+                        document["_id"] = document.pop("job_id")
+                        marshal_document(document)
+                        await self._jobs_results.insert_one(document, session=session)
+
+                    # Delete the job
+                    await self._jobs.delete_one({"_id": result.job_id}, session=session)
+
+                    # Decrement the running jobs counter if the job had been successfully acquired
+                    await self._tasks.find_one_and_update(
+                        {"_id": job.task_id},
+                        {"$inc": {"running_jobs": -1}},
+                        session=session,
                     )
 
                     # Notify other schedulers
-                    await self._event_broker.publish(event)
+                    await self._event_broker.publish(
+                        JobReleased.from_result(
+                            result,
+                            scheduler_id,
+                            job.task_id,
+                            job.schedule_id,
+                            job.scheduled_fire_time,
+                        )
+                    )
 
     async def get_job_result(self, job_id: UUID) -> JobResult | None:
         async for attempt in self._retry():
@@ -828,8 +884,10 @@ class MongoDBDataStore(BaseExternalDataStore):
                     self._jobs.find(
                         filter={"acquired_by": scheduler_id},
                         sort=[("created_at", ASCENDING)],
+                        session=session,
                     ) as cursor,
                 ):
+                    release_jobs: list[_JobRelease] = []
                     async for doc in cursor:
                         doc["id"] = doc.pop("_id")
                         unmarshal_timestamps(doc)
@@ -837,15 +895,20 @@ class MongoDBDataStore(BaseExternalDataStore):
                             self.serializer, {**doc, "args": (), "kwargs": {}}
                         )
                         result = JobResult.from_job(job, JobOutcome.abandoned)
-                        event = await self._release_job(
-                            session,
-                            result,
-                            scheduler_id,
-                            job.task_id,
-                            job.schedule_id,
-                            job.scheduled_fire_time,
+                        release_jobs.append(
+                            _JobRelease(
+                                result=result,
+                                scheduler_id=scheduler_id,
+                                task_id=job.task_id,
+                                schedule_id=job.schedule_id,
+                                scheduled_fire_time=job.scheduled_fire_time,
+                            )
                         )
-                        events.append(event)
+
+                    if release_jobs:
+                        events.extend(
+                            await self._release_jobs(session=session, jobs=release_jobs)
+                        )
 
             for event in events:
                 await self._event_broker.publish(event)
@@ -893,6 +956,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                             "result_expiration_time",
                         ],
                     ) as cursor:
+                        release_jobs: list[_JobRelease] = []
                         async for doc in cursor:
                             unmarshal_timestamps(doc)
                             result = JobResult(
@@ -902,14 +966,20 @@ class MongoDBDataStore(BaseExternalDataStore):
                                 expires_at=now
                                 + timedelta(seconds=doc["result_expiration_time"]),
                             )
-                            events.append(
-                                await self._release_job(
-                                    session,
-                                    result,
-                                    doc["acquired_by"],
-                                    doc["task_id"],
-                                    doc["schedule_id"],
-                                    doc["scheduled_fire_time"],
+                            release_jobs.append(
+                                _JobRelease(
+                                    result=result,
+                                    scheduler_id=doc["acquired_by"],
+                                    task_id=doc["task_id"],
+                                    schedule_id=doc["schedule_id"],
+                                    scheduled_fire_time=doc["scheduled_fire_time"],
+                                )
+                            )
+
+                        if release_jobs:
+                            events.extend(
+                                await self._release_jobs(
+                                    session=session, jobs=release_jobs
                                 )
                             )
 
