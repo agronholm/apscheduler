@@ -6,8 +6,6 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
-- Fixed paused schedules causing repeated wake-ups in the memory data store
-  (`#975 <https://github.com/agronholm/apscheduler/issues/975>`_; PR by @lllleolin-max)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
@@ -36,6 +34,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``CronTrigger`` raising an unhelpful ``IndexError`` instead of a descriptive
   ``ValueError`` when given a numeric ``day_of_week`` value outside the 0–7 range
   (`#1130 <https://github.com/agronholm/apscheduler/pull/1130>`_; PR by @nikolauspschuetz)
+- Fixed paused schedules causing repeated wake-ups in the memory data store
+  (`#975 <https://github.com/agronholm/apscheduler/issues/975>`_; PR by @lllleolin-max)
 
 **4.0.0a6**
 
