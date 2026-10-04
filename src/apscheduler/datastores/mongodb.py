@@ -343,36 +343,29 @@ class MongoDBDataStore(BaseExternalDataStore):
                         self._client.start_session()
                     )
                     now = datetime.now(timezone.utc)
-                    cursor = await exit_stack.enter_async_context(
-                        self._schedules.find(
-                            {
-                                "next_fire_time": {"$lte": now.timestamp()},
-                                "$and": [
-                                    {
-                                        "$or": [
-                                            {"paused": {"$exists": False}},
-                                            {"paused": False},
-                                        ]
-                                    },
-                                    {
-                                        "$or": [
-                                            {"acquired_by": scheduler_id},
-                                            {"acquired_until": {"$exists": False}},
-                                            {
-                                                "acquired_until": {
-                                                    "$lt": now.timestamp()
-                                                }
-                                            },
-                                        ]
-                                    },
-                                ],
-                            },
-                            session=session,
-                        )
-                        .sort("next_fire_time")
-                        .limit(limit - len(schedules))
-                    )
-                    documents = [doc async for doc in cursor]
+                    documents = await self._schedules.find(
+                        {
+                            "next_fire_time": {"$lte": now.timestamp()},
+                            "$and": [
+                                {
+                                    "$or": [
+                                        {"paused": {"$exists": False}},
+                                        {"paused": False},
+                                    ]
+                                },
+                                {
+                                    "$or": [
+                                        {"acquired_by": scheduler_id},
+                                        {"acquired_until": {"$exists": False}},
+                                        {"acquired_until": {"$lt": now.timestamp()}},
+                                    ]
+                                },
+                            ],
+                        },
+                        sort=[("next_fire_time", ASCENDING)],
+                        limit=limit - len(schedules),
+                        session=session,
+                    ).to_list()
 
                     # Bail out if there are no more schedules to be acquired
                     if not documents:
@@ -549,7 +542,7 @@ class MongoDBDataStore(BaseExternalDataStore):
 
                 # Fetch up to {limit} jobs
                 now = datetime.now(timezone.utc)
-                async with self._jobs.find(
+                documents = await self._jobs.find(
                     {
                         "$or": [
                             {"acquired_until": {"$exists": False}},
@@ -559,8 +552,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                     sort=[("created_at", ASCENDING)],
                     limit=limit,
                     session=session,
-                ) as cursor:
-                    documents = [doc async for doc in cursor]
+                ).to_list()
 
                 # Mark them as acquired by this scheduler
                 acquired_until = now + lease_duration

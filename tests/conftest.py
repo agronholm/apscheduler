@@ -9,6 +9,7 @@ from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pytest
+import sniffio
 from _pytest.fixtures import SubRequest
 from pytest_lazy_fixtures import lf
 
@@ -123,9 +124,15 @@ async def raw_event_broker(request: SubRequest) -> EventBroker:
 async def event_broker(
     raw_event_broker: EventBroker, logger: Logger
 ) -> AsyncGenerator[EventBroker, Any]:
-    async with AsyncExitStack() as exit_stack:
-        await raw_event_broker.start(exit_stack, logger)
-        yield raw_event_broker
+    # Clear sniffio's cvar (set by the anyio pytest plugin) so the broker runs as it
+    # would in production (e.g. under uvicorn); see #1141
+    token = sniffio.current_async_library_cvar.set(None)
+    try:
+        async with AsyncExitStack() as exit_stack:
+            await raw_event_broker.start(exit_stack, logger)
+            yield raw_event_broker
+    finally:
+        sniffio.current_async_library_cvar.reset(token)
 
 
 @pytest.fixture

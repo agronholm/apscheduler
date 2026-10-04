@@ -37,6 +37,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``CronTrigger`` silently ignoring trailing characters in special ``day``
   expressions such as ``last/2`` and ``1st mon/2``
   (`#1140 <https://github.com/agronholm/apscheduler/pull/1140>`_; PR by @jakezwang)
+- Fixed ``AsyncpgEventBroker`` raising ``NoEventLoopError`` with AnyIO ≥ 4.14 on
+  incoming notifications
+  (`#1141 <https://github.com/agronholm/apscheduler/issues/1141>`_)
 
 **4.0.0a6**
 

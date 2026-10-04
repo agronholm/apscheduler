@@ -5,8 +5,10 @@ from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from logging import Logger
+from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
+from urllib.parse import unquote
 
 import anyio
 import pytest
@@ -903,12 +905,13 @@ class TestRepr:
     async def test_memory(self, memory_store: MemoryDataStore) -> None:
         assert repr(memory_store) == "MemoryDataStore()"
 
-    async def test_sqlite(self) -> None:
+    async def test_sqlite(self, tmp_path: Path) -> None:
         from sqlalchemy import create_engine
 
-        engine = create_engine("sqlite:///test.db")
+        engine = create_engine(f"sqlite:///{tmp_path}")
         data_store = SQLAlchemyDataStore(engine)
-        assert repr(data_store) == "SQLAlchemyDataStore(url='sqlite:///test.db')"
+        data_store_repr = unquote(repr(data_store)).replace("\\\\", "\\")
+        assert data_store_repr == (f"SQLAlchemyDataStore(url='sqlite:///{tmp_path}')")
 
     async def test_psycopg(self) -> None:
         from sqlalchemy.ext.asyncio import create_async_engine
