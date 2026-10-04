@@ -13,6 +13,7 @@ from urllib.parse import unquote
 import anyio
 import pytest
 from anyio import CancelScope
+from pytest_lazy_fixtures import lf
 from pytest_mock.plugin import MockerFixture
 
 from apscheduler import (
@@ -693,8 +694,15 @@ async def test_next_schedule_run_time(datastore: DataStore, schedules: list[Sche
     next_schedule_run_time = await datastore.get_next_schedule_run_time()
     assert next_schedule_run_time == datetime(2020, 9, 13, tzinfo=timezone.utc)
 
+
+@pytest.mark.parametrize("raw_datastore", [lf("memory_store")], ids=["memory"])
+async def test_next_schedule_run_time_paused(
+    datastore: DataStore, schedules: list[Schedule]
+) -> None:
     schedules[0].paused = True
-    await datastore.add_schedule(schedules[0], ConflictPolicy.replace)
+    for schedule in schedules:
+        await datastore.add_schedule(schedule, ConflictPolicy.exception)
+
     assert await datastore.get_next_schedule_run_time() == datetime(
         2020, 9, 14, tzinfo=timezone.utc
     )
@@ -923,9 +931,7 @@ class TestRepr:
         engine = create_engine(f"sqlite:///{tmp_path}")
         data_store = SQLAlchemyDataStore(engine)
         data_store_repr = unquote(repr(data_store)).replace("\\\\", "\\")
-        assert data_store_repr == (
-            f"SQLAlchemyDataStore(url='sqlite:///{tmp_path}')"
-        )
+        assert data_store_repr == (f"SQLAlchemyDataStore(url='sqlite:///{tmp_path}')")
 
     async def test_psycopg(self) -> None:
         from sqlalchemy.ext.asyncio import create_async_engine
