@@ -37,6 +37,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``CronTrigger`` skipping a fire time that still exists when a forward DST
   shift covers only the beginning of the requested hour (e.g. the 30 minute shift in
   ``Australia/Lord_Howe``)
+- Fixed ``AsyncpgEventBroker`` raising ``NoEventLoopError`` with AnyIO ≥ 4.14 on
+  incoming notifications
+  (`#1141 <https://github.com/agronholm/apscheduler/issues/1141>`_)
 
 **4.0.0a6**
 
