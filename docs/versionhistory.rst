@@ -39,6 +39,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1141 <https://github.com/agronholm/apscheduler/issues/1141>`_)
 - Fixed keyword arguments passed to ``add_job()`` and ``add_schedule()`` being
   overwritten by keywords bound to a ``functools.partial`` callable
+  (`#1152 <https://github.com/agronholm/apscheduler/pull/1152>`_; PR by @FanWu-ai)
 
 **4.0.0a6**
 
