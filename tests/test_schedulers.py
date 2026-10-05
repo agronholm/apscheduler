@@ -490,6 +490,42 @@ class TestAsyncScheduler:
                 assert result.outcome is JobOutcome.success
                 assert result.return_value == expected_result
 
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    async def test_partial_keyword_override(
+        self, use_scheduling: bool, raw_datastore: DataStore
+    ) -> None:
+        target: partial[dict[str, Any]] = partial(dict, value="default", preserved=True)
+        kwargs = {"value": "override", "extra": 42}
+        expected_result = target(**kwargs)
+        send, receive = create_memory_object_stream[Event](1)
+        with send, receive:
+            async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+                scheduler.subscribe(send.send, {JobReleased})
+                if use_scheduling:
+                    await scheduler.add_schedule(
+                        target,
+                        DateTrigger(datetime.now(UTC)),
+                        kwargs=kwargs,
+                        job_result_expiration_time=10,
+                    )
+                else:
+                    await scheduler.add_job(
+                        target, kwargs=kwargs, result_expiration_time=10
+                    )
+
+                await scheduler.start_in_background()
+                with fail_after(3):
+                    event = await receive.receive()
+                    assert isinstance(event, JobReleased)
+
+                result = await scheduler.get_job_result(event.job_id)
+                assert result
+                assert result.outcome is JobOutcome.success
+                assert result.return_value == expected_result
+
+        assert target.keywords == {"value": "default", "preserved": True}
+        assert kwargs == {"value": "override", "extra": 42}
+
     async def test_scheduled_job_missed_deadline(
         self, raw_datastore: DataStore, timezone: ZoneInfo
     ) -> None:

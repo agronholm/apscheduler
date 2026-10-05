@@ -517,7 +517,7 @@ class AsyncScheduler:
         # Unpack the function and positional + keyword arguments from a partial()
         if isinstance(func_or_task_id, partial):
             args = func_or_task_id.args + args
-            kwargs.update(func_or_task_id.keywords)
+            kwargs = {**func_or_task_id.keywords, **kwargs}
             func_or_task_id = func_or_task_id.func
 
         # For instance methods, use the unbound function as the function, and  the
@@ -685,7 +685,7 @@ class AsyncScheduler:
         # Unpack the function and positional + keyword arguments from a partial()
         if isinstance(func_or_task_id, partial):
             args = func_or_task_id.args + args
-            kwargs.update(func_or_task_id.keywords)
+            kwargs = {**func_or_task_id.keywords, **kwargs}
             func_or_task_id = func_or_task_id.func
 
         # For instance methods, use the unbound function as the function, and  the
