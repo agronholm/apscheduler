@@ -358,6 +358,10 @@ class AsyncScheduler:
             if func is unset:
                 func = func_or_task_id
         elif isinstance(func_or_task_id, Task):
+            # Carry over the callable reference stored on the task, otherwise the
+            # configured task would end up with func=None and the scheduler would
+            # fail to look up the callable when the job runs (#1001).
+            func_ref = func_or_task_id.func
             task_params = TaskParameters(
                 id=func_or_task_id.id,
                 job_executor=func_or_task_id.job_executor,

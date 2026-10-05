@@ -16,6 +16,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
 - Fixed jobs that were being run when the scheduler was gracefully stopped being left in
   an acquired state (`#946 <https://github.com/agronholm/apscheduler/issues/946>`_)
+- Fixed ``configure_task()`` dropping the callable reference when passed a ``Task``
+  object, causing the configured task to be stored with ``func=None``
+  (`#1001 <https://github.com/agronholm/apscheduler/issues/1001>`_)
 - Fixed the documented ``psycopg`` extra not being declared in the project metadata, so
   ``pip install apscheduler[psycopg]`` silently installed nothing for the Psycopg event
   broker (`#1133 <https://github.com/agronholm/apscheduler/issues/1133>`_)
