@@ -368,6 +368,10 @@ If the callable you're trying to schedule is either a lambda or a nested functio
 you need to explicitly create a task beforehand, as it is not possible to create a
 reference (``package.module:varname``) to these types of callables.
 
+When passing a :func:`functools.partial` to :meth:`Scheduler.add_schedule` or
+:meth:`Scheduler.add_job`, keyword arguments passed in ``kwargs`` override matching
+keywords bound by the partial, just as when calling the partial directly.
+
 The trigger determines the scheduling logic for your schedule. In other words, it is
 used to calculate the datetimes on which the task will be run. APScheduler comes with a
 number of built-in trigger classes:
