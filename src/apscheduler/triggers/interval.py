@@ -55,6 +55,12 @@ class IntervalTrigger(Trigger):
     )
 
     def __attrs_post_init__(self) -> None:
+        # bool subclasses int; seconds=True would silently become 1 second
+        for field in ("weeks", "days", "hours", "minutes", "seconds", "microseconds"):
+            value = getattr(self, field)
+            if isinstance(value, bool):
+                raise TypeError(f"{field} must be a number, not bool (got {value!r})")
+
         self._interval = timedelta(
             weeks=self.weeks,
             days=self.days,
