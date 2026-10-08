@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import sys
 from contextlib import AsyncExitStack
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from logging import Logger
 
 import pytest
@@ -11,11 +10,6 @@ from anyio import CancelScope, create_memory_object_stream, fail_after
 
 from apscheduler import Event, ScheduleAdded
 from apscheduler.abc import EventBroker
-
-if sys.version_info >= (3, 11):
-    from datetime import UTC
-else:
-    UTC = timezone.utc
 
 pytestmark = pytest.mark.anyio
 

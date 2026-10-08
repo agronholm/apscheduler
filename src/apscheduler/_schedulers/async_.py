@@ -3,15 +3,14 @@ from __future__ import annotations
 import os
 import platform
 import random
-import sys
 from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from contextlib import AsyncExitStack
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from inspect import isbuiltin, isclass, ismethod, ismodule
 from logging import Logger, getLogger
 from types import TracebackType
-from typing import Any, Literal, TypeAlias, TypeVar, cast, overload
+from typing import Any, Literal, Self, TypeAlias, TypeVar, cast, overload
 from uuid import UUID, uuid4
 
 import anyio
@@ -67,11 +66,6 @@ from ..eventbrokers.local import LocalEventBroker
 from ..executors.async_ import AsyncJobExecutor
 from ..executors.subprocess import ProcessPoolJobExecutor
 from ..executors.thread import ThreadPoolJobExecutor
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 _microsecond_delta = timedelta(microseconds=1)
 _zero_timedelta = timedelta()
@@ -625,7 +619,7 @@ class AsyncScheduler:
         schedule = await self.get_schedule(id)
 
         if resume_from == "now":
-            resume_from = datetime.now(tz=timezone.utc)
+            resume_from = datetime.now(tz=UTC)
 
         if resume_from is None:
             next_fire_time = schedule.next_fire_time
@@ -969,7 +963,7 @@ class AsyncScheduler:
                     )
                     exit_stack.callback(tg.cancel_scope.cancel)
 
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(UTC)
                     results: list[ScheduleResult] = []
                     for schedule in schedules:
                         # Calculate a next fire time for the schedule, if possible
@@ -1072,7 +1066,7 @@ class AsyncScheduler:
                     wakeup_deadline = await self.data_store.get_next_schedule_run_time()
                     if wakeup_deadline:
                         wait_time = (
-                            wakeup_deadline - datetime.now(timezone.utc)
+                            wakeup_deadline - datetime.now(UTC)
                         ).total_seconds()
                         self.logger.debug(
                             "Sleeping %.3f seconds until the next fire time (%s)",
@@ -1178,7 +1172,7 @@ class AsyncScheduler:
     async def _run_job(self, job: Job, func: Callable[..., Any], executor: str) -> None:
         try:
             # Check if the job started before the deadline
-            start_time = datetime.now(timezone.utc)
+            start_time = datetime.now(UTC)
             if job.start_deadline is not None and start_time > job.start_deadline:
                 result = JobResult.from_job(
                     job, JobOutcome.missed_start_deadline, finished_at=start_time
