@@ -49,6 +49,7 @@ from apscheduler import (
     SchedulerStarted,
     SchedulerStopped,
     ScheduleUpdated,
+    Task,
     TaskAdded,
     TaskDefaults,
     TaskUpdated,
@@ -56,6 +57,9 @@ from apscheduler import (
     current_job,
     task,
 )
+from apscheduler._decorators import get_task_params
+from apscheduler._structures import MetadataType
+from apscheduler._utils import unset
 from apscheduler.abc import DataStore
 from apscheduler.datastores.base import BaseExternalDataStore
 from apscheduler.datastores.memory import MemoryDataStore
@@ -92,6 +96,11 @@ def dummy_sync_job(delay: float = 0, fail: bool = False) -> str:
     misfire_grace_time=timedelta(seconds=6),
 )
 def decorated_job() -> None:
+    pass
+
+
+@task(max_running_jobs=1, metadata={"declared": True})
+def shared_decorated_job() -> None:
     pass
 
 
@@ -236,6 +245,245 @@ class TestAsyncScheduler:
             assert tasks[0].misfire_grace_time == timedelta(seconds=6)
             assert tasks[0].job_executor == "threadpool"
             assert tasks[0].metadata == {"global": "foo", "local": 6, "direct": [1, 9]}
+
+    @pytest.mark.parametrize("use_alias", [False, True])
+    async def test_decorator_configuration_isolated(self, use_alias: bool) -> None:
+        # JSON scalar lists are supported at runtime but omitted by MetadataType.
+        declared_metadata = {"shared": ["decorator"], "declared": True}
+
+        @task(
+            id="declared",
+            job_executor="async",
+            max_running_jobs=1,
+            misfire_grace_time=5,
+            metadata=cast(MetadataType, declared_metadata),
+        )
+        def taskfunc() -> None:
+            pass
+
+        async with AsyncScheduler(
+            task_defaults=TaskDefaults(metadata={"first_default": True})
+        ) as first:
+            configured = await first.configure_task(
+                "first_alias" if use_alias else taskfunc,
+                func=taskfunc,
+                job_executor="threadpool",
+                max_running_jobs=4,
+                misfire_grace_time=30,
+                metadata=cast(MetadataType, {"shared": ["first"], "first_only": True}),
+            )
+            assert configured.id == ("first_alias" if use_alias else "declared")
+            assert configured.job_executor == "threadpool"
+            assert configured.max_running_jobs == 4
+            assert configured.misfire_grace_time == timedelta(seconds=30)
+            assert configured.metadata == {
+                "first_default": True,
+                "shared": ["first"],
+                "declared": True,
+                "first_only": True,
+            }
+
+        async with AsyncScheduler(
+            task_defaults=TaskDefaults(
+                job_executor="processpool",
+                max_running_jobs=9,
+                misfire_grace_time=60,
+                metadata={"second_default": True},
+            )
+        ) as second:
+            configured = await second.configure_task(taskfunc)
+            assert configured.id == "declared"
+            assert configured.job_executor == "async"
+            assert configured.max_running_jobs == 1
+            assert configured.misfire_grace_time == timedelta(seconds=5)
+            assert configured.metadata == {
+                "second_default": True,
+                "shared": ["decorator"],
+                "declared": True,
+            }
+            configured.metadata["task_only"] = True
+            assert declared_metadata == {"shared": ["decorator"], "declared": True}
+
+    @pytest.mark.parametrize("decorate", [False, True])
+    async def test_decorator_scheduler_defaults_isolated(self, decorate: bool) -> None:
+        def taskfunc() -> None:
+            pass
+
+        if decorate:
+            taskfunc = task(metadata={"declared": True})(taskfunc)
+
+        async with AsyncScheduler(
+            task_defaults=TaskDefaults(
+                job_executor="threadpool",
+                max_running_jobs=4,
+                misfire_grace_time=30,
+                metadata={"first": True},
+            )
+        ) as first:
+            configured = await first.configure_task("task", func=taskfunc)
+            assert configured.job_executor == "threadpool"
+            assert configured.max_running_jobs == 4
+            assert configured.misfire_grace_time == timedelta(seconds=30)
+
+        async with AsyncScheduler(
+            task_defaults=TaskDefaults(
+                job_executor="async",
+                max_running_jobs=2,
+                misfire_grace_time=8,
+                metadata={"second": True},
+            )
+        ) as second:
+            configured = await second.configure_task("task", func=taskfunc)
+            assert configured.job_executor == "async"
+            assert configured.max_running_jobs == 2
+            assert configured.misfire_grace_time == timedelta(seconds=8)
+            assert configured.metadata == (
+                {"second": True, "declared": True} if decorate else {"second": True}
+            )
+
+        if decorate:
+            declaration = get_task_params(taskfunc)
+            assert declaration.id is unset
+            assert declaration.job_executor is unset
+            assert declaration.max_running_jobs is unset
+            assert declaration.misfire_grace_time is unset
+            assert declaration.metadata == {"declared": True}
+
+    async def test_decorator_alias_ids_isolated(self) -> None:
+        async with AsyncScheduler() as first:
+            await first.configure_task(
+                "first_alias",
+                func=shared_decorated_job,
+                max_running_jobs=4,
+                metadata={"first": True},
+            )
+            second_alias = await first.configure_task(
+                "second_alias", func=shared_decorated_job
+            )
+            # Existing string-ID updates retain their explicit settings.
+            updated = await first.configure_task("first_alias", misfire_grace_time=8)
+            await first.add_job("first_alias")
+            assert (await first.get_tasks())[0] == updated
+            assert updated.max_running_jobs == 4
+            assert updated.misfire_grace_time == timedelta(seconds=8)
+            assert updated.metadata == {"declared": True, "first": True}
+
+        async with AsyncScheduler() as second:
+            configured = await second.configure_task(shared_decorated_job)
+            assert configured.id == f"{__name__}:shared_decorated_job"
+            assert configured.max_running_jobs == 1
+            assert configured.metadata == {"declared": True}
+
+        assert second_alias.id == "second_alias"
+        assert second_alias.max_running_jobs == 1
+        assert second_alias.metadata == {"declared": True}
+        assert get_task_params(shared_decorated_job).id is unset
+
+    async def test_decorator_repeated_configuration_isolated(self) -> None:
+        @task(id="task", max_running_jobs=1, metadata={"declared": True})
+        def taskfunc() -> None:
+            pass
+
+        async with AsyncScheduler() as scheduler:
+            await scheduler.configure_task(
+                taskfunc, max_running_jobs=4, metadata={"first": True}
+            )
+            configured = await scheduler.configure_task(taskfunc)
+            assert configured.max_running_jobs == 1
+            assert configured.metadata == {"declared": True}
+            assert await scheduler.configure_task(taskfunc) == configured
+
+    async def test_decorator_none_defaults(self) -> None:
+        @task(id="task", max_running_jobs=None, misfire_grace_time=None)
+        def taskfunc() -> None:
+            pass
+
+        async with AsyncScheduler(
+            task_defaults=TaskDefaults(max_running_jobs=4, misfire_grace_time=30)
+        ) as scheduler:
+            configured = await scheduler.configure_task(taskfunc)
+            assert configured.max_running_jobs is None
+            assert configured.misfire_grace_time is None
+
+    async def test_decorator_task_object_control(self) -> None:
+        original = Task(
+            id="task",
+            func=None,
+            job_executor="threadpool",
+            max_running_jobs=2,
+            misfire_grace_time=8,
+            metadata={"original": True},
+        )
+        async with AsyncScheduler() as scheduler:
+            configured = await scheduler.configure_task(original, func=dummy_async_job)
+            assert configured.func == f"{__name__}:dummy_async_job"
+            assert configured.job_executor == "threadpool"
+            assert configured.max_running_jobs == 2
+            assert configured.misfire_grace_time == timedelta(seconds=8)
+            assert configured.metadata == {"original": True}
+            updated = await scheduler.configure_task("task", max_running_jobs=3)
+            assert updated.func == configured.func
+            assert updated.max_running_jobs == 3
+            assert original.max_running_jobs == 2
+
+    @pytest.mark.parametrize(
+        "first_override, second_limit", [(True, None), (False, None), (True, 2)]
+    )
+    async def test_decorator_execution_limit_isolated(
+        self, first_override: bool, second_limit: int | None
+    ) -> None:
+        running = peak = 0
+        started = anyio.Event()
+        release = anyio.Event()
+
+        @task(id="shared", max_running_jobs=1)
+        async def taskfunc() -> None:
+            nonlocal running, peak
+            running += 1
+            peak = max(peak, running)
+            started.set()
+            try:
+                await release.wait()
+            finally:
+                running -= 1
+
+        async with AsyncScheduler() as first:
+            if first_override:
+                await first.configure_task(taskfunc, max_running_jobs=4)
+            else:
+                await first.configure_task(taskfunc)
+
+        # The first scheduler has fully exited before the second is created.
+        with fail_after(3):
+            # None disables cleanup; the attrs converter's input type omits it.
+            async with AsyncScheduler(
+                cleanup_interval=cast(timedelta | int, None)
+            ) as second:
+                if second_limit is None:
+                    await second.configure_task(taskfunc)
+                else:
+                    await second.configure_task(taskfunc, max_running_jobs=second_limit)
+
+                jobs = [
+                    await second.add_job("shared", result_expiration_time=60)
+                    for _ in range(4)
+                ]
+                await second.start_in_background()
+                await started.wait()
+                await anyio.wait_all_tasks_blocked()
+                observed_peak = peak
+                release.set()
+                for job_id in jobs:
+                    result = await second.get_job_result(job_id)
+                    assert result is not None
+                    assert result.outcome is JobOutcome.success
+
+                await second.stop()
+
+            assert second.state is RunState.stopped
+
+        assert running == 0
+        assert observed_peak == (second_limit if second_limit is not None else 1)
 
     async def test_add_pause_unpause_remove_schedule(
         self, raw_datastore: DataStore, timezone: ZoneInfo
@@ -1199,6 +1447,30 @@ class TestAsyncScheduler:
 
 
 class TestSyncScheduler:
+    def test_decorator_configuration_isolated(self) -> None:
+        @task(
+            id="task",
+            max_running_jobs=1,
+            misfire_grace_time=5,
+            metadata={"declared": True},
+        )
+        def taskfunc() -> None:
+            pass
+
+        with Scheduler() as first:
+            first.configure_task(
+                taskfunc,
+                max_running_jobs=4,
+                misfire_grace_time=30,
+                metadata={"first": True},
+            )
+
+        with Scheduler() as second:
+            configured = second.configure_task(taskfunc)
+            assert configured.max_running_jobs == 1
+            assert configured.misfire_grace_time == timedelta(seconds=5)
+            assert configured.metadata == {"declared": True}
+
     def test_interface_parity(self) -> None:
         """
         Ensure that the sync scheduler has the same properties and methods as the async
