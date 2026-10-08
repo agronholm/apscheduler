@@ -607,6 +607,7 @@ class TestAsyncScheduler:
             with pytest.raises(WouldBlock):
                 receive.receive_nowait()
 
+
 async def test_trigger_error(self) -> None:
     start_time = datetime.now(UTC) - timedelta(seconds=5)
     # Yields one fire time, then raises MaxIterationsReached on the next call
@@ -621,7 +622,9 @@ async def test_trigger_error(self) -> None:
     with send, receive:
         async with AsyncScheduler(role=SchedulerRole.scheduler) as scheduler:
             await scheduler.add_schedule(
-                dummy_async_job, IntervalTrigger(minutes=1, start_time=start_time), id="ok"
+                dummy_async_job,
+                IntervalTrigger(minutes=1, start_time=start_time),
+                id="ok",
             )
             await scheduler.add_schedule(dummy_async_job, failing_trigger, id="failing")
             scheduler.subscribe(send.send, ScheduleUpdated)
