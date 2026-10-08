@@ -13,6 +13,7 @@ from urllib.parse import unquote
 import anyio
 import pytest
 from anyio import CancelScope
+from pytest_lazy_fixtures import lf
 from pytest_mock.plugin import MockerFixture
 
 from apscheduler import (
@@ -692,6 +693,25 @@ async def test_next_schedule_run_time(datastore: DataStore, schedules: list[Sche
 
     next_schedule_run_time = await datastore.get_next_schedule_run_time()
     assert next_schedule_run_time == datetime(2020, 9, 13, tzinfo=UTC)
+
+
+@pytest.mark.parametrize("raw_datastore", [lf("memory_store")], ids=["memory"])
+async def test_next_schedule_run_time_paused(
+    datastore: DataStore, schedules: list[Schedule]
+) -> None:
+    schedules[0].paused = True
+    for schedule in schedules:
+        await datastore.add_schedule(schedule, ConflictPolicy.exception)
+
+    assert await datastore.get_next_schedule_run_time() == datetime(
+        2020, 9, 14, tzinfo=timezone.utc
+    )
+
+    for schedule in schedules[1:]:
+        schedule.paused = True
+        await datastore.add_schedule(schedule, ConflictPolicy.replace)
+
+    assert await datastore.get_next_schedule_run_time() is None
 
 
 @pytest.mark.skipif(

@@ -37,6 +37,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``AsyncpgEventBroker`` raising ``NoEventLoopError`` with AnyIO ≥ 4.14 on
   incoming notifications
   (`#1141 <https://github.com/agronholm/apscheduler/issues/1141>`_)
+- Fixed paused schedules causing repeated wake-ups in the memory data store
+  (`#975 <https://github.com/agronholm/apscheduler/issues/975>`_; PR by @lllleolin-max)
 
 **4.0.0a6**
 
