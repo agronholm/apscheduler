@@ -63,6 +63,7 @@ from apscheduler.eventbrokers.local import LocalEventBroker
 from apscheduler.executors.async_ import AsyncJobExecutor
 from apscheduler.executors.subprocess import ProcessPoolJobExecutor
 from apscheduler.executors.thread import ThreadPoolJobExecutor
+from apscheduler.triggers.combining import AndTrigger
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -605,6 +606,74 @@ class TestAsyncScheduler:
             # There should be no more events on the list
             with pytest.raises(WouldBlock):
                 receive.receive_nowait()
+
+    @pytest.mark.parametrize("preceding_schedule", [False, True])
+    @pytest.mark.parametrize("max_jitter", [None, 1])
+    async def test_trigger_error(
+        self,
+        raw_datastore: DataStore,
+        preceding_schedule: bool,
+        max_jitter: int | None,
+    ) -> None:
+        start_time = datetime.now(UTC) - timedelta(seconds=5)
+        trigger = AndTrigger(
+            [
+                IntervalTrigger(minutes=2, start_time=start_time),
+                IntervalTrigger(minutes=3, start_time=start_time),
+            ],
+            threshold=0,
+            max_iterations=1,
+        )
+        send, receive = create_memory_object_stream[ScheduleUpdated](3)
+        with send, receive:
+            async with AsyncScheduler(
+                data_store=raw_datastore,
+                role=SchedulerRole.scheduler,
+                cleanup_interval=None,
+            ) as scheduler:
+                if preceding_schedule:
+                    await scheduler.add_schedule(
+                        dummy_async_job,
+                        IntervalTrigger(
+                            minutes=1, start_time=start_time - timedelta(seconds=1)
+                        ),
+                        id="preceding",
+                    )
+
+                await scheduler.add_schedule(
+                    dummy_async_job, trigger, id="failing", max_jitter=max_jitter
+                )
+                await scheduler.add_schedule(
+                    dummy_async_job,
+                    DateTrigger(start_time + timedelta(seconds=1)),
+                    id="following",
+                )
+                scheduler.subscribe(send.send, ScheduleUpdated)
+                await scheduler.start_in_background()
+
+                with fail_after(3):
+                    if preceding_schedule:
+                        event = await receive.receive()
+                        assert event.schedule_id == "preceding"
+                        assert event.next_fire_time == start_time + timedelta(
+                            seconds=59
+                        )
+
+                    event = await receive.receive()
+                    assert event.schedule_id == "failing"
+                    assert event.next_fire_time is None
+                    event = await receive.receive()
+                    assert event.schedule_id == "following"
+                    assert event.next_fire_time is None
+
+                jobs = await scheduler.get_jobs()
+                expected_ids = {"failing", "following"}
+                if preceding_schedule:
+                    expected_ids.add("preceding")
+
+                assert {job.schedule_id for job in jobs} == expected_ids
+                assert len(jobs) == len(expected_ids)
+                assert scheduler.state is RunState.started
 
     @pytest.mark.parametrize(
         "max_jitter, expected_upper_bound",

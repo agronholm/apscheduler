@@ -968,6 +968,7 @@ class AsyncScheduler:
                     for schedule in schedules:
                         # Calculate a next fire time for the schedule, if possible
                         fire_times = [schedule.next_fire_time]
+                        next_fire_time: datetime | None = None
                         calculate_next = schedule.trigger.next
                         while True:
                             try:
