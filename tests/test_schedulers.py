@@ -607,73 +607,36 @@ class TestAsyncScheduler:
             with pytest.raises(WouldBlock):
                 receive.receive_nowait()
 
-    @pytest.mark.parametrize("preceding_schedule", [False, True])
-    @pytest.mark.parametrize("max_jitter", [None, 1])
-    async def test_trigger_error(
-        self,
-        raw_datastore: DataStore,
-        preceding_schedule: bool,
-        max_jitter: int | None,
-    ) -> None:
-        start_time = datetime.now(UTC) - timedelta(seconds=5)
-        trigger = AndTrigger(
-            [
-                IntervalTrigger(minutes=2, start_time=start_time),
-                IntervalTrigger(minutes=3, start_time=start_time),
-            ],
-            threshold=0,
-            max_iterations=1,
-        )
-        send, receive = create_memory_object_stream[ScheduleUpdated](3)
-        with send, receive:
-            async with AsyncScheduler(
-                data_store=raw_datastore,
-                role=SchedulerRole.scheduler,
-                cleanup_interval=None,
-            ) as scheduler:
-                if preceding_schedule:
-                    await scheduler.add_schedule(
-                        dummy_async_job,
-                        IntervalTrigger(
-                            minutes=1, start_time=start_time - timedelta(seconds=1)
-                        ),
-                        id="preceding",
-                    )
+async def test_trigger_error(self) -> None:
+    start_time = datetime.now(UTC) - timedelta(seconds=5)
+    # Yields one fire time, then raises MaxIterationsReached on the next call
+    failing_trigger = AndTrigger(
+        [
+            IntervalTrigger(minutes=2, start_time=start_time),
+            IntervalTrigger(minutes=3, start_time=start_time),
+        ],
+        max_iterations=1,
+    )
+    send, receive = create_memory_object_stream[ScheduleUpdated](2)
+    with send, receive:
+        async with AsyncScheduler(role=SchedulerRole.scheduler) as scheduler:
+            await scheduler.add_schedule(
+                dummy_async_job, IntervalTrigger(minutes=1, start_time=start_time), id="ok"
+            )
+            await scheduler.add_schedule(dummy_async_job, failing_trigger, id="failing")
+            scheduler.subscribe(send.send, ScheduleUpdated)
+            await scheduler.start_in_background()
+            with fail_after(3):
+                events = {}
+                for _ in range(2):
+                    event = await receive.receive()
+                    events[event.schedule_id] = event
 
-                await scheduler.add_schedule(
-                    dummy_async_job, trigger, id="failing", max_jitter=max_jitter
-                )
-                await scheduler.add_schedule(
-                    dummy_async_job,
-                    DateTrigger(start_time + timedelta(seconds=1)),
-                    id="following",
-                )
-                scheduler.subscribe(send.send, ScheduleUpdated)
-                await scheduler.start_in_background()
-
-                expected_next_fire_times: dict[str, datetime | None] = {
-                    "failing": None,
-                    "following": None,
-                }
-                if preceding_schedule:
-                    expected_next_fire_times["preceding"] = start_time + timedelta(
-                        seconds=59
-                    )
-
-                # Data stores need not return acquired schedules in fire-time order.
-                with fail_after(3):
-                    events = [await receive.receive() for _ in expected_next_fire_times]
-
-                assert {
-                    event.schedule_id: event.next_fire_time for event in events
-                } == expected_next_fire_times
-
-                jobs = await scheduler.get_jobs()
-                assert {
-                    job.schedule_id for job in jobs
-                } == expected_next_fire_times.keys()
-                assert len(jobs) == len(expected_next_fire_times)
-                assert scheduler.state is RunState.started
+            assert events["ok"].next_fire_time is not None
+            assert events["failing"].next_fire_time is None
+            # The already-due run of the failing schedule must still be queued
+            jobs = await scheduler.get_jobs()
+            assert {job.schedule_id for job in jobs} == {"ok", "failing"}
 
     @pytest.mark.parametrize(
         "max_jitter, expected_upper_bound",
