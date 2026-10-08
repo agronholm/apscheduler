@@ -9,7 +9,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
-- Dropped support for Python 3.9
+- Dropped support for Python 3.9 and 3.10
 - Fixed an issue where ``CronTrigger`` does not convert ``start_time`` to ``self.timezone``
   (`#1061 <https://github.com/agronholm/apscheduler/issues/1061>`_; PR by @jonasitzmann)
 - Fixed an issue where ``CronTrigger.next()`` returned a non-existing date on a DST change
@@ -37,6 +37,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``AsyncpgEventBroker`` raising ``NoEventLoopError`` with AnyIO ≥ 4.14 on
   incoming notifications
   (`#1141 <https://github.com/agronholm/apscheduler/issues/1141>`_)
+- Fixed trigger errors crashing the scheduler or causing a schedule to reuse another
+  schedule's next fire time
+  (`#1154 <https://github.com/agronholm/apscheduler/issues/1154>`_; PR by @MokiMeow)
 
 **4.0.0a6**
 

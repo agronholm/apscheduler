@@ -3,7 +3,7 @@ from __future__ import annotations
 import platform
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from logging import Logger
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -58,19 +58,19 @@ async def datastore(
 
 @pytest.fixture
 def schedules() -> list[Schedule]:
-    trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
+    trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=UTC))
     schedule1 = Schedule(
         id="s1", task_id="task1", job_executor="async", trigger=trigger
     )
     schedule1.next_fire_time = trigger.next()
 
-    trigger = DateTrigger(datetime(2020, 9, 14, tzinfo=timezone.utc))
+    trigger = DateTrigger(datetime(2020, 9, 14, tzinfo=UTC))
     schedule2 = Schedule(
         id="s2", task_id="task2", job_executor="async", trigger=trigger
     )
     schedule2.next_fire_time = trigger.next()
 
-    trigger = DateTrigger(datetime(2020, 9, 15, tzinfo=timezone.utc))
+    trigger = DateTrigger(datetime(2020, 9, 15, tzinfo=UTC))
     schedule3 = Schedule(
         id="s3", task_id="task1", job_executor="async", trigger=trigger
     )
@@ -160,7 +160,7 @@ async def test_replace_schedules(
         for schedule in schedules:
             await datastore.add_schedule(schedule, ConflictPolicy.exception)
 
-        trigger = DateTrigger(datetime(2020, 9, 16, tzinfo=timezone.utc))
+        trigger = DateTrigger(datetime(2020, 9, 16, tzinfo=UTC))
         next_fire_time = trigger.next()
         schedule = Schedule(
             id="s3",
@@ -187,7 +187,7 @@ async def test_replace_schedules(
     assert isinstance(received_event, ScheduleUpdated)
     assert received_event.schedule_id == "s3"
     assert received_event.task_id == "foo"
-    assert received_event.next_fire_time == datetime(2020, 9, 16, tzinfo=timezone.utc)
+    assert received_event.next_fire_time == datetime(2020, 9, 16, tzinfo=UTC)
     assert not events
 
 
@@ -219,7 +219,7 @@ async def test_remove_schedules(
 async def test_acquire_release_schedules(
     datastore: DataStore, schedules: list[Schedule], time_machine: TimeMachineFixture
 ) -> None:
-    time_machine.move_to(datetime(2020, 9, 14, tzinfo=timezone.utc))
+    time_machine.move_to(datetime(2020, 9, 14, tzinfo=UTC))
 
     event_types = {ScheduleRemoved, ScheduleUpdated}
     async with capture_events(datastore, 2, event_types) as events:
@@ -259,7 +259,7 @@ async def test_acquire_release_schedules(
                 schedule_id=schedules1[0].id,
                 task_id=schedules1[0].task_id,
                 trigger=schedules1[0].trigger,
-                last_fire_time=datetime(2020, 9, 14, tzinfo=timezone.utc),
+                last_fire_time=datetime(2020, 9, 14, tzinfo=UTC),
                 next_fire_time=None,
             )
         )
@@ -268,8 +268,8 @@ async def test_acquire_release_schedules(
                 schedule_id=schedules2[0].id,
                 task_id=schedules2[0].task_id,
                 trigger=schedules1[0].trigger,
-                last_fire_time=datetime(2020, 9, 14, tzinfo=timezone.utc),
-                next_fire_time=datetime(2020, 9, 15, tzinfo=timezone.utc),
+                last_fire_time=datetime(2020, 9, 14, tzinfo=UTC),
+                next_fire_time=datetime(2020, 9, 15, tzinfo=UTC),
             )
         )
 
@@ -282,14 +282,14 @@ async def test_acquire_release_schedules(
         assert len(schedules) == 3
         schedules.sort(key=lambda s: s.id)
         assert schedules[0].id == "s1"
-        assert schedules[0].last_fire_time == datetime(2020, 9, 14, tzinfo=timezone.utc)
+        assert schedules[0].last_fire_time == datetime(2020, 9, 14, tzinfo=UTC)
         assert schedules[0].next_fire_time is None
         assert schedules[1].id == "s2"
-        assert schedules[1].last_fire_time == datetime(2020, 9, 14, tzinfo=timezone.utc)
-        assert schedules[1].next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
+        assert schedules[1].last_fire_time == datetime(2020, 9, 14, tzinfo=UTC)
+        assert schedules[1].next_fire_time == datetime(2020, 9, 15, tzinfo=UTC)
         assert schedules[2].id == "s3"
         assert schedules[2].last_fire_time is None
-        assert schedules[2].next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
+        assert schedules[2].next_fire_time == datetime(2020, 9, 15, tzinfo=UTC)
 
     # Check for the appropriate update and delete events
     received_event = events.pop(0)
@@ -300,7 +300,7 @@ async def test_acquire_release_schedules(
     received_event = events.pop(0)
     assert isinstance(received_event, ScheduleUpdated)
     assert received_event.schedule_id == "s2"
-    assert received_event.next_fire_time == datetime(2020, 9, 15, tzinfo=timezone.utc)
+    assert received_event.next_fire_time == datetime(2020, 9, 15, tzinfo=UTC)
 
     assert not events
 
@@ -308,7 +308,7 @@ async def test_acquire_release_schedules(
 async def test_release_schedule_two_identical_fire_times(datastore: DataStore) -> None:
     """Regression test for #616."""
     for i in range(1, 3):
-        trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
+        trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=UTC))
         schedule = Schedule(
             id=f"s{i}", task_id="task1", job_executor="async", trigger=trigger
         )
@@ -325,7 +325,7 @@ async def test_release_schedule_two_identical_fire_times(datastore: DataStore) -
             schedule_id=schedules[0].id,
             task_id=schedules[0].task_id,
             trigger=schedules[0].trigger,
-            last_fire_time=datetime(2020, 9, 10, tzinfo=timezone.utc),
+            last_fire_time=datetime(2020, 9, 10, tzinfo=UTC),
             next_fire_time=None,
         ),
     ]
@@ -343,7 +343,7 @@ async def test_release_schedule_two_identical_fire_times(datastore: DataStore) -
 async def test_release_two_schedules_at_once(datastore: DataStore) -> None:
     """Regression test for #621."""
     for i in range(2):
-        trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
+        trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=UTC))
         schedule = Schedule(
             id=f"s{i}", task_id="task1", job_executor="async", trigger=trigger
         )
@@ -356,7 +356,7 @@ async def test_release_two_schedules_at_once(datastore: DataStore) -> None:
             schedule_id=schedules[0].id,
             task_id=schedules[0].task_id,
             trigger=schedules[0].trigger,
-            last_fire_time=datetime(2020, 9, 10, tzinfo=timezone.utc),
+            last_fire_time=datetime(2020, 9, 10, tzinfo=UTC),
             next_fire_time=None,
         ),
     ]
@@ -380,7 +380,7 @@ async def test_acquire_schedules_lock_timeout(
     scheduler but not released within the lock timeout period.
 
     """
-    time_machine.move_to(datetime.now(timezone.utc), tick=False)
+    time_machine.move_to(datetime.now(UTC), tick=False)
     await datastore.add_schedule(schedules[0], ConflictPolicy.exception)
 
     # First, one scheduler acquires the first available schedule
@@ -585,7 +585,7 @@ async def test_acquire_jobs_lock_timeout(
     await datastore.add_job(job)
 
     # First, one worker acquires the first available job
-    time_machine.move_to(datetime.now(timezone.utc), tick=False)
+    time_machine.move_to(datetime.now(UTC), tick=False)
     acquired = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
     assert len(acquired) == 1
     assert acquired[0].id == job.id
@@ -691,7 +691,7 @@ async def test_next_schedule_run_time(datastore: DataStore, schedules: list[Sche
         await datastore.add_schedule(schedule, ConflictPolicy.exception)
 
     next_schedule_run_time = await datastore.get_next_schedule_run_time()
-    assert next_schedule_run_time == datetime(2020, 9, 13, tzinfo=timezone.utc)
+    assert next_schedule_run_time == datetime(2020, 9, 13, tzinfo=UTC)
 
 
 @pytest.mark.skipif(
@@ -706,7 +706,7 @@ async def test_cleanup_expired_schedule_leases(
     schedulers about it.
 
     """
-    time_machine.move_to(datetime(2020, 9, 14, tzinfo=timezone.utc))
+    time_machine.move_to(datetime(2020, 9, 14, tzinfo=UTC))
     await datastore.add_schedule(schedules[0], ConflictPolicy.exception)
 
     # Acquire the schedule with a scheduler that then dies without releasing it
@@ -746,7 +746,7 @@ async def test_extend_acquired_schedule_leases(
     from acquiring them.
 
     """
-    time_machine.move_to(datetime(2020, 9, 14, tzinfo=timezone.utc))
+    time_machine.move_to(datetime(2020, 9, 14, tzinfo=UTC))
 
     # Add a schedule to the data store
     await datastore.add_schedule(schedules[0], ConflictPolicy.exception)
@@ -805,7 +805,7 @@ async def test_extend_acquired_job_leases(
     up as if they had been abandoned.
 
     """
-    time_machine.move_to(datetime(2020, 9, 14, tzinfo=timezone.utc))
+    time_machine.move_to(datetime(2020, 9, 14, tzinfo=UTC))
 
     # Add a task to the data store
     task = Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
