@@ -621,9 +621,7 @@ class AsyncScheduler:
         if resume_from == "now":
             resume_from = datetime.now(tz=UTC)
 
-        if resume_from is None:
-            next_fire_time = schedule.next_fire_time
-        elif (
+        if resume_from is None or (
             schedule.next_fire_time is not None
             and schedule.next_fire_time >= resume_from
         ):
