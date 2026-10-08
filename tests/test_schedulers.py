@@ -651,28 +651,28 @@ class TestAsyncScheduler:
                 scheduler.subscribe(send.send, ScheduleUpdated)
                 await scheduler.start_in_background()
 
-                with fail_after(3):
-                    if preceding_schedule:
-                        event = await receive.receive()
-                        assert event.schedule_id == "preceding"
-                        assert event.next_fire_time == start_time + timedelta(
-                            seconds=59
-                        )
+                expected_next_fire_times: dict[str, datetime | None] = {
+                    "failing": None,
+                    "following": None,
+                }
+                if preceding_schedule:
+                    expected_next_fire_times["preceding"] = start_time + timedelta(
+                        seconds=59
+                    )
 
-                    event = await receive.receive()
-                    assert event.schedule_id == "failing"
-                    assert event.next_fire_time is None
-                    event = await receive.receive()
-                    assert event.schedule_id == "following"
-                    assert event.next_fire_time is None
+                # Data stores need not return acquired schedules in fire-time order.
+                with fail_after(3):
+                    events = [await receive.receive() for _ in expected_next_fire_times]
+
+                assert {
+                    event.schedule_id: event.next_fire_time for event in events
+                } == expected_next_fire_times
 
                 jobs = await scheduler.get_jobs()
-                expected_ids = {"failing", "following"}
-                if preceding_schedule:
-                    expected_ids.add("preceding")
-
-                assert {job.schedule_id for job in jobs} == expected_ids
-                assert len(jobs) == len(expected_ids)
+                assert {
+                    job.schedule_id for job in jobs
+                } == expected_next_fire_times.keys()
+                assert len(jobs) == len(expected_next_fire_times)
                 assert scheduler.state is RunState.started
 
     @pytest.mark.parametrize(
