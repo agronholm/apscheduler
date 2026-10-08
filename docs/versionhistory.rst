@@ -37,6 +37,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``AsyncpgEventBroker`` raising ``NoEventLoopError`` with AnyIO ≥ 4.14 on
   incoming notifications
   (`#1141 <https://github.com/agronholm/apscheduler/issues/1141>`_)
+- Fixed trigger errors crashing the scheduler or causing a schedule to reuse another
+  schedule's next fire time
+  (`#1154 <https://github.com/agronholm/apscheduler/issues/1154>`_; PR by @MokiMeow)
 
 **4.0.0a6**
 
