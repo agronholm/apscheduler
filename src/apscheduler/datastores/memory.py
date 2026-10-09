@@ -41,9 +41,6 @@ class MemoryDataStore(BaseDataStore):
     _tasks: dict[str, Task] = attrs.Factory(dict)
     _schedules: list[Schedule] = attrs.Factory(list)
     _schedules_by_id: dict[str, Schedule] = attrs.Factory(dict)
-    _schedules_by_task_id: dict[str, set[Schedule]] = attrs.Factory(
-        partial(defaultdict, set)
-    )
     _jobs_by_id: dict[UUID, Job] = attrs.Factory(dict)
     _jobs_by_task_id: dict[str, set[Job]] = attrs.Factory(partial(defaultdict, set))
     _jobs_by_schedule_id: dict[str, set[Job]] = attrs.Factory(partial(defaultdict, set))
@@ -105,10 +102,8 @@ class MemoryDataStore(BaseDataStore):
 
             index = self._find_schedule_index(old_schedule)
             del self._schedules[index]
-            self._schedules_by_task_id[old_schedule.task_id].remove(old_schedule)
 
         self._schedules_by_id[schedule.id] = schedule
-        self._schedules_by_task_id[schedule.task_id].add(schedule)
         insort_right(self._schedules, schedule)
 
         event: ScheduleUpdated | ScheduleAdded
