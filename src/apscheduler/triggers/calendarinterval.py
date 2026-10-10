@@ -99,6 +99,9 @@ class CalendarIntervalTrigger(Trigger):
                     month += self.months
                     year += self.years + (month - 1) // 12
                     month = (month - 1) % 12 + 1
+                    if year > date.max.year:
+                        return None
+
                     try:
                         next_date = date(year, month, previous_date.day)
                     except ValueError:
