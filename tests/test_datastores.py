@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import gc  # 2026-10-09
+import gc
 import platform
-import weakref  # 2026-10-09
+import weakref
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import UTC, datetime, timedelta
@@ -218,7 +218,6 @@ async def test_remove_schedules(
 async def test_removed_schedules_are_released(
     datastore: DataStore, cleanup: bool
 ) -> None:
-    # 2026-10-09: Removed schedules must not keep their triggers or arguments alive.
     schedule = Schedule(
         id="s1",
         task_id="task1",
