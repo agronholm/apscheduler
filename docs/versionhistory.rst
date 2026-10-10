@@ -40,6 +40,10 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed trigger errors crashing the scheduler or causing a schedule to reuse another
   schedule's next fire time
   (`#1154 <https://github.com/agronholm/apscheduler/issues/1154>`_; PR by @MokiMeow)
+- Fixed ``MemoryDataStore.get_next_schedule_run_time()`` returning the fire time of a
+  paused or already acquired schedule, which made the scheduler wake up past a deadline
+  that had already passed and process schedules in a tight loop
+  (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
 
 **4.0.0a6**
 
