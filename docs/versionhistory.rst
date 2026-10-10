@@ -41,6 +41,10 @@ APScheduler, see the :doc:`migration section <migration>`.
   schedule's next fire time
   (`#1154 <https://github.com/agronholm/apscheduler/issues/1154>`_; PR by @MokiMeow)
 
+- Fixed ``MemoryDataStore`` retaining removed and finished schedules, including their
+  triggers and task arguments, indefinitely
+  (`#1156 <https://github.com/agronholm/apscheduler/pull/1156>`_; PR by @fhgffy)
+
 **4.0.0a6**
 
 - **BREAKING** Refactored ``AsyncpgEventBroker`` to directly accept a connection string,
