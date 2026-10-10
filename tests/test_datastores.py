@@ -694,6 +694,32 @@ async def test_next_schedule_run_time(datastore: DataStore, schedules: list[Sche
     assert next_schedule_run_time == datetime(2020, 9, 13, tzinfo=UTC)
 
 
+async def test_next_schedule_run_time_skips_inactive_schedules(
+    datastore: DataStore, schedules: list[Schedule]
+) -> None:
+    """
+    Test that paused and already acquired schedules are not offered as the next run
+    time. Their fire times are in the past, so offering them would leave the scheduler
+    with a wakeup deadline that has already passed, and it would process schedules in a
+    loop instead of waiting.
+
+    """
+    schedules[0].paused = True
+    await datastore.add_schedule(schedules[0], ConflictPolicy.exception)
+    assert await datastore.get_next_schedule_run_time() is None
+
+    await datastore.add_schedule(schedules[1], ConflictPolicy.exception)
+    acquired = await datastore.acquire_schedules("scheduler1", timedelta(seconds=30), 1)
+    assert [schedule.id for schedule in acquired] == ["s2"]
+    assert await datastore.get_next_schedule_run_time() is None
+
+    # A schedule that is neither paused nor acquired is still offered
+    await datastore.add_schedule(schedules[2], ConflictPolicy.exception)
+    assert await datastore.get_next_schedule_run_time() == datetime(
+        2020, 9, 15, tzinfo=UTC
+    )
+
+
 @pytest.mark.skipif(
     platform.python_implementation() != "CPython",
     reason="time-machine is not available",
