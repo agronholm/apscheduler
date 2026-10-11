@@ -931,14 +931,35 @@ async def test_mongodb_without_replica_set_config(
 
         with pytest.raises(
             RuntimeError,
-            match="MongoDB must be configured with a replica set to"
-            " use transactions for document updates",
+            match="MongoDB must be configured with a replica set or sharded cluster"
+            " to use transactions for document updates",
         ):
             await datastore.start(
                 exit_stack=exit_stack,
                 event_broker=local_broker,
                 logger=logger,
             )
+
+
+@pytest.mark.external_service
+async def test_mongodb_sharded_cluster_supported(
+    mongodb_store: DataStore,
+    local_broker: EventBroker,
+    logger: Logger,
+    mocker: MockerFixture,
+) -> None:
+    mocker.patch.object(
+        mongodb_store._database,
+        "command",
+        return_value={"msg": "isdbgrid"},
+    )
+
+    async with AsyncExitStack() as exit_stack:
+        await mongodb_store.start(
+            exit_stack=exit_stack,
+            event_broker=local_broker,
+            logger=logger,
+        )
 
 
 @pytest.mark.external_service

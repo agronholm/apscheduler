@@ -221,10 +221,10 @@ class MongoDBDataStore(BaseExternalDataStore):
             )
 
         cmd_result = await self._database.command("hello")
-        if "setName" not in cmd_result:
+        if "setName" not in cmd_result and cmd_result.get("msg") != "isdbgrid":
             raise RuntimeError(
-                "MongoDB must be configured with a replica set to"
-                " use transactions for document updates"
+                "MongoDB must be configured with a replica set or sharded cluster"
+                " to use transactions for document updates"
             )
 
         async for attempt in self._retry():
