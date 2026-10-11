@@ -8,6 +8,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - Fixed coroutine event callbacks not being awaited when subscribed with
   ``is_async=False``, contrary to the documented behavior
+  (`#1159 <https://github.com/agronholm/apscheduler/pull/1159>`_; PR by @adenzhou1350)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
