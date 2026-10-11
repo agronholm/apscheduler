@@ -575,7 +575,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                     read_preference=ReadPreference.PRIMARY,
                 ):
                     # Fetch up to {limit} jobs
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(UTC)
                     documents = await self._jobs.find(
                         {
                             "$or": [
