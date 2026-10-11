@@ -967,6 +967,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                             "scheduled_fire_time_utcoffset",
                             "result_expiration_time",
                         ],
+                        session=session,
                     ) as cursor:
                         release_jobs: list[_JobRelease] = []
                         async for doc in cursor:
