@@ -40,6 +40,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed trigger errors crashing the scheduler or causing a schedule to reuse another
   schedule's next fire time
   (`#1154 <https://github.com/agronholm/apscheduler/issues/1154>`_; PR by @MokiMeow)
+- Fixed coroutine function callbacks (including callable objects with an asynchronous
+  ``__call__()`` method) never being awaited when subscribed with ``is_async=False``,
+  which the synchronous ``Scheduler`` always uses
 
 **4.0.0a6**
 

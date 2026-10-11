@@ -158,6 +158,18 @@ class TestAsyncScheduler:
             assert scheduler.task_defaults.job_executor == "async"
             assert scheduler.state is RunState.stopped
 
+    async def test_subscribe_coroutine_function(self) -> None:
+        received = anyio.Event()
+
+        async def callback(event: Event) -> None:
+            received.set()
+
+        async with AsyncScheduler() as scheduler:
+            scheduler.subscribe(callback, SchedulerStarted, is_async=False)
+            await scheduler.start_in_background()
+            with fail_after(10):
+                await received.wait()
+
     @pytest.mark.parametrize("as_default", [False, True])
     async def test_async_executor(self, as_default: bool) -> None:
         async with AsyncScheduler() as scheduler:
@@ -1386,6 +1398,17 @@ class TestSyncScheduler:
         scheduler.subscribe(lambda event: None)
         fake_atexit_register.assert_called_once_with(scheduler._exit_stack.close)
         scheduler._exit_stack.close()
+
+    def test_subscribe_coroutine_function(self) -> None:
+        received = threading.Event()
+
+        async def callback(event: Event) -> None:
+            received.set()
+
+        with Scheduler() as scheduler:
+            scheduler.subscribe(callback, SchedulerStarted)
+            scheduler.start_in_background()
+            assert received.wait(10)
 
     def test_configure_task(self) -> None:
         queue: Queue[Event] = Queue()

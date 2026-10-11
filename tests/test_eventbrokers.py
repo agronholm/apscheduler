@@ -38,6 +38,31 @@ async def test_publish_subscribe(event_broker: EventBroker) -> None:
     assert event1.next_fire_time == datetime(2021, 9, 11, 12, 31, 56, 254867, UTC)
 
 
+@pytest.mark.parametrize("callback_type", ["function", "callable_object"])
+async def test_subscribe_coroutine_function(
+    event_broker: EventBroker, callback_type: str
+) -> None:
+    send, receive = create_memory_object_stream[Event](1)
+
+    async def callback(event: Event) -> None:
+        await send.send(event)
+
+    class AsyncCallable:
+        async def __call__(self, event: Event) -> None:
+            await send.send(event)
+
+    with send, receive:
+        if callback_type == "callable_object":
+            event_broker.subscribe(AsyncCallable(), is_async=False)
+        else:
+            event_broker.subscribe(callback, is_async=False)
+        event = Event()
+        await event_broker.publish(event)
+
+        with fail_after(10):
+            assert await receive.receive() == event
+
+
 async def test_subscribe_one_shot(event_broker: EventBroker) -> None:
     send, receive = create_memory_object_stream[Event](2)
     with send, receive:
