@@ -8,7 +8,7 @@ from collections.abc import (
     Sequence,
 )
 from contextlib import AsyncExitStack
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from logging import Logger
 from typing import Any, ClassVar, TypeVar, cast
 from uuid import UUID
@@ -371,7 +371,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                     session = await exit_stack.enter_async_context(
                         self._client.start_session()
                     )
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(UTC)
                     documents = await self._schedules.find(
                         {
                             "next_fire_time": {"$lte": now.timestamp()},
@@ -400,7 +400,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                     if not documents:
                         return schedules
 
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(UTC)
                     acquired_until = now + lease_duration
                     schedule_ids = [doc["_id"] for doc in documents]
                     result = await self._schedules.update_many(
@@ -845,9 +845,7 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 async with self._client.start_session() as session:
-                    new_acquired_until = (
-                        datetime.now(timezone.utc) + duration
-                    ).timestamp()
+                    new_acquired_until = (datetime.now(UTC) + duration).timestamp()
                     await self._schedules.update_many(
                         filter={
                             "acquired_by": scheduler_id,
@@ -863,9 +861,7 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 async with self._client.start_session() as session:
-                    new_acquired_until = (
-                        datetime.now(timezone.utc) + duration
-                    ).timestamp()
+                    new_acquired_until = (datetime.now(UTC) + duration).timestamp()
                     await self._jobs.update_many(
                         filter={
                             "acquired_by": scheduler_id,
@@ -919,7 +915,7 @@ class MongoDBDataStore(BaseExternalDataStore):
             with attempt:
                 async with self._client.start_session() as session:
                     # Purge expired job results
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(UTC)
                     await self._jobs_results.delete_many(
                         {"expires_at": {"$lte": now.timestamp()}}, session=session
                     )
