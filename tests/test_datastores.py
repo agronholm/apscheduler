@@ -22,6 +22,7 @@ from apscheduler import (
     DeserializationError,
     Event,
     Job,
+    JobAcquired,
     JobOutcome,
     JobResult,
     Schedule,
@@ -55,6 +56,16 @@ async def datastore(
         await local_broker.start(exit_stack, logger)
         await raw_datastore.start(exit_stack, local_broker, logger)
         yield raw_datastore
+
+
+@pytest.fixture
+async def mongodb_datastore(
+    mongodb_store: DataStore, local_broker: EventBroker, logger: Logger
+) -> AsyncGenerator[DataStore, None]:
+    async with AsyncExitStack() as exit_stack:
+        await local_broker.start(exit_stack, logger)
+        await mongodb_store.start(exit_stack, local_broker, logger)
+        yield mongodb_store
 
 
 @pytest.fixture
@@ -928,6 +939,139 @@ async def test_mongodb_without_replica_set_config(
                 event_broker=local_broker,
                 logger=logger,
             )
+
+
+@pytest.mark.external_service
+async def test_mongodb_concurrent_job_acquisition(
+    local_broker: EventBroker, logger: Logger, mocker: MockerFixture
+) -> None:
+    from pymongo.asynchronous.mongo_client import AsyncMongoClient
+
+    NUM_WORKERS = 4
+    JOBS_PER_ROUND = 20
+    ROUNDS = 3
+
+    async with AsyncMongoClient(serverSelectionTimeoutMS=1000) as client:
+        stores = [
+            MongoDBDataStore(client, start_from_scratch=index == 0)
+            for index in range(NUM_WORKERS)
+        ]
+        async with AsyncExitStack() as exit_stack:
+            await local_broker.start(exit_stack, logger)
+            for store in stores:
+                await store.start(exit_stack, local_broker, logger)
+
+            task = Task(
+                id="task1", func="contextlib:asynccontextmanager", job_executor="async"
+            )
+            await stores[0].add_task(task)
+
+            # Force all workers' transactions to collide: gate the first
+            # _jobs.update_many() of each round until all workers have arrived
+            original_update_many = stores[0]._jobs.update_many
+            arrivals = 0
+            barrier_open = anyio.Event()
+
+            async def gated_update_many(*args, **kwargs):
+                nonlocal arrivals
+                if not barrier_open.is_set():
+                    arrivals += 1
+                    if arrivals == NUM_WORKERS:
+                        barrier_open.set()
+                    await barrier_open.wait()
+
+                return await original_update_many(*args, **kwargs)
+
+            for store in stores:
+                mocker.patch.object(
+                    store._jobs, "update_many", side_effect=gated_update_many
+                )
+
+            for _ in range(ROUNDS):
+                arrivals = 0
+                barrier_open = anyio.Event()
+
+                jobs = [
+                    Job(task_id="task1", executor="async")
+                    for _ in range(JOBS_PER_ROUND)
+                ]
+                for job in jobs:
+                    await stores[0].add_job(job)
+
+                results: list[list[Job]] = [[] for _ in stores]
+
+                async def acquire_one(results: list[list[Job]], index: int) -> None:
+                    results[index] = await stores[index].acquire_jobs(
+                        f"worker{index}", timedelta(seconds=60), 5
+                    )
+
+                with anyio.fail_after(30):
+                    async with anyio.create_task_group() as task_group:
+                        for index in range(NUM_WORKERS):
+                            task_group.start_soon(acquire_one, results, index)
+
+                # No exception escaped; each worker got its fair share and every
+                # job was acquired by exactly one worker
+                acquired_ids: set = set()
+                for batch in results:
+                    assert len(batch) == 5
+                    for job in batch:
+                        assert job.id not in acquired_ids
+                        acquired_ids.add(job.id)
+
+                assert acquired_ids == {job.id for job in jobs}
+
+                for index, batch in enumerate(results):
+                    for job in batch:
+                        await stores[index].release_job(
+                            f"worker{index}",
+                            job,
+                            JobResult.from_job(job, JobOutcome.success),
+                        )
+
+                assert (await stores[0].get_task("task1")).running_jobs == 0
+
+
+@pytest.mark.external_service
+async def test_mongodb_retries_transient_transaction_errors(
+    mongodb_datastore: DataStore, mocker: MockerFixture
+) -> None:
+    from pymongo.errors import OperationFailure
+
+    await mongodb_datastore.add_task(
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    )
+    jobs = [Job(task_id="task1", executor="async") for _ in range(2)]
+    for job in jobs:
+        await mongodb_datastore.add_job(job)
+
+    real_update_one = mongodb_datastore._tasks.update_one
+    calls = 0
+
+    async def flaky_update_one(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise OperationFailure(
+                "WriteConflict",
+                code=112,
+                details={"errorLabels": ["TransientTransactionError"]},
+            )
+
+        return await real_update_one(*args, **kwargs)
+
+    mocker.patch.object(
+        mongodb_datastore._tasks, "update_one", side_effect=flaky_update_one
+    )
+
+    async with capture_events(mongodb_datastore, 2, {JobAcquired}) as events:
+        acquired = await mongodb_datastore.acquire_jobs(
+            "worker1", timedelta(seconds=30), 2
+        )
+
+    assert len(acquired) == 2
+    assert {event.job_id for event in events} == {job.id for job in jobs}
+    assert calls == 3  # 1 transient failure + 2 successful calls in the retried attempt
 
 
 class TestRepr:

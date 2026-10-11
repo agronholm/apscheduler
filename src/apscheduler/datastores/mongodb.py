@@ -561,19 +561,21 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def acquire_jobs(
         self, scheduler_id: str, lease_duration: timedelta, limit: int | None = None
     ) -> list[Job]:
-        events: list[JobAcquired | JobReleased] = []
         async for attempt in self._retry():
+            acquired_jobs: list[Job] = []
+            events: list[JobAcquired | JobReleased] = []
             async with AsyncExitStack() as exit_stack:
                 exit_stack.enter_context(attempt)
                 session = await exit_stack.enter_async_context(
                     self._client.start_session()
                 )
 
-                async with await session.start_transaction(
-                    read_concern=ReadConcern(level="majority"),
-                    write_concern=WriteConcern(w="majority"),
-                    read_preference=ReadPreference.PRIMARY,
-                ):
+                async def txn_callback(
+                    session: AsyncClientSession,
+                ) -> tuple[list[Job], list[JobAcquired | JobReleased]]:
+                    acquired_jobs: list[Job] = []
+                    events: list[JobAcquired | JobReleased] = []
+
                     # Fetch up to {limit} jobs
                     now = datetime.now(UTC)
                     documents = await self._jobs.find(
@@ -627,7 +629,6 @@ class MongoDBDataStore(BaseExternalDataStore):
                                 if doc["_id"] in acquired_job_ids
                             ]
 
-                    acquired_jobs: list[Job] = []
                     release_jobs: list[_JobRelease] = []
                     skipped_job_ids: list[UUID] = []
                     for doc in documents:
@@ -737,11 +738,26 @@ class MongoDBDataStore(BaseExternalDataStore):
                             await self._release_jobs(session=session, jobs=release_jobs)
                         )
 
-        # Publish the appropriate events
-        for event in events:
-            await self._event_broker.publish(event)
+                    return acquired_jobs, events
 
-        return acquired_jobs
+                acquired_jobs, events = await session.with_transaction(
+                    txn_callback,
+                    read_concern=ReadConcern(level="majority"),
+                    write_concern=WriteConcern(w="majority"),
+                    read_preference=ReadPreference.PRIMARY,
+                )
+
+            # A failed attempt is swallowed by the attempt manager and falls
+            # through here; bail out so the stored exception is re-raised on
+            # the next iteration
+            if attempt.retry_state.outcome.failed:
+                continue
+
+            # Publish the events from the successful attempt
+            for event in events:
+                await self._event_broker.publish(event)
+
+            return acquired_jobs
 
     async def _release_jobs(
         self,
