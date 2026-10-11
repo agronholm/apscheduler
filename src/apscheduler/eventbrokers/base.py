@@ -3,7 +3,7 @@ from __future__ import annotations
 from base64 import b64decode, b64encode
 from collections.abc import Callable, Iterable
 from contextlib import AsyncExitStack
-from inspect import iscoroutine
+from inspect import iscoroutine, iscoroutinefunction
 from logging import Logger
 from typing import Any
 
@@ -84,7 +84,7 @@ class BaseEventBroker(EventBroker):
         self, subscription: LocalSubscription, event: Event
     ) -> None:
         try:
-            if subscription.is_async:
+            if subscription.is_async or iscoroutinefunction(subscription.callback):
                 retval = subscription.callback(event)
                 if iscoroutine(retval):
                     await retval
