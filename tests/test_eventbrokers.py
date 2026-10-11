@@ -1,17 +1,79 @@
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
+from functools import partial
 from logging import Logger
+from threading import get_ident
 
 import pytest
 from _pytest.logging import LogCaptureFixture
-from anyio import CancelScope, create_memory_object_stream, fail_after
+from anyio import CancelScope, create_memory_object_stream, fail_after, from_thread
+from anyio import Event as AnyIOEvent
+from anyio.lowlevel import checkpoint
 
 from apscheduler import Event, ScheduleAdded
 from apscheduler.abc import EventBroker
 
 pytestmark = pytest.mark.anyio
+
+
+@pytest.fixture
+async def started_local_broker(
+    local_broker: EventBroker, logger: Logger
+) -> AsyncGenerator[EventBroker, None]:
+    async with AsyncExitStack() as exit_stack:
+        await local_broker.start(exit_stack, logger)
+        yield local_broker
+
+
+@pytest.mark.parametrize("anyio_backend", ["asyncio", "trio"])
+@pytest.mark.parametrize("is_async", [True, False])
+@pytest.mark.parametrize("wrap_partial", [True, False])
+async def test_coroutine_callback_ignores_thread_flag(
+    started_local_broker: EventBroker, is_async: bool, wrap_partial: bool
+) -> None:
+    loop_thread = get_ident()
+    send, receive = create_memory_object_stream[Event](1)
+
+    async def callback(event: Event) -> None:
+        assert get_ident() == loop_thread
+        await checkpoint()
+        await send.send(event)
+
+    with send, receive:
+        started_local_broker.subscribe(
+            partial(callback) if wrap_partial else callback, is_async=is_async
+        )
+        event = Event()
+        await started_local_broker.publish(event)
+        with fail_after(1):
+            assert await receive.receive() == event
+
+
+@pytest.mark.parametrize("anyio_backend", ["asyncio", "trio"])
+@pytest.mark.parametrize("is_async", [True, False])
+async def test_sync_callback_thread(
+    started_local_broker: EventBroker, is_async: bool
+) -> None:
+    loop_thread = get_ident()
+    callback_threads: list[int] = []
+    completed = AnyIOEvent()
+
+    def callback(event: Event) -> None:
+        callback_threads.append(get_ident())
+        if get_ident() == loop_thread:
+            completed.set()
+        else:
+            from_thread.run_sync(completed.set)
+
+    started_local_broker.subscribe(callback, is_async=is_async)
+    await started_local_broker.publish(Event())
+    with fail_after(1):
+        await completed.wait()
+
+    assert (callback_threads[0] == loop_thread) is is_async
 
 
 async def test_publish_subscribe(event_broker: EventBroker) -> None:
