@@ -1095,6 +1095,138 @@ async def test_mongodb_retries_transient_transaction_errors(
     assert calls == 3  # 1 transient failure + 2 successful calls in the retried attempt
 
 
+@pytest.mark.external_service
+async def test_mongodb_release_job_rolls_back_on_failure(
+    mongodb_datastore: DataStore, mocker: MockerFixture
+) -> None:
+    from pymongo.errors import OperationFailure
+
+    await mongodb_datastore.add_task(
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    )
+    job = Job(
+        task_id="task1",
+        executor="async",
+        result_expiration_time=timedelta(minutes=1),
+    )
+    await mongodb_datastore.add_job(job)
+
+    acquired = await mongodb_datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
+    assert len(acquired) == 1
+
+    # Fail the counter decrement, which is the last write of the release
+    mocker.patch.object(
+        mongodb_datastore._tasks,
+        "find_one_and_update",
+        side_effect=OperationFailure("injected failure", code=999),
+    )
+
+    with pytest.raises(OperationFailure):
+        await mongodb_datastore.release_job(
+            "worker1",
+            acquired[0],
+            JobResult.from_job(acquired[0], JobOutcome.success),
+        )
+
+    # The release may not have been partially applied
+    assert len(await mongodb_datastore.get_jobs()) == 1
+    assert (await mongodb_datastore.get_task("task1")).running_jobs == 1
+    assert await mongodb_datastore.get_job_result(job.id) is None
+
+
+@pytest.mark.external_service
+async def test_mongodb_reap_abandoned_jobs_rolls_back_on_failure(
+    mongodb_datastore: DataStore, mocker: MockerFixture
+) -> None:
+    from pymongo.errors import OperationFailure
+
+    await mongodb_datastore.add_task(
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    )
+    jobs = [
+        Job(
+            task_id="task1",
+            executor="async",
+            result_expiration_time=timedelta(minutes=1),
+        )
+        for _ in range(2)
+    ]
+    for job in jobs:
+        await mongodb_datastore.add_job(job)
+
+    acquired = await mongodb_datastore.acquire_jobs("worker1", timedelta(seconds=30), 2)
+    assert len(acquired) == 2
+
+    # Fail the release after its writes have been performed: a non-atomic
+    # implementation would leave them applied
+    original_release_jobs = mongodb_datastore._release_jobs
+
+    async def failing_release_jobs(*args, **kwargs):
+        await original_release_jobs(*args, **kwargs)
+        raise OperationFailure("injected failure", code=999)
+
+    mocker.patch.object(
+        mongodb_datastore,
+        "_release_jobs",
+        side_effect=failing_release_jobs,
+    )
+
+    with pytest.raises(OperationFailure):
+        await mongodb_datastore.reap_abandoned_jobs("worker1")
+
+    # The failed release may not have left its writes behind
+    assert len(await mongodb_datastore.get_jobs()) == 2
+    assert (await mongodb_datastore.get_task("task1")).running_jobs == 2
+    assert await mongodb_datastore.get_job_result(jobs[0].id) is None
+
+
+@pytest.mark.external_service
+async def test_mongodb_cleanup_rolls_back_on_failure(
+    mongodb_datastore: DataStore, mocker: MockerFixture
+) -> None:
+    from pymongo.errors import OperationFailure
+
+    await mongodb_datastore.add_task(
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    )
+    job = Job(
+        task_id="task1",
+        executor="async",
+        result_expiration_time=timedelta(minutes=1),
+    )
+    await mongodb_datastore.add_job(job)
+
+    acquired = await mongodb_datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
+    assert len(acquired) == 1
+
+    # Expire the job's lease so cleanup picks it up
+    await mongodb_datastore._jobs.update_many(
+        {"_id": job.id}, {"$set": {"acquired_until": 0}}
+    )
+
+    # Fail the release after its writes have been performed: a non-atomic
+    # implementation would leave them applied
+    original_release_jobs = mongodb_datastore._release_jobs
+
+    async def failing_release_jobs(*args, **kwargs):
+        await original_release_jobs(*args, **kwargs)
+        raise OperationFailure("injected failure", code=999)
+
+    mocker.patch.object(
+        mongodb_datastore,
+        "_release_jobs",
+        side_effect=failing_release_jobs,
+    )
+
+    with pytest.raises(OperationFailure):
+        await mongodb_datastore.cleanup()
+
+    # The failed cleanup may not have left its writes behind
+    assert len(await mongodb_datastore.get_jobs()) == 1
+    assert (await mongodb_datastore.get_task("task1")).running_jobs == 1
+    assert await mongodb_datastore.get_job_result(job.id) is None
+
+
 class TestRepr:
     async def test_memory(self, memory_store: MemoryDataStore) -> None:
         assert repr(memory_store) == "MemoryDataStore()"
