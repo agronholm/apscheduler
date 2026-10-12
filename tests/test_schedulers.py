@@ -49,6 +49,7 @@ from apscheduler import (
     SchedulerStarted,
     SchedulerStopped,
     ScheduleUpdated,
+    Task,
     TaskAdded,
     TaskDefaults,
     TaskUpdated,
@@ -158,6 +159,18 @@ class TestAsyncScheduler:
             assert scheduler.task_defaults.job_executor == "async"
             assert scheduler.state is RunState.stopped
 
+    async def test_subscribe_coroutine_function(self) -> None:
+        received = anyio.Event()
+
+        async def callback(event: Event) -> None:
+            received.set()
+
+        async with AsyncScheduler() as scheduler:
+            scheduler.subscribe(callback, SchedulerStarted, is_async=False)
+            await scheduler.start_in_background()
+            with fail_after(10):
+                await received.wait()
+
     @pytest.mark.parametrize("as_default", [False, True])
     async def test_async_executor(self, as_default: bool) -> None:
         async with AsyncScheduler() as scheduler:
@@ -206,6 +219,24 @@ class TestAsyncScheduler:
                 event = await receive.receive()
                 assert isinstance(event, TaskUpdated)
                 assert event.task_id == "mytask"
+
+    async def test_configure_task_from_task_object(self) -> None:
+        # Passing a Task object must preserve its callable reference; otherwise
+        # the task is stored with func=None and jobs fail to look up the
+        # callable when they run (#1001).
+        async with AsyncScheduler() as scheduler:
+            await scheduler.configure_task(
+                Task(
+                    id="mytask",
+                    func=f"{__name__}:dummy_async_job",
+                    job_executor="async",
+                )
+            )
+            tasks = await scheduler.get_tasks()
+            assert len(tasks) == 1
+            assert tasks[0].id == "mytask"
+            assert tasks[0].func == f"{__name__}:dummy_async_job"
+            assert tasks[0].job_executor == "async"
 
     async def test_configure_task_with_decorator(self) -> None:
         async with AsyncScheduler() as scheduler:
@@ -1386,6 +1417,17 @@ class TestSyncScheduler:
         scheduler.subscribe(lambda event: None)
         fake_atexit_register.assert_called_once_with(scheduler._exit_stack.close)
         scheduler._exit_stack.close()
+
+    def test_subscribe_coroutine_function(self) -> None:
+        received = threading.Event()
+
+        async def callback(event: Event) -> None:
+            received.set()
+
+        with Scheduler() as scheduler:
+            scheduler.subscribe(callback, SchedulerStarted)
+            scheduler.start_in_background()
+            assert received.wait(10)
 
     def test_configure_task(self) -> None:
         queue: Queue[Event] = Queue()
