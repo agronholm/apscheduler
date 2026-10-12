@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
+from zoneinfo import ZoneInfo
 
 import pytest
 
+from apscheduler.abc import Serializer
 from apscheduler.triggers.calendarinterval import CalendarIntervalTrigger
 
 
@@ -50,6 +52,96 @@ def test_missing_time(timezone, serializer):
         trigger = serializer.deserialize(serializer.serialize(trigger))
 
     assert trigger.next() == datetime(2016, 3, 28, 2, 30, tzinfo=timezone)
+
+
+@pytest.mark.parametrize(
+    "years, months, weeks, days, start_date, expected_dates",
+    [
+        pytest.param(
+            0,
+            0,
+            0,
+            1,
+            date(2024, 3, 29),
+            (date(2024, 3, 29), date(2024, 3, 31), date(2024, 4, 1)),
+            id="daily",
+        ),
+        pytest.param(
+            0,
+            0,
+            0,
+            1,
+            date(2024, 3, 30),
+            (date(2024, 3, 31),),
+            id="start-in-gap-end-on-next-day",
+        ),
+        pytest.param(
+            0,
+            0,
+            0,
+            2,
+            date(2024, 3, 28),
+            (date(2024, 3, 28), date(2024, 4, 1), date(2024, 4, 3)),
+            id="every-other-day",
+        ),
+        pytest.param(
+            0,
+            0,
+            1,
+            0,
+            date(2024, 3, 23),
+            (date(2024, 3, 23), date(2024, 4, 6), date(2024, 4, 13)),
+            id="weekly",
+        ),
+        pytest.param(
+            0,
+            1,
+            0,
+            0,
+            date(2024, 1, 30),
+            (date(2024, 1, 30), date(2024, 4, 30), date(2024, 5, 30)),
+            id="monthly",
+        ),
+        pytest.param(
+            1,
+            0,
+            0,
+            0,
+            date(2023, 3, 30),
+            (date(2023, 3, 30), date(2025, 3, 30), date(2026, 3, 30)),
+            id="yearly",
+        ),
+    ],
+)
+def test_missing_time_crossing_midnight(
+    years: int,
+    months: int,
+    weeks: int,
+    days: int,
+    start_date: date,
+    expected_dates: tuple[date, ...],
+    serializer: Serializer | None,
+) -> None:
+    # Nuuk's missing 2024-03-30 23:30 normalizes to 2024-03-31 00:30.
+    timezone = ZoneInfo("America/Nuuk")
+    trigger = CalendarIntervalTrigger(
+        years=years,
+        months=months,
+        weeks=weeks,
+        days=days,
+        hour=23,
+        minute=30,
+        start_date=start_date,
+        end_date=expected_dates[-1],
+        timezone=timezone,
+    )
+    for expected_date in expected_dates:
+        if serializer:
+            trigger = serializer.deserialize(serializer.serialize(trigger))
+
+        assert trigger.next() == datetime.combine(expected_date, time(23, 30), timezone)
+
+    assert trigger.next() is None
 
 
 def test_repeated_time(timezone, serializer):

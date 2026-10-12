@@ -8,18 +8,43 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
-- Dropped support for Python 3.9
+- Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
+- Dropped support for Python 3.9 and 3.10
 - Fixed an issue where ``CronTrigger`` does not convert ``start_time`` to ``self.timezone``
   (`#1061 <https://github.com/agronholm/apscheduler/issues/1061>`_; PR by @jonasitzmann)
 - Fixed an issue where ``CronTrigger.next()`` returned a non-existing date on a DST change
   (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
 - Fixed jobs that were being run when the scheduler was gracefully stopped being left in
   an acquired state (`#946 <https://github.com/agronholm/apscheduler/issues/946>`_)
+- Fixed the documented ``psycopg`` extra not being declared in the project metadata, so
+  ``pip install apscheduler[psycopg]`` silently installed nothing for the Psycopg event
+  broker (`#1133 <https://github.com/agronholm/apscheduler/issues/1133>`_)
+- Fixed schedules staying stuck when the scheduler holding them died without releasing
+  them; clean-up now releases schedules whose leases have expired and wakes up the
+  other schedulers so they can acquire them
+  (`#1053 <https://github.com/agronholm/apscheduler/issues/1053>`_)
+- Fixed the synchronous ``Scheduler`` not enabling automatic clean-up by default,
+  unlike ``AsyncScheduler``
+  (`#1135 <https://github.com/agronholm/apscheduler/pull/1135>`_; PR by @dylanpulver)
+- Fixed type annotation of ``AndTrigger.max_iterations`` to only allow ``int`` and never
+  ``None``
+  (`#1131 <https://github.com/agronholm/apscheduler/issues/1131>`_; PR by @afonsojanu)
+- Fixed ``CalendarIntervalTrigger`` skipping valid dates or shifting subsequent run dates
+  when a nonexistent local time normalizes past midnight during a forward DST shift
+- Fixed ``CronTrigger`` raising an unhelpful ``IndexError`` instead of a descriptive
+  ``ValueError`` when given a numeric ``day_of_week`` value outside the 0–7 range
+  (`#1130 <https://github.com/agronholm/apscheduler/pull/1130>`_; PR by @nikolauspschuetz)
+- Fixed ``AsyncpgEventBroker`` raising ``NoEventLoopError`` with AnyIO ≥ 4.14 on
+  incoming notifications
+  (`#1141 <https://github.com/agronholm/apscheduler/issues/1141>`_)
+- Fixed trigger errors crashing the scheduler or causing a schedule to reuse another
+  schedule's next fire time
+  (`#1154 <https://github.com/agronholm/apscheduler/issues/1154>`_; PR by @MokiMeow)
+- Fixed coroutine function callbacks (including callable objects with an asynchronous
+  ``__call__()`` method) never being awaited when subscribed with ``is_async=False``,
+  which the synchronous ``Scheduler`` always uses
 - Fixed the scheduler crashing with ``KeyError`` when a job's lease expired while the
-  job was still running and the job was then acquired (and run) a second time: the
-  scheduler now skips acquired jobs that are still running in it, and releasing an
-  already-released job is a no-op in ``MemoryDataStore`` (as it already was in the
-  external data stores), no longer corrupting the task's running jobs counter
+  job was still running and the job was then acquired (and run) a second time
   (`#1116 <https://github.com/agronholm/apscheduler/issues/1116>`_; PR by @leobaray)
 
 **4.0.0a6**

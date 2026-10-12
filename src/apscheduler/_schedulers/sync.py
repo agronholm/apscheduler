@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from functools import partial
 from logging import Logger
 from types import TracebackType
-from typing import Any, Literal, overload
+from typing import Any, Literal, Self, overload
 from uuid import UUID
 
 import attrs
@@ -22,11 +22,6 @@ from .._structures import Job, JobResult, MetadataType, Schedule, Task, TaskDefa
 from .._utils import UnsetValue, create_repr, unset
 from ..abc import DataStore, EventBroker, JobExecutor, Subscription, Trigger
 from .async_ import AsyncScheduler, TaskType
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 @attrs.define(init=False, repr=False)
@@ -55,7 +50,7 @@ class Scheduler:
         identity: str = "",
         role: SchedulerRole = SchedulerRole.both,
         max_concurrent_jobs: int = 100,
-        cleanup_interval: float | timedelta | None = None,
+        cleanup_interval: float | timedelta | None = timedelta(minutes=15),
         lease_duration: timedelta = timedelta(seconds=30),
         job_executors: MutableMapping[str, JobExecutor] | None = None,
         task_defaults: TaskDefaults | None = None,

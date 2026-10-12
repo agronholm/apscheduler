@@ -58,7 +58,7 @@ class AndTrigger(BaseCombiningTrigger):
     """
 
     threshold: timedelta = attrs.field(converter=as_timedelta, default=1)
-    max_iterations: int | None = 10000
+    max_iterations: int = 10000
 
     def next(self) -> datetime | None:
         if not self._next_fire_times:

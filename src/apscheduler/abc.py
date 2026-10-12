@@ -1,18 +1,12 @@
 from __future__ import annotations
 
-import sys
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta
 from logging import Logger
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 from uuid import UUID
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from ._enums import ConflictPolicy
@@ -402,6 +396,8 @@ class DataStore(metaclass=ABCMeta):
         * Purge expired job results (where ``expires_at`` is less or equal to the
           current time)
         * Release jobs with expired leases with the ``cancelled`` outcome
+        * Release schedules with expired leases, publishing a
+          :class:`~apscheduler.ScheduleUpdated` event for each of them
         * Purge finished schedules (where ``next_run_time`` is ``None``) that have no
           running jobs associated with them
         """

@@ -7,15 +7,17 @@ import time
 from collections import defaultdict
 from collections.abc import Callable
 from contextlib import AsyncExitStack
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from inspect import signature
 from queue import Queue
 from types import ModuleType
 from typing import Any, cast
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import anyio
+import attrs
 import pytest
 from anyio import (
     Lock,
@@ -61,17 +63,10 @@ from apscheduler.eventbrokers.local import LocalEventBroker
 from apscheduler.executors.async_ import AsyncJobExecutor
 from apscheduler.executors.subprocess import ProcessPoolJobExecutor
 from apscheduler.executors.thread import ThreadPoolJobExecutor
+from apscheduler.triggers.combining import AndTrigger
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-
-if sys.version_info >= (3, 11):
-    from datetime import UTC
-else:
-    UTC = timezone.utc
-    from exceptiongroup import ExceptionGroup
-
-from zoneinfo import ZoneInfo
 
 pytestmark = pytest.mark.anyio
 
@@ -162,6 +157,18 @@ class TestAsyncScheduler:
             )
             assert scheduler.task_defaults.job_executor == "async"
             assert scheduler.state is RunState.stopped
+
+    async def test_subscribe_coroutine_function(self) -> None:
+        received = anyio.Event()
+
+        async def callback(event: Event) -> None:
+            received.set()
+
+        async with AsyncScheduler() as scheduler:
+            scheduler.subscribe(callback, SchedulerStarted, is_async=False)
+            await scheduler.start_in_background()
+            with fail_after(10):
+                await received.wait()
 
     @pytest.mark.parametrize("as_default", [False, True])
     async def test_async_executor(self, as_default: bool) -> None:
@@ -612,6 +619,41 @@ class TestAsyncScheduler:
             with pytest.raises(WouldBlock):
                 receive.receive_nowait()
 
+    async def test_trigger_error(self) -> None:
+        start_time = datetime.now(UTC) - timedelta(seconds=5)
+        # Yields one fire time, then raises MaxIterationsReached on the next call
+        failing_trigger = AndTrigger(
+            [
+                IntervalTrigger(minutes=2, start_time=start_time),
+                IntervalTrigger(minutes=3, start_time=start_time),
+            ],
+            max_iterations=1,
+        )
+        send, receive = create_memory_object_stream[ScheduleUpdated](2)
+        with send, receive:
+            async with AsyncScheduler(role=SchedulerRole.scheduler) as scheduler:
+                await scheduler.add_schedule(
+                    dummy_async_job,
+                    IntervalTrigger(minutes=1, start_time=start_time),
+                    id="ok",
+                )
+                await scheduler.add_schedule(
+                    dummy_async_job, failing_trigger, id="failing"
+                )
+                scheduler.subscribe(send.send, ScheduleUpdated)
+                await scheduler.start_in_background()
+                with fail_after(3):
+                    events = {}
+                    for _ in range(2):
+                        event = await receive.receive()
+                        events[event.schedule_id] = event
+
+                assert events["ok"].next_fire_time is not None
+                assert events["failing"].next_fire_time is None
+                # The already-due run of the failing schedule must still be queued
+                jobs = await scheduler.get_jobs()
+                assert {job.schedule_id for job in jobs} == {"ok", "failing"}
+
     @pytest.mark.parametrize(
         "max_jitter, expected_upper_bound",
         [pytest.param(2, 2, id="within"), pytest.param(4, 2.999999, id="exceed")],
@@ -858,7 +900,7 @@ class TestAsyncScheduler:
             event = anyio.Event()
             scheduler.subscribe(lambda _: event.set(), {JobReleased}, one_shot=True)
             await scheduler.add_schedule(
-                dummy_async_job, DateTrigger(datetime.now(timezone.utc)), id="event_set"
+                dummy_async_job, DateTrigger(datetime.now(UTC)), id="event_set"
             )
             with fail_after(3):
                 await event.wait()
@@ -896,7 +938,7 @@ class TestAsyncScheduler:
             dummy_event = anyio.Event()
             await scheduler.configure_task("event_set", func=dummy_event.wait)
             schedule_id = await scheduler.add_schedule(
-                "event_set", DateTrigger(datetime.now(timezone.utc)), id="event_set"
+                "event_set", DateTrigger(datetime.now(UTC)), id="event_set"
             )
 
             # Wait for the job to be submitted
@@ -1238,6 +1280,57 @@ class TestSyncScheduler:
                         f"Parameter mismatch for {attrname}(): {args} != {sync_args[kind]}"
                     )
 
+    def test_constructor_parity(self) -> None:
+        """
+        Ensure that the sync scheduler accepts the same constructor arguments as the
+        async scheduler, with the same default values.
+
+        The loop in :meth:`test_interface_parity` skips ``__init__`` because it only
+        looks at public attributes, so the constructor defaults – the one place where
+        the two schedulers can silently drift apart – are compared here instead.
+
+        """
+        # Constructor arguments whose declared defaults intentionally differ.
+        # Scheduler only forwards the options it was actually given, so it uses None as
+        # an "argument not passed" sentinel for every option whose real default is an
+        # object built by AsyncScheduler itself (an attrs factory, or the module level
+        # logger); the effective default still comes from AsyncScheduler.
+        # task_defaults is additionally sync-specific, as Scheduler fills in the
+        # "threadpool" job executor.
+        exceptions = {
+            "data_store",
+            "event_broker",
+            "job_executors",
+            "task_defaults",
+            "logger",
+        }
+        async_params = signature(AsyncScheduler.__init__).parameters
+        sync_params = signature(Scheduler.__init__).parameters
+        converters = {
+            field.name: field.converter for field in attrs.fields(AsyncScheduler)
+        }
+        for name, async_param in async_params.items():
+            if name == "self":
+                continue
+
+            if name not in sync_params:
+                pytest.fail(f"Scheduler() is missing the {name!r} argument")
+
+            if name in exceptions:
+                continue
+
+            # Compare the defaults the way AsyncScheduler stores them, by running both
+            # through the field's converter (if any), as lease_duration is declared as a
+            # plain number of seconds on the async side but as a timedelta on the sync
+            # side.
+            convert = converters[name] or (lambda value: value)
+            async_default = convert(async_param.default)
+            sync_default = convert(sync_params[name].default)
+            assert sync_default == async_default, (
+                f"Default value mismatch for the {name!r} argument of Scheduler(): "
+                f"{sync_default!r} != {async_default!r}"
+            )
+
     def test_repr(self) -> None:
         scheduler = Scheduler(identity="my identity")
         assert repr(scheduler) == (
@@ -1305,6 +1398,17 @@ class TestSyncScheduler:
         scheduler.subscribe(lambda event: None)
         fake_atexit_register.assert_called_once_with(scheduler._exit_stack.close)
         scheduler._exit_stack.close()
+
+    def test_subscribe_coroutine_function(self) -> None:
+        received = threading.Event()
+
+        async def callback(event: Event) -> None:
+            received.set()
+
+        with Scheduler() as scheduler:
+            scheduler.subscribe(callback, SchedulerStarted)
+            scheduler.start_in_background()
+            assert received.wait(10)
 
     def test_configure_task(self) -> None:
         queue: Queue[Event] = Queue()
@@ -1432,7 +1536,7 @@ class TestSyncScheduler:
         with Scheduler(cleanup_interval=None) as scheduler:
             event = threading.Event()
             scheduler.add_schedule(
-                event.set, DateTrigger(datetime.now(timezone.utc)), id="event_set"
+                event.set, DateTrigger(datetime.now(UTC)), id="event_set"
             )
             scheduler.start_in_background()
             assert event.wait(3)
@@ -1445,6 +1549,18 @@ class TestSyncScheduler:
             scheduler.cleanup()
             with pytest.raises(ScheduleLookupError):
                 scheduler.get_schedule("event_set")
+
+    def test_implicit_cleanup(self, mocker: MockerFixture) -> None:
+        """
+        Test that the data store's cleanup() method is called when a scheduler
+        configured with the default options is started.
+
+        """
+        with Scheduler() as scheduler:
+            event = threading.Event()
+            mocker.patch.object(scheduler.data_store, "cleanup", side_effect=event.set)
+            scheduler.start_in_background()
+            assert event.wait(3)
 
     def test_run_until_stopped(self) -> None:
         queue: Queue[Event] = Queue()
