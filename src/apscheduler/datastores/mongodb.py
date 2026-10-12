@@ -30,7 +30,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.asynchronous.mongo_client import AsyncMongoClient
-from pymongo.errors import ConnectionFailure, DuplicateKeyError
+from pymongo.errors import ConnectionFailure, DuplicateKeyError, ExecutionTimeout
 from pymongo.read_concern import ReadConcern
 
 from .._enums import CoalescePolicy, ConflictPolicy, JobOutcome
@@ -160,7 +160,11 @@ class MongoDBDataStore(BaseExternalDataStore):
 
     @property
     def _temporary_failure_exceptions(self) -> tuple[type[Exception], ...]:
-        return (ConnectionFailure,)
+        # When with_transaction() runs out of its retry budget, it raises a
+        # NetworkTimeout (without CSOT; covered here as a subclass of
+        # ConnectionFailure) or an ExecutionTimeout (with CSOT). Both warrant a
+        # retry of the whole operation
+        return (ConnectionFailure, ExecutionTimeout)
 
     def __attrs_post_init__(self) -> None:
         if isinstance(self.client_or_uri, str):

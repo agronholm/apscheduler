@@ -1096,6 +1096,45 @@ async def test_mongodb_retries_transient_transaction_errors(
 
 
 @pytest.mark.external_service
+async def test_mongodb_retries_transaction_timeout_errors(
+    mongodb_datastore: DataStore, mocker: MockerFixture
+) -> None:
+    from pymongo.asynchronous.client_session import AsyncClientSession
+    from pymongo.errors import ExecutionTimeout
+
+    await mongodb_datastore.add_task(
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    )
+    jobs = [Job(task_id="task1", executor="async") for _ in range(2)]
+    for job in jobs:
+        await mongodb_datastore.add_job(job)
+
+    # Make the first attempt fail with the error that with_transaction() raises
+    # when its retry budget runs out (with CSOT enabled)
+    original_with_transaction = AsyncClientSession.with_transaction
+    calls = 0
+
+    async def flaky_with_transaction(self, *args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise ExecutionTimeout("transaction timed out", 50, {"ok": 0})
+
+        return await original_with_transaction(self, *args, **kwargs)
+
+    mocker.patch.object(AsyncClientSession, "with_transaction", flaky_with_transaction)
+
+    async with capture_events(mongodb_datastore, 2, {JobAcquired}) as events:
+        acquired = await mongodb_datastore.acquire_jobs(
+            "worker1", timedelta(seconds=30), 2
+        )
+
+    assert len(acquired) == 2
+    assert {event.job_id for event in events} == {job.id for job in jobs}
+    assert calls == 2  # 1 timeout + 1 successful attempt after the retry
+
+
+@pytest.mark.external_service
 async def test_mongodb_release_job_rolls_back_on_failure(
     mongodb_datastore: DataStore, mocker: MockerFixture
 ) -> None:
