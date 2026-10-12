@@ -561,184 +561,178 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def acquire_jobs(
         self, scheduler_id: str, lease_duration: timedelta, limit: int | None = None
     ) -> list[Job]:
-        async for attempt in self._retry():
+        async def txn_callback(
+            session: AsyncClientSession,
+        ) -> tuple[list[Job], list[JobAcquired | JobReleased]]:
             acquired_jobs: list[Job] = []
             events: list[JobAcquired | JobReleased] = []
+
+            # Fetch up to {limit} jobs
+            now = datetime.now(UTC)
+            documents = await self._jobs.find(
+                {
+                    "$or": [
+                        {"acquired_until": {"$exists": False}},
+                        {"acquired_until": {"$lt": now.timestamp()}},
+                    ]
+                },
+                sort=[("created_at", ASCENDING)],
+                limit=limit,
+                session=session,
+            ).to_list()
+
+            # Mark them as acquired by this scheduler
+            acquired_until = now + lease_duration
+            job_ids = [doc["_id"] for doc in documents]
+            result = await self._jobs.update_many(
+                {
+                    "_id": {"$in": job_ids},
+                    "$or": [
+                        {"acquired_until": {"$exists": False}},
+                        {"acquired_until": {"$lt": now.timestamp()}},
+                    ],
+                },
+                {
+                    "$set": {
+                        "acquired_by": scheduler_id,
+                        **marshal_timestamp(acquired_until, "acquired_until"),
+                    }
+                },
+                session=session,
+            )
+
+            # If the number of modified jobs was smaller than expected, manually
+            # check which jobs were successfully acquired
+            if result.modified_count != len(job_ids):
+                async with self._jobs.find(
+                    {
+                        "_id": {"$in": job_ids},
+                        "acquired_by": scheduler_id,
+                    },
+                    sort=[("created_at", ASCENDING)],
+                    projection=["_id"],
+                    session=session,
+                ) as cursor:
+                    acquired_job_ids = {doc["_id"] async for doc in cursor}
+                    documents = [
+                        doc for doc in documents if doc["_id"] in acquired_job_ids
+                    ]
+
+            release_jobs: list[_JobRelease] = []
+            skipped_job_ids: list[UUID] = []
+            for doc in documents:
+                # Deserialize the job
+                doc["id"] = doc.pop("_id")
+                unmarshal_timestamps(doc)
+                try:
+                    job = Job.unmarshal(self.serializer, doc)
+                except DeserializationError as exc:
+                    # Deserialization failed, so record the exception as the job
+                    # result
+                    result = JobResult(
+                        job_id=doc["id"],
+                        outcome=JobOutcome.missed_start_deadline,
+                        finished_at=now,
+                        expires_at=now
+                        + timedelta(seconds=doc["result_expiration_time"]),
+                        exception=exc,
+                    )
+                    release_jobs.append(
+                        _JobRelease(
+                            result=result,
+                            scheduler_id=scheduler_id,
+                            task_id=doc["task_id"],
+                            schedule_id=doc["schedule_id"],
+                            scheduled_fire_time=doc["scheduled_fire_time"],
+                            decrement_running_job_count=False,
+                        )
+                    )
+                    continue
+
+                # Discard the job if its start deadline has passed
+                if job.start_deadline and job.start_deadline < now:
+                    result = JobResult.from_job(
+                        job,
+                        JobOutcome.missed_start_deadline,
+                        finished_at=now,
+                    )
+                    release_jobs.append(
+                        _JobRelease(
+                            result=result,
+                            scheduler_id=scheduler_id,
+                            task_id=job.task_id,
+                            schedule_id=job.schedule_id,
+                            scheduled_fire_time=job.scheduled_fire_time,
+                            decrement_running_job_count=False,
+                        )
+                    )
+                    continue
+
+                # Try to increment the task's running jobs count
+                update_task_result = await self._tasks.update_one(
+                    {
+                        "_id": job.task_id,
+                        "$or": [
+                            {"max_running_jobs": None},
+                            {
+                                "$expr": {
+                                    "$gt": [
+                                        "$max_running_jobs",
+                                        "$running_jobs",
+                                    ]
+                                }
+                            },
+                        ],
+                    },
+                    {"$inc": {"running_jobs": 1}},
+                    session=session,
+                )
+                if not update_task_result.matched_count:
+                    self._logger.debug(
+                        "Skipping job %s because task %r has the maximum number of "
+                        "jobs already running",
+                        job.id,
+                        job.task_id,
+                    )
+                    skipped_job_ids.append(job.id)
+                    continue
+
+                job.acquired_by = scheduler_id
+                job.acquired_until = now + lease_duration
+                acquired_jobs.append(job)
+                events.append(JobAcquired.from_job(job, scheduler_id=scheduler_id))
+
+            # Release jobs skipped due to max job slots being reached
+            if skipped_job_ids:
+                await self._jobs.update_many(
+                    {
+                        "_id": {"$in": skipped_job_ids},
+                        "acquired_by": scheduler_id,
+                    },
+                    {
+                        "$unset": {
+                            "acquired_by": True,
+                            "acquired_until": True,
+                            "acquired_until_utcoffset": True,
+                        },
+                    },
+                    session=session,
+                )
+
+            # Release the jobs that could not start
+            if release_jobs:
+                events.extend(
+                    await self._release_jobs(session=session, jobs=release_jobs)
+                )
+
+            return acquired_jobs, events
+
+        async for attempt in self._retry():
             async with AsyncExitStack() as exit_stack:
                 exit_stack.enter_context(attempt)
                 session = await exit_stack.enter_async_context(
                     self._client.start_session()
                 )
-
-                async def txn_callback(
-                    session: AsyncClientSession,
-                ) -> tuple[list[Job], list[JobAcquired | JobReleased]]:
-                    acquired_jobs: list[Job] = []
-                    events: list[JobAcquired | JobReleased] = []
-
-                    # Fetch up to {limit} jobs
-                    now = datetime.now(UTC)
-                    documents = await self._jobs.find(
-                        {
-                            "$or": [
-                                {"acquired_until": {"$exists": False}},
-                                {"acquired_until": {"$lt": now.timestamp()}},
-                            ]
-                        },
-                        sort=[("created_at", ASCENDING)],
-                        limit=limit,
-                        session=session,
-                    ).to_list()
-
-                    # Mark them as acquired by this scheduler
-                    acquired_until = now + lease_duration
-                    job_ids = [doc["_id"] for doc in documents]
-                    result = await self._jobs.update_many(
-                        {
-                            "_id": {"$in": job_ids},
-                            "$or": [
-                                {"acquired_until": {"$exists": False}},
-                                {"acquired_until": {"$lt": now.timestamp()}},
-                            ],
-                        },
-                        {
-                            "$set": {
-                                "acquired_by": scheduler_id,
-                                **marshal_timestamp(acquired_until, "acquired_until"),
-                            }
-                        },
-                        session=session,
-                    )
-
-                    # If the number of modified jobs was smaller than expected, manually
-                    # check which jobs were successfully acquired
-                    if result.modified_count != len(job_ids):
-                        async with self._jobs.find(
-                            {
-                                "_id": {"$in": job_ids},
-                                "acquired_by": scheduler_id,
-                            },
-                            sort=[("created_at", ASCENDING)],
-                            projection=["_id"],
-                            session=session,
-                        ) as cursor:
-                            acquired_job_ids = {doc["_id"] async for doc in cursor}
-                            documents = [
-                                doc
-                                for doc in documents
-                                if doc["_id"] in acquired_job_ids
-                            ]
-
-                    release_jobs: list[_JobRelease] = []
-                    skipped_job_ids: list[UUID] = []
-                    for doc in documents:
-                        # Deserialize the job
-                        doc["id"] = doc.pop("_id")
-                        unmarshal_timestamps(doc)
-                        try:
-                            job = Job.unmarshal(self.serializer, doc)
-                        except DeserializationError as exc:
-                            # Deserialization failed, so record the exception as the job
-                            # result
-                            result = JobResult(
-                                job_id=doc["id"],
-                                outcome=JobOutcome.missed_start_deadline,
-                                finished_at=now,
-                                expires_at=now
-                                + timedelta(seconds=doc["result_expiration_time"]),
-                                exception=exc,
-                            )
-                            release_jobs.append(
-                                _JobRelease(
-                                    result=result,
-                                    scheduler_id=scheduler_id,
-                                    task_id=doc["task_id"],
-                                    schedule_id=doc["schedule_id"],
-                                    scheduled_fire_time=doc["scheduled_fire_time"],
-                                    decrement_running_job_count=False,
-                                )
-                            )
-                            continue
-
-                        # Discard the job if its start deadline has passed
-                        if job.start_deadline and job.start_deadline < now:
-                            result = JobResult.from_job(
-                                job,
-                                JobOutcome.missed_start_deadline,
-                                finished_at=now,
-                            )
-                            release_jobs.append(
-                                _JobRelease(
-                                    result=result,
-                                    scheduler_id=scheduler_id,
-                                    task_id=job.task_id,
-                                    schedule_id=job.schedule_id,
-                                    scheduled_fire_time=job.scheduled_fire_time,
-                                    decrement_running_job_count=False,
-                                )
-                            )
-                            continue
-
-                        # Try to increment the task's running jobs count
-                        update_task_result = await self._tasks.update_one(
-                            {
-                                "_id": job.task_id,
-                                "$or": [
-                                    {"max_running_jobs": None},
-                                    {
-                                        "$expr": {
-                                            "$gt": [
-                                                "$max_running_jobs",
-                                                "$running_jobs",
-                                            ]
-                                        }
-                                    },
-                                ],
-                            },
-                            {"$inc": {"running_jobs": 1}},
-                            session=session,
-                        )
-                        if not update_task_result.matched_count:
-                            self._logger.debug(
-                                "Skipping job %s because task %r has the maximum number of "
-                                "jobs already running",
-                                job.id,
-                                job.task_id,
-                            )
-                            skipped_job_ids.append(job.id)
-                            continue
-
-                        job.acquired_by = scheduler_id
-                        job.acquired_until = now + lease_duration
-                        acquired_jobs.append(job)
-                        events.append(
-                            JobAcquired.from_job(job, scheduler_id=scheduler_id)
-                        )
-
-                    # Release jobs skipped due to max job slots being reached
-                    if skipped_job_ids:
-                        await self._jobs.update_many(
-                            {
-                                "_id": {"$in": skipped_job_ids},
-                                "acquired_by": scheduler_id,
-                            },
-                            {
-                                "$unset": {
-                                    "acquired_by": True,
-                                    "acquired_until": True,
-                                    "acquired_until_utcoffset": True,
-                                },
-                            },
-                            session=session,
-                        )
-
-                    # Release the jobs that could not start
-                    if release_jobs:
-                        events.extend(
-                            await self._release_jobs(session=session, jobs=release_jobs)
-                        )
-
-                    return acquired_jobs, events
 
                 acquired_jobs, events = await session.with_transaction(
                     txn_callback,
@@ -812,36 +806,35 @@ class MongoDBDataStore(BaseExternalDataStore):
         return events
 
     async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
+        async def txn_callback(session: AsyncClientSession) -> JobReleased:
+            # Record the job result
+            if result.expires_at > result.finished_at:
+                document = result.marshal(self.serializer)
+                document["_id"] = document.pop("job_id")
+                marshal_document(document)
+                await self._jobs_results.insert_one(document, session=session)
+
+            # Delete the job
+            await self._jobs.delete_one({"_id": result.job_id}, session=session)
+
+            # Decrement the running jobs counter if the job had been successfully acquired
+            await self._tasks.find_one_and_update(
+                {"_id": job.task_id},
+                {"$inc": {"running_jobs": -1}},
+                session=session,
+            )
+
+            # Notify other schedulers
+            return JobReleased.from_result(
+                result,
+                scheduler_id,
+                job.task_id,
+                job.schedule_id,
+                job.scheduled_fire_time,
+            )
+
         async for attempt in self._retry():
             with attempt:
-
-                async def txn_callback(session: AsyncClientSession) -> JobReleased:
-                    # Record the job result
-                    if result.expires_at > result.finished_at:
-                        document = result.marshal(self.serializer)
-                        document["_id"] = document.pop("job_id")
-                        marshal_document(document)
-                        await self._jobs_results.insert_one(document, session=session)
-
-                    # Delete the job
-                    await self._jobs.delete_one({"_id": result.job_id}, session=session)
-
-                    # Decrement the running jobs counter if the job had been successfully acquired
-                    await self._tasks.find_one_and_update(
-                        {"_id": job.task_id},
-                        {"$inc": {"running_jobs": -1}},
-                        session=session,
-                    )
-
-                    # Notify other schedulers
-                    return JobReleased.from_result(
-                        result,
-                        scheduler_id,
-                        job.task_id,
-                        job.schedule_id,
-                        job.scheduled_fire_time,
-                    )
-
                 async with self._client.start_session() as session:
                     event = await session.with_transaction(
                         txn_callback,
@@ -897,45 +890,43 @@ class MongoDBDataStore(BaseExternalDataStore):
                     )
 
     async def reap_abandoned_jobs(self, scheduler_id: str) -> None:
+        async def txn_callback(
+            session: AsyncClientSession,
+        ) -> list[JobReleased]:
+            release_jobs: list[_JobRelease] = []
+            async with self._jobs.find(
+                filter={"acquired_by": scheduler_id},
+                sort=[("created_at", ASCENDING)],
+                session=session,
+            ) as cursor:
+                async for doc in cursor:
+                    doc["id"] = doc.pop("_id")
+                    unmarshal_timestamps(doc)
+                    job = Job.unmarshal(
+                        self.serializer, {**doc, "args": (), "kwargs": {}}
+                    )
+                    result = JobResult.from_job(job, JobOutcome.abandoned)
+                    release_jobs.append(
+                        _JobRelease(
+                            result=result,
+                            scheduler_id=scheduler_id,
+                            task_id=job.task_id,
+                            schedule_id=job.schedule_id,
+                            scheduled_fire_time=job.scheduled_fire_time,
+                        )
+                    )
+
+            if release_jobs:
+                return await self._release_jobs(session=session, jobs=release_jobs)
+
+            return []
+
         async for attempt in self._retry():
             async with AsyncExitStack() as exit_stack:
                 exit_stack.enter_context(attempt)
                 session = await exit_stack.enter_async_context(
                     self._client.start_session()
                 )
-
-                async def txn_callback(
-                    session: AsyncClientSession,
-                ) -> list[JobReleased]:
-                    release_jobs: list[_JobRelease] = []
-                    async with self._jobs.find(
-                        filter={"acquired_by": scheduler_id},
-                        sort=[("created_at", ASCENDING)],
-                        session=session,
-                    ) as cursor:
-                        async for doc in cursor:
-                            doc["id"] = doc.pop("_id")
-                            unmarshal_timestamps(doc)
-                            job = Job.unmarshal(
-                                self.serializer, {**doc, "args": (), "kwargs": {}}
-                            )
-                            result = JobResult.from_job(job, JobOutcome.abandoned)
-                            release_jobs.append(
-                                _JobRelease(
-                                    result=result,
-                                    scheduler_id=scheduler_id,
-                                    task_id=job.task_id,
-                                    schedule_id=job.schedule_id,
-                                    scheduled_fire_time=job.scheduled_fire_time,
-                                )
-                            )
-
-                    if release_jobs:
-                        return await self._release_jobs(
-                            session=session, jobs=release_jobs
-                        )
-
-                    return []
 
                 events = await session.with_transaction(
                     txn_callback,
@@ -951,136 +942,134 @@ class MongoDBDataStore(BaseExternalDataStore):
                 await self._event_broker.publish(event)
 
     async def cleanup(self) -> None:
+        async def txn_callback(
+            session: AsyncClientSession,
+        ) -> list[JobReleased | ScheduleRemoved | ScheduleUpdated]:
+            events: list[JobReleased | ScheduleRemoved | ScheduleUpdated] = []
+
+            # Purge expired job results
+            now = datetime.now(UTC)
+            await self._jobs_results.delete_many(
+                {"expires_at": {"$lte": now.timestamp()}}, session=session
+            )
+
+            # Find finished schedules
+            async with self._schedules.find(
+                {"next_fire_time": None},
+                projection=["_id", "task_id"],
+                session=session,
+            ) as cursor:
+                if finished_schedules := {
+                    item["_id"]: item["task_id"] async for item in cursor
+                }:
+                    # Find distinct schedule IDs of jobs associated with these
+                    # schedules
+                    for schedule_id in await self._jobs.distinct(
+                        "schedule_id",
+                        {"schedule_id": {"$in": list(finished_schedules)}},
+                        session=session,
+                    ):
+                        finished_schedules.pop(schedule_id)
+
+            # Finish any jobs whose leases have expired
+            filters = {"acquired_until": {"$lt": now.timestamp()}}
+            async with self._jobs.find(
+                filters,
+                projection=[
+                    "_id",
+                    "acquired_by",
+                    "task_id",
+                    "schedule_id",
+                    "scheduled_fire_time",
+                    "scheduled_fire_time_utcoffset",
+                    "result_expiration_time",
+                ],
+                session=session,
+            ) as cursor:
+                release_jobs: list[_JobRelease] = []
+                async for doc in cursor:
+                    unmarshal_timestamps(doc)
+                    result = JobResult(
+                        job_id=doc["_id"],
+                        outcome=JobOutcome.abandoned,
+                        finished_at=now,
+                        expires_at=now
+                        + timedelta(seconds=doc["result_expiration_time"]),
+                    )
+                    release_jobs.append(
+                        _JobRelease(
+                            result=result,
+                            scheduler_id=doc["acquired_by"],
+                            task_id=doc["task_id"],
+                            schedule_id=doc["schedule_id"],
+                            scheduled_fire_time=doc["scheduled_fire_time"],
+                        )
+                    )
+
+                if release_jobs:
+                    events.extend(
+                        await self._release_jobs(session=session, jobs=release_jobs)
+                    )
+
+            # Release any schedules whose leases have expired
+            expired_schedule_ids: list[str] = []
+            async with self._schedules.find(
+                {"acquired_until": {"$lt": now.timestamp()}},
+                projection=[
+                    "_id",
+                    "task_id",
+                    "next_fire_time",
+                    "next_fire_time_utcoffset",
+                ],
+                session=session,
+            ) as cursor:
+                async for doc in cursor:
+                    unmarshal_timestamps(doc)
+                    expired_schedule_ids.append(doc["_id"])
+                    events.append(
+                        ScheduleUpdated(
+                            schedule_id=doc["_id"],
+                            task_id=doc["task_id"],
+                            next_fire_time=doc["next_fire_time"],
+                        )
+                    )
+
+            if expired_schedule_ids:
+                await self._schedules.update_many(
+                    {"_id": {"$in": expired_schedule_ids}},
+                    {
+                        "$unset": {
+                            "acquired_by": True,
+                            "acquired_until": True,
+                            "acquired_until_utcoffset": True,
+                        }
+                    },
+                    session=session,
+                )
+
+            # Delete finished schedules that not having any associated jobs
+            if finished_schedules:
+                await self._schedules.delete_many(
+                    {"_id": {"$in": list(finished_schedules)}},
+                    session=session,
+                )
+                for schedule_id, task_id in finished_schedules.items():
+                    events.append(
+                        ScheduleRemoved(
+                            schedule_id=schedule_id,
+                            task_id=task_id,
+                            finished=True,
+                        )
+                    )
+
+            return events
+
         async for attempt in self._retry():
             async with AsyncExitStack() as exit_stack:
                 exit_stack.enter_context(attempt)
                 session = await exit_stack.enter_async_context(
                     self._client.start_session()
                 )
-
-                async def txn_callback(
-                    session: AsyncClientSession,
-                ) -> list[JobReleased | ScheduleRemoved | ScheduleUpdated]:
-                    events: list[JobReleased | ScheduleRemoved | ScheduleUpdated] = []
-
-                    # Purge expired job results
-                    now = datetime.now(UTC)
-                    await self._jobs_results.delete_many(
-                        {"expires_at": {"$lte": now.timestamp()}}, session=session
-                    )
-
-                    # Find finished schedules
-                    async with self._schedules.find(
-                        {"next_fire_time": None},
-                        projection=["_id", "task_id"],
-                        session=session,
-                    ) as cursor:
-                        if finished_schedules := {
-                            item["_id"]: item["task_id"] async for item in cursor
-                        }:
-                            # Find distinct schedule IDs of jobs associated with these
-                            # schedules
-                            for schedule_id in await self._jobs.distinct(
-                                "schedule_id",
-                                {"schedule_id": {"$in": list(finished_schedules)}},
-                                session=session,
-                            ):
-                                finished_schedules.pop(schedule_id)
-
-                    # Finish any jobs whose leases have expired
-                    filters = {"acquired_until": {"$lt": now.timestamp()}}
-                    async with self._jobs.find(
-                        filters,
-                        projection=[
-                            "_id",
-                            "acquired_by",
-                            "task_id",
-                            "schedule_id",
-                            "scheduled_fire_time",
-                            "scheduled_fire_time_utcoffset",
-                            "result_expiration_time",
-                        ],
-                        session=session,
-                    ) as cursor:
-                        release_jobs: list[_JobRelease] = []
-                        async for doc in cursor:
-                            unmarshal_timestamps(doc)
-                            result = JobResult(
-                                job_id=doc["_id"],
-                                outcome=JobOutcome.abandoned,
-                                finished_at=now,
-                                expires_at=now
-                                + timedelta(seconds=doc["result_expiration_time"]),
-                            )
-                            release_jobs.append(
-                                _JobRelease(
-                                    result=result,
-                                    scheduler_id=doc["acquired_by"],
-                                    task_id=doc["task_id"],
-                                    schedule_id=doc["schedule_id"],
-                                    scheduled_fire_time=doc["scheduled_fire_time"],
-                                )
-                            )
-
-                        if release_jobs:
-                            events.extend(
-                                await self._release_jobs(
-                                    session=session, jobs=release_jobs
-                                )
-                            )
-
-                    # Release any schedules whose leases have expired
-                    expired_schedule_ids: list[str] = []
-                    async with self._schedules.find(
-                        {"acquired_until": {"$lt": now.timestamp()}},
-                        projection=[
-                            "_id",
-                            "task_id",
-                            "next_fire_time",
-                            "next_fire_time_utcoffset",
-                        ],
-                        session=session,
-                    ) as cursor:
-                        async for doc in cursor:
-                            unmarshal_timestamps(doc)
-                            expired_schedule_ids.append(doc["_id"])
-                            events.append(
-                                ScheduleUpdated(
-                                    schedule_id=doc["_id"],
-                                    task_id=doc["task_id"],
-                                    next_fire_time=doc["next_fire_time"],
-                                )
-                            )
-
-                    if expired_schedule_ids:
-                        await self._schedules.update_many(
-                            {"_id": {"$in": expired_schedule_ids}},
-                            {
-                                "$unset": {
-                                    "acquired_by": True,
-                                    "acquired_until": True,
-                                    "acquired_until_utcoffset": True,
-                                }
-                            },
-                            session=session,
-                        )
-
-                    # Delete finished schedules that not having any associated jobs
-                    if finished_schedules:
-                        await self._schedules.delete_many(
-                            {"_id": {"$in": list(finished_schedules)}},
-                            session=session,
-                        )
-                        for schedule_id, task_id in finished_schedules.items():
-                            events.append(
-                                ScheduleRemoved(
-                                    schedule_id=schedule_id,
-                                    task_id=task_id,
-                                    finished=True,
-                                )
-                            )
-
-                    return events
 
                 events = await session.with_transaction(
                     txn_callback,
