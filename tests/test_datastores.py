@@ -699,9 +699,7 @@ async def test_next_schedule_run_time_skips_inactive_schedules(
 ) -> None:
     """
     Test that paused and already acquired schedules are not offered as the next run
-    time. Their fire times are in the past, so offering them would leave the scheduler
-    with a wakeup deadline that has already passed, and it would process schedules in a
-    loop instead of waiting.
+    time.
 
     """
     schedules[0].paused = True
