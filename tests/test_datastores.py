@@ -621,7 +621,7 @@ async def test_release_job_after_lease_expired(
     await datastore.add_job(job)
 
     # The first scheduler acquires the job, but doesn't finish within the lease
-    time_machine.move_to(datetime.now(timezone.utc), tick=False)
+    time_machine.move_to(datetime.now(UTC), tick=False)
     acquired1 = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
     assert len(acquired1) == 1
     assert acquired1[0].id == job.id
