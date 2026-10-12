@@ -43,6 +43,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed coroutine function callbacks (including callable objects with an asynchronous
   ``__call__()`` method) never being awaited when subscribed with ``is_async=False``,
   which the synchronous ``Scheduler`` always uses
+- Fixed ``configure_task()`` dropping the callable reference when passed a ``Task``
+  object, causing the configured task to be stored with ``func=None``
+  (`#1001 <https://github.com/agronholm/apscheduler/issues/1001>`_)
 
 **4.0.0a6**
 
