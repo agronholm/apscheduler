@@ -9,7 +9,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
-- Dropped support for Python 3.9
+- Dropped support for Python 3.9 and 3.10
 - Fixed an issue where ``CronTrigger`` does not convert ``start_time`` to ``self.timezone``
   (`#1061 <https://github.com/agronholm/apscheduler/issues/1061>`_; PR by @jonasitzmann)
 - Fixed an issue where ``CronTrigger.next()`` returned a non-existing date on a DST change
@@ -34,6 +34,15 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``CronTrigger`` raising an unhelpful ``IndexError`` instead of a descriptive
   ``ValueError`` when given a numeric ``day_of_week`` value outside the 0–7 range
   (`#1130 <https://github.com/agronholm/apscheduler/pull/1130>`_; PR by @nikolauspschuetz)
+- Fixed ``AsyncpgEventBroker`` raising ``NoEventLoopError`` with AnyIO ≥ 4.14 on
+  incoming notifications
+  (`#1141 <https://github.com/agronholm/apscheduler/issues/1141>`_)
+- Fixed trigger errors crashing the scheduler or causing a schedule to reuse another
+  schedule's next fire time
+  (`#1154 <https://github.com/agronholm/apscheduler/issues/1154>`_; PR by @MokiMeow)
+- Fixed coroutine function callbacks (including callable objects with an asynchronous
+  ``__call__()`` method) never being awaited when subscribed with ``is_async=False``,
+  which the synchronous ``Scheduler`` always uses
 - Fixed ``configure_task()`` dropping the callable reference when passed a ``Task``
   object, causing the configured task to be stored with ``func=None``
   (`#1001 <https://github.com/agronholm/apscheduler/issues/1001>`_)

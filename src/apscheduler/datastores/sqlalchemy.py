@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import AsyncGenerator, Iterable, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from functools import partial
 from logging import Logger
 from typing import Any, cast
@@ -650,7 +650,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(UTC)
                     acquired_until = now + lease_duration
                     if self._supports_tzaware_timestamps:
                         comparison = self._t_schedules.c.next_fire_time <= now
@@ -875,7 +875,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(UTC)
                     acquired_until = now + lease_duration
                     query = (
                         select(
@@ -1107,7 +1107,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
-                    new_acquired_until = datetime.now(timezone.utc) + duration
+                    new_acquired_until = datetime.now(UTC) + duration
                     update = (
                         self._t_schedules.update()
                         .values(acquired_until=new_acquired_until)
@@ -1124,7 +1124,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
-                    new_acquired_until = datetime.now(timezone.utc) + duration
+                    new_acquired_until = datetime.now(UTC) + duration
                     update = (
                         self._t_jobs.update()
                         .values(acquired_until=new_acquired_until)
@@ -1172,12 +1172,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                 async with self._begin_transaction() as conn:
                     # Purge expired job results
                     delete = self._t_job_results.delete().where(
-                        self._t_job_results.c.expires_at <= datetime.now(timezone.utc)
+                        self._t_job_results.c.expires_at <= datetime.now(UTC)
                     )
                     await self._execute(conn, delete)
 
                     # Finish any jobs whose leases have expired
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(UTC)
                     query = select(
                         self._t_jobs.c.id,
                         self._t_jobs.c.task_id,

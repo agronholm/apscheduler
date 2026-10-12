@@ -1,18 +1,12 @@
 from __future__ import annotations
 
-import sys
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import AsyncExitStack
 from datetime import datetime, timedelta
 from logging import Logger
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 from uuid import UUID
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from ._enums import ConflictPolicy

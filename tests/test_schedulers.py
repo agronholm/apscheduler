@@ -7,13 +7,14 @@ import time
 from collections import defaultdict
 from collections.abc import Callable
 from contextlib import AsyncExitStack
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from inspect import signature
 from queue import Queue
 from types import ModuleType
 from typing import Any, cast
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import anyio
 import attrs
@@ -63,17 +64,10 @@ from apscheduler.eventbrokers.local import LocalEventBroker
 from apscheduler.executors.async_ import AsyncJobExecutor
 from apscheduler.executors.subprocess import ProcessPoolJobExecutor
 from apscheduler.executors.thread import ThreadPoolJobExecutor
+from apscheduler.triggers.combining import AndTrigger
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-
-if sys.version_info >= (3, 11):
-    from datetime import UTC
-else:
-    UTC = timezone.utc
-    from exceptiongroup import ExceptionGroup
-
-from zoneinfo import ZoneInfo
 
 pytestmark = pytest.mark.anyio
 
@@ -164,6 +158,18 @@ class TestAsyncScheduler:
             )
             assert scheduler.task_defaults.job_executor == "async"
             assert scheduler.state is RunState.stopped
+
+    async def test_subscribe_coroutine_function(self) -> None:
+        received = anyio.Event()
+
+        async def callback(event: Event) -> None:
+            received.set()
+
+        async with AsyncScheduler() as scheduler:
+            scheduler.subscribe(callback, SchedulerStarted, is_async=False)
+            await scheduler.start_in_background()
+            with fail_after(10):
+                await received.wait()
 
     @pytest.mark.parametrize("as_default", [False, True])
     async def test_async_executor(self, as_default: bool) -> None:
@@ -632,6 +638,41 @@ class TestAsyncScheduler:
             with pytest.raises(WouldBlock):
                 receive.receive_nowait()
 
+    async def test_trigger_error(self) -> None:
+        start_time = datetime.now(UTC) - timedelta(seconds=5)
+        # Yields one fire time, then raises MaxIterationsReached on the next call
+        failing_trigger = AndTrigger(
+            [
+                IntervalTrigger(minutes=2, start_time=start_time),
+                IntervalTrigger(minutes=3, start_time=start_time),
+            ],
+            max_iterations=1,
+        )
+        send, receive = create_memory_object_stream[ScheduleUpdated](2)
+        with send, receive:
+            async with AsyncScheduler(role=SchedulerRole.scheduler) as scheduler:
+                await scheduler.add_schedule(
+                    dummy_async_job,
+                    IntervalTrigger(minutes=1, start_time=start_time),
+                    id="ok",
+                )
+                await scheduler.add_schedule(
+                    dummy_async_job, failing_trigger, id="failing"
+                )
+                scheduler.subscribe(send.send, ScheduleUpdated)
+                await scheduler.start_in_background()
+                with fail_after(3):
+                    events = {}
+                    for _ in range(2):
+                        event = await receive.receive()
+                        events[event.schedule_id] = event
+
+                assert events["ok"].next_fire_time is not None
+                assert events["failing"].next_fire_time is None
+                # The already-due run of the failing schedule must still be queued
+                jobs = await scheduler.get_jobs()
+                assert {job.schedule_id for job in jobs} == {"ok", "failing"}
+
     @pytest.mark.parametrize(
         "max_jitter, expected_upper_bound",
         [pytest.param(2, 2, id="within"), pytest.param(4, 2.999999, id="exceed")],
@@ -878,7 +919,7 @@ class TestAsyncScheduler:
             event = anyio.Event()
             scheduler.subscribe(lambda _: event.set(), {JobReleased}, one_shot=True)
             await scheduler.add_schedule(
-                dummy_async_job, DateTrigger(datetime.now(timezone.utc)), id="event_set"
+                dummy_async_job, DateTrigger(datetime.now(UTC)), id="event_set"
             )
             with fail_after(3):
                 await event.wait()
@@ -916,7 +957,7 @@ class TestAsyncScheduler:
             dummy_event = anyio.Event()
             await scheduler.configure_task("event_set", func=dummy_event.wait)
             schedule_id = await scheduler.add_schedule(
-                "event_set", DateTrigger(datetime.now(timezone.utc)), id="event_set"
+                "event_set", DateTrigger(datetime.now(UTC)), id="event_set"
             )
 
             # Wait for the job to be submitted
@@ -1377,6 +1418,17 @@ class TestSyncScheduler:
         fake_atexit_register.assert_called_once_with(scheduler._exit_stack.close)
         scheduler._exit_stack.close()
 
+    def test_subscribe_coroutine_function(self) -> None:
+        received = threading.Event()
+
+        async def callback(event: Event) -> None:
+            received.set()
+
+        with Scheduler() as scheduler:
+            scheduler.subscribe(callback, SchedulerStarted)
+            scheduler.start_in_background()
+            assert received.wait(10)
+
     def test_configure_task(self) -> None:
         queue: Queue[Event] = Queue()
         with Scheduler() as scheduler:
@@ -1503,7 +1555,7 @@ class TestSyncScheduler:
         with Scheduler(cleanup_interval=None) as scheduler:
             event = threading.Event()
             scheduler.add_schedule(
-                event.set, DateTrigger(datetime.now(timezone.utc)), id="event_set"
+                event.set, DateTrigger(datetime.now(UTC)), id="event_set"
             )
             scheduler.start_in_background()
             assert event.wait(3)

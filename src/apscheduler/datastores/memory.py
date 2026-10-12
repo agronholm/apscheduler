@@ -3,7 +3,7 @@ from __future__ import annotations
 from bisect import bisect_left, bisect_right, insort_right
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from datetime import MAXYEAR, datetime, timedelta, timezone
+from datetime import MAXYEAR, UTC, datetime, timedelta
 from functools import partial
 from uuid import UUID
 
@@ -27,7 +27,7 @@ from .._structures import Job, JobResult, Schedule, ScheduleResult, Task
 from .._utils import create_repr
 from .base import BaseDataStore
 
-max_datetime = datetime(MAXYEAR, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
+max_datetime = datetime(MAXYEAR, 12, 31, 23, 59, 59, 999999, tzinfo=UTC)
 
 
 @attrs.define(eq=False, repr=False)
@@ -144,7 +144,7 @@ class MemoryDataStore(BaseDataStore):
     async def acquire_schedules(
         self, scheduler_id: str, lease_duration: timedelta, limit: int
     ) -> list[Schedule]:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         acquired_until = now + lease_duration
         schedules: list[Schedule] = []
         for schedule in self._schedules:
@@ -225,7 +225,7 @@ class MemoryDataStore(BaseDataStore):
     async def acquire_jobs(
         self, scheduler_id: str, lease_duration: timedelta, limit: int | None = None
     ) -> list[Job]:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         acquired_until = now + lease_duration
         jobs: list[Job] = []
         job_results: dict[Job, JobResult] = {}
@@ -330,7 +330,7 @@ class MemoryDataStore(BaseDataStore):
     async def extend_acquired_schedule_leases(
         self, scheduler_id: str, schedule_ids: set[str], duration: timedelta
     ) -> None:
-        acquired_until = datetime.now(timezone.utc) + duration
+        acquired_until = datetime.now(UTC) + duration
         for schedule in self._schedules:
             if schedule.acquired_by == scheduler_id and schedule.id in schedule_ids:
                 schedule.acquired_until = acquired_until
@@ -338,13 +338,13 @@ class MemoryDataStore(BaseDataStore):
     async def extend_acquired_job_leases(
         self, scheduler_id: str, job_ids: set[UUID], duration: timedelta
     ) -> None:
-        acquired_until = datetime.now(timezone.utc) + duration
+        acquired_until = datetime.now(UTC) + duration
         for job in self._jobs_by_id.values():
             if job.acquired_by == scheduler_id and job.id in job_ids:
                 job.acquired_until = acquired_until
 
     async def reap_abandoned_jobs(self, scheduler_id: str) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for job in list(self._jobs_by_id.values()):
             if job.acquired_by == scheduler_id:
                 result = JobResult.from_job(
@@ -354,7 +354,7 @@ class MemoryDataStore(BaseDataStore):
 
     async def cleanup(self) -> None:
         # Clean up expired job results
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expired_job_ids = [
             result.job_id
             for result in self._job_results.values()

@@ -8,7 +8,7 @@ from collections.abc import (
     Sequence,
 )
 from contextlib import AsyncExitStack
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from logging import Logger
 from typing import Any, ClassVar, TypeVar, cast
 from uuid import UUID
@@ -342,43 +342,36 @@ class MongoDBDataStore(BaseExternalDataStore):
                     session = await exit_stack.enter_async_context(
                         self._client.start_session()
                     )
-                    now = datetime.now(timezone.utc)
-                    cursor = await exit_stack.enter_async_context(
-                        self._schedules.find(
-                            {
-                                "next_fire_time": {"$lte": now.timestamp()},
-                                "$and": [
-                                    {
-                                        "$or": [
-                                            {"paused": {"$exists": False}},
-                                            {"paused": False},
-                                        ]
-                                    },
-                                    {
-                                        "$or": [
-                                            {"acquired_by": scheduler_id},
-                                            {"acquired_until": {"$exists": False}},
-                                            {
-                                                "acquired_until": {
-                                                    "$lt": now.timestamp()
-                                                }
-                                            },
-                                        ]
-                                    },
-                                ],
-                            },
-                            session=session,
-                        )
-                        .sort("next_fire_time")
-                        .limit(limit - len(schedules))
-                    )
-                    documents = [doc async for doc in cursor]
+                    now = datetime.now(UTC)
+                    documents = await self._schedules.find(
+                        {
+                            "next_fire_time": {"$lte": now.timestamp()},
+                            "$and": [
+                                {
+                                    "$or": [
+                                        {"paused": {"$exists": False}},
+                                        {"paused": False},
+                                    ]
+                                },
+                                {
+                                    "$or": [
+                                        {"acquired_by": scheduler_id},
+                                        {"acquired_until": {"$exists": False}},
+                                        {"acquired_until": {"$lt": now.timestamp()}},
+                                    ]
+                                },
+                            ],
+                        },
+                        sort=[("next_fire_time", ASCENDING)],
+                        limit=limit - len(schedules),
+                        session=session,
+                    ).to_list()
 
                     # Bail out if there are no more schedules to be acquired
                     if not documents:
                         return schedules
 
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(UTC)
                     acquired_until = now + lease_duration
                     schedule_ids = [doc["_id"] for doc in documents]
                     result = await self._schedules.update_many(
@@ -548,8 +541,8 @@ class MongoDBDataStore(BaseExternalDataStore):
                 )
 
                 # Fetch up to {limit} jobs
-                now = datetime.now(timezone.utc)
-                async with self._jobs.find(
+                now = datetime.now(UTC)
+                documents = await self._jobs.find(
                     {
                         "$or": [
                             {"acquired_until": {"$exists": False}},
@@ -559,8 +552,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                     sort=[("created_at", ASCENDING)],
                     limit=limit,
                     session=session,
-                ) as cursor:
-                    documents = [doc async for doc in cursor]
+                ).to_list()
 
                 # Mark them as acquired by this scheduler
                 acquired_until = now + lease_duration
@@ -774,9 +766,7 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 async with self._client.start_session() as session:
-                    new_acquired_until = (
-                        datetime.now(timezone.utc) + duration
-                    ).timestamp()
+                    new_acquired_until = (datetime.now(UTC) + duration).timestamp()
                     await self._schedules.update_many(
                         filter={
                             "acquired_by": scheduler_id,
@@ -792,9 +782,7 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 async with self._client.start_session() as session:
-                    new_acquired_until = (
-                        datetime.now(timezone.utc) + duration
-                    ).timestamp()
+                    new_acquired_until = (datetime.now(UTC) + duration).timestamp()
                     await self._jobs.update_many(
                         filter={
                             "acquired_by": scheduler_id,
@@ -841,7 +829,7 @@ class MongoDBDataStore(BaseExternalDataStore):
             with attempt:
                 async with self._client.start_session() as session:
                     # Purge expired job results
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(UTC)
                     await self._jobs_results.delete_many(
                         {"expires_at": {"$lte": now.timestamp()}}, session=session
                     )
