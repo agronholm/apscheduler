@@ -121,10 +121,14 @@ class MongoDBDataStore(BaseExternalDataStore):
     if they're not already present.
 
     Operations are retried (in accordance to ``retry_settings``) when an operation
-    raises :exc:`pymongo.errors.ConnectionFailure`.
+    raises :exc:`pymongo.errors.ConnectionFailure` or an
+    :exc:`~pymongo.errors.OperationFailure`.
 
     :param client_or_uri: an asynchronous PyMongo client or a MongoDB connection URI
     :param database: name of the database to use
+
+    .. note:: This data store requires a MongoDB server configured with a replica set
+        or a sharded cluster, since multi-document updates are made in transactions.
 
     .. note:: The data store will not manage the life cycle of any client instance
         passed to it, so you need to close the client after you're done with it.
