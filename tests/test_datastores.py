@@ -602,6 +602,10 @@ async def test_acquire_jobs_lock_timeout(
     assert acquired[0].id == job.id
 
 
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
 async def test_release_job_after_lease_expired(
     datastore: DataStore, time_machine: TimeMachineFixture
 ) -> None:
