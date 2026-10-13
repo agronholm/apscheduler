@@ -82,6 +82,12 @@ class CalendarIntervalTrigger(Trigger):
     )
 
     def __attrs_post_init__(self) -> None:
+        # bool subclasses int; days=True would silently become 1 day
+        for field in ("years", "months", "weeks", "days", "hour", "minute", "second"):
+            value = getattr(self, field)
+            if isinstance(value, bool):
+                raise TypeError(f"{field} must be an int, not bool (got {value!r})")
+
         self._time = time(self.hour, self.minute, self.second, tzinfo=self.timezone)
 
         if self.years == self.months == self.weeks == self.days == 0:

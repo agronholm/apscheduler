@@ -59,3 +59,23 @@ def test_repr(timezone, serializer):
         "microseconds=123525, start_time='2020-05-15 12:55:32.954032+02:00', "
         "end_time='2020-06-04 16:18:49.306942+02:00')"
     )
+
+
+def test_rejects_bool_interval_fields(timezone):
+    """bool subclasses int; seconds=True must not silently become 1 second."""
+    start_time = datetime(2020, 5, 16, tzinfo=timezone)
+    for field in ("weeks", "days", "hours", "minutes", "seconds", "microseconds"):
+        with pytest.raises(TypeError, match=f"{field}.*bool"):
+            IntervalTrigger(**{field: True, "start_time": start_time})
+        with pytest.raises(TypeError, match=f"{field}.*bool"):
+            IntervalTrigger(**{field: False, "start_time": start_time})
+
+
+def test_as_timedelta_rejects_bool():
+    """bool subclasses int; as_timedelta(True) must not silently become 1s."""
+    from apscheduler._converters import as_timedelta
+
+    with pytest.raises(TypeError, match="bool"):
+        as_timedelta(True)
+    with pytest.raises(TypeError, match="bool"):
+        as_timedelta(False)

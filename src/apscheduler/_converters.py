@@ -59,6 +59,11 @@ def as_uuid(value: UUID | str) -> UUID:
 
 
 def as_timedelta(value: timedelta | int) -> timedelta:
+    # bool subclasses int; True would silently become 1 second
+    if isinstance(value, bool):
+        raise TypeError(
+            f"timedelta value must be int/float/timedelta, not bool (got {value!r})"
+        )
     if isinstance(value, (float, int)):
         return timedelta(seconds=value)
 
