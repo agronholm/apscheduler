@@ -483,7 +483,11 @@ class MongoDBDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 document = await self._schedules.find_one(
-                    {"next_fire_time": {"$ne": None}},
+                    {
+                        "next_fire_time": {"$ne": None},
+                        "$or": [{"paused": {"$exists": False}}, {"paused": False}],
+                        "acquired_by": None,
+                    },
                     projection=["next_fire_time", "next_fire_time_utcoffset"],
                     sort=[("next_fire_time", ASCENDING)],
                 )

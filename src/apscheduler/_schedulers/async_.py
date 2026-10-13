@@ -352,6 +352,7 @@ class AsyncScheduler:
             if func is unset:
                 func = func_or_task_id
         elif isinstance(func_or_task_id, Task):
+            func_ref = func_or_task_id.func
             task_params = TaskParameters(
                 id=func_or_task_id.id,
                 job_executor=func_or_task_id.job_executor,
