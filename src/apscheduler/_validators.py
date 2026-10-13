@@ -23,12 +23,14 @@ def aware_datetime(instance: Any, attribute: Attribute, value: Any) -> None:
         raise ValueError(f"{attribute.name} must be a timezone aware datetime")
 
 
-def if_not_unset(validator: Callable[[Any, Any, Any], None]) -> None:
+def if_not_unset(validator: Callable[[Any, Any, Any], None]) -> Callable:
     def validate(instance: Any, attribute: Any, value: Any) -> None:
         if value is unset:
             return
 
         validator(instance, attribute, value)
+
+    return validate
 
 
 def valid_metadata(instance: Any, attribute: Attribute, value: Any) -> None:
