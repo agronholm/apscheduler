@@ -7,6 +7,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 **UNRELEASED**
 
 - Fixed explicit ``ensure_ascii`` options causing JSON serialization to fail
+  (`#1161 <https://github.com/agronholm/apscheduler/pull/1161>`_; PR by @antonsoo)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
