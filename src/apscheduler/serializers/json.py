@@ -68,7 +68,8 @@ class JSONSerializer(Serializer):
 
     def serialize(self, obj: object) -> bytes:
         try:
-            return dumps(obj, ensure_ascii=False, **self.dump_options).encode("utf-8")
+            dump_options = {"ensure_ascii": False, **self.dump_options}
+            return dumps(obj, **dump_options).encode("utf-8")
         except Exception as exc:
             raise SerializationError from exc
 
