@@ -33,8 +33,8 @@ class JSONSerializer(Serializer):
     """
 
     magic_key: str = "_apscheduler_json"
-    dump_options: dict[str, Any] = attrs.field(factory=dict)
-    load_options: dict[str, Any] = attrs.field(factory=dict)
+    dump_options: dict[str, Any] = attrs.field(factory=dict, converter=dict)
+    load_options: dict[str, Any] = attrs.field(factory=dict, converter=dict)
 
     def __attrs_post_init__(self):
         self.dump_options["default"] = self._default_hook

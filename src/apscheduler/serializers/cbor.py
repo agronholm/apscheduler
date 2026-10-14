@@ -26,8 +26,8 @@ class CBORSerializer(Serializer):
     """
 
     type_tag: int = 4664
-    dump_options: dict[str, Any] = attrs.field(factory=dict)
-    load_options: dict[str, Any] = attrs.field(factory=dict)
+    dump_options: dict[str, Any] = attrs.field(factory=dict, converter=dict)
+    load_options: dict[str, Any] = attrs.field(factory=dict, converter=dict)
 
     def __attrs_post_init__(self) -> None:
         self.dump_options.setdefault("default", self._default_hook)
