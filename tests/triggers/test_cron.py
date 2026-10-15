@@ -8,6 +8,59 @@ import pytest
 from apscheduler.triggers.cron import CronTrigger
 
 
+@pytest.mark.parametrize("microsecond", [0, 1, 500000, 999999])
+@pytest.mark.parametrize("second", ["*", "0"])
+def test_fractional_start_time(timezone, serializer, microsecond, second):
+    start_time = datetime(2026, 10, 14, microsecond=microsecond, tzinfo=timezone)
+    trigger = CronTrigger(second=second, start_time=start_time, timezone=timezone)
+    trigger = serializer.deserialize(serializer.serialize(trigger))
+
+    if microsecond:
+        expected = datetime(2026, 10, 14, 0, 0, 1, tzinfo=timezone)
+        if second == "0":
+            expected = datetime(2026, 10, 14, 0, 1, tzinfo=timezone)
+    else:
+        expected = start_time
+
+    assert trigger.start_time == start_time
+    assert trigger.next() == expected
+    trigger = serializer.deserialize(serializer.serialize(trigger))
+    next_fire_time = trigger.next()
+    assert next_fire_time > expected
+    assert next_fire_time.microsecond == 0
+
+
+@pytest.mark.parametrize(
+    "start_time, expected",
+    [
+        (
+            datetime(2026, 3, 29, 1, 59, 59, 500000),
+            datetime(2026, 3, 29, 3),
+        ),
+        (
+            datetime(2026, 10, 25, 2, 59, 59, 500000),
+            datetime(2026, 10, 25, 2, fold=1),
+        ),
+    ],
+    ids=["spring_forward", "fall_back"],
+)
+def test_fractional_start_time_dst(timezone, serializer, start_time, expected):
+    trigger = CronTrigger(second="*", start_time=start_time, timezone=timezone)
+    trigger = serializer.deserialize(serializer.serialize(trigger))
+    fire_time = trigger.next()
+    assert fire_time.timestamp() == expected.replace(tzinfo=timezone).timestamp()
+    assert fire_time.microsecond == 0
+
+
+def test_fractional_start_time_end_time(timezone):
+    start_time = datetime(2026, 10, 14, microsecond=500000, tzinfo=timezone)
+    end_time = datetime(2026, 10, 14, microsecond=750000, tzinfo=timezone)
+    trigger = CronTrigger(
+        second="*", start_time=start_time, end_time=end_time, timezone=timezone
+    )
+    assert trigger.next() is None
+
+
 def test_invalid_expression():
     exc = pytest.raises(ValueError, CronTrigger, year="2009-fault")
     exc.match("Unrecognized expression '2009-fault' for field 'year'")
