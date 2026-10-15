@@ -6,9 +6,6 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
-- Fixed ``CronTrigger`` retaining fractional seconds from ``start_time`` instead of
-  advancing to the next matching whole second
-  (`#1160 <https://github.com/agronholm/apscheduler/pull/1160>`_; PR by @zhechen-cs)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
@@ -54,6 +51,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   scheduler wake up past a deadline that had already passed and process schedules in a
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
+- Fixed ``CronTrigger`` retaining fractional seconds from ``start_time`` instead of
+  advancing to the next matching whole second
+  (`#1160 <https://github.com/agronholm/apscheduler/pull/1160>`_; PR by @zhechen-cs)
 
 **4.0.0a6**
 
