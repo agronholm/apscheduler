@@ -8,6 +8,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - Fixed ``CronTrigger`` rejecting valid start/end times with microseconds on far-future
   dates because its time zone existence check lost floating-point timestamp precision
+  (`#1163 <https://github.com/agronholm/apscheduler/pull/1163>`_; PR by @zhechen-cs)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
