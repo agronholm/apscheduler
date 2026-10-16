@@ -127,6 +127,20 @@ class DummyClass:
         return self.value
 
 
+class ClassMethodJob:
+    @classmethod
+    def run(cls, suffix: str) -> str:
+        return cls.__name__ + suffix
+
+    @classmethod
+    async def run_async(cls, suffix: str) -> str:
+        return cls.__name__ + suffix
+
+
+class InheritedClassMethodJob(ClassMethodJob):
+    pass
+
+
 class TestAsyncScheduler:
     def test_repr(self) -> None:
         scheduler = AsyncScheduler(identity="my identity")
@@ -514,6 +528,43 @@ class TestAsyncScheduler:
                 assert result
                 assert result.outcome is JobOutcome.success
                 assert result.return_value == expected_result
+
+    @pytest.mark.parametrize("job_class", [ClassMethodJob, InheritedClassMethodJob])
+    @pytest.mark.parametrize("method_name", ["run", "run_async"])
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    async def test_class_method_new_scheduler(
+        self,
+        job_class: type[ClassMethodJob],
+        method_name: str,
+        use_scheduling: bool,
+        raw_datastore: DataStore,
+    ) -> None:
+        async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+            target = getattr(job_class, method_name)
+            if use_scheduling:
+                await scheduler.add_schedule(
+                    target,
+                    DateTrigger(datetime.now(UTC)),
+                    args=("!",),
+                    job_result_expiration_time=10,
+                )
+            else:
+                await scheduler.add_job(target, args=("!",), result_expiration_time=10)
+
+        if isinstance(raw_datastore, BaseExternalDataStore):
+            raw_datastore.start_from_scratch = False
+
+        async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+            send, receive = create_memory_object_stream[JobReleased](1)
+            with send, receive, scheduler.subscribe(send.send, {JobReleased}):
+                await scheduler.start_in_background()
+                with fail_after(3):
+                    event = await receive.receive()
+
+            result = await scheduler.get_job_result(event.job_id)
+            assert result is not None
+            assert result.outcome is JobOutcome.success
+            assert result.return_value == job_class.__name__ + "!"
 
     async def test_scheduled_job_missed_deadline(
         self, raw_datastore: DataStore, timezone: ZoneInfo

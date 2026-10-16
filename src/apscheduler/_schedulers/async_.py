@@ -517,7 +517,7 @@ class AsyncScheduler:
 
         # For instance methods, use the unbound function as the function, and  the
         # "self" argument as the first positional argument
-        if ismethod(func_or_task_id):
+        if ismethod(func_or_task_id) and not isclass(func_or_task_id.__self__):
             args = (func_or_task_id.__self__, *args)
             func_or_task_id = func_or_task_id.__func__
         elif (
@@ -685,7 +685,7 @@ class AsyncScheduler:
 
         # For instance methods, use the unbound function as the function, and  the
         # "self" argument as the first positional argument
-        if ismethod(func_or_task_id):
+        if ismethod(func_or_task_id) and not isclass(func_or_task_id.__self__):
             args = (func_or_task_id.__self__, *args)
             func_or_task_id = func_or_task_id.__func__
         elif (
