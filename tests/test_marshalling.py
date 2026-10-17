@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from datetime import timedelta
 from functools import partial
+from inspect import ismethod
 from types import ModuleType
 
 import pytest
@@ -38,6 +39,48 @@ class InheritedDummyClass(DummyClass):
 
 class TestCallableToRef:
     @pytest.mark.parametrize(
+        "binding", ["missing_module", "missing_class", "wrong_class", "wrong_method"]
+    )
+    def test_class_method_reference_must_resolve_to_original(
+        self, monkeypatch: pytest.MonkeyPatch, binding: str
+    ) -> None:
+        module = ModuleType("generated_jobs")
+
+        def run(cls):
+            pass
+
+        generated = type(
+            "GeneratedWorker",
+            (),
+            {"run": classmethod(run), "__module__": module.__name__},
+        )
+        target = generated.run
+        if binding != "missing_module":
+            monkeypatch.setitem(sys.modules, module.__name__, module)
+        if binding == "wrong_class":
+            # Even the same function bound to a different class is not equivalent.
+            module.GeneratedWorker = type("OtherWorker", (), {"run": classmethod(run)})
+        elif binding == "wrong_method":
+            module.GeneratedWorker = generated
+            generated.run = DummyClass.classmeth
+
+        with pytest.raises(SerializationError, match="class method"):
+            callable_to_ref(target)
+
+    @pytest.mark.parametrize("method_name", ["run", "run_async"])
+    def test_cross_module_inherited_class_method(
+        self, cross_module_job_classes: tuple[type, type], method_name: str
+    ) -> None:
+        for job_class in cross_module_job_classes:
+            target = getattr(job_class, method_name)
+            ref = callable_to_ref(target)
+            assert ref == f"{job_class.__module__}:Worker.{method_name}"
+            restored = callable_from_ref(ref)
+            assert ismethod(restored)
+            assert restored.__self__ is job_class
+            assert restored.__func__ is target.__func__
+
+    @pytest.mark.parametrize(
         "obj, error",
         [
             (partial(DummyClass.meth), "Cannot create a reference to a partial()"),
@@ -55,6 +98,15 @@ class TestCallableToRef:
 
         exc = pytest.raises(SerializationError, callable_to_ref, nested)
         assert str(exc.value) == "Cannot create a reference to a nested function"
+
+    def test_local_class_method_error(self):
+        class Local:
+            @classmethod
+            def run(cls):
+                pass
+
+        with pytest.raises(SerializationError, match="nested function"):
+            callable_to_ref(Local.run)
 
     @pytest.mark.parametrize(
         "input,expected",
