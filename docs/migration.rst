@@ -7,7 +7,7 @@ Migrating from previous versions of APScheduler
 .. _classmethod-record-upgrade:
 
 Class-method records from earlier v4 prereleases
-===============================================
+================================================
 
 New jobs and schedules submitted as bound class methods retain their own callable
 reference, including the bound subclass. Their task ID still determines concurrency
