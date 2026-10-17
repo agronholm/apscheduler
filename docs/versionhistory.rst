@@ -51,6 +51,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   scheduler wake up past a deadline that had already passed and process schedules in a
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
+- Fixed references to class methods inherited from a base class in another module
+  pointing to the base class's module, which made them fail to resolve
+  (`#1165 <https://github.com/agronholm/apscheduler/pull/1165>`_; PR by @lprnmns)
 
 **4.0.0a6**
 
