@@ -20,12 +20,58 @@ their original argument format and continue to use the task's configured callabl
 Locally defined classes can be used with the memory data store, but cannot be persisted
 as class-method invocations.
 
-All schedulers and workers sharing a data store must be upgraded before producers
-submit new class-method records. Older versions do not understand the envelope and
-cannot safely process these records. Stop producers and workers during the upgrade;
-before rolling back, drain or explicitly recreate all marked jobs and schedules in a
-format understood by the target version. Mixed-version operation is not supported for
-these records.
+Persistent stores default to a reader-first stage. They read both formats, but reject
+new marked jobs and schedules with :exc:`SerializationError`. Submitting a bound class
+method (including via ``partial()``) is rejected before changing task configuration or
+advancing its trigger. Direct store writes are also checked. Memory stores retain
+per-invocation class binding without this switch.
+
+Use the following stages for a persistent store:
+
+#. Before any old reader shares the store, pause affected class-method producers and
+   task callable reconfiguration. Inventory pending jobs and schedules, including
+   paused, recurring and acquired schedules. There must be no invocation envelopes
+   accessible to old readers. If envelopes already exist, keep old readers stopped
+   while upgraded readers drain them or explicitly recreate the records. Do not strip
+   the envelope: its task ID may refer to a different class.
+#. Roll out the new readers with the default
+   ``allow_invocation_overrides=False`` on every persistent store instance. Keep
+   affected class-method producers paused. Ordinary submissions and submissions by
+   task ID can continue with their existing, frozen task callable bindings. Task-ID
+   submissions retain their legacy meaning; they do not select a subclass per call.
+#. After **all** producers, schedulers and workers that can access the store have been
+   upgraded, prevent old binaries from restarting or reconnecting (including failover
+   and autoscaling instances). Explicitly set ``allow_invocation_overrides=True`` on
+   store instances used by producers and by schedulers that turn schedules into jobs.
+   Class-method producers can then resume. Workers that only read jobs do not need
+   the writer opt-in. For example::
+
+       store = SQLAlchemyDataStore(url, allow_invocation_overrides=True)
+
+   ``MongoDBDataStore`` accepts the same option. Custom persistent stores must enforce
+   equivalent checks on both job and schedule writes before opting in; the scheduler
+   rejects class-method submissions to stores without the opt-in attribute.
+   This also applies to extensions inheriting ``MemoryDataStore``; only the exact
+   built-in memory store is automatically exempt.
+
+The switch is an operator assertion, not a fleet capability negotiation or an
+acquisition fence. Old readers do not check it. They can interpret envelope mapping
+keys as positional arguments and execute the task's configured class instead of the
+intended subclass, potentially without raising an error. Never enable marked writes
+while an old reader can access the store. No schema changes or automatic record
+rewrites are performed.
+
+Rollback before marked writes are enabled can use old readers after the same inventory
+check. After enabling them, first pause marked producers and keep old readers out.
+Keep upgraded schedulers writer-enabled while draining marked schedules and their
+jobs. Explicitly remove or recreate recurring and paused marked schedules with the
+intended legacy task callable and arguments; waiting for jobs alone is insufficient.
+Wait for acquired work to finish, then stop upgraded schedulers and workers so that
+the final inventory cannot race new job creation. Verify that no marked jobs or
+schedules remain before disabling the writer opt-in and restarting old binaries.
+Disabling the switch alone neither converts existing records nor makes rollback safe.
+For a memory store, draining or discarding its in-process state is likewise an explicit
+rollback decision.
 
 Earlier versions sometimes stored an extra class argument, or lost the intended
 subclass by replacing a shared task's callable. These ambiguous records are not

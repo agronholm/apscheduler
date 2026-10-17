@@ -74,8 +74,21 @@ TaskType: TypeAlias = "Task | str | Callable[..., Any]"
 T = TypeVar("T")
 
 
-def _get_class_method(func: Any) -> str | Callable[..., Any] | None:
+def _get_class_method(
+    func: Any, data_store: DataStore
+) -> str | Callable[..., Any] | None:
     if ismethod(func) and isclass(func.__self__):
+        # Reject before configuring a task or advancing a trigger. Stripping the
+        # override would silently execute a different receiver on a shared task.
+        # Extensions may persist records even when they inherit the memory store.
+        if type(data_store) is not MemoryDataStore and not getattr(
+            data_store, "allow_invocation_overrides", False
+        ):
+            raise SerializationError(
+                "Class-method invocations require allow_invocation_overrides=True "
+                "after all schedulers and workers sharing the store have been upgraded"
+            )
+
         try:
             return callable_to_ref(func)
         except SerializationError:
@@ -581,7 +594,7 @@ class AsyncScheduler:
             kwargs.update(func_or_task_id.keywords)
             func_or_task_id = func_or_task_id.func
 
-        invocation_func = _get_class_method(func_or_task_id)
+        invocation_func = _get_class_method(func_or_task_id, self.data_store)
         # For instance methods, use the unbound function as the function, and the
         # "self" argument as the first positional argument
         if ismethod(func_or_task_id) and not isclass(func_or_task_id.__self__):
@@ -751,7 +764,7 @@ class AsyncScheduler:
             kwargs.update(func_or_task_id.keywords)
             func_or_task_id = func_or_task_id.func
 
-        invocation_func = _get_class_method(func_or_task_id)
+        invocation_func = _get_class_method(func_or_task_id, self.data_store)
         # For instance methods, use the unbound function as the function, and the
         # "self" argument as the first positional argument
         if ismethod(func_or_task_id) and not isclass(func_or_task_id.__self__):

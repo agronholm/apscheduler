@@ -82,6 +82,16 @@ from apscheduler.triggers.interval import IntervalTrigger
 pytestmark = pytest.mark.anyio
 
 
+@pytest.fixture
+def raw_datastore(raw_datastore: DataStore) -> DataStore:
+    # These integration tests exercise the fully upgraded, writer-enabled fleet.
+    # Reader-stage defaults and old readers are tested in test_rolling_upgrade.py.
+    if isinstance(raw_datastore, BaseExternalDataStore):
+        raw_datastore.allow_invocation_overrides = True
+
+    return raw_datastore
+
+
 async def dummy_async_job(delay: float = 0, fail: bool = False) -> str:
     await anyio.sleep(delay)
     if fail:
@@ -703,7 +713,9 @@ class TestAsyncScheduler:
         )
         url = f"sqlite+aiosqlite:///{tmp_path}/restart.db"
         async with AsyncScheduler(
-            data_store=SQLAlchemyDataStore(url, serializer=serializer)
+            data_store=SQLAlchemyDataStore(
+                url, serializer=serializer, allow_invocation_overrides=True
+            )
         ) as scheduler:
             await scheduler.configure_task(
                 "shared", func=DecoratedClassMethodJob.run, job_executor=job_executor
@@ -735,7 +747,10 @@ from apscheduler._marshalling import callable_from_ref
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 
 async def main():
-    store = SQLAlchemyDataStore(sys.argv[1], serializer=callable_from_ref(sys.argv[2])())
+    store = SQLAlchemyDataStore(
+        sys.argv[1], serializer=callable_from_ref(sys.argv[2])(),
+        allow_invocation_overrides=True,
+    )
     async with AsyncScheduler(data_store=store) as scheduler:
         send, receive = anyio.create_memory_object_stream[JobReleased](3)
         with send, receive, scheduler.subscribe(send.send, {JobReleased}):
