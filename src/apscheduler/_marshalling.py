@@ -59,7 +59,9 @@ def callable_to_ref(func: Callable) -> str:
         if not isclass(func.__self__):
             raise SerializationError("Cannot create a reference to an instance method")
 
-        return f"{func.__module__}:{func.__self__.__qualname__}.{func.__name__}"
+        return (
+            f"{func.__self__.__module__}:{func.__self__.__qualname__}.{func.__name__}"
+        )
 
     if ismethoddescriptor(func):
         return f"{func.__objclass__.__module__}:{func.__qualname__}"

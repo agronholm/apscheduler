@@ -566,6 +566,65 @@ class TestAsyncScheduler:
             assert result.outcome is JobOutcome.success
             assert result.return_value == job_class.__name__ + "!"
 
+    @pytest.mark.parametrize("method_name", ["run", "run_async"])
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    @pytest.mark.parametrize("fresh_scheduler", [False, True], ids=["same", "fresh"])
+    async def test_cross_module_inherited_class_methods(
+        self,
+        cross_module_job_classes: tuple[type, type],
+        method_name: str,
+        use_scheduling: bool,
+        fresh_scheduler: bool,
+        raw_datastore: DataStore,
+    ) -> None:
+        async with AsyncExitStack() as exit_stack:
+            scheduler = await exit_stack.enter_async_context(
+                AsyncScheduler(data_store=raw_datastore)
+            )
+            for job_class in cross_module_job_classes:
+                target = getattr(job_class, method_name)
+                if use_scheduling:
+                    await scheduler.add_schedule(
+                        target,
+                        DateTrigger(datetime.now(UTC)),
+                        job_result_expiration_time=10,
+                    )
+                else:
+                    await scheduler.add_job(target, result_expiration_time=10)
+
+            if fresh_scheduler:
+                await exit_stack.aclose()
+                if isinstance(raw_datastore, BaseExternalDataStore):
+                    raw_datastore.start_from_scratch = False
+
+                scheduler = await exit_stack.enter_async_context(
+                    AsyncScheduler(data_store=raw_datastore)
+                )
+
+            send, receive = create_memory_object_stream[JobReleased](2)
+            with send, receive, scheduler.subscribe(send.send, {JobReleased}):
+                await scheduler.start_in_background()
+                with fail_after(3):
+                    events = [await receive.receive(), await receive.receive()]
+
+            results = []
+            for event in events:
+                result = await scheduler.get_job_result(event.job_id)
+                assert result is not None
+                results.append(result)
+
+            assert all(result.outcome is JobOutcome.success for result in results)
+            identities = {
+                f"{job_class.__module__}:{job_class.__qualname__}"
+                for job_class in cross_module_job_classes
+            }
+            assert {result.return_value for result in results} == identities
+            expected_refs = {f"{identity}.{method_name}" for identity in identities}
+            assert {event.task_id for event in events} == expected_refs
+            tasks = await scheduler.get_tasks()
+            assert {task.id for task in tasks} == expected_refs
+            assert {task.func for task in tasks} == expected_refs
+
     async def test_scheduled_job_missed_deadline(
         self, raw_datastore: DataStore, timezone: ZoneInfo
     ) -> None:

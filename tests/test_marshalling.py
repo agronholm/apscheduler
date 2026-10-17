@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from datetime import timedelta
 from functools import partial
+from inspect import ismethod
 from types import ModuleType
 
 import pytest
@@ -37,6 +38,19 @@ class InheritedDummyClass(DummyClass):
 
 
 class TestCallableToRef:
+    @pytest.mark.parametrize("method_name", ["run", "run_async"])
+    def test_cross_module_inherited_class_method(
+        self, cross_module_job_classes: tuple[type, type], method_name: str
+    ) -> None:
+        for job_class in cross_module_job_classes:
+            target = getattr(job_class, method_name)
+            ref = callable_to_ref(target)
+            assert ref == f"{job_class.__module__}:Worker.{method_name}"
+            restored = callable_from_ref(ref)
+            assert ismethod(restored)
+            assert restored.__self__ is job_class
+            assert restored.__func__ is target.__func__
+
     @pytest.mark.parametrize(
         "obj, error",
         [
