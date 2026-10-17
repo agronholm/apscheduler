@@ -4,6 +4,36 @@ Migrating from previous versions of APScheduler
 
 .. py:currentmodule:: apscheduler
 
+.. _classmethod-record-upgrade:
+
+Class-method records from earlier v4 prereleases
+===============================================
+
+New jobs and schedules submitted as bound class methods retain their own callable
+reference, including the bound subclass. Their task ID still determines concurrency
+limits and task settings. Submissions by task ID continue to use the task's configured
+callable; enqueuing a callable does not replace an existing task's configuration.
+
+The per-invocation reference is stored in a versioned envelope inside the existing
+serialized positional arguments. No database columns are added. Unmarked records keep
+their original argument format and continue to use the task's configured callable.
+Locally defined classes can be used with the memory data store, but cannot be persisted
+as class-method invocations.
+
+All schedulers and workers sharing a data store must be upgraded before producers
+submit new class-method records. Older versions do not understand the envelope and
+cannot safely process these records. Stop producers and workers during the upgrade;
+before rolling back, drain or explicitly recreate all marked jobs and schedules in a
+format understood by the target version. Mixed-version operation is not supported for
+these records.
+
+Earlier versions sometimes stored an extra class argument, or lost the intended
+subclass by replacing a shared task's callable. These ambiguous records are not
+automatically reinterpreted or repaired. Review affected pending jobs and schedules
+against the intended callable and arguments, and explicitly recreate them if needed.
+Upgrading does not repair earlier wrong-class side effects or invalid stored callable
+references.
+
 From v3.x to v4.0
 =================
 

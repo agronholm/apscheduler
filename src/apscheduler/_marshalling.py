@@ -59,9 +59,24 @@ def callable_to_ref(func: Callable) -> str:
         if not isclass(func.__self__):
             raise SerializationError("Cannot create a reference to an instance method")
 
-        return (
-            f"{func.__self__.__module__}:{func.__self__.__qualname__}.{func.__name__}"
-        )
+        ref = f"{callable_to_ref(func.__self__)}.{func.__name__}"
+        try:
+            resolved = callable_from_ref(ref)
+        except (DeserializationError, LookupError) as exc:
+            raise SerializationError(
+                "Cannot create a reference to an unresolvable class method"
+            ) from exc
+
+        if (
+            not ismethod(resolved)
+            or resolved.__self__ is not func.__self__
+            or resolved.__func__ is not func.__func__
+        ):
+            raise SerializationError(
+                "Reference to class method does not resolve to the original method"
+            )
+
+        return ref
 
     if ismethoddescriptor(func):
         return f"{func.__objclass__.__module__}:{func.__qualname__}"

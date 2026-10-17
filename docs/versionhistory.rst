@@ -7,7 +7,11 @@ APScheduler, see the :doc:`migration section <migration>`.
 **UNRELEASED**
 
 - Fixed class-method jobs failing with an extra positional argument when run by a
-  different scheduler, including inherited class methods
+  different scheduler, including inherited and decorated class methods. Callable
+  submissions retain their bound class even when sharing a task ID, without replacing
+  the task's configured callable or settings. New class-method records use a versioned
+  argument envelope; see :ref:`classmethod-record-upgrade` before upgrading a shared
+  data store
   (`#1164 <https://github.com/agronholm/apscheduler/pull/1164>`_; PR by @AryanRG)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
