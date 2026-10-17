@@ -65,7 +65,7 @@ from apscheduler import (
     task,
 )
 from apscheduler._decorators import TASK_PARAMETERS_KEY, get_task_params
-from apscheduler._utils import UnsetValue, unset
+from apscheduler._utils import UnsetValue, qualified_name, unset
 from apscheduler.abc import DataStore, Serializer
 from apscheduler.datastores.base import BaseExternalDataStore
 from apscheduler.datastores.memory import MemoryDataStore
@@ -796,12 +796,14 @@ anyio.run(main)
             data_store=raw_datastore, max_concurrent_jobs=1
         ) as scheduler:
             await scheduler.configure_task("shared", func=ClassMethodJob.run)
+            expected_ref = bad_ref
             if invalid_default:
                 # An unmarked record uses the normal task resolver and fails;
                 # a marked record must still run even if Task.func is invalid.
                 bad_task_ref = (
                     bad_ref if ":" in bad_ref else f"{__name__}:missing_method"
                 )
+                expected_ref = bad_task_ref
                 stored = await scheduler.data_store.get_task("shared")
                 await scheduler.data_store.add_task(
                     attrs.evolve(stored, func=bad_task_ref)
@@ -864,13 +866,23 @@ anyio.run(main)
 
             assert completed.job_id == good_id
             assert completed.outcome is JobOutcome.success
-            result = await scheduler.get_job_result(good_id)
+            result = await scheduler.get_job_result(good_id, wait=False)
             assert result and result.return_value == "ClassMethodJob!"
-            result = await scheduler.get_job_result(failed.job_id)
-            assert result and isinstance(
-                result.exception,
-                (ValueError, LookupError, DeserializationError, CallableLookupError),
-            )
+            # Check lookup diagnostics without coupling worker recovery to
+            # deserialization of the stored exception object.
+            assert failed.task_id == "shared"
+            assert failed.started_at is not None
+            assert failed.exception_type in {
+                qualified_name(exception_type)
+                for exception_type in (
+                    ValueError,
+                    LookupError,
+                    DeserializationError,
+                    CallableLookupError,
+                )
+            }
+            assert failed.exception_message is not None
+            assert expected_ref in failed.exception_message
             [stored] = await scheduler.get_tasks()
             assert stored.running_jobs == 0
             assert scheduler.state is RunState.started
@@ -1381,15 +1393,24 @@ anyio.run(main)
                     )
                 )
 
-            send, receive = create_memory_object_stream[JobReleased](2)
-            with send, receive, scheduler.subscribe(send.send, {JobReleased}):
-                await scheduler.start_in_background()
-                with fail_after(3):
-                    events = [await receive.receive(), await receive.receive()]
+            events: list[JobReleased] = []
 
+            async def job_released(event: JobReleased) -> None:
+                events.append(event)
+                if len(events) == len(job_classes):
+                    await scheduler.stop()
+
+            with scheduler.subscribe(job_released, {JobReleased}):
+                # Completion drives shutdown. Bound the whole run (including
+                # SQLite I/O and process startup), rather than timing event delivery.
+                with fail_after(30):
+                    await scheduler.run_until_stopped()
+
+            assert len(events) == len(job_classes)
+            assert all(event.outcome is JobOutcome.success for event in events)
             results = []
             for event in events:
-                result = await scheduler.get_job_result(event.job_id)
+                result = await scheduler.get_job_result(event.job_id, wait=False)
                 assert result is not None
                 results.append(result)
             assert all(result.outcome is JobOutcome.success for result in results)
@@ -1409,6 +1430,9 @@ anyio.run(main)
             assert {event.task_id for event in events} == expected_ids
             assert all(task.max_running_jobs == 1 for task in tasks)
             assert all(task.job_executor == job_executor for task in tasks)
+            assert all(task.running_jobs == 0 for task in tasks)
+            assert not scheduler._running_jobs
+            assert scheduler.state is RunState.stopped
             assert params.id is task_id
 
     async def test_scheduled_job_missed_deadline(
