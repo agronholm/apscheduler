@@ -8,6 +8,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - Fixed top-level metadata keys not being checked to be strings, allowing keys to change
   or collide when serialized to JSON
+  (`#1167 <https://github.com/agronholm/apscheduler/pull/1167>`_; PR by @JunaidAhamed-7777)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
