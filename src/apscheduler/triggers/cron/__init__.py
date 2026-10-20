@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime, tzinfo
+from datetime import UTC, datetime, tzinfo
 from typing import Any, ClassVar
 
 import attrs
@@ -264,7 +264,9 @@ class CronTrigger(Trigger):
                 fieldnum += 1
 
             # Return if the date has rolled past the end date
-            if self.end_time and next_time > self.end_time:
+            if self.end_time and next_time.astimezone(UTC) > self.end_time.astimezone(
+                UTC
+            ):
                 return None
 
         if fieldnum >= 0:

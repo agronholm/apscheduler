@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -315,6 +315,35 @@ def test_end_time(timezone, serializer):
         "start_time='2014-04-13T02:00:00+02:00', "
         "end_time='2014-04-13T04:00:00+02:00', timezone='Europe/Berlin')"
     )
+
+
+@pytest.mark.parametrize(
+    "end_minute, end_fold, expected_folds",
+    [(45, 0, [0]), (15, 1, [0]), (30, 0, [0]), (30, 1, [0, 1])],
+    ids=["first_fold", "second_fold", "first_fold_equal", "second_fold_equal"],
+)
+@pytest.mark.parametrize("round_trip", [False, True], ids=["original", "roundtrip"])
+def test_end_time_dst_fold(
+    end_minute, end_fold, expected_folds, round_trip, serializer
+):
+    timezone = ZoneInfo("America/New_York")
+    trigger = CronTrigger(
+        hour=1,
+        minute=30,
+        start_time=datetime(2024, 11, 3, 1, tzinfo=timezone),
+        end_time=datetime(2024, 11, 3, 1, end_minute, tzinfo=timezone, fold=end_fold),
+        timezone=timezone,
+    )
+    if round_trip:
+        trigger = serializer.deserialize(serializer.serialize(trigger))
+
+    for fold in expected_folds:
+        fire_time = trigger.next()
+        expected = datetime(2024, 11, 3, 1, 30, tzinfo=timezone, fold=fold)
+        assert fire_time is not None
+        assert fire_time.astimezone(UTC) == expected.astimezone(UTC)
+
+    assert trigger.next() is None
 
 
 def test_week_1(timezone, serializer):
