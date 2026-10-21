@@ -90,7 +90,7 @@ class BaseExecutor(metaclass=ABCMeta):
                 del self._instances[job_id]
 
         for event in events:
-            self._scheduler._dispatch_event(event)
+            self._scheduler._dispatch_job_event(event)
 
     def _run_job_error(self, job_id, exc, traceback=None):
         """Called by the executor with the exception if there is an error  calling `run_job`."""
