@@ -32,6 +32,7 @@ from apscheduler.util import localize
 def mock_scheduler(timezone):
     scheduler_ = Mock(BaseScheduler, timezone=timezone)
     scheduler_._create_lock = MagicMock()
+    scheduler_._dispatch_job_event = lambda event: scheduler_._dispatch_event(event)
     return scheduler_
 
 

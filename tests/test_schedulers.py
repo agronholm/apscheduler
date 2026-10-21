@@ -1197,10 +1197,11 @@ class SchedulerImplementationTestBase:
         assert self.wait_event(eventqueue).code == EVENT_JOBSTORE_ADDED
         assert self.wait_event(eventqueue).code == EVENT_JOB_ADDED
         assert self.wait_event(eventqueue).code == EVENT_SCHEDULER_STARTED
+        assert self.wait_event(eventqueue).code == EVENT_JOB_REMOVED
+        assert self.wait_event(eventqueue).code == EVENT_JOB_SUBMITTED
         event = self.wait_event(eventqueue)
         assert event.code == EVENT_JOB_EXECUTED
         assert event.retval == 3
-        assert self.wait_event(eventqueue).code == EVENT_JOB_REMOVED
 
     def test_add_live_job(self, scheduler, freeze_time, eventqueue, start_scheduler):
         """Tests that adding a job causes it to be executed after the specified delay."""
@@ -1216,10 +1217,11 @@ class SchedulerImplementationTestBase:
             run_date=freeze_time.next() + freeze_time.increment * 2,
         )
         assert self.wait_event(eventqueue).code == EVENT_JOB_ADDED
+        assert self.wait_event(eventqueue).code == EVENT_JOB_REMOVED
+        assert self.wait_event(eventqueue).code == EVENT_JOB_SUBMITTED
         event = self.wait_event(eventqueue)
         assert event.code == EVENT_JOB_EXECUTED
         assert event.retval == 3
-        assert self.wait_event(eventqueue).code == EVENT_JOB_REMOVED
 
     def test_shutdown(self, scheduler, eventqueue, start_scheduler):
         """Tests that shutting down the scheduler emits the proper event."""

@@ -3,7 +3,7 @@ import warnings
 from abc import ABCMeta, abstractmethod
 from collections.abc import Mapping, MutableMapping
 from contextlib import ExitStack
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from importlib.metadata import entry_points
 from logging import getLogger
 from threading import TIMEOUT_MAX, RLock
@@ -27,6 +27,7 @@ from apscheduler.events import (
     EVENT_SCHEDULER_SHUTDOWN,
     EVENT_SCHEDULER_STARTED,
     JobEvent,
+    JobExecutionEvent,
     JobSubmissionEvent,
     SchedulerEvent,
 )
@@ -120,6 +121,8 @@ class BaseScheduler(metaclass=ABCMeta):
         self._jobstores_lock = self._create_lock()
         self._listeners = []
         self._listeners_lock = self._create_lock()
+        self._pending_job_events = {}
+        self._job_events_lock = self._create_lock()
         self._pending_jobs = []
         self.state = STATE_STOPPED
         self.configure(gconfig, **options)
@@ -1024,6 +1027,21 @@ class BaseScheduler(metaclass=ABCMeta):
 
         raise JobLookupError(job_id)
 
+    def _dispatch_job_event(self, event):
+        if isinstance(event, JobExecutionEvent):
+            key = (
+                event.jobstore,
+                event.job_id,
+                event.scheduled_run_time.astimezone(timezone.utc),
+            )
+            with self._job_events_lock:
+                pending = self._pending_job_events.get(key)
+                if pending is not None:
+                    pending["events"].append(event)
+                    return
+
+        self._dispatch_event(event)
+
     def _dispatch_event(self, event):
         """
         Dispatches the given event to interested listeners.
@@ -1040,6 +1058,48 @@ class BaseScheduler(metaclass=ABCMeta):
                     cb(event)
                 except BaseException:
                     self._logger.exception("Error notifying listener")
+
+    def _dispatch_job_events(self, events, pending_keys):
+        with ExitStack() as stack:
+            for key, owner in reversed(pending_keys):
+                stack.callback(self._release_job_events, key, owner)
+
+            for event in events:
+                self._dispatch_event(event)
+
+    def _release_job_events(self, key, owner):
+        with self._job_events_lock:
+            pending = self._pending_job_events[key]
+            pending["owners"].remove(owner)
+            if pending["owners"] or pending["draining"]:
+                return
+
+            drainer = pending["draining"] = object()
+
+        # A worker must not wait for submission listeners: one may shut down
+        # its executor and wait for that worker to finish.
+        try:
+            while True:
+                with self._job_events_lock:
+                    if pending["owners"]:
+                        pending["draining"] = False
+                        return
+
+                    pending_events = pending["events"][:]
+                    pending["events"].clear()
+                    if not pending_events:
+                        del self._pending_job_events[key]
+                        pending["draining"] = False
+                        return
+
+                for event in pending_events:
+                    self._dispatch_event(event)
+        finally:
+            with self._job_events_lock:
+                if pending["draining"] is drainer:
+                    pending["draining"] = False
+                    if not pending["owners"]:
+                        del self._pending_job_events[key]
 
     def _check_uwsgi(self):
         """Check if we're running under uWSGI with threads disabled."""
@@ -1154,8 +1214,12 @@ class BaseScheduler(metaclass=ABCMeta):
         now = datetime.now(self.timezone)
         next_wakeup_time = None
         events = []
+        pending_keys = []
 
-        with self._jobstores_lock:
+        # Publish accepted submissions even if subsequent job store work fails.
+        # ExitStack runs after the job store lock has been released.
+        with ExitStack() as stack, self._jobstores_lock:
+            stack.callback(self._dispatch_job_events, events, pending_keys)
             for jobstore_alias, jobstore in self._jobstores.items():
                 try:
                     due_jobs = jobstore.get_due_jobs(now)
@@ -1193,6 +1257,21 @@ class BaseScheduler(metaclass=ABCMeta):
                         run_times[-1:] if run_times and job.coalesce else run_times
                     )
                     if run_times:
+                        owner = object()
+                        with self._job_events_lock:
+                            for run_time in run_times:
+                                key = (
+                                    jobstore_alias,
+                                    job.id,
+                                    run_time.astimezone(timezone.utc),
+                                )
+                                pending = self._pending_job_events.setdefault(
+                                    key,
+                                    {"owners": set(), "events": [], "draining": False},
+                                )
+                                pending["owners"].add(owner)
+                                pending_keys.append((key, owner))
+
                         try:
                             executor.submit_job(job, run_times)
                         except MaxInstancesReachedError:
@@ -1240,10 +1319,6 @@ class BaseScheduler(metaclass=ABCMeta):
                     or jobstore_next_run_time < next_wakeup_time
                 ):
                     next_wakeup_time = jobstore_next_run_time.astimezone(self.timezone)
-
-        # Dispatch collected events
-        for event in events:
-            self._dispatch_event(event)
 
         # Determine the delay until this method should be called again
         if self.state == STATE_PAUSED:

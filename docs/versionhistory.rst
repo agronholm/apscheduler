@@ -6,6 +6,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Fixed job completion events reaching listeners before their corresponding submission
+  event, including jobs that finish synchronously during submission
+  (`#445 <https://github.com/agronholm/apscheduler/issues/445>`_; PR by @edsonsims)
 - Fixed ``AsyncIOScheduler`` permanently stopping the processing of jobs if
   ``_process_jobs()`` raised an exception, as the wakeup timer was then never rearmed
   (`#1132 <https://github.com/agronholm/apscheduler/pull/1132>`_; PR by @sundasnoreen-sr)
