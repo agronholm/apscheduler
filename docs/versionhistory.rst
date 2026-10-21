@@ -51,6 +51,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   scheduler wake up past a deadline that had already passed and process schedules in a
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
+- Fixed ``SQLAlchemyDataStore.get_schedules()`` and ``SQLAlchemyDataStore.get_jobs()``
+  returning every schedule or job when given an empty collection of IDs, instead of none
+  (`#1166 <https://github.com/agronholm/apscheduler/pull/1166>`_; PR by @taltal-beep)
 
 **4.0.0a6**
 
