@@ -14,6 +14,14 @@ def test_bad_interval(timezone):
     exc.match("interval must be at least 1 day long")
 
 
+@pytest.mark.parametrize("field", ["years", "months", "weeks", "days"])
+@pytest.mark.parametrize("other_interval", [0, 400])
+def test_negative_interval(field, other_interval, timezone):
+    kwargs = {"days" if field != "days" else "weeks": other_interval, field: -1}
+    with pytest.raises(ValueError, match=rf"{field} must be non-negative"):
+        CalendarIntervalTrigger(**kwargs, timezone=timezone)
+
+
 def test_bad_start_end_dates(timezone):
     exc = pytest.raises(
         ValueError,
