@@ -41,6 +41,7 @@ from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.triggers.date import DateTrigger
 
 if TYPE_CHECKING:
+    from sqlalchemy import Engine
     from time_machine import TimeMachineFixture
 
 pytestmark = pytest.mark.anyio
@@ -434,6 +435,68 @@ async def test_acquire_multiple_workers(datastore: DataStore) -> None:
     # The third worker gets nothing
     jobs3 = await datastore.acquire_jobs("worker3", timedelta(seconds=30), 1)
     assert not jobs3
+
+
+@pytest.mark.parametrize("asynchronous", [True, False], ids=["async", "sync"])
+async def test_acquire_jobs_concurrently_sqlite(
+    tmp_path: Path, local_broker: EventBroker, logger: Logger, asynchronous: bool
+) -> None:
+    """
+    Test that schedulers sharing the same SQLite database never acquire the same job.
+
+    Regression test for #959.
+
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+
+    # Give each scheduler its own engine, just like separate processes would have
+    engines: list[Engine | AsyncEngine]
+    db_path = tmp_path / "test.db"
+    if asynchronous:
+        engines = [
+            create_async_engine(f"sqlite+aiosqlite:///{db_path}") for _ in range(3)
+        ]
+    else:
+        engines = [create_engine(f"sqlite:///{db_path}") for _ in range(3)]
+
+    datastores = [SQLAlchemyDataStore(engine) for engine in engines]
+    acquired: list[Job] = []
+
+    async def acquire(datastore: DataStore, scheduler_id: str) -> None:
+        acquired.extend(
+            await datastore.acquire_jobs(scheduler_id, timedelta(seconds=30), 1)
+        )
+
+    try:
+        async with AsyncExitStack() as exit_stack:
+            await local_broker.start(exit_stack, logger)
+            for datastore in datastores:
+                await datastore.start(exit_stack, local_broker, logger)
+
+            await datastores[0].add_task(
+                Task(
+                    id="task1",
+                    func="contextlib:asynccontextmanager",
+                    job_executor="async",
+                )
+            )
+            jobs = [Job(task_id="task1", executor="async") for _ in datastores]
+            for job in jobs:
+                await datastores[0].add_job(job)
+
+            async with anyio.create_task_group() as tg:
+                for i, datastore in enumerate(datastores, 1):
+                    tg.start_soon(acquire, datastore, f"worker{i}")
+    finally:
+        for engine in engines:
+            if isinstance(engine, AsyncEngine):
+                await engine.dispose()
+            else:
+                engine.dispose()
+
+    # Each scheduler should have acquired a different job
+    assert sorted(job.id for job in acquired) == sorted(job.id for job in jobs)
 
 
 async def test_job_release_success(datastore: DataStore) -> None:

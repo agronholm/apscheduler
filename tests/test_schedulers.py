@@ -918,11 +918,16 @@ class TestAsyncScheduler:
             # Add a schedule to immediately set the event
             event = anyio.Event()
             scheduler.subscribe(lambda _: event.set(), {JobReleased}, one_shot=True)
+            schedule_released = anyio.Event()
+            scheduler.subscribe(
+                lambda _: schedule_released.set(), {ScheduleUpdated}, one_shot=True
+            )
             await scheduler.add_schedule(
                 dummy_async_job, DateTrigger(datetime.now(UTC)), id="event_set"
             )
             with fail_after(3):
                 await event.wait()
+                await schedule_released.wait()
 
             # The schedule should still be around, but with a null next_fire_time
             schedule = await scheduler.get_schedule("event_set")
