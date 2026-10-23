@@ -653,6 +653,50 @@ async def test_acquire_jobs_max_number_exceeded(datastore: DataStore) -> None:
     assert (await datastore.get_task("task1")).running_jobs == 2
 
 
+async def test_acquire_jobs_after_reducing_task_limit(datastore: DataStore) -> None:
+    await datastore.add_task(
+        Task(
+            id="task1",
+            func="contextlib:asynccontextmanager",
+            job_executor="async",
+            max_running_jobs=2,
+        )
+    )
+    jobs = [Job(task_id="task1", executor="async") for _ in range(3)]
+    for job in jobs:
+        await datastore.add_job(job)
+
+    acquired_jobs = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 3)
+    assert [job.id for job in acquired_jobs] == [job.id for job in jobs[:2]]
+
+    # Lower the limit while two jobs are still running.
+    await datastore.add_task(
+        Task(
+            id="task1",
+            func="contextlib:asynccontextmanager",
+            job_executor="async",
+            max_running_jobs=1,
+        )
+    )
+    assert (await datastore.get_task("task1")).running_jobs == 2
+    assert not await datastore.acquire_jobs("worker2", timedelta(seconds=30), 3)
+    assert (await datastore.get_task("task1")).running_jobs == 2
+
+    # Finishing one job only brings the task down to the new limit.
+    for remaining, job in zip((1, 0), acquired_jobs, strict=True):
+        await datastore.release_job(
+            "worker1", job, JobResult.from_job(job, JobOutcome.success)
+        )
+        assert (await datastore.get_task("task1")).running_jobs == remaining
+        if remaining:
+            assert not await datastore.acquire_jobs("worker2", timedelta(seconds=30), 3)
+
+    # Once both original jobs finish, the pending job can run normally.
+    acquired_jobs = await datastore.acquire_jobs("worker2", timedelta(seconds=30), 3)
+    assert [job.id for job in acquired_jobs] == [jobs[2].id]
+    assert (await datastore.get_task("task1")).running_jobs == 1
+
+
 async def test_add_get_task(datastore: DataStore) -> None:
     with pytest.raises(TaskLookupError):
         await datastore.get_task("dummyid")
