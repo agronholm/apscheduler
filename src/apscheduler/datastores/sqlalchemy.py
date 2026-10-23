@@ -36,6 +36,7 @@ from sqlalchemy import (
     false,
     or_,
     select,
+    text,
 )
 from sqlalchemy.engine import URL, Dialect, Result
 from sqlalchemy.exc import (
@@ -158,10 +159,6 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     .. note:: The data store will not manage the life cycle of any engine instance
         passed to it, so you need to close the engine afterwards when you're done with
         it.
-
-    .. warning:: Do not use SQLite when sharing the data store with multiple schedulers,
-        as there is an unresolved issue with that
-        (`#959 <https://github.com/agronholm/apscheduler/issues/959>`_).
     """
 
     engine_or_url: str | URL | Engine | AsyncEngine = attrs.field(
@@ -174,6 +171,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
     _supports_update_returning: bool = attrs.field(init=False, default=False)
     _supports_tzaware_timestamps: bool = attrs.field(init=False, default=False)
     _supports_native_interval: bool = attrs.field(init=False, default=False)
+    _is_sqlite_file_db: bool = attrs.field(init=False, default=False)
     _metadata: MetaData = attrs.field(init=False)
     _t_metadata: Table = attrs.field(init=False)
     _t_tasks: Table = attrs.field(init=False)
@@ -199,6 +197,13 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
             "oracle",
         )
         self._supports_native_interval = self._engine.dialect.name == "postgresql"
+        # In-memory SQLite databases can't be shared with other processes, and
+        # SQLAlchemy uses a single connection for all their transactions
+        self._is_sqlite_file_db = (
+            self._engine.dialect.name == "sqlite"
+            and self._engine.url.database not in (None, "", ":memory:")
+            and self._engine.url.query.get("mode") != "memory"
+        )
         self._metadata = self.get_table_definitions()
         self._t_metadata = self._metadata.tables[prefix + "metadata"]
         self._t_tasks = self._metadata.tables[prefix + "tasks"]
@@ -875,6 +880,13 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         async for attempt in self._retry():
             with attempt:
                 async with self._begin_transaction() as conn:
+                    # SQLite ignores FOR UPDATE, and the sqlite3 driver only starts
+                    # the transaction right before the first write, so other schedulers
+                    # sharing the database file could pick the same jobs in the
+                    # meantime. Take the write lock before reading the jobs instead.
+                    if self._is_sqlite_file_db:
+                        await self._execute(conn, text("BEGIN IMMEDIATE"))
+
                     now = datetime.now(UTC)
                     acquired_until = now + lease_duration
                     query = (

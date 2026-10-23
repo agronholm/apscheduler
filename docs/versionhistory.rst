@@ -51,6 +51,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   scheduler wake up past a deadline that had already passed and process schedules in a
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
+- Fixed multiple schedulers sharing an SQLite database with ``SQLAlchemyDataStore``
+  acquiring and running the same job
+  (`#959 <https://github.com/agronholm/apscheduler/issues/959>`_; PR by @Enesuygurs)
 
 **4.0.0a6**
 
