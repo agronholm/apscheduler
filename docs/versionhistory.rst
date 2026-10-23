@@ -6,8 +6,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
-- Fixed ``SQLAlchemyDataStore`` acquiring more jobs when a task's
-  ``max_running_jobs`` was reduced below its current number of running jobs
+- Fixed lowering a task's ``max_running_jobs`` allowing extra jobs to run:
+  ``SQLAlchemyDataStore`` now rejects negative remaining slot counts and
+  ``MongoDBDataStore`` preserves the running job count when updating a task
   (`#1171 <https://github.com/agronholm/apscheduler/pull/1171>`_; PR by @Plastic-time)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
