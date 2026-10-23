@@ -178,7 +178,7 @@ class CronTrigger(Trigger):
 
         values = {}
         i = 0
-        while i < len(self._fields):
+        while 0 <= i < len(self._fields):
             field = self._fields[i]
             if not field.real:
                 if i == fieldnum:
@@ -204,6 +204,9 @@ class CronTrigger(Trigger):
                     values[field.name] = value + 1
                     i += 1
 
+        if fieldnum < 0:
+            return dateval, fieldnum
+
         difference = datetime(**values) - dateval.replace(tzinfo=None)
         dateval = datetime.fromtimestamp(
             dateval.timestamp() + difference.total_seconds(), self.timezone
@@ -227,6 +230,11 @@ class CronTrigger(Trigger):
 
     def next(self) -> datetime | None:
         if self._last_fire_time:
+            if self._last_fire_time.replace(tzinfo=None) >= datetime.max.replace(
+                microsecond=0
+            ):
+                return None
+
             next_time = datetime.fromtimestamp(
                 self._last_fire_time.timestamp() + 1, self.timezone
             )
