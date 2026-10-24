@@ -592,3 +592,32 @@ def test_non_existing_naive_end_time() -> None:
     end_time = datetime(2025, 3, 30, 2, 30)
     with pytest.raises(ValueError):
         CronTrigger(timezone=tz, start_time=start_time, end_time=end_time)
+
+
+@pytest.mark.parametrize(
+    "fields, fires",
+    [
+        pytest.param({"second": 59}, True, id="after-final-second"),
+        pytest.param({"month": 1}, False, id="month"),
+        pytest.param({"day": 1}, False, id="day"),
+        pytest.param({"day_of_week": "mon"}, False, id="weekday"),
+        pytest.param({"hour": 0}, False, id="hour"),
+        pytest.param({"minute": 0}, False, id="minute"),
+        pytest.param({"second": 0}, False, id="second"),
+    ],
+)
+def test_maximum_year_exhaustion(fields, fires, utc_timezone, serializer):
+    trigger = CronTrigger(
+        start_time=datetime(2024, 1, 1, tzinfo=utc_timezone),
+        timezone=utc_timezone,
+        **fields,
+    )
+    # Avoid the platform-dependent timestamp conversion during construction.
+    trigger.start_time = datetime.max.replace(microsecond=0, tzinfo=utc_timezone)
+    trigger = serializer.deserialize(serializer.serialize(trigger))
+    if fires:
+        assert trigger.next() == trigger.start_time
+        trigger = serializer.deserialize(serializer.serialize(trigger))
+
+    assert trigger.next() is None
+    assert trigger.next() is None
