@@ -6,9 +6,6 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
-- Fixed ``CronTrigger`` raising an exception instead of returning ``None`` when no
-  matching fire time remains within the maximum supported year
-  (`#1172 <https://github.com/agronholm/apscheduler/pull/1172>`_; PR by @jipeng6036-del)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
@@ -54,6 +51,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   scheduler wake up past a deadline that had already passed and process schedules in a
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
+- Fixed ``CronTrigger`` raising an exception instead of returning ``None`` when no
+  matching fire time remains within the maximum supported year
+  (`#1172 <https://github.com/agronholm/apscheduler/pull/1172>`_; PR by @jipeng6036-del)
 
 **4.0.0a6**
 
