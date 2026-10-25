@@ -8,6 +8,7 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - Fixed ``SQLAlchemyDataStore.get_schedules()`` and ``get_jobs()`` returning all rows
   instead of no rows when passed an empty set of IDs
+  (`#1174 <https://github.com/agronholm/apscheduler/pull/1174>`_; PR by @feiiiiii5)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
