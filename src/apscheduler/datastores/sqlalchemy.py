@@ -634,7 +634,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
     async def get_schedules(self, ids: set[str] | None = None) -> list[Schedule]:
         query = self._t_schedules.select().order_by(self._t_schedules.c.id)
-        if ids:
+        if ids is not None:
             query = query.where(self._t_schedules.c.id.in_(ids))
 
         async for attempt in self._retry():
@@ -857,7 +857,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
 
     async def get_jobs(self, ids: Iterable[UUID] | None = None) -> list[Job]:
         query = self._t_jobs.select().order_by(self._t_jobs.c.id)
-        if ids:
+        if ids is not None:
             job_ids = list(ids)
             query = query.where(self._t_jobs.c.id.in_(job_ids))
 

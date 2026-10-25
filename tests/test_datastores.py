@@ -925,6 +925,17 @@ async def test_reap_abandoned_jobs(
     assert task.running_jobs == 0
 
 
+async def test_empty_ids_returns_empty(
+    datastore: DataStore, schedules: list[Schedule]
+) -> None:
+    for schedule in schedules[:2]:
+        await datastore.add_schedule(schedule, ConflictPolicy.exception)
+    await datastore.add_job(Job(task_id="task1", executor="async"))
+
+    assert await datastore.get_schedules(set()) == []
+    assert await datastore.get_jobs(set()) == []
+
+
 class TestRepr:
     async def test_memory(self, memory_store: MemoryDataStore) -> None:
         assert repr(memory_store) == "MemoryDataStore()"
