@@ -11,6 +11,7 @@ APScheduler, see the :doc:`migration section <migration>`.
   (down to ``-1``), and the SQLAlchemy data store never undid the previous
   acquirer's increment (leaving the count one too high, so ``max_running_jobs``
   could be exceeded or constricted)
+  (`#1175 <https://github.com/agronholm/apscheduler/pull/1175>`_; PR by @feiiiiii5)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
