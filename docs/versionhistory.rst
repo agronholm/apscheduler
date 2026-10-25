@@ -6,6 +6,11 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Fixed the running-job count drifting when a worker reclaims a job whose lease has
+  expired: the memory data store decremented the count twice on the discard path
+  (down to ``-1``), and the SQLAlchemy data store never undid the previous
+  acquirer's increment (leaving the count one too high, so ``max_running_jobs``
+  could be exceeded or constricted)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
