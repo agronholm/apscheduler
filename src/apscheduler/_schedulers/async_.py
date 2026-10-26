@@ -1153,7 +1153,15 @@ class AsyncScheduler:
                     jobs = await self.data_store.acquire_jobs(
                         self.identity, self.lease_duration, limit
                     )
+                    duplicate_acquisition = False
                     for job in jobs:
+                        # A lease may expire while a job is still running locally, for
+                        # example if the event loop was blocked for too long. Keep that
+                        # job running once its lease has been reacquired.
+                        if job in self._running_jobs:
+                            duplicate_acquisition = True
+                            continue
+
                         task = await self.data_store.get_task(job.task_id)
                         func = self._get_task_callable(task)
                         self._running_jobs.add(job)
@@ -1167,6 +1175,9 @@ class AsyncScheduler:
                                 f"({job.executor!r})"
                             ),
                         )
+
+                    if duplicate_acquisition:
+                        continue
 
                 await wakeup_event.wait()
                 wakeup_event = anyio.Event()
@@ -1226,4 +1237,4 @@ class AsyncScheduler:
             finally:
                 current_job.reset(token)
         finally:
-            self._running_jobs.remove(job)
+            self._running_jobs.discard(job)

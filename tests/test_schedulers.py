@@ -40,6 +40,7 @@ from apscheduler import (
     JobLookupError,
     JobOutcome,
     JobReleased,
+    JobResult,
     RunState,
     ScheduleAdded,
     ScheduleLookupError,
@@ -1263,6 +1264,76 @@ class TestAsyncScheduler:
             # Check that the job outcome was set to "cancelled"
             result = await scheduler.get_job_result(job_id)
             assert result.outcome is JobOutcome.cancelled
+
+    async def test_job_is_not_started_twice_after_lease_expires(
+        self, memory_store: MemoryDataStore, mocker: MockerFixture
+    ) -> None:
+        started = anyio.Event()
+        duplicate_started = anyio.Event()
+        finish = anyio.Event()
+        reacquired = anyio.Event()
+        run_count = 0
+        acquire_jobs_call_count = 0
+        original_acquire_jobs = memory_store.acquire_jobs
+
+        async def acquire_jobs(
+            scheduler_id: str, lease_duration: timedelta, limit: int | None = None
+        ) -> list[Job]:
+            nonlocal acquire_jobs_call_count
+            jobs = await original_acquire_jobs(scheduler_id, lease_duration, limit)
+            acquire_jobs_call_count += 1
+            if acquire_jobs_call_count > 1 and jobs:
+                reacquired.set()
+
+            return jobs
+
+        mocker.patch.object(memory_store, "acquire_jobs", side_effect=acquire_jobs)
+
+        async def long_running_job() -> None:
+            nonlocal run_count
+            run_count += 1
+            if run_count == 1:
+                started.set()
+            else:
+                duplicate_started.set()
+
+            await finish.wait()
+
+        async with AsyncScheduler(
+            data_store=memory_store, lease_duration=timedelta(minutes=1)
+        ) as scheduler:
+            job_id = await scheduler.add_job(long_running_job)
+            await scheduler.start_in_background()
+            with fail_after(3):
+                await started.wait()
+
+            job = next(iter(scheduler._running_jobs))
+            job.acquired_until = datetime.now(UTC) - timedelta(seconds=1)
+            await memory_store._event_broker.publish(
+                JobAdded(job_id=job_id, task_id=job.task_id, schedule_id=None)
+            )
+
+            with fail_after(3):
+                await reacquired.wait()
+
+            with move_on_after(0.1):
+                await duplicate_started.wait()
+
+            assert run_count == 1
+            finish.set()
+            with fail_after(3):
+                await scheduler.get_next_event(JobReleased)
+
+            assert not scheduler._running_jobs
+            assert not await scheduler.get_jobs()
+            assert (await scheduler.get_tasks())[0].running_jobs == 0
+
+            # A duplicate release after the job has already been removed is a no-op.
+            await memory_store.release_job(
+                scheduler.identity,
+                job,
+                JobResult.from_job(job, JobOutcome.success),
+            )
 
 
 class TestSyncScheduler:
