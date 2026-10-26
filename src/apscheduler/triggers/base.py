@@ -2,6 +2,8 @@ import random
 from abc import ABCMeta, abstractmethod
 from datetime import timedelta
 
+from apscheduler.util import datetime_utc_add
+
 
 class BaseTrigger(metaclass=ABCMeta):
     """Abstract base class that defines the interface that every trigger must implement."""
@@ -32,4 +34,6 @@ class BaseTrigger(metaclass=ABCMeta):
         if next_fire_time is None or not jitter:
             return next_fire_time
 
-        return next_fire_time + timedelta(seconds=random.uniform(0, jitter))
+        return datetime_utc_add(
+            next_fire_time, timedelta(seconds=random.uniform(0, jitter))
+        )
