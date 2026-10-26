@@ -356,6 +356,27 @@ def test_dst_change_2(timezone):
     )
 
 
+@pytest.mark.parametrize("timezone_type", ["pytz", "zoneinfo"])
+def test_dst_spring_forward_second_interval(timezone_type):
+    if timezone_type == "pytz":
+        timezone = pytz.timezone("America/Chicago")
+    else:
+        timezone = ZoneInfo("America/Chicago")
+
+    trigger = CronTrigger(second="*/7", timezone=timezone)
+    previous_fire_time = localize(datetime(2025, 3, 9, 1, 59, 56), timezone)
+    due_fire_time = trigger.get_next_fire_time(previous_fire_time, previous_fire_time)
+    assert str(due_fire_time) == "2025-03-09 03:00:00-05:00"
+
+    now = localize(datetime(2025, 3, 9, 3, 0, 1), timezone)
+    next_fire_time = trigger.get_next_fire_time(due_fire_time, now)
+    assert str(next_fire_time) == "2025-03-09 03:00:07-05:00"
+
+    now = localize(datetime(2025, 3, 9, 3, 0, 8), timezone)
+    next_fire_time = trigger.get_next_fire_time(next_fire_time, now)
+    assert str(next_fire_time) == "2025-03-09 03:00:14-05:00"
+
+
 def test_timezone_change(timezone):
     """
     Ensure that get_next_fire_time method returns datetimes in the timezone of the trigger and
