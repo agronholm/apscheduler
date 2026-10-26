@@ -696,6 +696,12 @@ For example, on Kubernetes, this would be the name of the pod where the schedule
 running, assuming of course that there is only one scheduler running in each pod against
 the same data store.
 
+A Kubernetes ``Deployment`` can replace a pod with a new pod that has a different name.
+The replacement scheduler then has a different identity, so jobs held by the old scheduler
+may remain unavailable until their leases expire. If each replica needs to reuse its
+identity after replacement, use a ``StatefulSet`` or another source of unique, stable
+per-replica identities.
+
 Of course, if you're only ever running one scheduler against a persistent data store,
 you can just use a static scheduler ID.
 
