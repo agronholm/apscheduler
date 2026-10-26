@@ -925,6 +925,38 @@ async def test_reap_abandoned_jobs(
     assert task.running_jobs == 0
 
 
+async def test_sqlalchemy_table_prefix(
+    tmp_path: Path, local_broker: EventBroker, logger: Logger
+) -> None:
+    from sqlalchemy import inspect
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path}/test.db")
+    data_store = SQLAlchemyDataStore(engine, table_prefix="apscheduler_")
+    async with AsyncExitStack() as exit_stack:
+        exit_stack.push_async_callback(engine.dispose)
+        await local_broker.start(exit_stack, logger)
+        await data_store.start(exit_stack, local_broker, logger)
+        task = Task(
+            id="task1", func="contextlib:asynccontextmanager", job_executor="async"
+        )
+        await data_store.add_task(task)
+        assert await data_store.get_task(task.id) == task
+
+        async with engine.connect() as conn:
+            table_names = await conn.run_sync(
+                lambda sync_conn: inspect(sync_conn).get_table_names()
+            )
+
+    assert set(table_names) == {
+        "apscheduler_metadata",
+        "apscheduler_tasks",
+        "apscheduler_schedules",
+        "apscheduler_jobs",
+        "apscheduler_job_results",
+    }
+
+
 class TestRepr:
     async def test_memory(self, memory_store: MemoryDataStore) -> None:
         assert repr(memory_store) == "MemoryDataStore()"
@@ -936,6 +968,17 @@ class TestRepr:
         data_store = SQLAlchemyDataStore(engine)
         data_store_repr = unquote(repr(data_store)).replace("\\\\", "\\")
         assert data_store_repr == (f"SQLAlchemyDataStore(url='sqlite:///{tmp_path}')")
+
+    async def test_sqlite_table_prefix(self, tmp_path: Path) -> None:
+        from sqlalchemy import create_engine
+
+        engine = create_engine(f"sqlite:///{tmp_path}")
+        data_store = SQLAlchemyDataStore(engine, table_prefix="apscheduler_")
+        data_store_repr = unquote(repr(data_store)).replace("\\\\", "\\")
+        assert data_store_repr == (
+            f"SQLAlchemyDataStore(url='sqlite:///{tmp_path}', "
+            "table_prefix='apscheduler_')"
+        )
 
     async def test_psycopg(self) -> None:
         from sqlalchemy.ext.asyncio import create_async_engine
