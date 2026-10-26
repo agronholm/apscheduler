@@ -586,6 +586,57 @@ When **distributed** event brokers (that is, other than the default one) are bei
 events other than the ones relating to the life cycles of schedulers and workers, will
 be sent to all schedulers and workers connected to that event broker.
 
+Scheduling a job with a fixed delay
+-----------------------------------
+
+To run a task again after a fixed delay from its completion, subscribe to
+:class:`~JobReleased` and add a one-off schedule for the next run. This example
+continues the sequence only after successful runs:
+
+.. code-block:: python
+
+    import asyncio
+    from datetime import datetime, timedelta, timezone
+
+    from apscheduler import AsyncScheduler, ConflictPolicy, JobOutcome, JobReleased
+    from apscheduler.triggers.date import DateTrigger
+
+    delay = timedelta(seconds=30)
+    schedule_id = "poll-batch"
+
+    async def process_batch():
+        ...
+
+    async def main():
+        async with AsyncScheduler() as scheduler:
+            async def schedule_next_run(event: JobReleased) -> None:
+                if (
+                    event.schedule_id == schedule_id
+                    and event.scheduler_id == scheduler.identity
+                    and event.outcome == JobOutcome.success
+                ):
+                    await scheduler.add_schedule(
+                        process_batch,
+                        DateTrigger(datetime.now(timezone.utc) + delay),
+                        id=schedule_id,
+                        conflict_policy=ConflictPolicy.replace,
+                    )
+
+            scheduler.subscribe(schedule_next_run, {JobReleased})
+            await scheduler.add_schedule(
+                process_batch,
+                DateTrigger(datetime.now(timezone.utc)),
+                id=schedule_id,
+            )
+            await scheduler.run_until_stopped()
+
+    asyncio.run(main())
+
+The ``scheduler_id`` check matters when using a distributed event broker, since job
+events are delivered to all connected schedulers. It ensures that only the scheduler
+that released the job adds the next schedule. To continue after failed or otherwise
+unsuccessful runs, adjust the outcome check to match the desired retry policy.
+
 Clean-up of expired jobs, job results and schedules
 ===================================================
 
