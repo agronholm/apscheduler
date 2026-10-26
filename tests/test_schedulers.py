@@ -1247,6 +1247,33 @@ class TestBlockingScheduler(SchedulerImplementationTestBase):
             scheduler.shutdown()
         thread.join()
 
+    def test_main_loop_survives_process_jobs_error(self, scheduler, caplog):
+        """
+        Test that the main loop keeps running if ``_process_jobs()`` raises, and that it
+        waits for the job store retry interval before trying again.
+
+        """
+        caplog.set_level(logging.ERROR, logger="apscheduler.scheduler")
+        scheduler._event = MagicMock()
+        scheduler.state = STATE_RUNNING
+        calls = []
+
+        def process_jobs():
+            calls.append(None)
+            if len(calls) == 1:
+                raise RuntimeError("Boom")
+
+            scheduler.state = STATE_STOPPED
+
+        scheduler._process_jobs = process_jobs
+        scheduler._main_loop()
+
+        assert len(calls) == 2
+        assert scheduler._event.wait.call_count == 2
+        scheduler._event.wait.assert_called_with(scheduler.jobstore_retry_interval)
+        assert "Error processing jobs" in caplog.text
+        assert "RuntimeError: Boom" in caplog.text
+
 
 class TestBackgroundScheduler(SchedulerImplementationTestBase):
     @pytest.fixture
