@@ -1264,6 +1264,7 @@ class TestAsyncScheduler:
             result = await scheduler.get_job_result(job_id)
             assert result.outcome is JobOutcome.cancelled
 
+
 class TestSyncScheduler:
     def test_interface_parity(self) -> None:
         """
