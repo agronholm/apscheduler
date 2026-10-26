@@ -9,6 +9,10 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``AsyncIOScheduler`` permanently stopping the processing of jobs if
   ``_process_jobs()`` raised an exception, as the wakeup timer was then never rearmed
   (`#1132 <https://github.com/agronholm/apscheduler/pull/1132>`_; PR by @sundasnoreen-sr)
+- Fixed ``BlockingScheduler`` and ``BackgroundScheduler`` permanently stopping the
+  processing of jobs if ``_process_jobs()`` raised an exception, as the scheduler loop
+  then exited
+  (`#1182 <https://github.com/agronholm/apscheduler/pull/1182>`_; PR by @mkantautas)
 - Fixed compatibility with pytz 2026.4
 - Fixed ``CalendarIntervalTrigger`` skipping valid dates after a forward DST shift
   that crosses midnight (backported from
