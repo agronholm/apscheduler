@@ -249,8 +249,6 @@ class MemoryDataStore(BaseDataStore):
                     continue
                 else:
                     task.running_jobs -= 1
-                    job.acquired_by = None
-                    job.acquired_until = None
 
             # Discard the job if its start deadline has passed
             if job.start_deadline and job.start_deadline < now:
