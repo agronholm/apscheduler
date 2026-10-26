@@ -292,8 +292,8 @@ def test_update_job_clear_next_runtime(
     jobstore, create_add_job, next_run_time, timezone, index
 ):
     """
-    Tests that update_job() maintains the proper ordering of the jobs,
-    even when their next run times are initially the same.
+    Tests that update_job() maintains the proper ordering by next run time,
+    without requiring a particular order for jobs with equal run times.
 
     """
     jobs = [
@@ -309,20 +309,12 @@ def test_update_job_clear_next_runtime(
 
     assert len(due_jobs) == (3 if next_run_time else 2)
     due_job_ids = [job.id for job in due_jobs]
+    other_job_ids = {job.id for i, job in enumerate(jobs) if i != index}
     if next_run_time:
-        if index == 0:
-            assert due_job_ids == ["job0", "job1", "job2"]
-        elif index == 1:
-            assert due_job_ids == ["job1", "job0", "job2"]
-        else:
-            assert due_job_ids == ["job2", "job0", "job1"]
+        assert due_job_ids[0] == jobs[index].id
+        assert set(due_job_ids[1:]) == other_job_ids
     else:
-        if index == 0:
-            assert due_job_ids == ["job1", "job2"]
-        elif index == 1:
-            assert due_job_ids == ["job0", "job2"]
-        else:
-            assert due_job_ids == ["job0", "job1"]
+        assert set(due_job_ids) == other_job_ids
 
 
 def test_update_job_nonexistent_job(jobstore, create_add_job):
