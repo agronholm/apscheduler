@@ -1289,7 +1289,7 @@ class TestAsyncScheduler:
 
         mocker.patch.object(memory_store, "acquire_jobs", side_effect=acquire_jobs)
 
-        async def long_running_job() -> None:
+        async def wait_for_finish(_func: Callable[..., Any], _job: Job) -> str:
             nonlocal run_count
             run_count += 1
             if run_count == 1:
@@ -1298,11 +1298,17 @@ class TestAsyncScheduler:
                 duplicate_started.set()
 
             await finish.wait()
+            return "returnvalue"
 
         async with AsyncScheduler(
             data_store=memory_store, lease_duration=timedelta(minutes=1)
         ) as scheduler:
-            job_id = await scheduler.add_job(long_running_job)
+            mocker.patch.object(
+                scheduler.job_executors["async"],
+                "run_job",
+                side_effect=wait_for_finish,
+            )
+            job_id = await scheduler.add_job(dummy_async_job)
             await scheduler.start_in_background()
             with fail_after(3):
                 await started.wait()
