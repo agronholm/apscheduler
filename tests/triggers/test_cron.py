@@ -450,6 +450,25 @@ def test_jitter_dst_change(trigger_args, start_date, fold, correct_next_date):
         assert abs(next_fire_time - correct_next_date) <= timedelta(seconds=5)
 
 
+def test_jitter_dst_fall_back_repeated_hour():
+    """
+    Applying the jitter to a fire time in the repeated hour of a fall-back DST change
+    must not move it back into the first occurrence of that hour (#1183).
+    """
+    timezone = ZoneInfo("Europe/Berlin")
+    trigger = CronTrigger(hour=2, minute=0, jitter=3600, timezone=timezone)
+    previous_fire_time = datetime(2026, 10, 25, 2, 8, tzinfo=timezone)
+    now = datetime(2026, 10, 26, 11, tzinfo=timezone)
+    earliest = datetime(2026, 10, 25, 2, tzinfo=timezone, fold=1).timestamp()
+
+    for _ in range(0, 100):
+        next_fire_time = trigger.get_next_fire_time(previous_fire_time, now)
+        assert earliest <= next_fire_time.timestamp() <= earliest + 3600
+
+        following_fire_time = trigger.get_next_fire_time(next_fire_time, now)
+        assert following_fire_time.day == 26
+
+
 def test_jitter_with_end_date(timezone):
     now = localize(datetime(2017, 11, 12, 6, 55, 30), timezone)
     end_date = localize(datetime(2017, 11, 12, 6, 56, 0), timezone)
