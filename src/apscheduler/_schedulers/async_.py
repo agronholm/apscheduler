@@ -74,6 +74,30 @@ TaskType: TypeAlias = "Task | str | Callable[..., Any]"
 T = TypeVar("T")
 
 
+def _get_class_method(
+    func: Any, data_store: DataStore
+) -> str | Callable[..., Any] | None:
+    if ismethod(func) and isclass(func.__self__):
+        # Reject before configuring a task or advancing a trigger. Stripping the
+        # override would silently execute a different receiver on a shared task.
+        # Extensions may persist records even when they inherit the memory store.
+        if type(data_store) is not MemoryDataStore and not getattr(
+            data_store, "allow_invocation_overrides", False
+        ):
+            raise SerializationError(
+                "Class-method invocations require allow_invocation_overrides=True "
+                "after all schedulers and workers sharing the store have been upgraded"
+            )
+
+        try:
+            return callable_to_ref(func)
+        except SerializationError:
+            # Local classes can still be used with the memory data store.
+            return func
+
+    return None
+
+
 @attrs.define(eq=False, repr=False)
 class AsyncScheduler:
     """
@@ -382,6 +406,22 @@ class AsyncScheduler:
 
         assert task_params.id
 
+        if callable(func_or_task_id):
+            try:
+                task = await self.data_store.get_task(cast(str, task_params.id))
+            except TaskLookupError:
+                pass
+            else:
+                # Decorator settings are defaults for new tasks. Reconfiguration
+                # starts from the stored settings, without mutating the decorator.
+                task_params = attrs.evolve(
+                    task_params,
+                    job_executor=task.job_executor,
+                    max_running_jobs=task.max_running_jobs,
+                    misfire_grace_time=task.misfire_grace_time,
+                    metadata=task.metadata,
+                )
+
         # Apply any settings passed directly to this function as arguments
         if job_executor is not unset:
             task_params.job_executor = job_executor
@@ -450,6 +490,45 @@ class AsyncScheduler:
 
         return task
 
+    async def _get_or_create_task(self, func_or_task_id: TaskType) -> Task:
+        # Enqueuing work must not reapply decorator/default settings or replace
+        # the callable for a task that has already been configured.
+        if isinstance(func_or_task_id, Task):
+            return await self.configure_task(func_or_task_id)
+
+        if callable(func_or_task_id):
+            task_id = get_task_params(func_or_task_id).id
+            if task_id is unset:
+                task_id = callable_to_ref(func_or_task_id)
+        else:
+            task_id = func_or_task_id
+
+        if isinstance(task_id, str) and task_id:
+            try:
+                task = await self.data_store.get_task(task_id)
+            except TaskLookupError:
+                pass
+            else:
+                # Allow a callable submission to complete a task configured with
+                # settings alone, without changing any of those settings.
+                if (
+                    callable(func_or_task_id)
+                    and task.func is None
+                    and task.id not in self._task_callables
+                ):
+                    self._task_callables[task.id] = func_or_task_id
+                    try:
+                        func_ref = callable_to_ref(func_or_task_id)
+                    except SerializationError:
+                        return task
+
+                    task = attrs.evolve(task, func=func_ref)
+                    await self.data_store.add_task(task)
+
+                return task
+
+        return await self.configure_task(func_or_task_id)
+
     async def get_tasks(self) -> Sequence[Task]:
         """
         Retrieve all currently defined tasks.
@@ -515,9 +594,10 @@ class AsyncScheduler:
             kwargs.update(func_or_task_id.keywords)
             func_or_task_id = func_or_task_id.func
 
-        # For instance methods, use the unbound function as the function, and  the
+        invocation_func = _get_class_method(func_or_task_id, self.data_store)
+        # For instance methods, use the unbound function as the function, and the
         # "self" argument as the first positional argument
-        if ismethod(func_or_task_id):
+        if ismethod(func_or_task_id) and not isclass(func_or_task_id.__self__):
             args = (func_or_task_id.__self__, *args)
             func_or_task_id = func_or_task_id.__func__
         elif (
@@ -529,13 +609,14 @@ class AsyncScheduler:
             method_class = type(func_or_task_id.__self__)
             func_or_task_id = getattr(method_class, func_or_task_id.__name__)
 
-        task = await self.configure_task(func_or_task_id)
+        task = await self._get_or_create_task(func_or_task_id)
         schedule = Schedule(
             id=schedule_id,
             task_id=task.id,
             trigger=trigger,
             args=args,
             kwargs=kwargs,
+            func=invocation_func,
             paused=paused,
             coalesce=coalesce,
             misfire_grace_time=task.misfire_grace_time
@@ -683,9 +764,10 @@ class AsyncScheduler:
             kwargs.update(func_or_task_id.keywords)
             func_or_task_id = func_or_task_id.func
 
-        # For instance methods, use the unbound function as the function, and  the
+        invocation_func = _get_class_method(func_or_task_id, self.data_store)
+        # For instance methods, use the unbound function as the function, and the
         # "self" argument as the first positional argument
-        if ismethod(func_or_task_id):
+        if ismethod(func_or_task_id) and not isclass(func_or_task_id.__self__):
             args = (func_or_task_id.__self__, *args)
             func_or_task_id = func_or_task_id.__func__
         elif (
@@ -697,11 +779,12 @@ class AsyncScheduler:
             method_class = type(func_or_task_id.__self__)
             func_or_task_id = getattr(method_class, func_or_task_id.__name__)
 
-        task = await self.configure_task(func_or_task_id)
+        task = await self._get_or_create_task(func_or_task_id)
         job = Job(
             task_id=task.id,
             args=args or (),
             kwargs=kwargs or {},
+            func=invocation_func,
             executor=task.job_executor if job_executor is unset else job_executor,
             result_expiration_time=result_expiration_time,
             metadata=merge_metadata(task.metadata, metadata),
@@ -1037,6 +1120,7 @@ class AsyncScheduler:
                                 task_id=schedule.task_id,
                                 args=schedule.args,
                                 kwargs=schedule.kwargs,
+                                func=schedule._func,
                                 schedule_id=schedule.id,
                                 scheduled_fire_time=fire_time,
                                 jitter=jitter,
@@ -1154,13 +1238,10 @@ class AsyncScheduler:
                         self.identity, self.lease_duration, limit
                     )
                     for job in jobs:
-                        task = await self.data_store.get_task(job.task_id)
-                        func = self._get_task_callable(task)
                         self._running_jobs.add(job)
                         task_group.start_soon(
                             self._run_job,
                             job,
-                            func,
                             job.executor,
                             name=(
                                 f"Scheduler {self.identity!r} job {job.id} "
@@ -1171,7 +1252,7 @@ class AsyncScheduler:
                 await wakeup_event.wait()
                 wakeup_event = anyio.Event()
 
-    async def _run_job(self, job: Job, func: Callable[..., Any], executor: str) -> None:
+    async def _run_job(self, job: Job, executor: str) -> None:
         try:
             # Check if the job started before the deadline
             start_time = datetime.now(UTC)
@@ -1189,6 +1270,15 @@ class AsyncScheduler:
 
             token = current_job.set(job)
             try:
+                if isinstance(job._func, str):
+                    # Do not cache invocation overrides under the shared task ID.
+                    func = callable_from_ref(job._func)
+                elif job._func is not None:
+                    func = job._func
+                else:
+                    task = await self.data_store.get_task(job.task_id)
+                    func = self._get_task_callable(task)
+
                 retval = await job_executor.run_job(func, job)
             except get_cancelled_exc_class():
                 self.logger.info("Job %s was cancelled", job.id)

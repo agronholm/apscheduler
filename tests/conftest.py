@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+import sys
 from collections.abc import AsyncGenerator, Generator
 from contextlib import AsyncExitStack
 from logging import Logger
 from pathlib import Path
+from types import ModuleType
 from typing import Any, cast
 from zoneinfo import ZoneInfo
 
@@ -18,6 +20,31 @@ from apscheduler.datastores.memory import MemoryDataStore
 from apscheduler.serializers.cbor import CBORSerializer
 from apscheduler.serializers.json import JSONSerializer
 from apscheduler.serializers.pickle import PickleSerializer
+
+
+class CrossModuleClassMethodJob:
+    @classmethod
+    def run(cls) -> str:
+        return f"{cls.__module__}:{cls.__qualname__}"
+
+    @classmethod
+    async def run_async(cls) -> str:
+        return f"{cls.__module__}:{cls.__qualname__}"
+
+
+@pytest.fixture
+def cross_module_job_classes(monkeypatch: pytest.MonkeyPatch) -> tuple[type, type]:
+    modules = [ModuleType("classmethod_a"), ModuleType("classmethod_b")]
+    classes = []
+    for module in modules:
+        job_class = type(
+            "Worker", (CrossModuleClassMethodJob,), {"__module__": module.__name__}
+        )
+        module.__dict__["Worker"] = job_class
+        classes.append(job_class)
+        monkeypatch.setitem(sys.modules, module.__name__, module)
+
+    return classes[0], classes[1]
 
 
 @pytest.fixture(scope="session")
