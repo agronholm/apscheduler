@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime, tzinfo
+from datetime import UTC, datetime, tzinfo
+from functools import partial
 from typing import Any, ClassVar
 
 import attrs
@@ -67,7 +68,7 @@ class CronTrigger(Trigger):
     start_time: datetime = attrs.field(
         converter=as_datetime,
         validator=instance_of(datetime),
-        factory=datetime.now,
+        factory=partial(datetime.now, UTC),
     )
     end_time: datetime | None = attrs.field(
         converter=as_datetime,
@@ -146,7 +147,7 @@ class CronTrigger(Trigger):
             day=values[2],
             month=values[3],
             day_of_week=values[4],
-            start_time=start_time or datetime.now(),
+            start_time=start_time or datetime.now(UTC),
             end_time=end_time,
             timezone=timezone,
         )
