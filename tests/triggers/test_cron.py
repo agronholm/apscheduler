@@ -452,6 +452,59 @@ def test_dst_change2(
         assert str(next_date) == str(correct_next_date)
 
 
+@pytest.mark.parametrize(
+    "timezone, trigger_args, start_time, correct_next_dates",
+    [
+        pytest.param(
+            ZoneInfo("Australia/Lord_Howe"),
+            {"hour": 2, "minute": 30, "second": 0},
+            datetime(2024, 10, 5),
+            [
+                datetime(2024, 10, 5, 2, 30, 0),
+                datetime(2024, 10, 6, 2, 30, 0),
+                datetime(2024, 10, 7, 2, 30, 0),
+            ],
+            id="half_hour_gap",
+        ),
+        pytest.param(
+            ZoneInfo("Antarctica/Troll"),
+            {"hour": "1-3", "minute": 0, "second": 59},
+            datetime(2024, 3, 30, 3),
+            [
+                datetime(2024, 3, 30, 3, 0, 59),
+                datetime(2024, 3, 31, 3, 0, 59),
+                datetime(2024, 4, 1, 1, 0, 59),
+            ],
+            id="two_hour_gap",
+        ),
+    ],
+)
+def test_dst_partial_gap(
+    timezone, trigger_args, start_time, correct_next_dates, serializer
+):
+    """
+    A forward DST shift that swallows only the beginning of the requested hour must not
+    cause the fire times that still exist later in that hour to be skipped.
+
+    On 2024-10-06 ``Australia/Lord_Howe`` jumps from 02:00 to 02:30, so 02:30:00 does
+    exist. On 2024-03-31 ``Antarctica/Troll`` jumps from 01:00 to 03:00, so 03:00:59
+    does exist.
+    """
+    trigger = CronTrigger(
+        timezone=timezone,
+        start_time=start_time.replace(tzinfo=timezone),
+        **trigger_args,
+    )
+    if serializer:
+        trigger = serializer.deserialize(serializer.serialize(trigger))
+
+    for correct_next_date in correct_next_dates:
+        correct_next_date = correct_next_date.replace(tzinfo=timezone)
+        next_date = trigger.next()
+        assert next_date == correct_next_date
+        assert str(next_date) == str(correct_next_date)
+
+
 def test_zero_value(timezone):
     start_time = datetime(2020, 1, 1, tzinfo=timezone)
     trigger = CronTrigger(
