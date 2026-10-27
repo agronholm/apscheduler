@@ -248,7 +248,10 @@ class MemoryDataStore(BaseDataStore):
                 if job.acquired_until >= now:
                     continue
                 else:
+                    # Undo the previous acquirer's running-job count here, so the
+                    # discard path's release_job() won't decrement it a second time
                     task.running_jobs -= 1
+                    job.acquired_by = None
 
             # Discard the job if its start deadline has passed
             if job.start_deadline and job.start_deadline < now:
