@@ -31,6 +31,10 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1131 <https://github.com/agronholm/apscheduler/issues/1131>`_; PR by @afonsojanu)
 - Fixed ``CalendarIntervalTrigger`` skipping valid dates or shifting subsequent run dates
   when a nonexistent local time normalizes past midnight during a forward DST shift
+- Fixed combining triggers comparing local clock times instead of absolute instants,
+  which could skip or duplicate runs in ``OrTrigger`` and incorrectly match or discard
+  runs in ``AndTrigger`` around daylight saving time transitions
+  (`#1137 <https://github.com/agronholm/apscheduler/pull/1137>`_; PR by @Kuang-xianxin)
 - Fixed ``CronTrigger`` raising an unhelpful ``IndexError`` instead of a descriptive
   ``ValueError`` when given a numeric ``day_of_week`` value outside the 0–7 range
   (`#1130 <https://github.com/agronholm/apscheduler/pull/1130>`_; PR by @nikolauspschuetz)
