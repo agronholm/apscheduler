@@ -51,6 +51,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   scheduler wake up past a deadline that had already passed and process schedules in a
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
+- Fixed the scheduler crashing with ``KeyError`` when a job's lease expired while the
+  job was still running and the job was then acquired (and run) a second time
+  (`#1116 <https://github.com/agronholm/apscheduler/issues/1116>`_; PR by @leobaray)
 
 **4.0.0a6**
 
