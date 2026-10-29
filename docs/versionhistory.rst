@@ -6,6 +6,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Prevented a stale job release from deleting a job that another in-memory scheduler
+  has already reacquired after its lease expired
+  (`#1116 <https://github.com/agronholm/apscheduler/issues/1116>`_)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
