@@ -592,3 +592,43 @@ def test_non_existing_naive_end_time() -> None:
     end_time = datetime(2025, 3, 30, 2, 30)
     with pytest.raises(ValueError):
         CronTrigger(timezone=tz, start_time=start_time, end_time=end_time)
+
+
+@pytest.mark.parametrize(
+    "expr,expected_days",
+    [
+        pytest.param("*/2", ["tue", "thu", "sat", "sun"], id="every_2nd_day"),
+        pytest.param("*/3", ["wed", "sat", "sun"], id="every_3rd_day"),
+        pytest.param("*/5", ["fri", "sun"], id="every_5th_day"),
+        pytest.param("*/1", ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], id="every_day"),
+        pytest.param("*/7", ["sun"], id="every_7th_day"),
+    ],
+)
+def test_day_of_week_star_step_anchoring(
+    expr: str, expected_days: list[str], timezone: ZoneInfo
+) -> None:
+    """Test that */N day-of-week star-steps are anchored on Sunday (cron numbering)."""
+    start = datetime(2026, 10, 26, 12, tzinfo=timezone)  # Monday
+    trigger = CronTrigger.from_crontab(f"0 12 * * {expr}", timezone=timezone, start_time=start)
+    days = [trigger.next().strftime("%a").lower() for _ in expected_days]
+    assert days == expected_days
+
+
+def test_day_of_week_star_step_matches_equivalent_list(timezone: ZoneInfo) -> None:
+    """Test that a day_of_week star-step fires on the same days as its list form."""
+    start = datetime(2026, 10, 26, 12, tzinfo=timezone)  # Monday
+    star = CronTrigger.from_crontab("0 12 * * */2", timezone=timezone, start_time=start)
+    explicit = CronTrigger.from_crontab(
+        "0 12 * * 0,2,4,6", timezone=timezone, start_time=start
+    )
+    assert [star.next() for _ in range(5)] == [explicit.next() for _ in range(5)]
+
+
+def test_day_of_week_star_step_constructor(timezone: ZoneInfo) -> None:
+    """Test the constructor's day_of_week star-step anchoring, too."""
+    start = datetime(2026, 10, 26, 12, tzinfo=timezone)  # Monday
+    star = CronTrigger(day_of_week="*/2", hour=12, timezone=timezone, start_time=start)
+    named = CronTrigger(
+        day_of_week="sun,tue,thu,sat", hour=12, timezone=timezone, start_time=start
+    )
+    assert [star.next() for _ in range(5)] == [named.next() for _ in range(5)]
