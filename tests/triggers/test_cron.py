@@ -600,7 +600,9 @@ def test_non_existing_naive_end_time() -> None:
         pytest.param("*/2", ["tue", "thu", "sat", "sun"], id="every_2nd_day"),
         pytest.param("*/3", ["wed", "sat", "sun"], id="every_3rd_day"),
         pytest.param("*/5", ["fri", "sun"], id="every_5th_day"),
-        pytest.param("*/1", ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], id="every_day"),
+        pytest.param(
+            "*/1", ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], id="every_day"
+        ),
         pytest.param("*/7", ["sun"], id="every_7th_day"),
     ],
 )
@@ -609,7 +611,9 @@ def test_day_of_week_star_step_anchoring(
 ) -> None:
     """Test that */N day-of-week star-steps are anchored on Sunday (cron numbering)."""
     start = datetime(2026, 10, 26, 12, tzinfo=timezone)  # Monday
-    trigger = CronTrigger.from_crontab(f"0 12 * * {expr}", timezone=timezone, start_time=start)
+    trigger = CronTrigger.from_crontab(
+        f"0 12 * * {expr}", timezone=timezone, start_time=start
+    )
     days = [trigger.next().strftime("%a").lower() for _ in expected_days]
     assert days == expected_days
 
