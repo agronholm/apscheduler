@@ -134,6 +134,19 @@ class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpress
     __slots__ = ()
 
     def append_expression(self, expr: str) -> None:
+        # `*/N` selects every Nth weekday, counting from Sunday in cron's weekday
+        # numbering. AllExpression steps over the internal, Monday-based numbering
+        # (where 0 is Monday) instead, so rewrite star-steps into the individual
+        # weekdays they match to keep the anchor consistent with the numeric
+        # literals handled below (where 0 means Sunday).
+        match = AllExpression.value_re.match(expr)
+        if match and match.group("step"):
+            step = int(match.group("step"))
+            if step <= 7:
+                for day in range(0, 7, step):
+                    super().append_expression(WEEKDAYS[(day - 1) % 7])
+                return
+
         # Convert numeric weekday expressions into textual ones
         match = RangeExpression.value_re.match(expr)
         if match:

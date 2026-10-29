@@ -6,6 +6,10 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Fixed ``day_of_week`` star-step expressions (``*/N``) in ``CronTrigger`` being anchored
+  on Monday instead of Sunday (cron weekday numbering), so e.g. ``from_crontab("0 12 * * */2")``
+  fired on Monday/Wednesday/Friday/Sunday instead of Sunday/Tuesday/Thursday/Saturday
+  (`#1185 <https://github.com/agronholm/apscheduler/issues/1185>`_)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
