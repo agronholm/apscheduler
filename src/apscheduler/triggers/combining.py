@@ -80,14 +80,18 @@ class AndTrigger(BaseCombiningTrigger):
                 if latest_fire_time is None or latest_fire_time < fire_time:
                     latest_fire_time = fire_time
 
-            # Replace all the fire times that were within the threshold
-            for i, _trigger in enumerate(self.triggers):
-                if self._next_fire_times[i] - earliest_fire_time <= self.threshold:
-                    self._next_fire_times[i] = self.triggers[i].next()
-
-            # If all the fire times were within the threshold, return the earliest one
+            # If all the fire times were within the threshold, replace all of them and
+            # return the earliest one
             if latest_fire_time - earliest_fire_time <= self.threshold:
+                for i, trigger in enumerate(self.triggers):
+                    self._next_fire_times[i] = trigger.next()
+
                 return earliest_fire_time
+
+            # Otherwise, replace only the fire times that were the earliest
+            for i, trigger in enumerate(self.triggers):
+                if self._next_fire_times[i] == earliest_fire_time:
+                    self._next_fire_times[i] = trigger.next()
         else:
             raise MaxIterationsReached
 

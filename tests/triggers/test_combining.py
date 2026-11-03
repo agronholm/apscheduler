@@ -29,6 +29,25 @@ class TestAndTrigger:
 
         assert trigger.next() is None
 
+    def test_only_earliest_trigger_advances(self, timezone, serializer):
+        start_time = datetime(2020, 5, 16, 14, 17, 30, tzinfo=timezone)
+
+        def dates(*seconds: int) -> OrTrigger:
+            return OrTrigger(
+                [DateTrigger(start_time + timedelta(seconds=s)) for s in seconds]
+            )
+
+        # The first fire times (0, 50, 100) are not within the threshold, so only the
+        # first trigger may advance, giving (60, 50, 100), which is within it
+        trigger = AndTrigger(
+            [dates(0, 60), dates(50, 500), dates(100, 600)], threshold=60
+        )
+        if serializer:
+            trigger = serializer.deserialize(serializer.serialize(trigger))
+
+        assert trigger.next() == start_time + timedelta(seconds=50)
+        assert trigger.next() is None
+
     def test_max_iterations(self, timezone, serializer):
         start_time = datetime(2020, 5, 16, 14, 17, 30, 254212, tzinfo=timezone)
         trigger = AndTrigger(

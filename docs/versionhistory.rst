@@ -51,6 +51,11 @@ APScheduler, see the :doc:`migration section <migration>`.
   scheduler wake up past a deadline that had already passed and process schedules in a
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
+- Fixed ``AndTrigger`` advancing every trigger whose fire time was within the threshold
+  of the earliest one when the fire times did not all match, instead of only the
+  trigger(s) that produced the earliest fire time, which could skip matching fire times
+  when combining three or more triggers
+  (`#1187 <https://github.com/agronholm/apscheduler/pull/1187>`_; PR by @mmporong)
 
 **4.0.0a6**
 
