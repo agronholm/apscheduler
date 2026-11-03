@@ -959,7 +959,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             continue
 
                         # Skip the job if no more slots are available
-                        if not task_job_slots_left[job.task_id]:
+                        if task_job_slots_left[job.task_id] <= 0:
                             self._logger.debug(
                                 "Skipping job %s because task %r has the maximum "
                                 "number of %d jobs already running",
