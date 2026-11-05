@@ -75,7 +75,7 @@ class IntervalTrigger(BaseTrigger):
     def get_next_fire_time(self, previous_fire_time, now):
         if previous_fire_time:
             next_fire_time = previous_fire_time.timestamp() + self.interval_length
-        elif self.start_date > now:
+        elif self.start_date.timestamp() > now.timestamp():
             next_fire_time = self.start_date.timestamp()
         else:
             timediff = now.timestamp() - self.start_date.timestamp()
