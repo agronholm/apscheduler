@@ -592,3 +592,22 @@ def test_non_existing_naive_end_time() -> None:
     end_time = datetime(2025, 3, 30, 2, 30)
     with pytest.raises(ValueError):
         CronTrigger(timezone=tz, start_time=start_time, end_time=end_time)
+
+
+@pytest.mark.parametrize(
+    "timezone", [ZoneInfo("UTC"), ZoneInfo("Europe/Berlin")], ids=["utc", "berlin"]
+)
+@pytest.mark.parametrize("field_name", ["start_time", "end_time"])
+@pytest.mark.parametrize("microsecond", [0, 1, 500000, 999999])
+def test_future_time_microseconds(timezone, serializer, field_name, microsecond):
+    times = {
+        "start_time": datetime(2500, 10, 14, tzinfo=timezone),
+        "end_time": datetime(2500, 10, 14, 0, 0, 2, tzinfo=timezone),
+    }
+    times[field_name] = times[field_name].replace(microsecond=microsecond)
+    trigger = CronTrigger(second=1, timezone=timezone, **times)
+    trigger = serializer.deserialize(serializer.serialize(trigger))
+
+    assert trigger.start_time == times["start_time"]
+    assert trigger.end_time == times["end_time"]
+    assert trigger.next() == datetime(2500, 10, 14, 0, 0, 1, tzinfo=timezone)

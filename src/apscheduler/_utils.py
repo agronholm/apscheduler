@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, tzinfo
+from datetime import UTC, datetime, tzinfo
 from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
 from zoneinfo import ZoneInfo
 
@@ -115,7 +115,7 @@ def time_exists(dt: datetime) -> bool:
         forward daylight savings shift, otherwise ``True``
 
     """
-    return dt == datetime.fromtimestamp(dt.timestamp(), dt.tzinfo)
+    return dt == dt.astimezone(UTC).astimezone(dt.tzinfo)
 
 
 def current_async_library() -> str:
