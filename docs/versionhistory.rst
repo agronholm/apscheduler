@@ -6,6 +6,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Fixed ``IntervalTrigger`` returning a first fire time before ``start_date`` or
+  ``now`` when they fall in different occurrences of a repeated DST hour
+  (`#1188 <https://github.com/agronholm/apscheduler/pull/1188>`_; PR by @ADI238IND)
 - Fixed ``AsyncIOScheduler`` permanently stopping the processing of jobs if
   ``_process_jobs()`` raised an exception, as the wakeup timer was then never rearmed
   (`#1132 <https://github.com/agronholm/apscheduler/pull/1132>`_; PR by @sundasnoreen-sr)
