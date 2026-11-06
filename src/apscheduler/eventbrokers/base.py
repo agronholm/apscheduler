@@ -59,7 +59,7 @@ class BaseEventBroker(EventBroker):
             or iscoroutinefunction(callback)
             or iscoroutinefunction(type(callback).__call__)
         )
-        types = set(event_types) if event_types else None
+        types = set(event_types) if event_types is not None else None
         token = object()
         subscription = LocalSubscription(
             callback, types, one_shot, is_async, token, self
