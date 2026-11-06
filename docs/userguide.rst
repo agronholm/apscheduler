@@ -579,6 +579,9 @@ This example subscribes to the :class:`~JobAcquired` and
 :class:`~JobReleased` event types. The callback will receive an event of
 either type, and prints the name of the class of the received event.
 
+Omitting ``event_types`` or passing ``None`` subscribes to all event types. An empty
+iterable subscribes to none.
+
 Asynchronous schedulers and workers support both synchronous and asynchronous callbacks,
 but their synchronous counterparts only support synchronous callbacks.
 
