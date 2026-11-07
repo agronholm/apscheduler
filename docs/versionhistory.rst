@@ -6,6 +6,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Added the ``table_prefix`` option to ``SQLAlchemyDataStore`` to prepend a custom prefix
+  to its table names (`#928 <https://github.com/agronholm/apscheduler/issues/928>`_)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
