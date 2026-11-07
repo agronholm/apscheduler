@@ -2,7 +2,6 @@
 Demonstrates how to schedule a job to be run in a process pool on 3 second intervals.
 """
 
-import utils.session
 import os
 from datetime import datetime
 
