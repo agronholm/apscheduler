@@ -232,6 +232,10 @@ class CronTrigger(Trigger):
             )
         else:
             next_time = self.start_time
+            if next_time.microsecond:
+                next_time = datetime.fromtimestamp(
+                    next_time.replace(microsecond=0).timestamp() + 1, self.timezone
+                )
 
         fieldnum = 0
         while 0 <= fieldnum < len(self._fields):
