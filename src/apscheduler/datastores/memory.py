@@ -177,11 +177,12 @@ class MemoryDataStore(BaseDataStore):
     ) -> None:
         # Send update events for schedules
         for result in results:
-            # The schedule may have been removed (e.g. from a JobReleased event
-            # handler) between acquisition and release, in which case there is
-            # nothing left to update.
-            schedule = self._schedules_by_id.get(result.schedule_id)
-            if schedule is None:
+            try:
+                # The schedule may have been removed (e.g. from a JobReleased
+                # event handler) between acquisition and release, in which
+                # case there is nothing left to update.
+                schedule = self._schedules_by_id[result.schedule_id]
+            except KeyError:
                 continue
 
             # Remove the schedule
