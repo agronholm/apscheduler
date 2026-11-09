@@ -292,9 +292,7 @@ def test_weekday_step(timezone, serializer, expr, expected_weekdays):
     # Regression test for #1193: steps on day_of_week ranges select days in
     # cron order instead of being silently dropped (and 0-7 is the whole week)
     start_time = datetime(2026, 11, 9, tzinfo=timezone)
-    trigger = CronTrigger(
-        day_of_week=expr, start_time=start_time, timezone=timezone
-    )
+    trigger = CronTrigger(day_of_week=expr, start_time=start_time, timezone=timezone)
     if serializer:
         trigger = serializer.deserialize(serializer.serialize(trigger))
 
@@ -314,9 +312,7 @@ def test_month_step(timezone, serializer, expr, expected_months):
     # Regression test for #1193: steps on month name expressions were
     # swallowed by the prefix match of MonthRangeExpression
     start_time = datetime(2027, 1, 1, tzinfo=timezone)
-    trigger = CronTrigger(
-        month=expr, day=1, start_time=start_time, timezone=timezone
-    )
+    trigger = CronTrigger(month=expr, day=1, start_time=start_time, timezone=timezone)
     if serializer:
         trigger = serializer.deserialize(serializer.serialize(trigger))
 

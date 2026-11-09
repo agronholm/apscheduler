@@ -169,7 +169,9 @@ class MonthRangeExpression(RangeExpression):
         else:
             last_num = None
 
-        super().__init__(first=first_num, last=last_num, step=int(step) if step else None)
+        super().__init__(
+            first=first_num, last=last_num, step=int(step) if step else None
+        )
 
     def __str__(self) -> str:
         if self.last != self.first and self.last is not None:
