@@ -450,6 +450,28 @@ def test_jitter_dst_change(trigger_args, start_date, fold, correct_next_date):
         assert abs(next_fire_time - correct_next_date) <= timedelta(seconds=5)
 
 
+def test_jitter_advances_past_dst_fold(monkeypatch):
+    timezone = ZoneInfo("Europe/Zagreb")
+    trigger = CronTrigger(hour=2, minute=0, jitter=3600, timezone=timezone)
+    monkeypatch.setattr(
+        "apscheduler.triggers.base.random.uniform", Mock(return_value=1800)
+    )
+    previous_fire_time = datetime(2026, 10, 25, 2, 8, tzinfo=timezone)
+    now = datetime(2026, 10, 26, 11, tzinfo=timezone)
+    expected_times = [
+        datetime(2026, 10, 25, 2, 30, tzinfo=timezone, fold=1),
+        datetime(2026, 10, 26, 2, 30, tzinfo=timezone),
+        datetime(2026, 10, 27, 2, 30, tzinfo=timezone),
+    ]
+
+    for expected in expected_times:
+        result = trigger.get_next_fire_time(previous_fire_time, now)
+        assert result.timestamp() > previous_fire_time.timestamp()
+        assert str(result) == str(expected)
+        assert result.fold == expected.fold
+        previous_fire_time = result
+
+
 def test_jitter_with_end_date(timezone):
     now = localize(datetime(2017, 11, 12, 6, 55, 30), timezone)
     end_date = localize(datetime(2017, 11, 12, 6, 56, 0), timezone)
