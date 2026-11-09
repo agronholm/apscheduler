@@ -133,6 +133,27 @@ class DayOfMonthField(
 class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpression,)):
     __slots__ = ()
 
+    def _append_stepped_days(
+        self, expr: str, first: int, last: int | None, step: int
+    ) -> None:
+        # Expand a stepped weekday selection to the days it selects.
+        # ``first``/``last`` are WEEKDAYS indices (mon = 0 … sun = 6); steps
+        # run forward through the cron week, which ends on Sunday, matching
+        # how the other fields step their numeric ranges.
+        if last is None:
+            # an open-ended selection runs to the end of the cron week;
+            # starting on Sunday itself wraps the whole week
+            last = 5 if first == 6 else 6
+        value_range = (last - first) % 7
+        if step > value_range:
+            raise ValueError(
+                f"Error validating expression {expr!r}: the step value ({step}) "
+                f"is higher than the total range of the expression "
+                f"({value_range})"
+            )
+        for offset in range(0, value_range + 1, step):
+            super().append_expression(WEEKDAYS[(first + offset) % 7])
+
     def append_expression(self, expr: str) -> None:
         # Convert numeric weekday expressions into textual ones
         match = RangeExpression.value_re.match(expr)
@@ -142,6 +163,14 @@ class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpress
                 if group is not None and not 0 <= int(group) <= 7:
                     raise ValueError(f"Invalid weekday number {group!r}")
 
+            if groups[0] == "0" and groups[1] == "7":
+                # 0-7 spans the whole cron week (both endpoints are Sunday)
+                if groups[2] is not None:
+                    self._append_stepped_days(expr, 6, None, int(groups[2]))
+                else:
+                    super().append_expression("*")
+                return
+
             first = int(groups[0]) - 1
             first = 6 if first < 0 else first
             if groups[1]:
@@ -150,11 +179,31 @@ class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpress
             else:
                 last = first
 
+            if groups[2] is not None:
+                # keep the step the numeric form carries: it selects days in
+                # cron order, like every other numeric range in a cron field
+                self._append_stepped_days(
+                    expr, first, last if groups[1] else None, int(groups[2])
+                )
+                return
+
             expr = f"{WEEKDAYS[first]}-{WEEKDAYS[last]}"
+
+        # A step on a named weekday range was previously swallowed by the
+        # prefix match below; expand it the same way as numeric steps
+        match = WeekdayRangeExpression.value_re.match(expr)
+        if match and match.group("step") is not None:
+            last_group = match.group("last")
+            self._append_stepped_days(
+                expr,
+                get_weekday_index(match.group("first")),
+                get_weekday_index(last_group) if last_group else None,
+                int(match.group("step")),
+            )
+            return
 
         # For expressions like Sun-Tue or Sat-Mon, add two expressions that together
         # cover the expected weekdays
-        match = WeekdayRangeExpression.value_re.match(expr)
         if match and match.groups()[1]:
             groups = match.groups()
             first_index = get_weekday_index(groups[0])
