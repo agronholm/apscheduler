@@ -6,6 +6,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Fixed jitter moving fire times backwards during a DST fall-back transition,
+  which could cause ``CronTrigger`` jobs to loop indefinitely
+  (`#1183 <https://github.com/agronholm/apscheduler/issues/1183>`_; PR by @Vmnebula)
 - Fixed ``AsyncIOScheduler`` permanently stopping the processing of jobs if
   ``_process_jobs()`` raised an exception, as the wakeup timer was then never rearmed
   (`#1132 <https://github.com/agronholm/apscheduler/pull/1132>`_; PR by @sundasnoreen-sr)
