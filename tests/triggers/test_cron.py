@@ -592,3 +592,31 @@ def test_non_existing_naive_end_time() -> None:
     end_time = datetime(2025, 3, 30, 2, 30)
     with pytest.raises(ValueError):
         CronTrigger(timezone=tz, start_time=start_time, end_time=end_time)
+
+
+@pytest.mark.parametrize(
+    "expr, expected_days",
+    [
+        ("*/2", ["thu", "sat", "sun", "tue"]),
+        ("*/3", ["wed", "sat", "sun"]),
+        ("*/4", ["thu", "sun"]),
+        ("*/7", ["sun"]),
+    ],
+    ids=["step2", "step3", "step4", "step7"],
+)
+def test_weekday_star_step(timezone, serializer, expr, expected_days):
+    """Star-steps on the day of week field are anchored on Sunday (cron)."""
+    start_time = datetime(2020, 1, 1, tzinfo=timezone)
+    trigger = CronTrigger(
+        year=2020,
+        month=1,
+        day_of_week=expr,
+        start_time=start_time,
+        timezone=timezone,
+    )
+    if serializer:
+        trigger = serializer.deserialize(serializer.serialize(trigger))
+
+    assert [trigger.next().strftime("%a").lower() for _ in expected_days] == (
+        expected_days
+    )
