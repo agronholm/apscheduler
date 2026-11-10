@@ -19,6 +19,12 @@ services:
     image: mongo
     ports:
       - 127.0.0.1:27017:27017
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - type: bind
+        source: ./tools/mongodb-init.sh
+        target: /docker-entrypoint-initdb.d/mongodb-init.sh
+        read_only: true
     environment:
       # https://forums.docker.com/t/docker-compose-mongo-exit-code-139/151353/10
       - GLIBC_TUNABLES=glibc.pthread.rseq=1

@@ -13,6 +13,7 @@ from urllib.parse import unquote
 import anyio
 import pytest
 from anyio import CancelScope
+from pytest_mock import MockFixture
 from pytest_mock.plugin import MockerFixture
 
 from apscheduler import (
@@ -21,6 +22,7 @@ from apscheduler import (
     DeserializationError,
     Event,
     Job,
+    JobAcquired,
     JobOutcome,
     JobResult,
     Schedule,
@@ -54,6 +56,16 @@ async def datastore(
         await local_broker.start(exit_stack, logger)
         await raw_datastore.start(exit_stack, local_broker, logger)
         yield raw_datastore
+
+
+@pytest.fixture
+async def mongodb_datastore(
+    mongodb_store: DataStore, local_broker: EventBroker, logger: Logger
+) -> AsyncGenerator[DataStore, None]:
+    async with AsyncExitStack() as exit_stack:
+        await local_broker.start(exit_stack, logger)
+        await mongodb_store.start(exit_stack, local_broker, logger)
+        yield mongodb_store
 
 
 @pytest.fixture
@@ -923,6 +935,359 @@ async def test_reap_abandoned_jobs(
 
     task = await datastore.get_task("task1")
     assert task.running_jobs == 0
+
+
+@pytest.mark.external_service
+async def test_mongodb_without_replica_set_config(
+    local_broker: EventBroker, logger: Logger, mocker: MockFixture
+) -> None:
+    from pymongo.asynchronous.mongo_client import AsyncMongoClient
+
+    async with AsyncExitStack() as exit_stack:
+        client = await exit_stack.enter_async_context(AsyncMongoClient())
+        datastore = MongoDBDataStore(client)
+
+        mocker.patch.object(
+            datastore._database,
+            "command",
+            return_value={},
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="MongoDB must be configured with a replica set or sharded cluster"
+            " to use transactions for document updates",
+        ):
+            await datastore.start(
+                exit_stack=exit_stack,
+                event_broker=local_broker,
+                logger=logger,
+            )
+
+
+@pytest.mark.external_service
+async def test_mongodb_sharded_cluster_supported(
+    mongodb_store: DataStore,
+    local_broker: EventBroker,
+    logger: Logger,
+    mocker: MockerFixture,
+) -> None:
+    mocker.patch.object(
+        mongodb_store._database,
+        "command",
+        return_value={"msg": "isdbgrid"},
+    )
+
+    async with AsyncExitStack() as exit_stack:
+        await mongodb_store.start(
+            exit_stack=exit_stack,
+            event_broker=local_broker,
+            logger=logger,
+        )
+
+
+@pytest.mark.external_service
+async def test_mongodb_concurrent_job_acquisition(
+    local_broker: EventBroker, logger: Logger, mocker: MockerFixture
+) -> None:
+    from pymongo.asynchronous.mongo_client import AsyncMongoClient
+
+    NUM_WORKERS = 4
+    JOBS_PER_ROUND = 20
+    ROUNDS = 3
+
+    async with AsyncMongoClient(serverSelectionTimeoutMS=1000) as client:
+        stores = [
+            MongoDBDataStore(client, start_from_scratch=index == 0)
+            for index in range(NUM_WORKERS)
+        ]
+        async with AsyncExitStack() as exit_stack:
+            await local_broker.start(exit_stack, logger)
+            for store in stores:
+                await store.start(exit_stack, local_broker, logger)
+
+            task = Task(
+                id="task1", func="contextlib:asynccontextmanager", job_executor="async"
+            )
+            await stores[0].add_task(task)
+
+            # Force all workers' transactions to collide: gate the first
+            # _jobs.update_many() of each round until all workers have arrived
+            original_update_many = stores[0]._jobs.update_many
+            arrivals = 0
+            barrier_open = anyio.Event()
+
+            async def gated_update_many(*args, **kwargs):
+                nonlocal arrivals
+                if not barrier_open.is_set():
+                    arrivals += 1
+                    if arrivals == NUM_WORKERS:
+                        barrier_open.set()
+                    await barrier_open.wait()
+
+                return await original_update_many(*args, **kwargs)
+
+            for store in stores:
+                mocker.patch.object(
+                    store._jobs, "update_many", side_effect=gated_update_many
+                )
+
+            for _ in range(ROUNDS):
+                arrivals = 0
+                barrier_open = anyio.Event()
+
+                jobs = [
+                    Job(task_id="task1", executor="async")
+                    for _ in range(JOBS_PER_ROUND)
+                ]
+                for job in jobs:
+                    await stores[0].add_job(job)
+
+                results: list[list[Job]] = [[] for _ in stores]
+
+                async def acquire_one(results: list[list[Job]], index: int) -> None:
+                    results[index] = await stores[index].acquire_jobs(
+                        f"worker{index}", timedelta(seconds=60), 5
+                    )
+
+                with anyio.fail_after(30):
+                    async with anyio.create_task_group() as task_group:
+                        for index in range(NUM_WORKERS):
+                            task_group.start_soon(acquire_one, results, index)
+
+                # No exception escaped; each worker got its fair share and every
+                # job was acquired by exactly one worker
+                acquired_ids: set = set()
+                for batch in results:
+                    assert len(batch) == 5
+                    for job in batch:
+                        assert job.id not in acquired_ids
+                        acquired_ids.add(job.id)
+
+                assert acquired_ids == {job.id for job in jobs}
+
+                for index, batch in enumerate(results):
+                    for job in batch:
+                        await stores[index].release_job(
+                            f"worker{index}",
+                            job,
+                            JobResult.from_job(job, JobOutcome.success),
+                        )
+
+                assert (await stores[0].get_task("task1")).running_jobs == 0
+
+
+@pytest.mark.external_service
+async def test_mongodb_retries_transient_transaction_errors(
+    mongodb_datastore: DataStore, mocker: MockerFixture
+) -> None:
+    from pymongo.errors import OperationFailure
+
+    await mongodb_datastore.add_task(
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    )
+    jobs = [Job(task_id="task1", executor="async") for _ in range(2)]
+    for job in jobs:
+        await mongodb_datastore.add_job(job)
+
+    real_update_one = mongodb_datastore._tasks.update_one
+    calls = 0
+
+    async def flaky_update_one(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise OperationFailure(
+                "WriteConflict",
+                code=112,
+                details={"errorLabels": ["TransientTransactionError"]},
+            )
+
+        return await real_update_one(*args, **kwargs)
+
+    mocker.patch.object(
+        mongodb_datastore._tasks, "update_one", side_effect=flaky_update_one
+    )
+
+    async with capture_events(mongodb_datastore, 2, {JobAcquired}) as events:
+        acquired = await mongodb_datastore.acquire_jobs(
+            "worker1", timedelta(seconds=30), 2
+        )
+
+    assert len(acquired) == 2
+    assert {event.job_id for event in events} == {job.id for job in jobs}
+    assert calls == 3  # 1 transient failure + 2 successful calls in the retried attempt
+
+
+@pytest.mark.external_service
+async def test_mongodb_retries_transaction_timeout_errors(
+    mongodb_datastore: DataStore, mocker: MockerFixture
+) -> None:
+    from pymongo.asynchronous.client_session import AsyncClientSession
+    from pymongo.errors import ExecutionTimeout
+
+    await mongodb_datastore.add_task(
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    )
+    jobs = [Job(task_id="task1", executor="async") for _ in range(2)]
+    for job in jobs:
+        await mongodb_datastore.add_job(job)
+
+    # Make the first attempt fail with the error that with_transaction() raises
+    # when its retry budget runs out (with CSOT enabled)
+    original_with_transaction = AsyncClientSession.with_transaction
+    calls = 0
+
+    async def flaky_with_transaction(self, *args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise ExecutionTimeout("transaction timed out", 50, {"ok": 0})
+
+        return await original_with_transaction(self, *args, **kwargs)
+
+    mocker.patch.object(AsyncClientSession, "with_transaction", flaky_with_transaction)
+
+    async with capture_events(mongodb_datastore, 2, {JobAcquired}) as events:
+        acquired = await mongodb_datastore.acquire_jobs(
+            "worker1", timedelta(seconds=30), 2
+        )
+
+    assert len(acquired) == 2
+    assert {event.job_id for event in events} == {job.id for job in jobs}
+    assert calls == 2  # 1 timeout + 1 successful attempt after the retry
+
+
+@pytest.mark.external_service
+async def test_mongodb_release_job_rolls_back_on_failure(
+    mongodb_datastore: DataStore, mocker: MockerFixture
+) -> None:
+    from pymongo.errors import OperationFailure
+
+    await mongodb_datastore.add_task(
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    )
+    job = Job(
+        task_id="task1",
+        executor="async",
+        result_expiration_time=timedelta(minutes=1),
+    )
+    await mongodb_datastore.add_job(job)
+
+    acquired = await mongodb_datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
+    assert len(acquired) == 1
+
+    # Fail the counter decrement, which is the last write of the release
+    mocker.patch.object(
+        mongodb_datastore._tasks,
+        "find_one_and_update",
+        side_effect=OperationFailure("injected failure", code=999),
+    )
+
+    with pytest.raises(OperationFailure):
+        await mongodb_datastore.release_job(
+            "worker1",
+            acquired[0],
+            JobResult.from_job(acquired[0], JobOutcome.success),
+        )
+
+    # The release may not have been partially applied
+    assert len(await mongodb_datastore.get_jobs()) == 1
+    assert (await mongodb_datastore.get_task("task1")).running_jobs == 1
+    assert await mongodb_datastore.get_job_result(job.id) is None
+
+
+@pytest.mark.external_service
+async def test_mongodb_reap_abandoned_jobs_rolls_back_on_failure(
+    mongodb_datastore: DataStore, mocker: MockerFixture
+) -> None:
+    from pymongo.errors import OperationFailure
+
+    await mongodb_datastore.add_task(
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    )
+    jobs = [
+        Job(
+            task_id="task1",
+            executor="async",
+            result_expiration_time=timedelta(minutes=1),
+        )
+        for _ in range(2)
+    ]
+    for job in jobs:
+        await mongodb_datastore.add_job(job)
+
+    acquired = await mongodb_datastore.acquire_jobs("worker1", timedelta(seconds=30), 2)
+    assert len(acquired) == 2
+
+    # Fail the release after its writes have been performed: a non-atomic
+    # implementation would leave them applied
+    original_release_jobs = mongodb_datastore._release_jobs
+
+    async def failing_release_jobs(*args, **kwargs):
+        await original_release_jobs(*args, **kwargs)
+        raise OperationFailure("injected failure", code=999)
+
+    mocker.patch.object(
+        mongodb_datastore,
+        "_release_jobs",
+        side_effect=failing_release_jobs,
+    )
+
+    with pytest.raises(OperationFailure):
+        await mongodb_datastore.reap_abandoned_jobs("worker1")
+
+    # The failed release may not have left its writes behind
+    assert len(await mongodb_datastore.get_jobs()) == 2
+    assert (await mongodb_datastore.get_task("task1")).running_jobs == 2
+    assert await mongodb_datastore.get_job_result(jobs[0].id) is None
+
+
+@pytest.mark.external_service
+async def test_mongodb_cleanup_rolls_back_on_failure(
+    mongodb_datastore: DataStore, mocker: MockerFixture
+) -> None:
+    from pymongo.errors import OperationFailure
+
+    await mongodb_datastore.add_task(
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    )
+    job = Job(
+        task_id="task1",
+        executor="async",
+        result_expiration_time=timedelta(minutes=1),
+    )
+    await mongodb_datastore.add_job(job)
+
+    acquired = await mongodb_datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
+    assert len(acquired) == 1
+
+    # Expire the job's lease so cleanup picks it up
+    await mongodb_datastore._jobs.update_many(
+        {"_id": job.id}, {"$set": {"acquired_until": 0}}
+    )
+
+    # Fail the release after its writes have been performed: a non-atomic
+    # implementation would leave them applied
+    original_release_jobs = mongodb_datastore._release_jobs
+
+    async def failing_release_jobs(*args, **kwargs):
+        await original_release_jobs(*args, **kwargs)
+        raise OperationFailure("injected failure", code=999)
+
+    mocker.patch.object(
+        mongodb_datastore,
+        "_release_jobs",
+        side_effect=failing_release_jobs,
+    )
+
+    with pytest.raises(OperationFailure):
+        await mongodb_datastore.cleanup()
+
+    # The failed cleanup may not have left its writes behind
+    assert len(await mongodb_datastore.get_jobs()) == 1
+    assert (await mongodb_datastore.get_task("task1")).running_jobs == 1
+    assert await mongodb_datastore.get_job_result(job.id) is None
 
 
 class TestRepr:
