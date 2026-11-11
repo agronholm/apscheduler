@@ -283,6 +283,9 @@ acquires jobs, the data store discards any jobs that have passed their start dea
 (scheduled time + ``misfire_grace_time``). Such jobs are released with the outcome of
 :attr:`~JobOutcome.missed_start_deadline`.
 
+The grace period is measured as elapsed time, including across daylight saving time
+transitions.
+
 Adding custom metadata
 ----------------------
 

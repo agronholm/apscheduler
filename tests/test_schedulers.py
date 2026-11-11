@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import platform
 import sys
 import threading
 import time
@@ -12,7 +13,7 @@ from functools import partial
 from inspect import signature
 from queue import Queue
 from types import ModuleType
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -68,6 +69,9 @@ from apscheduler.triggers.combining import AndTrigger
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+
+if TYPE_CHECKING:
+    from time_machine import TimeMachineFixture
 
 pytestmark = pytest.mark.anyio
 
@@ -566,6 +570,153 @@ class TestAsyncScheduler:
             # There should be no more events on the list
             with pytest.raises(WouldBlock):
                 scheduler_receive.receive_nowait()
+
+    @pytest.mark.skipif(
+        platform.python_implementation() != "CPython",
+        reason="time-machine is not available",
+    )
+    @pytest.mark.parametrize(
+        "zone, run_time, grace",
+        [
+            pytest.param(
+                "Europe/Berlin", datetime(2026, 10, 25, 2, 30, fold=1), 60, id="fold"
+            ),
+            pytest.param(
+                "Europe/Berlin",
+                datetime(2026, 10, 25, 2, 30, fold=1),
+                0,
+                id="fold-zero",
+            ),
+            pytest.param(
+                "Europe/Berlin",
+                datetime(2026, 10, 25, 2, 30, fold=1),
+                None,
+                id="unlimited",
+            ),
+            pytest.param(
+                "Europe/Berlin", datetime(2026, 10, 25, 2, 30), 3600, id="fall-back"
+            ),
+            pytest.param(
+                "Europe/Berlin", datetime(2026, 3, 29, 1, 30), 7200, id="spring-forward"
+            ),
+            pytest.param(
+                "Europe/Berlin", datetime(2026, 10, 26, 2, 30), 60, id="ordinary"
+            ),
+            pytest.param(
+                "UTC", datetime(2026, 10, 25, 2, 30), 0.000001, id="utc-microsecond"
+            ),
+        ],
+    )
+    async def test_scheduled_job_deadline_elapsed_time(
+        self,
+        zone: str,
+        run_time: datetime,
+        grace: float | None,
+        time_machine: TimeMachineFixture,
+    ) -> None:
+        run_time = run_time.replace(tzinfo=ZoneInfo(zone))
+        time_machine.move_to(run_time, tick=False)
+        job_added = anyio.Event()
+        async with AsyncScheduler(
+            role=SchedulerRole.scheduler, cleanup_interval=None
+        ) as scheduler:
+            scheduler.subscribe(lambda event: job_added.set(), {JobAdded})
+            await scheduler.add_schedule(
+                dummy_async_job, DateTrigger(run_time), misfire_grace_time=grace
+            )
+            await scheduler.start_in_background()
+            with fail_after(3):
+                await job_added.wait()
+
+            jobs = await scheduler.get_jobs()
+            assert len(jobs) == 1
+            deadline = jobs[0].start_deadline
+            if grace is None:
+                assert deadline is None
+            else:
+                assert deadline is not None
+                assert deadline.tzinfo == run_time.tzinfo
+                assert deadline.astimezone(UTC) == run_time.astimezone(UTC) + timedelta(
+                    seconds=grace
+                )
+
+    @pytest.mark.skipif(
+        platform.python_implementation() != "CPython",
+        reason="time-machine is not available",
+    )
+    @pytest.mark.parametrize(
+        "run_time, grace, delay, outcome",
+        [
+            pytest.param(
+                datetime(2026, 10, 25, 2, 30, fold=1),
+                60,
+                30,
+                JobOutcome.success,
+                id="fold-in-time",
+            ),
+            pytest.param(
+                datetime(2026, 10, 25, 2, 30, fold=1),
+                60,
+                61,
+                JobOutcome.missed_start_deadline,
+                id="fold-late",
+            ),
+            pytest.param(
+                datetime(2026, 10, 25, 2, 30),
+                3600,
+                5400,
+                JobOutcome.missed_start_deadline,
+                id="fall-back-late",
+            ),
+            pytest.param(
+                datetime(2026, 3, 29, 1, 30),
+                7200,
+                5400,
+                JobOutcome.success,
+                id="spring-forward-in-time",
+            ),
+            pytest.param(
+                datetime(2026, 10, 26, 2, 30),
+                60,
+                30,
+                JobOutcome.success,
+                id="ordinary-in-time",
+            ),
+            pytest.param(
+                datetime(2026, 10, 26, 2, 30),
+                60,
+                61,
+                JobOutcome.missed_start_deadline,
+                id="ordinary-late",
+            ),
+        ],
+    )
+    async def test_scheduled_job_deadline_outcome(
+        self,
+        run_time: datetime,
+        grace: float,
+        delay: float,
+        outcome: JobOutcome,
+        timezone: ZoneInfo,
+        time_machine: TimeMachineFixture,
+    ) -> None:
+        run_time = run_time.replace(tzinfo=timezone)
+        time_machine.move_to(
+            run_time.astimezone(UTC) + timedelta(seconds=delay), tick=False
+        )
+        send, receive = create_memory_object_stream[Event](1)
+        with send, receive:
+            async with AsyncScheduler(cleanup_interval=None) as scheduler:
+                scheduler.subscribe(send.send, {JobReleased})
+                await scheduler.add_schedule(
+                    dummy_async_job, DateTrigger(run_time), misfire_grace_time=grace
+                )
+                await scheduler.start_in_background()
+                with fail_after(3):
+                    event = await receive.receive()
+
+                assert isinstance(event, JobReleased)
+                assert event.outcome is outcome
 
     @pytest.mark.parametrize(
         "coalesce, expected_jobs, first_fire_time_delta",
