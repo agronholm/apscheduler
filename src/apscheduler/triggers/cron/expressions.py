@@ -151,10 +151,10 @@ class RangeExpression(AllExpression):
 
 class MonthRangeExpression(RangeExpression):
     value_re: ClassVar[Pattern] = re.compile(
-        r"(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?", re.IGNORECASE
+        r"(?P<first>[a-z]+)(?:-(?P<last>[a-z]+))?(?:/(?P<step>\d+))?$", re.IGNORECASE
     )
 
-    def __init__(self, first: str, last: str | None = None):
+    def __init__(self, first: str, last: str | None = None, step: str | None = None):
         try:
             first_num = MONTHS.index(first.lower()) + 1
         except ValueError:
@@ -168,13 +168,18 @@ class MonthRangeExpression(RangeExpression):
         else:
             last_num = None
 
-        super().__init__(first=first_num, last=last_num)
+        super().__init__(first=first_num, last=last_num, step=step)
 
     def __str__(self) -> str:
         if self.last != self.first and self.last is not None:
-            return f"{MONTHS[self.first - 1]}-{MONTHS[self.last - 1]}"
+            rangeval = f"{MONTHS[self.first - 1]}-{MONTHS[self.last - 1]}"
+        else:
+            rangeval = MONTHS[self.first - 1]
 
-        return MONTHS[self.first - 1]
+        if self.step:
+            return f"{rangeval}/{self.step}"
+
+        return rangeval
 
 
 @attrs.define(kw_only=True, init=False)
