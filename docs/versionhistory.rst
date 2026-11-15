@@ -8,10 +8,6 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
-- Fixed ``CalendarIntervalTrigger`` restoring its last fire date as a ``datetime``
-  (interpreted in the system's local time zone) instead of a ``date`` after a round trip
-  through the JSON serializer
-  (`#1197 <https://github.com/agronholm/apscheduler/pull/1197>`_; PR by @parthdembla007)
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
 - Dropped support for Python 3.9 and 3.10
 - Fixed an issue where ``CronTrigger`` does not convert ``start_time`` to ``self.timezone``
@@ -55,6 +51,10 @@ APScheduler, see the :doc:`migration section <migration>`.
   scheduler wake up past a deadline that had already passed and process schedules in a
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
+- Fixed ``CalendarIntervalTrigger`` restoring its last fire date as a ``datetime``
+  (interpreted in the system's local time zone) instead of a ``date`` after a round trip
+  through the JSON serializer
+  (`#1197 <https://github.com/agronholm/apscheduler/pull/1197>`_; PR by @parthdembla007)
 
 **4.0.0a6**
 
