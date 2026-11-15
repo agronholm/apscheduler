@@ -126,6 +126,41 @@ def test_previous_fire_time_3(timezone):
     assert trigger.get_next_fire_time(previous_fire_time, now) == correct_next_date
 
 
+@pytest.mark.parametrize(
+    "zone, expr, previous_fire_time, correct_next_date",
+    [
+        # At 02:30 -04:30 the clocks moved to 03:00 -04:00: the same instant
+        (
+            "America/Caracas",
+            "*/15 * * * *",
+            datetime(2016, 5, 1, 2, 30),
+            datetime(2016, 5, 1, 3, 15),
+        ),
+        # At 02:00 +10:30 the clocks moved to 02:30 +11:00: the same instant
+        (
+            "Australia/Lord_Howe",
+            "*/5 2 * * *",
+            datetime(2021, 10, 3, 2),
+            datetime(2021, 10, 3, 2, 35),
+        ),
+    ],
+    ids=["caracas", "lord_howe"],
+)
+def test_previous_fire_time_at_dst_gap(
+    zone, expr, previous_fire_time, correct_next_date
+):
+    """
+    The next fire time is a later instant than the previous one, even when the previous one is a
+    wall time inside the DST gap that is the same instant as the wall time after the gap.
+
+    """
+    timezone = ZoneInfo(zone)
+    trigger = CronTrigger.from_crontab(expr, timezone=timezone)
+    previous_fire_time = previous_fire_time.replace(tzinfo=timezone)
+    next_fire_time = trigger.get_next_fire_time(previous_fire_time, previous_fire_time)
+    assert str(next_fire_time) == str(correct_next_date.replace(tzinfo=timezone))
+
+
 def test_cron_weekday_overlap(timezone):
     trigger = CronTrigger(
         year=2009, month=1, day="6-10", day_of_week="2-4", timezone=timezone
