@@ -20,6 +20,10 @@ from .fields import (
     WeekField,
 )
 
+# Cron fields have one-second resolution. Advancing past this second would
+# enter year 10000.
+_MAX_FIRE_TIME = datetime.max.replace(microsecond=0)
+
 
 @attrs.define(kw_only=True)
 class CronTrigger(Trigger):
@@ -230,9 +234,7 @@ class CronTrigger(Trigger):
 
     def next(self) -> datetime | None:
         if self._last_fire_time:
-            if self._last_fire_time.replace(tzinfo=None) >= datetime.max.replace(
-                microsecond=0
-            ):
+            if self._last_fire_time.replace(tzinfo=None) >= _MAX_FIRE_TIME:
                 return None
 
             next_time = datetime.fromtimestamp(
