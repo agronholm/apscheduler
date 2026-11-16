@@ -402,7 +402,7 @@ def test_dst_change(
     datetime comparison which would test for equality in the UTC timezone.
 
     """
-    timezone = ZoneInfo("US/Eastern")
+    timezone = ZoneInfo("America/New_York")
     start_time = start_time.replace(tzinfo=timezone, fold=start_time_fold)
     trigger = CronTrigger(timezone=timezone, start_time=start_time, **trigger_args)
     if serializer:
