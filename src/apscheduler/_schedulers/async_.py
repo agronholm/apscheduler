@@ -1031,7 +1031,11 @@ class AsyncScheduler:
                             if schedule.misfire_grace_time is None:
                                 start_deadline: datetime | None = None
                             else:
-                                start_deadline = fire_time + schedule.misfire_grace_time
+                                # Measure the grace period as elapsed time across DST changes.
+                                start_deadline = (
+                                    fire_time.astimezone(UTC)
+                                    + schedule.misfire_grace_time
+                                ).astimezone(fire_time.tzinfo)
 
                             job = Job(
                                 task_id=schedule.task_id,
