@@ -39,6 +39,20 @@ def test_end_date(timezone, serializer):
     assert trigger.next() is None
 
 
+def test_last_fire_date_survives_serialization(timezone, serializer):
+    """Test that the last fire date is restored as a date, not a datetime."""
+    trigger = CalendarIntervalTrigger(
+        months=1, start_date=date(2024, 1, 31), timezone=timezone
+    )
+    assert trigger.next() == datetime(2024, 1, 31, tzinfo=timezone)
+    if serializer:
+        trigger = serializer.deserialize(serializer.serialize(trigger))
+
+    assert type(trigger._last_fire_date) is date
+    assert trigger._last_fire_date == date(2024, 1, 31)
+    assert trigger.next() == datetime(2024, 3, 31, tzinfo=timezone)
+
+
 def test_missing_time(timezone, serializer):
     """
     Test that if the designated time does not exist on a day due to a forward DST shift,
