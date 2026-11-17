@@ -153,6 +153,19 @@ async def test_add_schedules(datastore: DataStore, schedules: list[Schedule]) ->
         assert event.next_fire_time == schedule.next_fire_time
 
 
+async def test_get_schedules_and_jobs_empty_ids(
+    datastore: DataStore, schedules: list[Schedule]
+) -> None:
+    """Test that an empty set of IDs matches nothing instead of everything."""
+    for schedule in schedules:
+        await datastore.add_schedule(schedule, ConflictPolicy.exception)
+
+    await datastore.add_job(Job(task_id="task1", executor="async"))
+
+    assert await datastore.get_schedules(set()) == []
+    assert await datastore.get_jobs([]) == []
+
+
 async def test_replace_schedules(
     datastore: DataStore, schedules: list[Schedule]
 ) -> None:
