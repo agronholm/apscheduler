@@ -89,7 +89,7 @@ If you have trouble, consult the `pull request making guide`_ on opensource.com.
 
 .. _Docker: https://docs.docker.com/desktop/#download-and-install
 .. _docker compose: https://docs.docker.com/compose/
-.. _tox: https://tox.readthedocs.io/en/latest/install.html
+.. _tox: https://tox.wiki/en/latest/installation.html
 .. _pre-commit: https://pre-commit.com/#installation
 .. _pytest: https://pypi.org/project/pytest/
 .. _ReadTheDocs: https://readthedocs.org/
