@@ -66,14 +66,16 @@ DST. When switching from standard time to daylight saving time, clocks are moved
 forward, depending on the time zone. Likewise, when switching back to standard time, clocks are moved one hour or half
 an hour backward. This will cause some time periods to either not exist at all, or be repeated. If your schedule would
 have the job executed on either one of these periods, it may execute more often or less often than expected.
+Do not assume that a job scheduled during a skipped period will be skipped, or that a job scheduled during a repeated
+period will always execute twice.
 This is not a bug. If you wish to avoid this, either use a timezone that does not observe DST, e.g. UTC, or find out
 about the DST-switch times and avoid using them in your scheduling.
 
 For example, the following schedule may be problematic::
 
-    # In the Europe/Helsinki timezone, this will not execute at all on the last sunday morning of March
-    # Likewise, it will execute twice on the last sunday morning of October
-    sched.add_job(job_function, 'cron', hour=3, minute=30)
+    # In Europe/Helsinki, 03:30 falls in the skipped period in March and the repeated period in October.
+    # Avoid scheduling at this time if predictable execution across DST changes is required.
+    sched.add_job(job_function, 'cron', hour=3, minute=30, timezone='Europe/Helsinki')
 
 
 Examples
