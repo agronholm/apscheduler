@@ -217,7 +217,9 @@ class CronTrigger(BaseTrigger):
                     previous_fire_time, timedelta(microseconds=1)
                 ).astimezone(UTC),
             ).astimezone(self.timezone)
-            if start_date == previous_fire_time:
+            # Compare instants: datetimes sharing a tzinfo compare by wall time, and a wall time in
+            # a DST gap can be the same instant as the wall time after it
+            if start_date.astimezone(UTC) == previous_fire_time.astimezone(UTC):
                 start_date = datetime_utc_add(start_date, timedelta(microseconds=1))
         else:
             start_date = (

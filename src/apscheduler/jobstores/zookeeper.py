@@ -170,7 +170,7 @@ class ZooKeeperJobStore(BaseJobStore):
                     else None,
                     "job_state": doc["job_state"],
                     "job": self._reconstitute_job(doc["job_state"]),
-                    "creation_time": _.ctime,
+                    "creation_order": _.czxid,
                 }
                 jobs.append(job_def)
             except BaseException:
@@ -188,7 +188,7 @@ class ZooKeeperJobStore(BaseJobStore):
             jobs,
             key=lambda job_def: (
                 job_def["job"].next_run_time or paused_sort_key,
-                job_def["creation_time"],
+                job_def["creation_order"],
             ),
         )
 
