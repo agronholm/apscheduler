@@ -454,7 +454,12 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     else:
                         self._supports_update_returning = True
 
-    async def _deserialize_schedules(self, result: Result) -> list[Schedule]:
+    async def _deserialize_schedules(
+        self,
+        result: Result,
+        *,
+        errors: tuple[type[Exception], ...] = (SerializationError,),
+    ) -> list[Schedule]:
         schedules: list[Schedule] = []
         for row in result:
             try:
@@ -464,7 +469,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         self._convert_incoming_fire_times(row._asdict()),
                     )
                 )
-            except SerializationError as exc:
+            except errors as exc:
                 await self._event_broker.publish(
                     ScheduleDeserializationFailed(schedule_id=row.id, exception=exc)
                 )
@@ -642,7 +647,9 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                 async with self._begin_transaction() as conn:
                     result = await self._execute(conn, query)
 
-        return await self._deserialize_schedules(result)
+        return await self._deserialize_schedules(
+            result, errors=(SerializationError, DeserializationError)
+        )
 
     async def acquire_schedules(
         self, scheduler_id: str, lease_duration: timedelta, limit: int
