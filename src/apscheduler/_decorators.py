@@ -83,4 +83,5 @@ def task(
 
 
 def get_task_params(func: Callable[..., Any]) -> TaskParameters:
-    return getattr(func, TASK_PARAMETERS_KEY, None) or TaskParameters()
+    task_params = getattr(func, TASK_PARAMETERS_KEY, None)
+    return attrs.evolve(task_params) if task_params else TaskParameters()

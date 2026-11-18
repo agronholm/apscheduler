@@ -321,6 +321,10 @@ The ``metadata`` parameter works a bit differently. Top level keys will be merge
 such a way that keys on a more explicit configuration level keys will overwrite keys
 from a more generic level.
 
+Configuring a task does not change the defaults bound to its callable by ``@task``.
+Those defaults remain available when configuring the callable with another scheduler
+or under another task ID.
+
 If any parameter is unset, it will be looked up on the next level. Here is an example
 that illustrates the lookup order::
 
