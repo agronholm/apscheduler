@@ -15,6 +15,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   `#1138 <https://github.com/agronholm/apscheduler/pull/1138>`_, by @Yukibei)
 - Fixed ``ZooKeeperJobStore`` returning jobs with identical next run times in a
   nondeterministic order when they were created within the same millisecond
+- Fixed ``IntervalTrigger`` returning a first fire time before ``start_date`` or
+  ``now`` when they fall in different occurrences of a repeated DST hour
+  (`#1188 <https://github.com/agronholm/apscheduler/pull/1188>`_; PR by @ADI238IND)
 - Fixed ``CronTrigger`` returning the same instant twice when the previous fire time was
   a wall time inside a DST gap that equals the first wall time after it, as with a
   30-minute shift (America/Caracas in 2016, Australia/Lord_Howe)
