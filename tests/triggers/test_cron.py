@@ -259,6 +259,79 @@ def test_month_rollover(timezone, serializer):
     assert trigger.next() == datetime(2016, 4, 30, tzinfo=timezone)
 
 
+@pytest.mark.parametrize(
+    "expr, expected_weekdays",
+    [
+        ("sun-fri/2", {6, 1, 3}),
+        ("mon-fri/2", {0, 2, 4}),
+        ("0-6/3", {6, 2, 5}),
+        ("1/2", {0, 2, 4, 6}),
+        ("tue/2", {1, 3, 5}),
+        ("sun/2", {6, 1, 3, 5}),
+        ("sat-mon/2", {5, 0}),
+        ("6-1/2", {5, 0}),
+        ("0-6", set(range(7))),
+        ("0-7", set(range(7))),
+        ("sat-mon", {5, 6, 0}),
+    ],
+    ids=[
+        "text-range",
+        "weekdays",
+        "numeric-range",
+        "numeric-open",
+        "text-open",
+        "text-open-from-sunday",
+        "wrapped",
+        "numeric-wrapped",
+        "numeric-full-week",
+        "numeric-0-7",
+        "wrapped-no-step",
+    ],
+)
+def test_weekday_step(timezone, serializer, expr, expected_weekdays):
+    # Regression test for #1193: steps on day_of_week ranges select days in
+    # cron order instead of being silently dropped (and 0-7 is the whole week)
+    start_time = datetime(2026, 11, 9, tzinfo=timezone)
+    trigger = CronTrigger(day_of_week=expr, start_time=start_time, timezone=timezone)
+    if serializer:
+        trigger = serializer.deserialize(serializer.serialize(trigger))
+
+    weekdays = set()
+    for _ in range(7):
+        weekdays.add(trigger.next().weekday())
+
+    assert weekdays == expected_weekdays
+
+
+@pytest.mark.parametrize(
+    "expr, expected_months",
+    [("jan-mar/2", {1, 3}), ("may/3", {5, 8, 11}), ("jan-mar", {1, 2, 3})],
+    ids=["range", "open", "no-step"],
+)
+def test_month_step(timezone, serializer, expr, expected_months):
+    # Regression test for #1193: steps on month name expressions were
+    # swallowed by the prefix match of MonthRangeExpression
+    start_time = datetime(2027, 1, 1, tzinfo=timezone)
+    trigger = CronTrigger(month=expr, day=1, start_time=start_time, timezone=timezone)
+    if serializer:
+        trigger = serializer.deserialize(serializer.serialize(trigger))
+
+    months = set()
+    for _ in range(12):
+        months.add(trigger.next().month)
+
+    assert months == expected_months
+
+
+@pytest.mark.parametrize(
+    "expr", ["mon-fri/9", "0-6/8", "sun-mon/3"], ids=["text", "numeric", "wrapped"]
+)
+def test_weekday_step_out_of_range(expr):
+    # A step larger than the selected range raises like the other fields
+    exc = pytest.raises(ValueError, CronTrigger, day_of_week=expr)
+    exc.match("is higher than the total range of the expression")
+
+
 @pytest.mark.parametrize("weekday", ["1,0", "mon,sun"], ids=["numeric", "text"])
 def test_weekday_nomatch(timezone, serializer, weekday):
     start_time = datetime(2009, 1, 1, tzinfo=timezone)

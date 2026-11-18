@@ -6,6 +6,11 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Fixed ``CronTrigger`` silently dropping ``/step`` suffixes on ``day_of_week`` ranges
+  (``sun-fri/2`` fired every day except Saturday) and on month name ranges
+  (``jan-mar/2`` fired every month in the range), and fixed ``day_of_week="0-7"``
+  collapsing to Sunday instead of the whole cron week
+  (`#1193 <https://github.com/agronholm/apscheduler/issues/1193>`_)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
