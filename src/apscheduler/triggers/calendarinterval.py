@@ -8,6 +8,7 @@ from attr.validators import instance_of, optional
 
 from .._converters import as_aware_datetime, as_date, as_timezone
 from .._utils import require_state_version, timezone_repr
+from .._validators import non_negative_number
 from ..abc import Trigger
 
 
@@ -48,10 +49,10 @@ class CalendarIntervalTrigger(Trigger):
         repeated due to the specified wall clock time either occurring twice or not at
         all.
 
-    :param years: number of years to wait
-    :param months: number of months to wait
-    :param weeks: number of weeks to wait
-    :param days: number of days to wait
+    :param years: non-negative number of years to wait
+    :param months: non-negative number of months to wait
+    :param weeks: non-negative number of weeks to wait
+    :param days: non-negative number of days to wait
     :param hour: hour to run the task at
     :param minute: minute to run the task at
     :param second: second to run the task at
@@ -60,10 +61,10 @@ class CalendarIntervalTrigger(Trigger):
     :param timezone: time zone to use for calculating the next fire time
     """
 
-    years: int = 0
-    months: int = 0
-    weeks: int = 0
-    days: int = 0
+    years: int = attrs.field(default=0, validator=non_negative_number)
+    months: int = attrs.field(default=0, validator=non_negative_number)
+    weeks: int = attrs.field(default=0, validator=non_negative_number)
+    days: int = attrs.field(default=0, validator=non_negative_number)
     hour: int = 0
     minute: int = 0
     second: int = 0
