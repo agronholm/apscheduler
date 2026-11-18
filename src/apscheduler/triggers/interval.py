@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import attrs
@@ -15,6 +15,9 @@ from ..abc import Trigger
 class IntervalTrigger(Trigger):
     """
     Triggers on specified intervals.
+
+    Intervals are measured in elapsed time, including across daylight saving time
+    transitions. Use ``CalendarIntervalTrigger`` for calendar-based intervals.
 
     The first trigger time is on ``start_time`` which is the  moment the trigger was
     created unless specifically overridden. If ``end_time`` is specified, the last
@@ -67,16 +70,22 @@ class IntervalTrigger(Trigger):
         if self._interval.total_seconds() <= 0:
             raise ValueError("The time interval must be positive")
 
-        if self.end_time and self.end_time < self.start_time:
+        if self.end_time and self.end_time.astimezone(
+            timezone.utc
+        ) < self.start_time.astimezone(timezone.utc):
             raise ValueError("end_time cannot be earlier than start_time")
 
     def next(self) -> datetime | None:
         if self._last_fire_time is None:
             self._last_fire_time = self.start_time
         else:
-            self._last_fire_time += self._interval
+            self._last_fire_time = (
+                self._last_fire_time.astimezone(timezone.utc) + self._interval
+            ).astimezone(self.start_time.tzinfo)
 
-        if self.end_time is None or self._last_fire_time <= self.end_time:
+        if self.end_time is None or self._last_fire_time.astimezone(
+            timezone.utc
+        ) <= self.end_time.astimezone(timezone.utc):
             return self._last_fire_time
         else:
             return None
