@@ -153,12 +153,14 @@ def test_previous_fire_time_at_dst_gap(
     The next fire time is a later instant than the previous one, even when the previous one is a
     wall time inside the DST gap that is the same instant as the wall time after the gap.
 
+    This only happens when ``now`` equals ``previous_fire_time``, hence the same value for both.
     """
     timezone = ZoneInfo(zone)
     trigger = CronTrigger.from_crontab(expr, timezone=timezone)
     previous_fire_time = previous_fire_time.replace(tzinfo=timezone)
     next_fire_time = trigger.get_next_fire_time(previous_fire_time, previous_fire_time)
     assert str(next_fire_time) == str(correct_next_date.replace(tzinfo=timezone))
+    assert next_fire_time.timestamp() > previous_fire_time.timestamp()
 
 
 def test_cron_weekday_overlap(timezone):
