@@ -51,6 +51,8 @@ APScheduler, see the :doc:`migration section <migration>`.
   scheduler wake up past a deadline that had already passed and process schedules in a
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
+- Fixed empty event type collections subscribing to all events instead of none
+  (`#1189 <https://github.com/agronholm/apscheduler/issues/1189>`_; PR by @IlyaKhalafi)
 
 **4.0.0a6**
 

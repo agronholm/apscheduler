@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from logging import Logger
@@ -36,6 +37,19 @@ async def test_publish_subscribe(event_broker: EventBroker) -> None:
     assert event1.schedule_id == "schedule1"
     assert event1.task_id == "task1"
     assert event1.next_fire_time == datetime(2021, 9, 11, 12, 31, 56, 254867, UTC)
+
+
+@pytest.mark.parametrize("event_types", [[], iter(())], ids=["list", "iterator"])
+async def test_empty_event_filter(
+    event_broker: EventBroker, event_types: Iterable[type[Event]]
+) -> None:
+    send, receive = create_memory_object_stream[Event](1)
+    with send, receive:
+        event_broker.subscribe(send.send, event_types=event_types)
+        await event_broker.publish(Event())
+
+        with pytest.raises(TimeoutError), fail_after(0.1):
+            await receive.receive()
 
 
 @pytest.mark.parametrize("callback_type", ["function", "callable_object"])
