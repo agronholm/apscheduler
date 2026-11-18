@@ -602,6 +602,74 @@ async def test_acquire_jobs_lock_timeout(
     assert acquired[0].id == job.id
 
 
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
+async def test_acquire_jobs_expired_lease_discarded_keeps_running_count(
+    datastore: DataStore, time_machine: TimeMachineFixture
+) -> None:
+    """
+    Reclaiming a job whose lease expired and whose start deadline has passed must
+    leave the task's running-job count at zero: the reclaim itself undoes the
+    counter increment of the previous acquirer.
+
+    """
+    await datastore.add_task(
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    )
+    job = Job(
+        task_id="task1",
+        executor="async",
+        result_expiration_time=timedelta(minutes=1),
+        start_deadline=datetime.now(UTC) + timedelta(seconds=60),
+    )
+    await datastore.add_job(job)
+
+    # One worker acquires the job, then both its lease and start deadline expire
+    time_machine.move_to(datetime.now(UTC), tick=False)
+    acquired = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
+    assert len(acquired) == 1
+    assert (await datastore.get_task("task1")).running_jobs == 1
+
+    # Another worker reclaims the expired job and discards it for a missed start
+    # deadline; the count must return to zero, not go negative or stay elevated
+    time_machine.shift(61)
+    assert not await datastore.acquire_jobs("worker2", timedelta(seconds=30), 1)
+    assert (await datastore.get_task("task1")).running_jobs == 0
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
+async def test_acquire_jobs_expired_lease_reacquired_keeps_running_count(
+    datastore: DataStore, time_machine: TimeMachineFixture
+) -> None:
+    """
+    Re-acquiring a job whose lease expired must leave the task's running-job count
+    at one, without double-counting the previous acquirer.
+
+    """
+    await datastore.add_task(
+        Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    )
+    job = Job(
+        task_id="task1", executor="async", result_expiration_time=timedelta(minutes=1)
+    )
+    await datastore.add_job(job)
+
+    time_machine.move_to(datetime.now(UTC), tick=False)
+    acquired = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
+    assert len(acquired) == 1
+    assert (await datastore.get_task("task1")).running_jobs == 1
+
+    time_machine.shift(31)
+    acquired = await datastore.acquire_jobs("worker2", timedelta(seconds=30), 1)
+    assert len(acquired) == 1
+    assert (await datastore.get_task("task1")).running_jobs == 1
+
+
 async def test_acquire_jobs_max_number_exceeded(datastore: DataStore) -> None:
     await datastore.add_task(
         Task(

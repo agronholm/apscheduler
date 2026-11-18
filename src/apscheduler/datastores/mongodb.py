@@ -597,6 +597,20 @@ class MongoDBDataStore(BaseExternalDataStore):
                 acquired_jobs: list[Job] = []
                 skipped_job_ids: list[UUID] = []
                 for doc in documents:
+                    # Taking over a job whose lease has expired also takes over the
+                    # running-job slot of the previous acquirer, so undo their count
+                    # increment here; the discard paths below deliberately skip the
+                    # decrement and the acquire path adds its own increment
+                    if (
+                        doc.get("acquired_by")
+                        and doc.get("acquired_until", 0) < now.timestamp()
+                    ):
+                        await self._tasks.update_one(
+                            {"_id": doc["task_id"]},
+                            {"$inc": {"running_jobs": -1}},
+                            session=session,
+                        )
+
                     # Deserialize the job
                     doc["id"] = doc.pop("_id")
                     unmarshal_timestamps(doc)

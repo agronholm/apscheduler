@@ -925,6 +925,19 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                                 row.task_id, task_max_running_jobs - task_running_jobs
                             )
 
+                        # Taking over a job whose lease has expired also takes over the
+                        # running-job slot of the previous acquirer, so undo their count
+                        # increment here; the discard path deliberately skips the
+                        # decrement and the re-acquire path adds its own increment
+                        if (
+                            row.acquired_by is not None
+                            and row.acquired_until is not None
+                            and row.acquired_until < now
+                        ):
+                            running_job_count_increments[row.task_id] -= 1
+                            if task_max_running_jobs is not None:
+                                task_job_slots_left[row.task_id] += 1
+
                         # Deserialize the job
                         try:
                             job = Job.unmarshal(self.serializer, job_dict)
@@ -990,7 +1003,10 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         )
                         await self._execute(conn, update)
 
-                        # Increment the running job counters on each task
+                    if running_job_count_increments:
+                        # Apply the running job counter changes on each task: +1 per
+                        # acquired job, and the compensating -1 for jobs whose expired
+                        # lease this worker took over
                         p_id: BindParameter = bindparam("p_id")
                         p_increment: BindParameter = bindparam("p_increment")
                         params = [
