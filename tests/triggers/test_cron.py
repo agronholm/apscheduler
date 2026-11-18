@@ -452,6 +452,39 @@ def test_dst_change2(
         assert str(next_date) == str(correct_next_date)
 
 
+@pytest.mark.parametrize(
+    "zone, start_time, correct_next_dates",
+    [
+        pytest.param(
+            "America/New_York",
+            datetime(2021, 3, 14, 0, 0, 1),
+            [datetime(2021, 3, 15), datetime(2021, 3, 16)],
+            id="new_york",
+        ),
+        pytest.param(
+            "Africa/Ceuta",
+            datetime(2017, 3, 26, 0, 0, 1),
+            [datetime(2017, 3, 27), datetime(2017, 3, 28)],
+            id="ceuta",
+        ),
+    ],
+)
+def test_dst_spring_forward_later_in_day(zone, start_time, correct_next_dates):
+    """
+    A forward DST shift between two fire times must not make the trigger skip a day
+    (#1198).
+
+    """
+    timezone = ZoneInfo(zone)
+    trigger = CronTrigger(
+        hour=0, timezone=timezone, start_time=start_time.replace(tzinfo=timezone)
+    )
+    for correct_next_date in correct_next_dates:
+        correct_next_date = correct_next_date.replace(tzinfo=timezone)
+        next_date = trigger.next()
+        assert str(next_date) == str(correct_next_date)
+
+
 def test_zero_value(timezone):
     start_time = datetime(2020, 1, 1, tzinfo=timezone)
     trigger = CronTrigger(

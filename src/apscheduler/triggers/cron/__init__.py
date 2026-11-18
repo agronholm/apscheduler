@@ -204,10 +204,19 @@ class CronTrigger(Trigger):
                     values[field.name] = value + 1
                     i += 1
 
-        difference = datetime(**values) - dateval.replace(tzinfo=None)
+        target = datetime(**values)
+        difference = target - dateval.replace(tzinfo=None)
         dateval = datetime.fromtimestamp(
             dateval.timestamp() + difference.total_seconds(), self.timezone
         )
+        if dateval.replace(tzinfo=None) > target:
+            # A forward DST shift between the old and the new date made the elapsed
+            # time shorter than the wall clock difference, so go to the target wall
+            # clock time instead (or the first existing time after it)
+            dateval = datetime.fromtimestamp(
+                target.replace(tzinfo=self.timezone).timestamp(), self.timezone
+            )
+
         return dateval, fieldnum
 
     def _set_field_value(
