@@ -31,6 +31,7 @@ from .._events import (
     JobAdded,
     JobReleased,
     ScheduleAdded,
+    ScheduleDeserializationFailed,
     ScheduleRemoved,
     ScheduleUpdated,
     TaskAdded,
@@ -276,7 +277,7 @@ class MongoDBDataStore(BaseExternalDataStore):
         self, schedule: Schedule, conflict_policy: ConflictPolicy
     ) -> None:
         event: DataStoreEvent
-        document = schedule.marshal(self.serializer)
+        document = self._marshal_invocation(schedule)
         marshal_document(document)
         try:
             async for attempt in self._retry():
@@ -414,9 +415,21 @@ class MongoDBDataStore(BaseExternalDataStore):
                         # Deserialize the schedule
                         doc["id"] = doc.pop("_id")
                         unmarshal_timestamps(doc)
-                        schedules.append(Schedule.unmarshal(self.serializer, doc))
+                        try:
+                            schedule = Schedule.unmarshal(self.serializer, doc)
+                        except DeserializationError as exc:
+                            # Retain the failed record and its finite lease for repair,
+                            # as in the SQL store, while processing the rest of the batch.
+                            await self._event_broker.publish(
+                                ScheduleDeserializationFailed(
+                                    schedule_id=doc["id"], exception=exc
+                                )
+                            )
+                            continue
 
-                return schedules
+                        schedules.append(schedule)
+
+            return schedules
 
     async def release_schedules(
         self, scheduler_id: str, results: Sequence[ScheduleResult]
@@ -499,7 +512,7 @@ class MongoDBDataStore(BaseExternalDataStore):
             return None
 
     async def add_job(self, job: Job) -> None:
-        document = job.marshal(self.serializer)
+        document = self._marshal_invocation(job)
         marshal_document(document)
         async for attempt in self._retry():
             with attempt:
@@ -607,7 +620,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                         # result
                         result = JobResult(
                             job_id=doc["id"],
-                            outcome=JobOutcome.missed_start_deadline,
+                            outcome=JobOutcome.deserialization_failed,
                             finished_at=now,
                             expires_at=now
                             + timedelta(seconds=doc["result_expiration_time"]),

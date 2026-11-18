@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 import threading
@@ -10,6 +11,7 @@ from contextlib import AsyncExitStack
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from inspect import signature
+from pathlib import Path
 from queue import Queue
 from types import ModuleType
 from typing import Any, cast
@@ -32,7 +34,10 @@ from pytest_mock import MockerFixture, MockFixture
 
 from apscheduler import (
     AsyncScheduler,
+    CallableLookupError,
     CoalescePolicy,
+    ConflictPolicy,
+    DeserializationError,
     Event,
     Job,
     JobAcquired,
@@ -41,6 +46,7 @@ from apscheduler import (
     JobOutcome,
     JobReleased,
     RunState,
+    Schedule,
     ScheduleAdded,
     ScheduleLookupError,
     Scheduler,
@@ -49,6 +55,7 @@ from apscheduler import (
     SchedulerStarted,
     SchedulerStopped,
     ScheduleUpdated,
+    SerializationError,
     Task,
     TaskAdded,
     TaskDefaults,
@@ -57,19 +64,32 @@ from apscheduler import (
     current_job,
     task,
 )
-from apscheduler.abc import DataStore
+from apscheduler._decorators import TASK_PARAMETERS_KEY, get_task_params
+from apscheduler._utils import UnsetValue, qualified_name, unset
+from apscheduler.abc import DataStore, Serializer
 from apscheduler.datastores.base import BaseExternalDataStore
 from apscheduler.datastores.memory import MemoryDataStore
 from apscheduler.eventbrokers.local import LocalEventBroker
 from apscheduler.executors.async_ import AsyncJobExecutor
 from apscheduler.executors.subprocess import ProcessPoolJobExecutor
 from apscheduler.executors.thread import ThreadPoolJobExecutor
+from apscheduler.serializers.pickle import PickleSerializer
 from apscheduler.triggers.combining import AndTrigger
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 pytestmark = pytest.mark.anyio
+
+
+@pytest.fixture
+def raw_datastore(raw_datastore: DataStore) -> DataStore:
+    # These integration tests exercise the fully upgraded, writer-enabled fleet.
+    # Reader-stage defaults and old readers are tested in test_rolling_upgrade.py.
+    if isinstance(raw_datastore, BaseExternalDataStore):
+        raw_datastore.allow_invocation_overrides = True
+
+    return raw_datastore
 
 
 async def dummy_async_job(delay: float = 0, fail: bool = False) -> str:
@@ -125,6 +145,62 @@ class DummyClass:
 
     def __call__(self) -> int:
         return self.value
+
+
+class ClassMethodJob:
+    @classmethod
+    def run(cls, suffix: str) -> str:
+        return cls.__name__ + suffix
+
+    @classmethod
+    async def run_async(cls, suffix: str) -> str:
+        return cls.__name__ + suffix
+
+
+class InheritedClassMethodJob(ClassMethodJob):
+    pass
+
+
+class DecoratedClassMethodJob:
+    @classmethod
+    @task(max_running_jobs=1)
+    def run(cls, suffix: str, *, prefix: str, method_name: str) -> str:
+        return prefix + cls.__name__ + suffix + method_name
+
+    @classmethod
+    @task(max_running_jobs=1)
+    async def run_async(cls, suffix: str, *, prefix: str, method_name: str) -> str:
+        return prefix + cls.__name__ + suffix + method_name
+
+
+class LeftClassMethodJob(DecoratedClassMethodJob):
+    pass
+
+
+class RightClassMethodJob(DecoratedClassMethodJob):
+    pass
+
+
+class ConcurrentClassMethodJob:
+    running = 0
+    peak_running = 0
+
+    @classmethod
+    @task(id="shared-concurrency", max_running_jobs=1)
+    async def run(cls) -> str:
+        ConcurrentClassMethodJob.running += 1
+        ConcurrentClassMethodJob.peak_running = max(
+            ConcurrentClassMethodJob.peak_running, ConcurrentClassMethodJob.running
+        )
+        try:
+            await sleep(0.01)
+            return cls.__name__
+        finally:
+            ConcurrentClassMethodJob.running -= 1
+
+
+class ConcurrentChildJob(ConcurrentClassMethodJob):
+    pass
 
 
 class TestAsyncScheduler:
@@ -268,6 +344,658 @@ class TestAsyncScheduler:
             assert tasks[0].misfire_grace_time == timedelta(seconds=6)
             assert tasks[0].job_executor == "threadpool"
             assert tasks[0].metadata == {"global": "foo", "local": 6, "direct": [1, 9]}
+
+    async def test_configure_task_preserves_decorator_defaults(self) -> None:
+        @task(id="taskfunc")
+        def taskfunc() -> None:
+            pass
+
+        original_params = attrs.evolve(get_task_params(taskfunc))
+        async with AsyncScheduler() as scheduler:
+            await scheduler.configure_task(
+                taskfunc,
+                max_running_jobs=3,
+                job_executor="threadpool",
+                metadata={"first": True},
+            )
+
+        assert get_task_params(taskfunc) == original_params
+        async with AsyncScheduler(
+            task_defaults=TaskDefaults(max_running_jobs=4)
+        ) as scheduler:
+            configured_task = await scheduler.configure_task(taskfunc)
+            assert configured_task.max_running_jobs == 4
+            assert configured_task.job_executor == "async"
+            assert configured_task.metadata == {}
+
+    @pytest.mark.parametrize("by_id", [False, True], ids=["callable", "id"])
+    @pytest.mark.parametrize(
+        "decorator_settings",
+        [
+            {},
+            {
+                "job_executor": "async",
+                "max_running_jobs": 7,
+                "misfire_grace_time": 10,
+                "metadata": {"decorated": True},
+            },
+        ],
+        ids=["id_only", "defaults"],
+    )
+    @pytest.mark.parametrize(
+        "changes",
+        [
+            {"max_running_jobs": 2},
+            {"job_executor": "async"},
+            {"misfire_grace_time": None},
+            {"metadata": {"updated": True}},
+        ],
+        ids=["limit", "executor", "grace", "metadata"],
+    )
+    async def test_reconfigure_decorated_task_preserves_omitted_settings(
+        self,
+        raw_datastore: DataStore,
+        by_id: bool,
+        decorator_settings: dict[str, Any],
+        changes: dict[str, Any],
+    ) -> None:
+        @task(id="shared", **decorator_settings)
+        def work() -> None:
+            pass
+
+        async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+            configured = await scheduler.configure_task(
+                work,
+                job_executor="threadpool",
+                max_running_jobs=3,
+                misfire_grace_time=30,
+                metadata={"configured": True},
+            )
+            expected = attrs.asdict(configured)
+            expected.update(changes)
+            if "metadata" in changes:
+                expected["metadata"] = {**configured.metadata, **changes["metadata"]}
+
+            updated = await scheduler.configure_task(
+                "shared" if by_id else work, **changes
+            )
+            assert attrs.asdict(updated) == expected
+            [stored] = await scheduler.get_tasks()
+            assert attrs.asdict(stored) == expected
+
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    @pytest.mark.parametrize("job_executor", ["async", "threadpool"])
+    async def test_generated_class_method_without_reference(
+        self,
+        raw_datastore: DataStore,
+        serializer: Serializer,
+        use_scheduling: bool,
+        job_executor: str,
+    ) -> None:
+        @task(id="generated")
+        def run(cls: type) -> str:
+            return cls.__name__
+
+        generated = type(
+            "GeneratedWorker", (), {"run": classmethod(run), "__module__": "__main__"}
+        )
+        if isinstance(raw_datastore, BaseExternalDataStore):
+            raw_datastore.serializer = serializer
+
+        async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+
+            async def submit() -> None:
+                if use_scheduling:
+                    await scheduler.add_schedule(
+                        generated.run,
+                        DateTrigger(datetime.now(UTC)),
+                        job_result_expiration_time=60,
+                    )
+                else:
+                    await scheduler.add_job(generated.run, result_expiration_time=60)
+
+            await scheduler.configure_task(generated.run, job_executor=job_executor)
+            if not isinstance(raw_datastore, MemoryDataStore):
+                with pytest.raises(SerializationError):
+                    await submit()
+                assert not await scheduler.get_jobs()
+                assert not await scheduler.get_schedules()
+                return
+
+            await submit()
+            send, receive = create_memory_object_stream[JobReleased](1)
+            with send, receive, scheduler.subscribe(send.send, {JobReleased}):
+                await scheduler.start_in_background()
+                with fail_after(5):
+                    event = await receive.receive()
+
+            assert event.task_id == "generated"
+            assert event.outcome is JobOutcome.success
+            result = await scheduler.get_job_result(event.job_id)
+            assert result and result.return_value == "GeneratedWorker"
+            [stored] = await scheduler.get_tasks()
+            assert stored.running_jobs == 0
+
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    async def test_generated_class_method_requires_explicit_task_id(
+        self, use_scheduling: bool
+    ) -> None:
+        def run(cls: type) -> None:
+            pass
+
+        generated = type("GeneratedWorker", (), {"run": classmethod(run)})
+        async with AsyncScheduler() as scheduler:
+            with pytest.raises(SerializationError, match="class method"):
+                if use_scheduling:
+                    await scheduler.add_schedule(
+                        generated.run, DateTrigger(datetime.now(UTC))
+                    )
+                else:
+                    await scheduler.add_job(generated.run)
+            assert not await scheduler.get_tasks()
+
+    async def test_decorated_local_class_method(self) -> None:
+        class LocalJob:
+            @classmethod
+            @task(id="local-class-method")
+            async def run(cls) -> str:
+                return cls.__name__
+
+        class ChildJob(LocalJob):
+            pass
+
+        async with AsyncScheduler() as scheduler:
+            await scheduler.start_in_background()
+            assert await scheduler.run_job(LocalJob.run) == "LocalJob"
+            assert await scheduler.run_job(ChildJob.run) == "ChildJob"
+
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    @pytest.mark.parametrize("fresh_scheduler", [False, True], ids=["same", "fresh"])
+    async def test_shared_task_callable_and_id_submissions(
+        self,
+        raw_datastore: DataStore,
+        serializer: Serializer,
+        monkeypatch: MonkeyPatch,
+        use_scheduling: bool,
+        fresh_scheduler: bool,
+    ) -> None:
+        monkeypatch.setattr(
+            cast(Any, DecoratedClassMethodJob.run).__func__,
+            TASK_PARAMETERS_KEY,
+            attrs.evolve(get_task_params(DecoratedClassMethodJob.run), id="shared"),
+        )
+        if isinstance(raw_datastore, BaseExternalDataStore):
+            raw_datastore.serializer = serializer
+
+        async with AsyncExitStack() as stack:
+            scheduler = await stack.enter_async_context(
+                AsyncScheduler(data_store=raw_datastore)
+            )
+            configured = await scheduler.configure_task(
+                DecoratedClassMethodJob.run,
+                max_running_jobs=3,
+                job_executor="threadpool",
+                misfire_grace_time=30,
+                metadata={"configured": True},
+            )
+            # The first record uses the old, unmarked format. Later callable
+            # submissions must not change what this record or ID submissions call.
+            for target in (
+                "shared",
+                LeftClassMethodJob.run,
+                RightClassMethodJob.run,
+                "shared",
+            ):
+                if use_scheduling:
+                    await scheduler.add_schedule(
+                        target,
+                        DateTrigger(datetime.now(UTC)),
+                        args=("!",),
+                        kwargs={"prefix": ">", "method_name": "?"},
+                        job_result_expiration_time=60,
+                    )
+                else:
+                    await scheduler.add_job(
+                        target,
+                        args=("!",),
+                        kwargs={"prefix": ">", "method_name": "?"},
+                        result_expiration_time=60,
+                    )
+
+            [stored] = await scheduler.get_tasks()
+            assert attrs.asdict(stored) == attrs.asdict(configured)
+            if fresh_scheduler:
+                await stack.aclose()
+                if isinstance(raw_datastore, BaseExternalDataStore):
+                    raw_datastore.start_from_scratch = False
+
+                scheduler = await stack.enter_async_context(
+                    AsyncScheduler(data_store=raw_datastore)
+                )
+
+            send, receive = create_memory_object_stream[JobReleased](4)
+            with send, receive, scheduler.subscribe(send.send, {JobReleased}):
+                await scheduler.start_in_background()
+                with fail_after(5):
+                    events = [await receive.receive() for _ in range(4)]
+
+            results = [await scheduler.get_job_result(e.job_id) for e in events]
+            assert all(
+                r is not None and r.outcome is JobOutcome.success for r in results
+            )
+            assert sorted(r.return_value for r in results if r) == sorted(
+                ">" + name + "!?"
+                for name in (
+                    "DecoratedClassMethodJob",
+                    "LeftClassMethodJob",
+                    "RightClassMethodJob",
+                    "DecoratedClassMethodJob",
+                )
+            )
+            assert {e.task_id for e in events} == {"shared"}
+            [stored] = await scheduler.get_tasks()
+            assert stored.running_jobs == 0
+            assert attrs.asdict(stored) == attrs.asdict(configured)
+
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    async def test_implicit_enqueue_preserves_explicit_settings(
+        self, use_scheduling: bool
+    ) -> None:
+        async with AsyncScheduler() as scheduler:
+            configured = await scheduler.configure_task(
+                decorated_job,
+                max_running_jobs=7,
+                job_executor="async",
+                misfire_grace_time=42,
+                metadata={"explicit": True},
+            )
+            if use_scheduling:
+                await scheduler.add_schedule(
+                    decorated_job, DateTrigger(datetime.now(UTC))
+                )
+            else:
+                await scheduler.add_job(decorated_job)
+
+            [stored] = await scheduler.get_tasks()
+            assert attrs.asdict(stored) == attrs.asdict(configured)
+            updated = await scheduler.configure_task(configured.id, max_running_jobs=2)
+            assert updated.max_running_jobs == 2
+            assert updated.job_executor == "async"
+            assert updated.misfire_grace_time == timedelta(seconds=42)
+            assert updated.metadata == configured.metadata
+
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    async def test_class_method_explicit_configuration_lifecycle(
+        self,
+        raw_datastore: DataStore,
+        serializer: Serializer,
+        monkeypatch: MonkeyPatch,
+        use_scheduling: bool,
+    ) -> None:
+        monkeypatch.setattr(
+            cast(Any, DecoratedClassMethodJob.run).__func__,
+            TASK_PARAMETERS_KEY,
+            attrs.evolve(get_task_params(DecoratedClassMethodJob.run), id="shared"),
+        )
+        if isinstance(raw_datastore, BaseExternalDataStore):
+            raw_datastore.serializer = serializer
+
+        async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+            configured = await scheduler.configure_task(
+                "shared",
+                max_running_jobs=3,
+                job_executor="threadpool",
+                misfire_grace_time=30,
+                metadata={"configured": True},
+            )
+
+        if isinstance(raw_datastore, BaseExternalDataStore):
+            raw_datastore.start_from_scratch = False
+
+        async with AsyncScheduler(
+            data_store=raw_datastore,
+            task_defaults=TaskDefaults(metadata={"different_default": True}),
+        ) as scheduler:
+            for target in (LeftClassMethodJob.run, "shared"):
+                if use_scheduling:
+                    await scheduler.add_schedule(
+                        target,
+                        DateTrigger(datetime.now(UTC)),
+                        args=("!",),
+                        kwargs={"prefix": ">", "method_name": "?"},
+                        job_result_expiration_time=60,
+                    )
+                else:
+                    await scheduler.add_job(
+                        target,
+                        args=("!",),
+                        kwargs={"prefix": ">", "method_name": "?"},
+                        result_expiration_time=60,
+                    )
+
+            [stored] = await scheduler.get_tasks()
+            assert attrs.asdict(stored) == attrs.asdict(
+                attrs.evolve(configured, func=f"{__name__}:LeftClassMethodJob.run")
+            )
+            # Explicit reconfiguration changes the default for ID submissions,
+            # while the already queued callable submission retains its receiver.
+            await scheduler.configure_task("shared", func=RightClassMethodJob.run)
+            send, receive = create_memory_object_stream[JobReleased](2)
+            with send, receive, scheduler.subscribe(send.send, {JobReleased}):
+                await scheduler.start_in_background()
+                with fail_after(5):
+                    events = [await receive.receive(), await receive.receive()]
+
+            assert all(e.outcome is JobOutcome.success for e in events)
+            results = [await scheduler.get_job_result(e.job_id) for e in events]
+            assert {r.return_value for r in results if r} == {
+                ">LeftClassMethodJob!?",
+                ">RightClassMethodJob!?",
+            }
+
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    @pytest.mark.parametrize("job_executor", ["async", "threadpool", "processpool"])
+    async def test_class_methods_sqlite_new_process(
+        self,
+        tmp_path: Path,
+        serializer: Serializer,
+        monkeypatch: MonkeyPatch,
+        use_scheduling: bool,
+        job_executor: str,
+    ) -> None:
+        from apscheduler._marshalling import callable_to_ref
+        from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
+
+        monkeypatch.setattr(
+            cast(Any, DecoratedClassMethodJob.run).__func__,
+            TASK_PARAMETERS_KEY,
+            attrs.evolve(get_task_params(DecoratedClassMethodJob.run), id="shared"),
+        )
+        url = f"sqlite+aiosqlite:///{tmp_path}/restart.db"
+        async with AsyncScheduler(
+            data_store=SQLAlchemyDataStore(
+                url, serializer=serializer, allow_invocation_overrides=True
+            )
+        ) as scheduler:
+            await scheduler.configure_task(
+                "shared", func=DecoratedClassMethodJob.run, job_executor=job_executor
+            )
+            for target in ("shared", LeftClassMethodJob.run, RightClassMethodJob.run):
+                if use_scheduling:
+                    await scheduler.add_schedule(
+                        target,
+                        DateTrigger(datetime.now(UTC)),
+                        args=("!",),
+                        kwargs={"prefix": ">", "method_name": "?"},
+                        job_result_expiration_time=60,
+                    )
+                else:
+                    await scheduler.add_job(
+                        target,
+                        args=("!",),
+                        kwargs={"prefix": ">", "method_name": "?"},
+                        result_expiration_time=60,
+                    )
+
+        # A new interpreter, store, engine and callable cache read both unmarked
+        # and marked persisted records. No producer Python objects are reused.
+        worker = """
+import sys, json, anyio
+sys.path.insert(0, sys.argv[3])
+from apscheduler import AsyncScheduler, JobReleased, JobOutcome
+from apscheduler._marshalling import callable_from_ref
+from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
+
+async def main():
+    store = SQLAlchemyDataStore(
+        sys.argv[1], serializer=callable_from_ref(sys.argv[2])(),
+        allow_invocation_overrides=True,
+    )
+    async with AsyncScheduler(data_store=store) as scheduler:
+        send, receive = anyio.create_memory_object_stream[JobReleased](3)
+        with send, receive, scheduler.subscribe(send.send, {JobReleased}):
+            await scheduler.start_in_background()
+            with anyio.fail_after(15):
+                events = [await receive.receive() for _ in range(3)]
+        assert all(e.outcome is JobOutcome.success for e in events)
+        assert {e.task_id for e in events} == {"shared"}
+        results = [await scheduler.get_job_result(e.job_id) for e in events]
+        print(json.dumps(sorted(r.return_value for r in results)))
+        [task] = await scheduler.get_tasks()
+        assert task.running_jobs == 0
+
+anyio.run(main)
+"""
+        with fail_after(30):
+            completed = await anyio.run_process(
+                [
+                    sys.executable,
+                    "-c",
+                    worker,
+                    url,
+                    callable_to_ref(type(serializer)),
+                    str(Path(__file__).parent),
+                ],
+                check=False,
+            )
+        assert completed.returncode == 0, completed.stderr.decode()
+        assert json.loads(completed.stdout) == [
+            ">DecoratedClassMethodJob!?",
+            ">LeftClassMethodJob!?",
+            ">RightClassMethodJob!?",
+        ]
+
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    @pytest.mark.parametrize(
+        "bad_ref",
+        [
+            "invalid-reference",
+            "missing_invocation_module:run",
+            f"{__name__}:missing_method",
+            f"{__name__}:__name__",
+        ],
+    )
+    @pytest.mark.parametrize("invalid_default", [False, True])
+    async def test_invocation_lookup_failure_releases_job(
+        self,
+        raw_datastore: DataStore,
+        serializer: Serializer,
+        use_scheduling: bool,
+        bad_ref: str,
+        invalid_default: bool,
+    ) -> None:
+        if isinstance(raw_datastore, BaseExternalDataStore):
+            raw_datastore.serializer = serializer
+
+        async with AsyncScheduler(
+            data_store=raw_datastore, max_concurrent_jobs=1
+        ) as scheduler:
+            await scheduler.configure_task("shared", func=ClassMethodJob.run)
+            expected_ref = bad_ref
+            if invalid_default:
+                # An unmarked record uses the normal task resolver and fails;
+                # a marked record must still run even if Task.func is invalid.
+                bad_task_ref = (
+                    bad_ref if ":" in bad_ref else f"{__name__}:missing_method"
+                )
+                expected_ref = bad_task_ref
+                stored = await scheduler.data_store.get_task("shared")
+                await scheduler.data_store.add_task(
+                    attrs.evolve(stored, func=bad_task_ref)
+                )
+                scheduler._task_callables.clear()
+
+            invocation_func = None if invalid_default else bad_ref
+            invocation_args: Any = ("!",)
+            if use_scheduling:
+                trigger = DateTrigger(datetime.now(UTC))
+                next_fire_time = trigger.next()
+                assert next_fire_time is not None
+                await scheduler.data_store.add_schedule(
+                    Schedule(
+                        id="bad",
+                        task_id="shared",
+                        trigger=trigger,
+                        next_fire_time=next_fire_time,
+                        job_executor="async",
+                        args=invocation_args,
+                        func=invocation_func,
+                        job_result_expiration_time=60,
+                    ),
+                    ConflictPolicy.exception,
+                )
+            else:
+                await scheduler.data_store.add_job(
+                    Job(
+                        task_id="shared",
+                        executor="async",
+                        args=invocation_args,
+                        func=invocation_func,
+                        result_expiration_time=60,
+                    )
+                )
+
+            send, receive = create_memory_object_stream[JobReleased](2)
+            with send, receive, scheduler.subscribe(send.send, {JobReleased}):
+                await scheduler.start_in_background()
+                with fail_after(5):
+                    failed = await receive.receive()
+                    assert failed.outcome is JobOutcome.error
+                    # No acquired-job slot or shared-task concurrency slot may leak.
+                    if invalid_default:
+                        good = Job(
+                            task_id="shared",
+                            executor="async",
+                            args=invocation_args,
+                            func=f"{__name__}:ClassMethodJob.run",
+                            result_expiration_time=60,
+                        )
+                        await scheduler.data_store.add_job(good)
+                        good_id = good.id
+                    else:
+                        good_id = await scheduler.add_job(
+                            "shared", args=("!",), result_expiration_time=60
+                        )
+
+                    completed = await receive.receive()
+
+            assert completed.job_id == good_id
+            assert completed.outcome is JobOutcome.success
+            result = await scheduler.get_job_result(good_id, wait=False)
+            assert result and result.return_value == "ClassMethodJob!"
+            # Check lookup diagnostics without coupling worker recovery to
+            # deserialization of the stored exception object.
+            assert failed.task_id == "shared"
+            assert failed.started_at is not None
+            assert failed.exception_type in {
+                qualified_name(exception_type)
+                for exception_type in (
+                    ValueError,
+                    LookupError,
+                    DeserializationError,
+                    CallableLookupError,
+                )
+            }
+            assert failed.exception_message is not None
+            assert expected_ref in failed.exception_message
+            [stored] = await scheduler.get_tasks()
+            assert stored.running_jobs == 0
+            assert scheduler.state is RunState.started
+
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    async def test_class_method_shared_concurrency(
+        self,
+        raw_datastore: DataStore,
+        serializer: Serializer,
+        use_scheduling: bool,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(ConcurrentClassMethodJob, "running", 0)
+        monkeypatch.setattr(ConcurrentClassMethodJob, "peak_running", 0)
+        if isinstance(raw_datastore, BaseExternalDataStore):
+            raw_datastore.serializer = serializer
+
+        async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+            for target in (ConcurrentClassMethodJob.run, ConcurrentChildJob.run):
+                if use_scheduling:
+                    await scheduler.add_schedule(
+                        target,
+                        DateTrigger(datetime.now(UTC)),
+                        job_result_expiration_time=60,
+                    )
+                else:
+                    await scheduler.add_job(target, result_expiration_time=60)
+
+            send, receive = create_memory_object_stream[JobReleased](2)
+            with send, receive, scheduler.subscribe(send.send, {JobReleased}):
+                await scheduler.start_in_background()
+                with fail_after(5):
+                    events = [await receive.receive(), await receive.receive()]
+
+            assert {e.task_id for e in events} == {"shared-concurrency"}
+            assert all(e.outcome is JobOutcome.success for e in events)
+            assert ConcurrentClassMethodJob.peak_running == 1
+            [stored] = await scheduler.get_tasks()
+            assert stored.max_running_jobs == 1
+            assert stored.running_jobs == 0
+
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    async def test_base_era_class_argument_is_not_reinterpreted(
+        self, raw_datastore: DataStore, use_scheduling: bool
+    ) -> None:
+        if isinstance(raw_datastore, BaseExternalDataStore):
+            raw_datastore.serializer = PickleSerializer()
+
+        async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+            await scheduler.configure_task("legacy", func=ClassMethodJob.run)
+            invocation_args: Any = (ClassMethodJob, "!")
+            # This is the ambiguous pre-PR format. Its explicit first argument
+            # must not be silently removed, even though this particular call fails.
+            if use_scheduling:
+                trigger = DateTrigger(datetime.now(UTC))
+                next_fire_time = trigger.next()
+                assert next_fire_time is not None
+                await scheduler.data_store.add_schedule(
+                    Schedule(
+                        id="legacy",
+                        task_id="legacy",
+                        trigger=trigger,
+                        next_fire_time=next_fire_time,
+                        job_executor="async",
+                        args=invocation_args,
+                        job_result_expiration_time=60,
+                    ),
+                    ConflictPolicy.exception,
+                )
+            else:
+                await scheduler.data_store.add_job(
+                    Job(
+                        task_id="legacy",
+                        executor="async",
+                        args=invocation_args,
+                        result_expiration_time=60,
+                    )
+                )
+
+            send, receive = create_memory_object_stream[JobReleased](2)
+            with send, receive, scheduler.subscribe(send.send, {JobReleased}):
+                await scheduler.start_in_background()
+                with fail_after(5):
+                    failed = await receive.receive()
+                    assert failed.outcome is JobOutcome.error
+                    result = await scheduler.get_job_result(failed.job_id)
+                    assert result and isinstance(result.exception, TypeError)
+                    good_id = await scheduler.add_job(
+                        "legacy", args=("!",), result_expiration_time=60
+                    )
+                    completed = await receive.receive()
+
+            assert completed.job_id == good_id
+            assert completed.outcome is JobOutcome.success
+            result = await scheduler.get_job_result(good_id)
+            assert result and result.return_value == "ClassMethodJob!"
+            [stored] = await scheduler.get_tasks()
+            assert stored.running_jobs == 0
 
     async def test_add_pause_unpause_remove_schedule(
         self, raw_datastore: DataStore, timezone: ZoneInfo
@@ -514,6 +1242,213 @@ class TestAsyncScheduler:
                 assert result
                 assert result.outcome is JobOutcome.success
                 assert result.return_value == expected_result
+
+    @pytest.mark.parametrize("job_class", [ClassMethodJob, InheritedClassMethodJob])
+    @pytest.mark.parametrize("method_name", ["run", "run_async"])
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    async def test_class_method_new_scheduler(
+        self,
+        job_class: type[ClassMethodJob],
+        method_name: str,
+        use_scheduling: bool,
+        raw_datastore: DataStore,
+    ) -> None:
+        async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+            target = getattr(job_class, method_name)
+            if use_scheduling:
+                await scheduler.add_schedule(
+                    target,
+                    DateTrigger(datetime.now(UTC)),
+                    args=("!",),
+                    job_result_expiration_time=10,
+                )
+            else:
+                await scheduler.add_job(target, args=("!",), result_expiration_time=10)
+
+        if isinstance(raw_datastore, BaseExternalDataStore):
+            raw_datastore.start_from_scratch = False
+
+        async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+            send, receive = create_memory_object_stream[JobReleased](1)
+            with send, receive, scheduler.subscribe(send.send, {JobReleased}):
+                await scheduler.start_in_background()
+                with fail_after(3):
+                    event = await receive.receive()
+
+            result = await scheduler.get_job_result(event.job_id)
+            assert result is not None
+            assert result.outcome is JobOutcome.success
+            assert result.return_value == job_class.__name__ + "!"
+
+    @pytest.mark.parametrize("method_name", ["run", "run_async"])
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    @pytest.mark.parametrize("fresh_scheduler", [False, True], ids=["same", "fresh"])
+    async def test_cross_module_inherited_class_methods(
+        self,
+        cross_module_job_classes: tuple[type, type],
+        method_name: str,
+        use_scheduling: bool,
+        fresh_scheduler: bool,
+        raw_datastore: DataStore,
+    ) -> None:
+        async with AsyncExitStack() as exit_stack:
+            scheduler = await exit_stack.enter_async_context(
+                AsyncScheduler(data_store=raw_datastore)
+            )
+            for job_class in cross_module_job_classes:
+                target = getattr(job_class, method_name)
+                if use_scheduling:
+                    await scheduler.add_schedule(
+                        target,
+                        DateTrigger(datetime.now(UTC)),
+                        job_result_expiration_time=10,
+                    )
+                else:
+                    await scheduler.add_job(target, result_expiration_time=10)
+
+            if fresh_scheduler:
+                await exit_stack.aclose()
+                if isinstance(raw_datastore, BaseExternalDataStore):
+                    raw_datastore.start_from_scratch = False
+
+                scheduler = await exit_stack.enter_async_context(
+                    AsyncScheduler(data_store=raw_datastore)
+                )
+
+            send, receive = create_memory_object_stream[JobReleased](2)
+            with send, receive, scheduler.subscribe(send.send, {JobReleased}):
+                await scheduler.start_in_background()
+                with fail_after(3):
+                    events = [await receive.receive(), await receive.receive()]
+
+            results = []
+            for event in events:
+                result = await scheduler.get_job_result(event.job_id)
+                assert result is not None
+                results.append(result)
+
+            assert all(result.outcome is JobOutcome.success for result in results)
+            identities = {
+                f"{job_class.__module__}:{job_class.__qualname__}"
+                for job_class in cross_module_job_classes
+            }
+            assert {result.return_value for result in results} == identities
+            expected_refs = {f"{identity}.{method_name}" for identity in identities}
+            assert {event.task_id for event in events} == expected_refs
+            tasks = await scheduler.get_tasks()
+            assert {task.id for task in tasks} == expected_refs
+            assert {task.func for task in tasks} == expected_refs
+
+    @pytest.mark.parametrize("task_id", [unset, "shared"], ids=["implicit", "explicit"])
+    @pytest.mark.parametrize(
+        "method_name, job_executor",
+        [
+            pytest.param("run", "async", id="sync"),
+            pytest.param("run", "threadpool", id="threadpool"),
+            pytest.param("run", "processpool", id="processpool"),
+            pytest.param("run_async", "async", id="async"),
+        ],
+    )
+    @pytest.mark.parametrize("use_scheduling", [False, True], ids=["job", "schedule"])
+    @pytest.mark.parametrize("fresh_scheduler", [False, True], ids=["same", "fresh"])
+    @pytest.mark.parametrize("use_partial", [False, True], ids=["direct", "partial"])
+    async def test_decorated_inherited_class_methods(
+        self,
+        task_id: str | UnsetValue,
+        method_name: str,
+        job_executor: str,
+        use_scheduling: bool,
+        fresh_scheduler: bool,
+        use_partial: bool,
+        raw_datastore: DataStore,
+        serializer: Serializer,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        target = getattr(DecoratedClassMethodJob, method_name)
+        params = attrs.evolve(get_task_params(target), id=task_id)
+        monkeypatch.setattr(target.__func__, TASK_PARAMETERS_KEY, params)
+        job_classes = (LeftClassMethodJob, RightClassMethodJob)
+        if isinstance(raw_datastore, BaseExternalDataStore):
+            raw_datastore.serializer = serializer
+
+        task_defaults = TaskDefaults(job_executor=job_executor)
+        async with AsyncExitStack() as exit_stack:
+            scheduler = await exit_stack.enter_async_context(
+                AsyncScheduler(data_store=raw_datastore, task_defaults=task_defaults)
+            )
+            for job_class in job_classes:
+                target = getattr(job_class, method_name)
+                if use_partial:
+                    target = partial(target, prefix=">")
+
+                if use_scheduling:
+                    await scheduler.add_schedule(
+                        target,
+                        DateTrigger(datetime.now(UTC)),
+                        args=("!",),
+                        kwargs={"prefix": ">", "method_name": "?"},
+                        job_result_expiration_time=10,
+                    )
+                else:
+                    await scheduler.add_job(
+                        target,
+                        args=("!",),
+                        kwargs={"prefix": ">", "method_name": "?"},
+                        result_expiration_time=10,
+                    )
+
+            if fresh_scheduler:
+                await exit_stack.aclose()
+                if isinstance(raw_datastore, BaseExternalDataStore):
+                    raw_datastore.start_from_scratch = False
+
+                scheduler = await exit_stack.enter_async_context(
+                    AsyncScheduler(
+                        data_store=raw_datastore, task_defaults=task_defaults
+                    )
+                )
+
+            events: list[JobReleased] = []
+
+            async def job_released(event: JobReleased) -> None:
+                events.append(event)
+                if len(events) == len(job_classes):
+                    await scheduler.stop()
+
+            with scheduler.subscribe(job_released, {JobReleased}):
+                # Completion drives shutdown. Bound the whole run (including
+                # SQLite I/O and process startup), rather than timing event delivery.
+                with fail_after(30):
+                    await scheduler.run_until_stopped()
+
+            assert len(events) == len(job_classes)
+            assert all(event.outcome is JobOutcome.success for event in events)
+            results = []
+            for event in events:
+                result = await scheduler.get_job_result(event.job_id, wait=False)
+                assert result is not None
+                results.append(result)
+            assert all(result.outcome is JobOutcome.success for result in results)
+            assert {result.return_value for result in results} == {
+                ">" + job_class.__name__ + "!?" for job_class in job_classes
+            }
+            expected_ids = (
+                {task_id}
+                if isinstance(task_id, str)
+                else {
+                    f"{__name__}:{job_class.__qualname__}.{method_name}"
+                    for job_class in job_classes
+                }
+            )
+            tasks = await scheduler.get_tasks()
+            assert {task.id for task in tasks} == expected_ids
+            assert {event.task_id for event in events} == expected_ids
+            assert all(task.max_running_jobs == 1 for task in tasks)
+            assert all(task.job_executor == job_executor for task in tasks)
+            assert all(task.running_jobs == 0 for task in tasks)
+            assert not scheduler._running_jobs
+            assert scheduler.state is RunState.stopped
+            assert params.id is task_id
 
     async def test_scheduled_job_missed_deadline(
         self, raw_datastore: DataStore, timezone: ZoneInfo

@@ -464,7 +464,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         self._convert_incoming_fire_times(row._asdict()),
                     )
                 )
-            except SerializationError as exc:
+            except DeserializationError as exc:
                 await self._event_broker.publish(
                     ScheduleDeserializationFailed(schedule_id=row.id, exception=exc)
                 )
@@ -558,7 +558,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         self, schedule: Schedule, conflict_policy: ConflictPolicy
     ) -> None:
         event: DataStoreEvent
-        values = self._convert_outgoing_fire_times(schedule.marshal(self.serializer))
+        values = self._convert_outgoing_fire_times(self._marshal_invocation(schedule))
         insert = self._t_schedules.insert().values(**values)
         try:
             async for attempt in self._retry():
@@ -841,7 +841,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         return result.scalar()
 
     async def add_job(self, job: Job) -> None:
-        marshalled = job.marshal(self.serializer)
+        marshalled = self._marshal_invocation(job)
         insert = self._t_jobs.insert().values(**marshalled)
         async for attempt in self._retry():
             with attempt:

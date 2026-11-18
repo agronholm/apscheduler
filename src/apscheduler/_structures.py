@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import Any, TypeAlias
@@ -11,6 +12,7 @@ from attrs.validators import and_, gt, instance_of, matches_re, min_len, optiona
 
 from ._converters import as_aware_datetime, as_enum, as_timedelta
 from ._enums import CoalescePolicy, JobOutcome
+from ._exceptions import DeserializationError, SerializationError
 from ._utils import UnsetValue, unset
 from ._validators import if_not_unset, valid_metadata
 from .abc import Serializer, Trigger
@@ -25,6 +27,38 @@ def serialize(inst: Any, field: attrs.Attribute, value: Any) -> Any:
         return list(value)
 
     return value
+
+
+def _marshal_args(marshalled: dict[str, Any], serializer: Serializer) -> None:
+    func = marshalled.pop("_func")
+    args = marshalled["args"]
+    if func is not None:
+        if not isinstance(func, str):
+            raise SerializationError("Cannot serialize a locally defined class method")
+
+        # Old records always serialize a sequence at the top level. A mapping
+        # unambiguously marks the new format, even if user args contain mappings.
+        args = {"apscheduler:callable": 1, "func": func, "args": args}
+
+    marshalled["args"] = serializer.serialize(args)
+
+
+def _unmarshal_args(marshalled: dict[str, Any], serializer: Serializer) -> None:
+    args = serializer.deserialize(marshalled["args"])
+    if isinstance(args, dict):
+        if (
+            set(args) != {"apscheduler:callable", "func", "args"}
+            or type(args["apscheduler:callable"]) is not int
+            or args["apscheduler:callable"] != 1
+            or not isinstance(args["func"], str)
+            or not isinstance(args["args"], (tuple, list))
+        ):
+            raise DeserializationError("Invalid or unsupported invocation envelope")
+
+        marshalled["func"] = args["func"]
+        args = args["args"]
+
+    marshalled["args"] = args
 
 
 @attrs.define(kw_only=True, order=False)
@@ -156,6 +190,9 @@ class Schedule:
     )
     args: tuple = attrs.field(converter=tuple, default=())
     kwargs: dict[str, Any] = attrs.field(converter=dict, default=())
+    # Per-invocation class binding, independent of the shared Task.func. A local
+    # bound method is only usable with MemoryDataStore; persistent stores need a ref.
+    _func: str | Callable[..., Any] | None = attrs.field(default=None, repr=False)
     paused: bool = attrs.field(default=False)
     coalesce: CoalescePolicy = attrs.field(
         default=CoalescePolicy.latest,
@@ -199,7 +236,7 @@ class Schedule:
     def marshal(self, serializer: Serializer) -> dict[str, Any]:
         marshalled = attrs.asdict(self, recurse=False, value_serializer=serialize)
         marshalled["trigger"] = serializer.serialize(self.trigger)
-        marshalled["args"] = serializer.serialize(self.args)
+        _marshal_args(marshalled, serializer)
         marshalled["kwargs"] = serializer.serialize(self.kwargs)
         if not self.acquired_by:
             del marshalled["acquired_by"]
@@ -210,7 +247,7 @@ class Schedule:
     @classmethod
     def unmarshal(cls, serializer: Serializer, marshalled: dict[str, Any]) -> Schedule:
         marshalled["trigger"] = serializer.deserialize(marshalled["trigger"])
-        marshalled["args"] = serializer.deserialize(marshalled["args"])
+        _unmarshal_args(marshalled, serializer)
         marshalled["kwargs"] = serializer.deserialize(marshalled["kwargs"])
         return cls(**marshalled)
 
@@ -293,6 +330,9 @@ class Job:
     kwargs: dict[str, Any] = attrs.field(
         converter=dict, factory=dict, repr=False, on_setattr=frozen
     )
+    _func: str | Callable[..., Any] | None = attrs.field(
+        default=None, repr=False, on_setattr=frozen
+    )
     schedule_id: str | None = attrs.field(default=None, on_setattr=frozen)
     scheduled_fire_time: datetime | None = attrs.field(
         converter=as_aware_datetime, default=None, on_setattr=frozen
@@ -328,7 +368,7 @@ class Job:
 
     def marshal(self, serializer: Serializer) -> dict[str, Any]:
         marshalled = attrs.asdict(self, recurse=False, value_serializer=serialize)
-        marshalled["args"] = serializer.serialize(self.args)
+        _marshal_args(marshalled, serializer)
         marshalled["kwargs"] = serializer.serialize(self.kwargs)
         if not self.acquired_by:
             del marshalled["acquired_by"]
@@ -338,8 +378,8 @@ class Job:
 
     @classmethod
     def unmarshal(cls, serializer: Serializer, marshalled: dict[str, Any]) -> Job:
-        if args := marshalled["args"]:
-            marshalled["args"] = serializer.deserialize(args)
+        if marshalled["args"]:
+            _unmarshal_args(marshalled, serializer)
 
         if kwargs := marshalled["kwargs"]:
             marshalled["kwargs"] = serializer.deserialize(kwargs)
