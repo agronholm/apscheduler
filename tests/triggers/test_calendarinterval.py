@@ -199,3 +199,17 @@ def test_utc_timezone(utc_timezone):
         days=1, hour=1, start_date=date(2016, 3, 31), timezone=utc_timezone
     )
     assert trigger.next() == datetime(2016, 3, 31, 1, tzinfo=utc_timezone)
+
+
+def test_rejects_bool_calendar_fields():
+    """bool subclasses int; days=True must not silently become 1 day."""
+    for field in ("years", "months", "weeks", "days"):
+        with pytest.raises(TypeError, match=f"{field}.*bool"):
+            CalendarIntervalTrigger(**{field: True})
+        with pytest.raises(TypeError, match=f"{field}.*bool"):
+            CalendarIntervalTrigger(**{field: False})
+    for field in ("hour", "minute", "second"):
+        with pytest.raises(TypeError, match=f"{field}.*bool"):
+            CalendarIntervalTrigger(days=1, **{field: True})
+        with pytest.raises(TypeError, match=f"{field}.*bool"):
+            CalendarIntervalTrigger(days=1, **{field: False})
