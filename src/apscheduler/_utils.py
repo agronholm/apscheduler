@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, tzinfo
+from datetime import datetime, timezone, tzinfo
 from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
 from zoneinfo import ZoneInfo
 
@@ -50,7 +50,9 @@ def timezone_repr(timezone: tzinfo) -> str:
 
 
 def absolute_datetime_diff(dateval1: datetime, dateval2: datetime) -> float:
-    return dateval1.timestamp() - dateval2.timestamp()
+    return (
+        dateval1.astimezone(timezone.utc) - dateval2.astimezone(timezone.utc)
+    ).total_seconds()
 
 
 def qualified_name(cls: type) -> str:
