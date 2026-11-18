@@ -126,7 +126,7 @@ def test_dst_change():
     comparison which would test for equality in the UTC timezone.
 
     """
-    eastern = ZoneInfo("US/Eastern")
+    eastern = ZoneInfo("America/New_York")
     start_date = datetime(2013, 3, 1)  # Start within EDT
     trigger = IntervalTrigger(hours=1, start_date=start_date, timezone=eastern)
 
@@ -208,7 +208,7 @@ def test_jitter_produces_different_valid_results(timezone):
     ids=["interval_spring", "interval_autumn"],
 )
 def test_jitter_dst_change(trigger_args, start_date, start_date_dst, correct_next_date):
-    timezone = pytz.timezone("US/Eastern")
+    timezone = pytz.timezone("America/New_York")
     epsilon = timedelta(seconds=1)
     start_date = timezone.localize(start_date, is_dst=start_date_dst)
     trigger = IntervalTrigger(

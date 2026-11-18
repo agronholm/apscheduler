@@ -112,7 +112,7 @@ def test_get_run_times(create_job, timezone):
 @pytest.mark.timeout(5)
 def test_get_run_times_dst_transition(create_job):
     """Tests that Job._get_run_times does not run into an endless loop due to datetime comparison"""
-    timezone = ZoneInfo("US/Eastern")
+    timezone = ZoneInfo("America/New_York")
     next_run_time = datetime(2025, 11, 2, 1, 0, 10, tzinfo=timezone)
     now = datetime(2025, 11, 2, 1, 0, 10, 10, tzinfo=timezone)
     next_next_run_time = datetime(2025, 11, 2, 1, 0, 10, fold=1, tzinfo=timezone)
