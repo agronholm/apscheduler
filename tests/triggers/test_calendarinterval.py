@@ -39,6 +39,35 @@ def test_end_date(timezone, serializer):
     assert trigger.next() is None
 
 
+@pytest.mark.parametrize("years, months", [(7976, 0), (0, 95712), (7975, 12)])
+@pytest.mark.parametrize("end_date", [None, date.max])
+def test_year_overflow(years, months, end_date, utc_timezone, serializer):
+    trigger = CalendarIntervalTrigger(
+        years=years,
+        months=months,
+        start_date=date(2024, 1, 1),
+        end_date=end_date,
+        timezone=utc_timezone,
+    )
+    assert trigger.next() == datetime(2024, 1, 1, tzinfo=utc_timezone)
+
+    trigger = serializer.deserialize(serializer.serialize(trigger))
+    assert trigger.next() is None
+    assert trigger.next() is None
+
+
+def test_year_overflow_skipping_invalid_dates(utc_timezone):
+    trigger = CalendarIntervalTrigger(
+        years=1, start_date=date(9996, 2, 29), timezone=utc_timezone
+    )
+    # Restore the last leap day without a platform-dependent timestamp conversion.
+    state = trigger.__getstate__()
+    state["last_fire_date"] = date(9996, 2, 29)
+    trigger.__setstate__(state)
+
+    assert trigger.next() is None
+
+
 def test_missing_time(timezone, serializer):
     """
     Test that if the designated time does not exist on a day due to a forward DST shift,
