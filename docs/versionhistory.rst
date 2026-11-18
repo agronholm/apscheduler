@@ -52,6 +52,10 @@ APScheduler, see the :doc:`migration section <migration>`.
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
 
+- Fixed ``CronTrigger`` ending early or returning fire times past ``end_time`` during
+  backward daylight saving time transitions
+  (`#120 <https://github.com/agronholm/apscheduler/issues/120>`_)
+
 **4.0.0a6**
 
 - **BREAKING** Refactored ``AsyncpgEventBroker`` to directly accept a connection string,
