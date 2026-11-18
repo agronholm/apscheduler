@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import gc
 import platform
+import weakref
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import UTC, datetime, timedelta
@@ -210,6 +212,30 @@ async def test_remove_schedules(
     assert received_event.schedule_id == "s2"
 
     assert not events
+
+
+@pytest.mark.parametrize("cleanup", [False, True], ids=["removed", "finished"])
+async def test_removed_schedules_are_released(
+    datastore: DataStore, cleanup: bool
+) -> None:
+    schedule = Schedule(
+        id="s1",
+        task_id="task1",
+        job_executor="async",
+        trigger=DateTrigger(datetime(2020, 9, 13, tzinfo=UTC)),
+    )
+    schedule_ref = weakref.ref(schedule)
+    await datastore.add_schedule(schedule, ConflictPolicy.exception)
+    del schedule
+
+    if cleanup:
+        await datastore.cleanup()
+    else:
+        await datastore.remove_schedules(["s1"])
+
+    assert not await datastore.get_schedules()
+    gc.collect()
+    assert schedule_ref() is None
 
 
 @pytest.mark.skipif(

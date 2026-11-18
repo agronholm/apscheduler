@@ -52,6 +52,10 @@ APScheduler, see the :doc:`migration section <migration>`.
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
 
+- Fixed ``MemoryDataStore`` retaining removed and finished schedules, including their
+  triggers and task arguments, indefinitely
+  (`#1156 <https://github.com/agronholm/apscheduler/pull/1156>`_; PR by @fhgffy)
+
 **4.0.0a6**
 
 - **BREAKING** Refactored ``AsyncpgEventBroker`` to directly accept a connection string,
