@@ -203,11 +203,16 @@ class MongoDBDataStore(BaseExternalDataStore):
                 await self._initialize()
 
     async def add_task(self, task: Task) -> None:
+        document = task.marshal(self.serializer)
+        running_jobs = document.pop("running_jobs")
         async for attempt in self._retry():
             with attempt:
                 previous = await self._tasks.find_one_and_update(
                     {"_id": task.id},
-                    {"$set": task.marshal(self.serializer)},
+                    {
+                        "$set": document,
+                        "$setOnInsert": {"running_jobs": running_jobs},
+                    },
                     upsert=True,
                 )
 
