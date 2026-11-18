@@ -51,6 +51,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   scheduler wake up past a deadline that had already passed and process schedules in a
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
+- Fixed ``CronTrigger`` raising an exception instead of returning ``None`` when no
+  matching fire time remains within the maximum supported year
+  (`#1172 <https://github.com/agronholm/apscheduler/pull/1172>`_; PR by @jipeng6036-del)
 
 **4.0.0a6**
 

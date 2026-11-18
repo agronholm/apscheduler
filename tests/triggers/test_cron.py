@@ -402,7 +402,7 @@ def test_dst_change(
     datetime comparison which would test for equality in the UTC timezone.
 
     """
-    timezone = ZoneInfo("US/Eastern")
+    timezone = ZoneInfo("America/New_York")
     start_time = start_time.replace(tzinfo=timezone, fold=start_time_fold)
     trigger = CronTrigger(timezone=timezone, start_time=start_time, **trigger_args)
     if serializer:
@@ -592,3 +592,28 @@ def test_non_existing_naive_end_time() -> None:
     end_time = datetime(2025, 3, 30, 2, 30)
     with pytest.raises(ValueError):
         CronTrigger(timezone=tz, start_time=start_time, end_time=end_time)
+
+
+def test_exhaustion_after_final_second(utc_timezone):
+    trigger = CronTrigger(
+        second=59,
+        start_time=datetime(2024, 1, 1, tzinfo=utc_timezone),
+        timezone=utc_timezone,
+    )
+    # Set the boundary directly to avoid platform-dependent timestamp validation
+    # during construction.
+    trigger.start_time = datetime(9999, 12, 31, 23, 59, 59, tzinfo=utc_timezone)
+    assert trigger.next() == trigger.start_time
+    assert trigger.next() is None
+
+
+def test_exhaustion_when_no_matching_date_remains(utc_timezone):
+    trigger = CronTrigger(
+        month=1,
+        start_time=datetime(2024, 1, 1, tzinfo=utc_timezone),
+        timezone=utc_timezone,
+    )
+    # Set the boundary directly to avoid platform-dependent timestamp validation
+    # during construction.
+    trigger.start_time = datetime(9999, 12, 31, 23, 59, 59, tzinfo=utc_timezone)
+    assert trigger.next() is None
