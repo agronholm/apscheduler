@@ -152,6 +152,23 @@ class DayOfWeekField(BaseField, real=False, extra_compilers=(WeekdayRangeExpress
 
             expr = f"{WEEKDAYS[first]}-{WEEKDAYS[last]}"
 
+        # Star-steps don't match RangeExpression, so rewrite them into the
+        # textual days they select. Like every other numeric weekday
+        # expression they are anchored on the cron convention (0 and 7 =
+        # Sunday); AllExpression would instead step over Python's
+        # Monday-anchored weekday numbers.
+        if expr.startswith("*"):
+            all_match = AllExpression.value_re.match(expr)
+            if all_match and all_match.group("step"):
+                step = int(all_match.group("step"))
+                if step <= MAX_VALUES[self.name] - MIN_VALUES[self.name]:
+                    day_names = dict.fromkeys(
+                        WEEKDAYS[(d - 1) % 7] for d in range(0, 8, step)
+                    )
+                    for day_name in day_names:
+                        super().append_expression(day_name)
+                    return
+
         # For expressions like Sun-Tue or Sat-Mon, add two expressions that together
         # cover the expected weekdays
         match = WeekdayRangeExpression.value_re.match(expr)

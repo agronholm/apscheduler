@@ -10,6 +10,10 @@ APScheduler, see the :doc:`migration section <migration>`.
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
 - Dropped support for Python 3.9 and 3.10
+- Fixed ``*/N`` (star-step) expressions in the ``day_of_week`` field of ``CronTrigger`` stepping over
+  Python's Monday-anchored weekday numbers, so they selected the wrong days; they are now anchored on
+  Sunday like every other numeric weekday expression (cron convention, where 0 and 7 mean Sunday)
+  (`#1185 <https://github.com/agronholm/apscheduler/issues/1185>`_)
 - Fixed an issue where ``CronTrigger`` does not convert ``start_time`` to ``self.timezone``
   (`#1061 <https://github.com/agronholm/apscheduler/issues/1061>`_; PR by @jonasitzmann)
 - Fixed an issue where ``CronTrigger.next()`` returned a non-existing date on a DST change
