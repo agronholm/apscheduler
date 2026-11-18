@@ -469,6 +469,44 @@ async def test_job_release_success(datastore: DataStore) -> None:
     assert not await datastore.get_job_result(acquired[0].id)
 
 
+async def test_memory_job_release_ignores_stale_owner(
+    memory_store: MemoryDataStore, local_broker: EventBroker, logger: Logger
+) -> None:
+    async with AsyncExitStack() as exit_stack:
+        await local_broker.start(exit_stack, logger)
+        await memory_store.start(exit_stack, local_broker, logger)
+        await memory_store.add_task(
+            Task(
+                id="task1", func="contextlib:asynccontextmanager", job_executor="async"
+            )
+        )
+        job = Job(
+            task_id="task1",
+            executor="async",
+            result_expiration_time=timedelta(minutes=1),
+        )
+        await memory_store.add_job(job)
+
+        acquired = await memory_store.acquire_jobs("worker1", timedelta(seconds=30), 1)
+        assert len(acquired) == 1
+        job.acquired_until = datetime.now(UTC) - timedelta(seconds=1)
+        reacquired = await memory_store.acquire_jobs(
+            "worker2", timedelta(seconds=30), 1
+        )
+        assert reacquired == [job]
+
+        stale_result = JobResult.from_job(job, JobOutcome.success)
+        await memory_store.release_job("worker1", job, stale_result)
+        assert await memory_store.get_jobs({job.id}) == [job]
+        assert (await memory_store.get_task("task1")).running_jobs == 1
+
+        result = JobResult.from_job(job, JobOutcome.success)
+        await memory_store.release_job("worker2", job, result)
+        await memory_store.release_job("worker2", job, result)
+        assert not await memory_store.get_jobs({job.id})
+        assert (await memory_store.get_task("task1")).running_jobs == 0
+
+
 async def test_job_release_failure(datastore: DataStore) -> None:
     await datastore.add_task(
         Task(id="task1", job_executor="async", func="contextlib:asynccontextmanager")

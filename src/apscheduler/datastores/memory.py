@@ -299,39 +299,43 @@ class MemoryDataStore(BaseDataStore):
         return jobs
 
     async def release_job(self, scheduler_id: str, job: Job, result: JobResult) -> None:
+        stored_job = self._jobs_by_id.get(result.job_id)
+        if stored_job is None or stored_job.acquired_by not in (None, scheduler_id):
+            return
+
         # Record the job result
         if result.expires_at > result.finished_at:
             self._job_results[result.job_id] = result
 
         # Decrement the number of running jobs for this task
-        if job.acquired_by:
-            self._tasks[job.task_id].running_jobs -= 1
+        if stored_job.acquired_by == scheduler_id:
+            self._tasks[stored_job.task_id].running_jobs -= 1
 
         # Delete the job
-        job = self._jobs_by_id.pop(result.job_id)
+        del self._jobs_by_id[result.job_id]
 
         # Remove the job from the jobs belonging to its task
-        task_jobs = self._jobs_by_task_id[job.task_id]
-        task_jobs.remove(job)
+        task_jobs = self._jobs_by_task_id[stored_job.task_id]
+        task_jobs.remove(stored_job)
         if not task_jobs:
-            del self._jobs_by_task_id[job.task_id]
+            del self._jobs_by_task_id[stored_job.task_id]
 
         # If this was a scheduled job, remove the job from the set of jobs belonging to
         # this schedule
-        if job.schedule_id:
-            schedule_jobs = self._jobs_by_schedule_id[job.schedule_id]
-            schedule_jobs.remove(job)
+        if stored_job.schedule_id:
+            schedule_jobs = self._jobs_by_schedule_id[stored_job.schedule_id]
+            schedule_jobs.remove(stored_job)
             if not schedule_jobs:
-                del self._jobs_by_schedule_id[job.schedule_id]
+                del self._jobs_by_schedule_id[stored_job.schedule_id]
 
         # Notify other schedulers
         await self._event_broker.publish(
             JobReleased.from_result(
                 result,
                 scheduler_id,
-                job.task_id,
-                job.schedule_id,
-                job.scheduled_fire_time,
+                stored_job.task_id,
+                stored_job.schedule_id,
+                stored_job.scheduled_fire_time,
             )
         )
 
