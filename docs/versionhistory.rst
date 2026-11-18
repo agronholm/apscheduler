@@ -13,6 +13,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``CalendarIntervalTrigger`` skipping valid dates after a forward DST shift
   that crosses midnight (backported from
   `#1138 <https://github.com/agronholm/apscheduler/pull/1138>`_, by @Yukibei)
+- Fixed ``ZooKeeperJobStore`` returning jobs with identical next run times in a
+  nondeterministic order when they were created within the same millisecond
 - Fixed ``CronTrigger`` returning the same instant twice when the previous fire time was
   a wall time inside a DST gap that equals the first wall time after it, as with a
   30-minute shift (America/Caracas in 2016, Australia/Lord_Howe)

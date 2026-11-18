@@ -358,7 +358,7 @@ def test_dst_change(
     comparison which would test for equality in the UTC timezone.
 
     """
-    timezone = ZoneInfo("US/Eastern")
+    timezone = ZoneInfo("America/New_York")
     trigger = CronTrigger(timezone=timezone, **trigger_args)
     start_date = start_date.replace(tzinfo=timezone, fold=start_date_fold)
     correct_next_date = correct_next_date.replace(
@@ -475,7 +475,7 @@ def test_jitter_with_timezone(timezone):
     ],
 )
 def test_jitter_dst_change(trigger_args, start_date, fold, correct_next_date):
-    timezone = ZoneInfo("US/Eastern")
+    timezone = ZoneInfo("America/New_York")
     trigger = CronTrigger(timezone=timezone, jitter=5, **trigger_args)
     start_date = start_date.replace(tzinfo=timezone)
     correct_next_date = correct_next_date.replace(tzinfo=timezone)

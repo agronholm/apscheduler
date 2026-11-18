@@ -86,7 +86,7 @@ def test_dst_change(is_dst):
     comparison which would test for equality in the UTC timezone.
 
     """
-    eastern = pytz.timezone("US/Eastern")
+    eastern = pytz.timezone("America/New_York")
     run_date = eastern.localize(datetime(2013, 10, 3, 1, 5), is_dst=is_dst)
 
     fire_date = eastern.normalize(run_date + timedelta(minutes=55))
