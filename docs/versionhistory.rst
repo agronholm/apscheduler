@@ -51,6 +51,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   scheduler wake up past a deadline that had already passed and process schedules in a
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
+- Fixed ``MongoDBDataStore.get_schedules()`` raising ``KeyError`` instead of logging a
+  warning and skipping a schedule that could not be deserialized
+  (`#1204 <https://github.com/agronholm/apscheduler/pull/1204>`_; PR by @Quinnod345)
 
 **4.0.0a6**
 

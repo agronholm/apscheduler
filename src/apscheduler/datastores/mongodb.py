@@ -264,7 +264,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                             schedule = Schedule.unmarshal(self.serializer, document)
                         except DeserializationError:
                             self._logger.warning(
-                                "Failed to deserialize schedule %r", document["_id"]
+                                "Failed to deserialize schedule %r", document["id"]
                             )
                             continue
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import platform
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -897,6 +898,37 @@ async def test_acquire_jobs_deserialization_failure(
 
     # This should not yield any jobs
     assert await datastore.acquire_jobs("scheduler_id", timedelta(seconds=30), 1) == []
+
+
+async def test_get_schedules_deserialization_failure(
+    datastore: DataStore,
+    schedules: list[Schedule],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    if not isinstance(datastore, MongoDBDataStore):
+        pytest.skip("Only applicable to the MongoDB data store")
+
+    for schedule in schedules:
+        await datastore.add_schedule(schedule, ConflictPolicy.exception)
+
+    # Make the middle schedule's serialized trigger unreadable
+    await datastore._schedules.update_one(
+        {"_id": "s2"}, {"$set": {"trigger": b"not a valid serialized trigger"}}
+    )
+
+    # The unreadable schedule should be logged by its ID and skipped, instead of
+    # preventing the readable ones from being returned
+    with caplog.at_level(logging.WARNING, logger="apscheduler"):
+        assert await datastore.get_schedules() == [schedules[0], schedules[2]]
+        assert await datastore.get_schedules({"s1", "s2", "s3"}) == [
+            schedules[0],
+            schedules[2],
+        ]
+
+    assert [record.getMessage() for record in caplog.records] == [
+        "Failed to deserialize schedule 's2'",
+        "Failed to deserialize schedule 's2'",
+    ]
 
 
 async def test_reap_abandoned_jobs(
