@@ -14,6 +14,11 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1061 <https://github.com/agronholm/apscheduler/issues/1061>`_; PR by @jonasitzmann)
 - Fixed an issue where ``CronTrigger.next()`` returned a non-existing date on a DST change
   (`#1059 <https://github.com/agronholm/apscheduler/issues/1059>`_; PR by @jonasitzmann)
+- Fixed ``CronTrigger``'s and ``CronTrigger.from_crontab()``'s default ``start_time``
+  being the local wall clock reinterpreted in the trigger's timezone, which delayed the
+  first run (or made it fall in the past) whenever the configured timezone differed from
+  the local one
+  (`#1177 <https://github.com/agronholm/apscheduler/pull/1177>`_; PR by @feiiiiii5)
 - Fixed jobs that were being run when the scheduler was gracefully stopped being left in
   an acquired state (`#946 <https://github.com/agronholm/apscheduler/issues/946>`_)
 - Fixed the documented ``psycopg`` extra not being declared in the project metadata, so

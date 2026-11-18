@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -592,3 +592,28 @@ def test_non_existing_naive_end_time() -> None:
     end_time = datetime(2025, 3, 30, 2, 30)
     with pytest.raises(ValueError):
         CronTrigger(timezone=tz, start_time=start_time, end_time=end_time)
+
+
+@pytest.mark.parametrize("make_trigger", [CronTrigger, CronTrigger.from_crontab])
+def test_default_start_time_is_current_time(make_trigger, serializer):
+    """
+    The default start_time is documented as the current time, so triggers created
+    at the same instant for different timezones must use the same instant as their
+    starting point instead of the local wall clock interpreted as that timezone.
+
+    """
+    if make_trigger is CronTrigger:
+        utc_trigger = CronTrigger(minute="*", timezone=ZoneInfo("UTC"))
+        tokyo_trigger = CronTrigger(minute="*", timezone=ZoneInfo("Asia/Tokyo"))
+    else:
+        utc_trigger = CronTrigger.from_crontab("* * * * *", timezone=ZoneInfo("UTC"))
+        tokyo_trigger = CronTrigger.from_crontab(
+            "* * * * *", timezone=ZoneInfo("Asia/Tokyo")
+        )
+
+    if serializer:
+        utc_trigger = serializer.deserialize(serializer.serialize(utc_trigger))
+        tokyo_trigger = serializer.deserialize(serializer.serialize(tokyo_trigger))
+
+    assert abs((utc_trigger.start_time - tokyo_trigger.start_time).total_seconds()) < 5
+    assert abs(utc_trigger.next() - tokyo_trigger.next()) <= timedelta(minutes=1)
