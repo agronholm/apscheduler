@@ -84,6 +84,16 @@ class TestCallableToRef:
     def test_valid_refs(self, input, expected):
         assert callable_to_ref(input) == expected
 
+    def test_class_method_inherited_from_another_module(self, monkeypatch):
+        module = ModuleType("subclass_module")
+        module.SubDummyClass = type(
+            "SubDummyClass", (DummyClass,), {"__module__": "subclass_module"}
+        )
+        monkeypatch.setitem(sys.modules, "subclass_module", module)
+        ref = callable_to_ref(module.SubDummyClass.classmeth)
+        assert ref == "subclass_module:SubDummyClass.classmeth"
+        assert callable_from_ref(ref).__self__ is module.SubDummyClass
+
 
 class TestCallableFromRef:
     def test_valid_ref(self):
