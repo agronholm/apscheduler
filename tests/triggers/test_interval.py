@@ -44,6 +44,41 @@ def test_before(trigger, timezone):
     assert trigger.get_next_fire_time(None, now) == trigger.start_date
 
 
+@pytest.mark.parametrize("serialize", [False, True], ids=["direct", "pickle"])
+@pytest.mark.parametrize(
+    "start_minute, start_fold, now_minute, now_fold, expected_minute, expected_fold",
+    [
+        (0, 1, 30, 0, 0, 1),
+        (30, 1, 30, 0, 30, 1),
+        (30, 0, 0, 1, 0, 1),
+        (0, 0, 15, 0, 20, 0),
+    ],
+    ids=["future-start", "same-wall-time", "past-start", "same-fold-control"],
+)
+def test_start_date_across_fold(
+    serialize,
+    start_minute,
+    start_fold,
+    now_minute,
+    now_fold,
+    expected_minute,
+    expected_fold,
+):
+    timezone = ZoneInfo("Europe/Berlin")
+    start = datetime(2026, 10, 25, 2, start_minute, tzinfo=timezone, fold=start_fold)
+    now = datetime(2026, 10, 25, 2, now_minute, tzinfo=timezone, fold=now_fold)
+    trigger = IntervalTrigger(minutes=10, start_date=start, timezone=timezone)
+    if serialize:
+        trigger = pickle.loads(pickle.dumps(trigger))
+
+    result = trigger.get_next_fire_time(None, now)
+    expected = datetime(
+        2026, 10, 25, 2, expected_minute, tzinfo=timezone, fold=expected_fold
+    )
+    assert result.timestamp() == expected.timestamp()
+    assert result.timestamp() >= max(start.timestamp(), now.timestamp())
+
+
 def test_within(trigger, timezone):
     """
     Tests that if "now" is between "start_date" and the next interval, it will return the next
