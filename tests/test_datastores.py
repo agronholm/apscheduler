@@ -16,6 +16,7 @@ from anyio import CancelScope
 from pytest_mock.plugin import MockerFixture
 
 from apscheduler import (
+    AsyncScheduler,
     CoalescePolicy,
     ConflictPolicy,
     DeserializationError,
@@ -25,6 +26,8 @@ from apscheduler import (
     JobResult,
     Schedule,
     ScheduleAdded,
+    ScheduleDeserializationFailed,
+    ScheduleLookupError,
     ScheduleRemoved,
     ScheduleUpdated,
     Task,
@@ -151,6 +154,96 @@ async def test_add_schedules(datastore: DataStore, schedules: list[Schedule]) ->
         assert event.schedule_id == schedule.id
         assert event.task_id == schedule.task_id
         assert event.next_fire_time == schedule.next_fire_time
+
+
+@pytest.fixture
+def fail_schedule_deserialization(
+    aiosqlite_store: SQLAlchemyDataStore, mocker: MockerFixture
+) -> DeserializationError:
+    serializer = aiosqlite_store.serializer
+    deserialize = serializer.deserialize
+    unreadable_args = serializer.serialize(("unreadable",))
+    failure = DeserializationError("Could not read schedule arguments")
+
+    def deserialize_schedule(payload: bytes) -> object:
+        if payload == unreadable_args:
+            raise failure
+
+        return deserialize(payload)
+
+    codec = mocker.Mock(spec=Serializer, wraps=serializer)
+    codec.deserialize.side_effect = deserialize_schedule
+    mocker.patch.object(aiosqlite_store, "serializer", codec)
+    return failure
+
+
+@pytest.mark.parametrize("ids", [None, {"s1", "s2"}], ids=["all", "filtered"])
+async def test_sqlalchemy_get_schedules_deserialization_failure(
+    aiosqlite_store: SQLAlchemyDataStore,
+    local_broker: EventBroker,
+    mocker: MockerFixture,
+    logger: Logger,
+    schedules: list[Schedule],
+    fail_schedule_deserialization: DeserializationError,
+    ids: set[str] | None,
+) -> None:
+    unreadable, readable, _ = schedules
+    unreadable.args = ("unreadable",)
+    async with AsyncExitStack() as exit_stack:
+        await local_broker.start(exit_stack, logger)
+        await aiosqlite_store.start(exit_stack, local_broker, logger)
+        await aiosqlite_store.add_schedule(unreadable, ConflictPolicy.exception)
+        await aiosqlite_store.add_schedule(readable, ConflictPolicy.exception)
+
+        publish = mocker.spy(local_broker, "publish")
+        assert await aiosqlite_store.get_schedules(ids) == [readable]
+
+    (call,) = publish.call_args_list
+    (event,) = call.args
+    assert isinstance(event, ScheduleDeserializationFailed)
+    assert event.schedule_id == unreadable.id
+    assert event.exception is fail_schedule_deserialization
+
+
+async def test_sqlalchemy_schedule_lookup_deserialization_failure(
+    aiosqlite_store: SQLAlchemyDataStore,
+    local_broker: EventBroker,
+    mocker: MockerFixture,
+    fail_schedule_deserialization: DeserializationError,
+) -> None:
+    async with AsyncScheduler(
+        data_store=aiosqlite_store, event_broker=local_broker
+    ) as scheduler:
+        fire_time = datetime(2030, 1, 1, tzinfo=UTC)
+        bad_id = await scheduler.add_schedule(
+            "fixture-task", DateTrigger(fire_time), args=("unreadable",)
+        )
+        good_id = await scheduler.add_schedule("fixture-task", DateTrigger(fire_time))
+
+        await scheduler.pause_schedule(good_id)
+        assert (await scheduler.get_schedule(good_id)).paused
+        await scheduler.unpause_schedule(good_id)
+        assert not (await scheduler.get_schedule(good_id)).paused
+
+        publish = mocker.spy(local_broker, "publish")
+        with pytest.raises(ScheduleLookupError):
+            await scheduler.get_schedule("missing")
+        publish.assert_not_called()
+
+        for operation in (
+            scheduler.get_schedule,
+            scheduler.pause_schedule,
+            scheduler.unpause_schedule,
+        ):
+            publish.reset_mock()
+            with pytest.raises(ScheduleLookupError):
+                await operation(bad_id)
+
+            (call,) = publish.call_args_list
+            (event,) = call.args
+            assert isinstance(event, ScheduleDeserializationFailed)
+            assert event.schedule_id == bad_id
+            assert event.exception is fail_schedule_deserialization
 
 
 async def test_replace_schedules(
