@@ -25,7 +25,11 @@ APScheduler, see the :doc:`migration section <migration>`.
   (`#1053 <https://github.com/agronholm/apscheduler/issues/1053>`_)
 - Fixed the memory data store raising ``KeyError`` and crashing the scheduler when
   releasing a schedule that was removed (e.g. from a ``JobReleased`` event handler) while
-  it was being processed
+  it was being processed. The SQL and MongoDB data stores don't raise in this situation,
+  since the update is just a no-op there, but they had a related bug: they published a
+  ``ScheduleUpdated`` event for the removed schedule anyway. Both stores now check which
+  schedules are still present before updating and emitting events for them, matching the
+  memory store's behavior of silently skipping ones that are gone
   (`#1076 <https://github.com/agronholm/apscheduler/issues/1076>`_)
 
 **4.0.0a6**

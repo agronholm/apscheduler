@@ -398,6 +398,52 @@ async def test_release_schedule_removed_meanwhile(datastore: DataStore) -> None:
     assert await datastore.get_schedules({acquired.id}) == []
 
 
+async def test_release_schedule_removed_meanwhile_no_phantom_event(
+    datastore: DataStore,
+) -> None:
+    """Releasing a removed schedule must not publish an event for it.
+
+    Companion regression test for #1076. The SQL and MongoDB backends don't
+    raise on a missing row/document (the write is simply a no-op), but they
+    used to publish a ``ScheduleUpdated`` event for the schedule anyway,
+    since the lookup for existing rows only happened as part of the write
+    itself. That phantom event describes a schedule that no longer exists.
+    """
+    trigger = DateTrigger(datetime(2020, 9, 13, tzinfo=timezone.utc))
+    schedule = Schedule(id="s1", task_id="task1", job_executor="async", trigger=trigger)
+    schedule.next_fire_time = trigger.next()
+    await datastore.add_schedule(schedule, ConflictPolicy.exception)
+
+    (acquired,) = await datastore.acquire_schedules("foo", timedelta(seconds=30), 1)
+    await datastore.remove_schedules([acquired.id])
+
+    results = [
+        ScheduleResult(
+            schedule_id=acquired.id,
+            task_id=acquired.task_id,
+            trigger=acquired.trigger,
+            last_fire_time=datetime(2020, 9, 10, tzinfo=timezone.utc),
+            next_fire_time=None,
+        ),
+    ]
+
+    events: list[Event] = []
+    subscription = datastore._event_broker.subscribe(
+        events.append, {ScheduleUpdated, ScheduleRemoved}
+    )
+    try:
+        await datastore.release_schedules("foo", results)
+        # release_schedules() hands events to the broker's task group rather than
+        # delivering them inline, so give any scheduled deliveries a chance to run
+        # before checking for a phantom one.
+        for _ in range(20):
+            await anyio.sleep(0)
+    finally:
+        subscription.unsubscribe()
+
+    assert events == []
+
+
 @pytest.mark.skipif(
     platform.python_implementation() != "CPython",
     reason="time-machine is not available",

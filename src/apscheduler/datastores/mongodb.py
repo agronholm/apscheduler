@@ -432,8 +432,31 @@ class MongoDBDataStore(BaseExternalDataStore):
         finished_schedule_ids: list[str] = []
         task_ids = {result.schedule_id: result.task_id for result in results}
 
+        # A schedule may have been removed (e.g. from a JobReleased event handler)
+        # between acquisition and release. The updates below would silently match
+        # no documents for such a schedule, so look up which of the candidates
+        # still exist first, instead of unconditionally treating all of them as
+        # updated.
+        async for attempt in self._retry():
+            with attempt:
+                async with (
+                    self._client.start_session() as lookup_session,
+                    self._schedules.find(
+                        {
+                            "_id": {"$in": [result.schedule_id for result in results]},
+                            "acquired_by": scheduler_id,
+                        },
+                        projection=["_id"],
+                        session=lookup_session,
+                    ) as cursor,
+                ):
+                    existing_ids = {doc["_id"] async for doc in cursor}
+
         requests: list[UpdateOne | DeleteOne] = []
         for result in results:
+            if result.schedule_id not in existing_ids:
+                continue
+
             filters = {"_id": result.schedule_id, "acquired_by": scheduler_id}
             try:
                 serialized_trigger = self.serializer.serialize(result.trigger)

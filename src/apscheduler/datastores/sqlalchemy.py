@@ -711,7 +711,27 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                     update_events: list[ScheduleUpdated] = []
                     finished_schedule_ids: list[str] = []
                     update_args: list[dict[str, Any]] = []
+
+                    # A schedule may have been removed (e.g. from a JobReleased
+                    # event handler) between acquisition and release. The update
+                    # below would silently match no rows for such a schedule, so
+                    # look up which of the candidates still exist first, instead
+                    # of unconditionally treating all of them as updated.
+                    existing_ids_query = select(self._t_schedules.c.id).where(
+                        and_(
+                            self._t_schedules.c.id.in_(
+                                [result.schedule_id for result in results]
+                            ),
+                            self._t_schedules.c.acquired_by == scheduler_id,
+                        )
+                    )
+                    existing_rows = await self._execute(conn, existing_ids_query)
+                    existing_ids = {row[0] for row in existing_rows}
+
                     for result in results:
+                        if result.schedule_id not in existing_ids:
+                            continue
+
                         try:
                             serialized_trigger = self.serializer.serialize(
                                 result.trigger
@@ -780,9 +800,8 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                                 **extra_values,
                             )
                         )
-                        # TODO: actually check which rows were updated?
                         await self._execute(conn, update, update_args)
-                        updated_ids = list(next_fire_times)
+                        updated_ids = [arg["p_id"] for arg in update_args]
 
                         for schedule_id in updated_ids:
                             event = ScheduleUpdated(
