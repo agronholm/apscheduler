@@ -22,6 +22,11 @@ APScheduler, see the :doc:`migration section <migration>`.
   a wall time inside a DST gap that equals the first wall time after it, as with a
   30-minute shift (America/Caracas in 2016, Australia/Lord_Howe)
   (`#1200 <https://github.com/agronholm/apscheduler/issues/1200>`_; PR by @kushaldave002)
+- Fixed trigger jitter being applied as wall-clock time instead of elapsed time, which
+  could move fire times backwards during a DST fall-back transition (making
+  ``CronTrigger`` jobs loop indefinitely) or onto non-existent times during a
+  spring-forward transition
+  (`#1183 <https://github.com/agronholm/apscheduler/issues/1183>`_; PR by @Vmnebula)
 - Fixed ``CronTrigger`` comparing ``end_date`` by wall time during a repeated DST hour,
   which could return expired fire times, reject eligible ones or unnecessarily cap jitter
   (`#1207 <https://github.com/agronholm/apscheduler/issues/1207>`_; PR by @Vmnebula)
