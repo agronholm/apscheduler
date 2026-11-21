@@ -287,6 +287,54 @@ def test_end_date(timezone):
     assert trigger.get_next_fire_time(None, start_date) is None
 
 
+@pytest.mark.parametrize(
+    "now, end_date, expected",
+    [
+        (
+            datetime(2026, 10, 25, 2, 30, fold=1),
+            datetime(2026, 10, 25, 2, 30),
+            None,
+        ),
+        (
+            datetime(2026, 10, 25, 2, 45),
+            datetime(2026, 10, 25, 2, 15, fold=1),
+            "2026-10-25T02:45:00+02:00",
+        ),
+    ],
+    ids=["after-end-date", "before-end-date"],
+)
+def test_end_date_dst_fold(now, end_date, expected):
+    timezone = ZoneInfo("Europe/Zagreb")
+    now = now.replace(tzinfo=timezone)
+    end_date = end_date.replace(tzinfo=timezone)
+    trigger = CronTrigger(
+        hour=2, minute=now.minute, end_date=end_date, timezone=timezone
+    )
+
+    next_fire_time = trigger.get_next_fire_time(None, now)
+
+    if expected is None:
+        assert next_fire_time is None
+    else:
+        assert next_fire_time is not None
+        assert next_fire_time.isoformat() == expected
+
+
+def test_jitter_before_end_date_dst_fold(monkeypatch):
+    timezone = ZoneInfo("Europe/Zagreb")
+    now = datetime(2026, 10, 25, 2, tzinfo=timezone)
+    end_date = datetime(2026, 10, 25, 2, 15, tzinfo=timezone, fold=1)
+    trigger = CronTrigger(
+        hour=2, minute=0, jitter=3600, end_date=end_date, timezone=timezone
+    )
+    monkeypatch.setattr(
+        "apscheduler.triggers.base.random.uniform", Mock(return_value=1800)
+    )
+
+    next_fire_time = trigger.get_next_fire_time(None, now)
+    assert next_fire_time.isoformat() == "2026-10-25T02:30:00+02:00"
+
+
 def test_different_tz(timezone):
     alter_tz = pytz.FixedOffset(-600)
     trigger = CronTrigger(year=2009, week=15, day_of_week=2, timezone=timezone)

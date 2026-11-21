@@ -256,12 +256,22 @@ class CronTrigger(BaseTrigger):
                 fieldnum += 1
 
             # Return if the date has rolled past the end date
-            if self.end_date and next_date > self.end_date:
+            if self.end_date and next_date.astimezone(UTC) > self.end_date.astimezone(
+                UTC
+            ):
                 return None
 
         if fieldnum >= 0:
             next_date = self._apply_jitter(next_date, self.jitter, now)
-            return min(next_date, self.end_date) if self.end_date else next_date
+            return (
+                min(
+                    next_date,
+                    self.end_date,
+                    key=lambda dateval: dateval.astimezone(UTC),
+                )
+                if self.end_date
+                else next_date
+            )
 
     def __getstate__(self):
         return {
