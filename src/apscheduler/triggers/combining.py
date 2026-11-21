@@ -6,11 +6,6 @@ from apscheduler.util import obj_to_ref, ref_to_obj
 UTC = timezone.utc
 
 
-def _instant(dateval):
-    # Datetimes sharing a tzinfo compare by wall time, ignoring fold
-    return dateval.astimezone(UTC)
-
-
 class BaseCombiningTrigger(BaseTrigger):
     __slots__ = ("jitter", "triggers")
 
@@ -83,8 +78,9 @@ class AndTrigger(BaseCombiningTrigger):
             if None in fire_times:
                 return None
 
-            latest = max(fire_times, key=_instant)
-            if _instant(min(fire_times, key=_instant)) == _instant(latest):
+            latest = max(fire_times, key=lambda dateval: dateval.astimezone(UTC))
+            earliest = min(fire_times, key=lambda dateval: dateval.astimezone(UTC))
+            if earliest.astimezone(UTC) == latest.astimezone(UTC):
                 return self._apply_jitter(fire_times[0], self.jitter, now)
             else:
                 now = latest
@@ -117,7 +113,11 @@ class OrTrigger(BaseCombiningTrigger):
         ]
         fire_times = [fire_time for fire_time in fire_times if fire_time is not None]
         if fire_times:
-            return self._apply_jitter(min(fire_times, key=_instant), self.jitter, now)
+            return self._apply_jitter(
+                min(fire_times, key=lambda dateval: dateval.astimezone(UTC)),
+                self.jitter,
+                now,
+            )
         else:
             return None
 
