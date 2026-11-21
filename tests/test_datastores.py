@@ -305,6 +305,169 @@ async def test_acquire_release_schedules(
     assert not events
 
 
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
+@pytest.mark.parametrize(
+    "stale_next_fire_time", [None, datetime(2020, 9, 16, tzinfo=UTC)]
+)
+@pytest.mark.parametrize("release_current_first", [False, True])
+async def test_release_schedule_after_lease_reassignment(
+    datastore: DataStore,
+    time_machine: TimeMachineFixture,
+    stale_next_fire_time: datetime | None,
+    release_current_first: bool,
+) -> None:
+    now = datetime(2020, 9, 14, tzinfo=UTC)
+    time_machine.move_to(now, tick=False)
+    trigger = DateTrigger(now)
+    schedule = Schedule(
+        id="s1",
+        task_id="task1",
+        job_executor="async",
+        trigger=trigger,
+        next_fire_time=trigger.next(),
+    )
+    await datastore.add_schedule(schedule, ConflictPolicy.exception)
+    acquired = await datastore.acquire_schedules("scheduler1", timedelta(seconds=30), 1)
+    assert [s.id for s in acquired] == ["s1"]
+    stale_result = ScheduleResult(
+        schedule_id="s1",
+        task_id="task1",
+        trigger=trigger,
+        last_fire_time=now,
+        next_fire_time=stale_next_fire_time,
+    )
+
+    time_machine.shift(31)
+    acquired = await datastore.acquire_schedules("scheduler2", timedelta(seconds=30), 1)
+    assert [s.id for s in acquired] == ["s1"]
+    current_lease_end = now + timedelta(seconds=61)
+    current_next_fire_time = datetime(2020, 9, 17, tzinfo=UTC)
+    current_result = ScheduleResult(
+        schedule_id="s1",
+        task_id="task1",
+        trigger=acquired[0].trigger,
+        last_fire_time=now + timedelta(seconds=31),
+        next_fire_time=current_next_fire_time,
+    )
+    if release_current_first:
+        await datastore.release_schedules("scheduler2", [current_result])
+
+    await datastore.release_schedules("scheduler1", [stale_result])
+    remaining = await datastore.get_schedules({"s1"})
+    assert len(remaining) == 1
+    stored = remaining[0]
+    assert stored.acquired_by == (None if release_current_first else "scheduler2")
+    assert stored.acquired_until == (
+        None if release_current_first else current_lease_end
+    )
+    assert stored.next_fire_time == (
+        current_next_fire_time if release_current_first else now
+    )
+    assert stored.last_fire_time == (
+        current_result.last_fire_time if release_current_first else None
+    )
+
+    if not release_current_first:
+        # The actual owner can still commit its result normally.
+        await datastore.release_schedules("scheduler2", [current_result])
+        stored = (await datastore.get_schedules({"s1"}))[0]
+        assert stored.acquired_by is None
+        assert stored.acquired_until is None
+        assert stored.next_fire_time == current_next_fire_time
+        assert stored.last_fire_time == current_result.last_fire_time
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
+async def test_release_schedule_expired_lease_same_owner(
+    datastore: DataStore,
+    time_machine: TimeMachineFixture,
+) -> None:
+    now = datetime(2020, 9, 14, tzinfo=UTC)
+    time_machine.move_to(now, tick=False)
+    trigger = DateTrigger(now)
+    schedule = Schedule(
+        id="s1",
+        task_id="task1",
+        job_executor="async",
+        trigger=trigger,
+        next_fire_time=trigger.next(),
+    )
+    await datastore.add_schedule(schedule, ConflictPolicy.exception)
+    await datastore.acquire_schedules("scheduler1", timedelta(seconds=30), 1)
+    time_machine.shift(31)
+    result = ScheduleResult(
+        schedule_id="s1",
+        task_id="task1",
+        trigger=trigger,
+        last_fire_time=now,
+        next_fire_time=None,
+    )
+    await datastore.release_schedules("scheduler1", [result])
+    stored = (await datastore.get_schedules({"s1"}))[0]
+    assert stored.acquired_by is None
+    assert stored.acquired_until is None
+    assert stored.next_fire_time is None
+    assert stored.last_fire_time == now
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
+@pytest.mark.parametrize("stale_first", [False, True])
+async def test_release_schedules_mixed_owners(
+    datastore: DataStore,
+    time_machine: TimeMachineFixture,
+    stale_first: bool,
+) -> None:
+    now = datetime(2020, 9, 14, tzinfo=UTC)
+    time_machine.move_to(now, tick=False)
+    for schedule_id in ("s1", "s2"):
+        trigger = DateTrigger(now)
+        await datastore.add_schedule(
+            Schedule(
+                id=schedule_id,
+                task_id="task1",
+                job_executor="async",
+                trigger=trigger,
+                next_fire_time=trigger.next(),
+            ),
+            ConflictPolicy.exception,
+        )
+    acquired = await datastore.acquire_schedules("scheduler1", timedelta(seconds=30), 2)
+    results = [
+        ScheduleResult(
+            schedule_id=s.id,
+            task_id=s.task_id,
+            trigger=s.trigger,
+            last_fire_time=now,
+            next_fire_time=None,
+        )
+        for s in acquired
+    ]
+    time_machine.shift(31)
+    acquired = await datastore.acquire_schedules("scheduler2", timedelta(seconds=30), 1)
+    assert [s.id for s in acquired] == ["s1"]
+    if not stale_first:
+        results.reverse()
+    await datastore.release_schedules("scheduler1", results)
+    stored = {s.id: s for s in await datastore.get_schedules()}
+    assert stored["s1"].acquired_by == "scheduler2"
+    assert stored["s1"].acquired_until == now + timedelta(seconds=61)
+    assert stored["s1"].next_fire_time == now
+    assert stored["s1"].last_fire_time is None
+    assert stored["s2"].acquired_by is None
+    assert stored["s2"].acquired_until is None
+    assert stored["s2"].next_fire_time is None
+    assert stored["s2"].last_fire_time == now
+
+
 async def test_release_schedule_two_identical_fire_times(datastore: DataStore) -> None:
     """Regression test for #616."""
     for i in range(1, 3):

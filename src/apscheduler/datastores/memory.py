@@ -179,6 +179,9 @@ class MemoryDataStore(BaseDataStore):
         for result in results:
             # Remove the schedule
             schedule = self._schedules_by_id[result.schedule_id]
+            if schedule.acquired_by != scheduler_id:
+                continue
+
             index = self._find_schedule_index(schedule)
             del self._schedules[index]
 

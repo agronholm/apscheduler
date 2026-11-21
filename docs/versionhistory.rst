@@ -6,6 +6,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Fixed stale ``MemoryDataStore.release_schedules()`` calls clearing ownership and
+  overwriting fire times after another scheduler acquired the expired lease
+  (`#1209 <https://github.com/agronholm/apscheduler/pull/1209>`_; PR by @anishpentyala)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
