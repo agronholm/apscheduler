@@ -40,6 +40,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   ``CronTrigger`` jobs loop indefinitely) or onto non-existent times during a
   spring-forward transition
   (`#1183 <https://github.com/agronholm/apscheduler/issues/1183>`_; PR by @Vmnebula)
+- Fixed ``CronTrigger`` comparing ``end_date`` by wall time during a repeated DST hour,
+  which could return expired fire times, reject eligible ones or unnecessarily cap jitter
+  (`#1207 <https://github.com/agronholm/apscheduler/issues/1207>`_; PR by @Vmnebula)
 
 **3.11.3**
 
