@@ -192,8 +192,14 @@ class CronTrigger(BaseTrigger):
                     values[field.name] = value + 1
                     i += 1
 
+        # Elapsed time repeats the hour of a backward DST shift but overshoots a forward one
         difference = datetime(**values) - dateval.replace(tzinfo=None)
-        dateval = datetime_utc_add(dateval, difference)
+        elapsed = datetime_utc_add(dateval, difference)
+        target = datetime(**values, tzinfo=self.timezone)
+        if target.astimezone(UTC) <= dateval.astimezone(UTC):
+            target = target.replace(fold=1)
+
+        dateval = min(target, elapsed, key=lambda dateval: dateval.astimezone(UTC))
         return dateval, fieldnum
 
     def _set_field_value(self, dateval, fieldnum, new_value):
@@ -262,6 +268,8 @@ class CronTrigger(BaseTrigger):
                 return None
 
         if fieldnum >= 0:
+            # Turn a wall time inside a DST gap into the existing wall time of the same instant
+            next_date = next_date.astimezone(UTC).astimezone(self.timezone)
             next_date = self._apply_jitter(next_date, self.jitter, now)
             return (
                 min(

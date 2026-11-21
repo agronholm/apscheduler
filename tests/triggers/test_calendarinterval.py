@@ -2,6 +2,7 @@ import pickle
 import sys
 from datetime import date, datetime
 from datetime import timezone as timezone_type
+from unittest.mock import Mock
 
 import pytest
 
@@ -39,7 +40,7 @@ def test_end_date(timezone: ZoneInfo) -> None:
     )
     trigger = pickle.loads(pickle.dumps(trigger, protocol=pickle.HIGHEST_PROTOCOL))
 
-    now = datetime.now(astimezone(timezone))
+    now = datetime(2020, 1, 1, tzinfo=astimezone(timezone))
     next_fire_time = trigger.get_next_fire_time(None, now)
     assert next_fire_time.date() == start_end_date
     assert trigger.get_next_fire_time(next_fire_time, now) is None
@@ -55,7 +56,7 @@ def test_missing_time(timezone: ZoneInfo) -> None:
         days=1, hour=2, minute=30, start_date=date(2016, 3, 27), timezone=timezone
     )
     trigger = pickle.loads(pickle.dumps(trigger, protocol=pickle.HIGHEST_PROTOCOL))
-    now = datetime.now(astimezone(timezone))
+    now = datetime(2016, 1, 1, tzinfo=astimezone(timezone))
     assert trigger.get_next_fire_time(None, now) == localize(
         datetime(2016, 3, 28, 2, 30), timezone
     )
@@ -71,7 +72,7 @@ def test_repeated_time(timezone: ZoneInfo) -> None:
         days=2, hour=2, minute=30, start_date=date(2016, 10, 30), timezone=timezone
     )
     trigger = pickle.loads(pickle.dumps(trigger, protocol=pickle.HIGHEST_PROTOCOL))
-    now = datetime.now(astimezone(timezone))
+    now = datetime(2016, 1, 1, tzinfo=astimezone(timezone))
     assert trigger.get_next_fire_time(None, now) == datetime(
         2016, 10, 30, 2, 30, tzinfo=astimezone(timezone), fold=0
     )
@@ -82,7 +83,7 @@ def test_nonexistent_days(timezone: ZoneInfo) -> None:
     trigger = CalendarIntervalTrigger(
         months=1, start_date=date(2016, 3, 31), timezone=timezone
     )
-    now = datetime.now(astimezone(timezone))
+    now = datetime(2016, 1, 1, tzinfo=astimezone(timezone))
     next_fire_time = trigger.get_next_fire_time(None, now)
     assert next_fire_time == datetime(2016, 3, 31, tzinfo=astimezone(timezone))
 
@@ -117,7 +118,7 @@ def test_utc_timezone() -> None:
     trigger = CalendarIntervalTrigger(
         days=1, hour=1, start_date=date(2016, 3, 31), timezone=timezone_type.utc
     )
-    now = datetime.now(timezone_type.utc)
+    now = datetime(2016, 1, 1, tzinfo=timezone_type.utc)
     assert trigger.get_next_fire_time(None, now) == datetime(
         2016, 3, 31, 1, tzinfo=timezone_type.utc
     )
@@ -163,7 +164,7 @@ def test_midnight_dst_gap(interval, start_date, end_date, expected_dates, serial
         end_date=end_date,
         timezone=timezone,
     )
-    now = datetime(2024, 1, 1, tzinfo=timezone)
+    now = datetime(2023, 1, 1, tzinfo=timezone)
     previous_fire_time = None
     for expected_date in expected_dates:
         if serialize:
@@ -179,3 +180,59 @@ def test_midnight_dst_gap(interval, start_date, end_date, expected_dates, serial
 
     if end_date:
         assert trigger.get_next_fire_time(previous_fire_time, now) is None
+
+
+def test_skip_past_fire_times() -> None:
+    """
+    Without a previous fire time, fire times before ``now`` are skipped, but with one, the
+    next fire time is returned even if it's in the past.
+
+    """
+    timezone = ZoneInfo("Europe/Berlin")
+    trigger = CalendarIntervalTrigger(
+        days=1, hour=8, start_date=date(2026, 1, 1), timezone=timezone
+    )
+    now = datetime(2026, 6, 1, 12, tzinfo=timezone)
+    assert trigger.get_next_fire_time(None, now) == datetime(
+        2026, 6, 2, 8, tzinfo=timezone
+    )
+
+    previous_fire_time = datetime(2026, 1, 1, 8, tzinfo=timezone)
+    assert trigger.get_next_fire_time(previous_fire_time, now) == datetime(
+        2026, 1, 2, 8, tzinfo=timezone
+    )
+
+
+def test_previous_fire_time_in_other_timezone() -> None:
+    """The date of the previous fire time is taken in the trigger's time zone."""
+    timezone = ZoneInfo("Asia/Tokyo")
+    trigger = CalendarIntervalTrigger(
+        days=1, hour=8, start_date=date(2026, 1, 1), timezone=timezone
+    )
+    previous_fire_time = datetime(2026, 1, 2, 8, tzinfo=timezone).astimezone(
+        timezone_type.utc
+    )
+    next_fire_time = trigger.get_next_fire_time(previous_fire_time, previous_fire_time)
+    assert next_fire_time.isoformat() == "2026-01-03T08:00:00+09:00"
+
+
+def test_jitter_past_midnight(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A jittered previous fire time past midnight does not shift the schedule by a day."""
+    timezone = ZoneInfo("Europe/Berlin")
+    trigger = CalendarIntervalTrigger(
+        days=1,
+        hour=23,
+        minute=59,
+        start_date=date(2026, 1, 1),
+        timezone=timezone,
+        jitter=120,
+    )
+    monkeypatch.setattr(
+        "apscheduler.triggers.base.random.uniform", Mock(return_value=90)
+    )
+    now = datetime(2026, 1, 1, tzinfo=timezone)
+    previous_fire_time = trigger.get_next_fire_time(None, now)
+    assert previous_fire_time.isoformat() == "2026-01-02T00:00:30+01:00"
+
+    next_fire_time = trigger.get_next_fire_time(previous_fire_time, now)
+    assert next_fire_time.isoformat() == "2026-01-03T00:00:30+01:00"

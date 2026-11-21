@@ -30,6 +30,19 @@ APScheduler, see the :doc:`migration section <migration>`.
 - Fixed ``CronTrigger`` comparing ``end_date`` by wall time during a repeated DST hour,
   which could return expired fire times, reject eligible ones or unnecessarily cap jitter
   (`#1207 <https://github.com/agronholm/apscheduler/issues/1207>`_; PR by @Vmnebula)
+- Fixed ``CronTrigger`` skipping a fire time when moving to the next day, month or year
+  crossed a forward DST shift (for example, a daily job at midnight skipping the day
+  after the shift)
+- Fixed ``CronTrigger`` skipping a day when it arrived at a wall time inside a DST gap
+  by incrementing a field (as with midnight shifts, like in Africa/Cairo), and returning
+  non-existent wall times when a field was set to such a time
+- Fixed ``AndTrigger`` and ``OrTrigger`` comparing fire times by wall time during a
+  repeated DST hour, which could make ``OrTrigger`` skip a fire time and ``AndTrigger``
+  hang or return a time an hour too early
+- Fixed ``CalendarIntervalTrigger`` returning past fire times when no previous fire time
+  was given, using the wrong date when the previous fire time was in a different time
+  zone or had been moved past midnight by jitter, and defaulting ``start_date`` to the
+  current date in the local time zone instead of the trigger's time zone
 
 **3.11.3**
 
