@@ -192,10 +192,7 @@ class CronTrigger(BaseTrigger):
                     values[field.name] = value + 1
                     i += 1
 
-        # Adding the wall clock difference as elapsed time moves into the repeated hour on a
-        # backward DST shift, but overshoots the target when a forward shift lies between the
-        # two, so take whichever comes first. A target inside a DST gap is kept as is, like in
-        # _set_field_value(), so that the fields still match it.
+        # Elapsed time repeats the hour of a backward DST shift but overshoots a forward one
         difference = datetime(**values) - dateval.replace(tzinfo=None)
         elapsed = datetime_utc_add(dateval, difference)
         target = datetime(**values, tzinfo=self.timezone)
