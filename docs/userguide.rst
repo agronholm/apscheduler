@@ -447,6 +447,12 @@ different constants together. The listener callable is called with one argument,
 See the documentation for the :mod:`~apscheduler.events` module for specifics on the available
 events and their attributes.
 
+For jobs run by the built-in executors, the scheduler finishes notifying submission
+listeners of ``EVENT_JOB_SUBMITTED`` before dispatching the corresponding
+``EVENT_JOB_EXECUTED``, ``EVENT_JOB_ERROR`` or ``EVENT_JOB_MISSED`` event. This orders
+notifications, not the start of the job itself; a fast job may already have finished
+when its submission listeners run.
+
 Example::
 
     def my_listener(event):
