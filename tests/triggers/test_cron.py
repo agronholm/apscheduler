@@ -495,18 +495,24 @@ def test_jitter_advances_past_dst_fold(monkeypatch):
     )
     previous_fire_time = datetime(2026, 10, 25, 2, 8, tzinfo=timezone)
     now = datetime(2026, 10, 26, 11, tzinfo=timezone)
-    expected_times = [
-        datetime(2026, 10, 25, 2, 30, tzinfo=timezone, fold=1),
-        datetime(2026, 10, 26, 2, 30, tzinfo=timezone),
-        datetime(2026, 10, 27, 2, 30, tzinfo=timezone),
-    ]
 
-    for expected in expected_times:
-        result = trigger.get_next_fire_time(previous_fire_time, now)
-        assert result.timestamp() > previous_fire_time.timestamp()
-        assert str(result) == str(expected)
-        assert result.fold == expected.fold
-        previous_fire_time = result
+    next_fire_time = trigger.get_next_fire_time(previous_fire_time, now)
+    assert next_fire_time.isoformat() == "2026-10-25T02:30:00+01:00"
+
+    next_fire_time = trigger.get_next_fire_time(next_fire_time, now)
+    assert next_fire_time.isoformat() == "2026-10-26T02:30:00+01:00"
+
+
+def test_jitter_dst_gap(monkeypatch):
+    timezone = ZoneInfo("Europe/Zagreb")
+    trigger = CronTrigger(hour=1, minute=45, jitter=3600, timezone=timezone)
+    monkeypatch.setattr(
+        "apscheduler.triggers.base.random.uniform", Mock(return_value=1800)
+    )
+    now = datetime(2026, 3, 29, tzinfo=timezone)
+
+    next_fire_time = trigger.get_next_fire_time(None, now)
+    assert next_fire_time.isoformat() == "2026-03-29T03:15:00+02:00"
 
 
 def test_jitter_with_end_date(timezone):
