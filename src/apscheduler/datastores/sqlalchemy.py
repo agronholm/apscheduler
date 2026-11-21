@@ -792,12 +792,33 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             )
                             update_events.append(event)
 
-                    # Remove schedules that failed to serialize
+                    # Remove schedules that failed to serialize, but only while
+                    # they still belong to the releasing scheduler.
                     if finished_schedule_ids:
-                        delete = self._t_schedules.delete().where(
-                            self._t_schedules.c.id.in_(finished_schedule_ids)
+                        condition = and_(
+                            self._t_schedules.c.id.in_(finished_schedule_ids),
+                            self._t_schedules.c.acquired_by == scheduler_id,
                         )
-                        await self._execute(conn, delete)
+                        delete = self._t_schedules.delete().where(condition)
+                        if self._supports_update_returning:
+                            delete_returning = delete.returning(self._t_schedules.c.id)
+                            finished_schedule_ids = list(
+                                (await self._execute(conn, delete_returning)).scalars()
+                            )
+                        else:
+                            # Keep ownership stable between selection and deletion.
+                            query = (
+                                select(self._t_schedules.c.id)
+                                .where(condition)
+                                .with_for_update()
+                            )
+                            finished_schedule_ids = list(
+                                (await self._execute(conn, query)).scalars()
+                            )
+                            delete = delete.where(
+                                self._t_schedules.c.id.in_(finished_schedule_ids)
+                            )
+                            await self._execute(conn, delete)
 
         for event in update_events:
             await self._event_broker.publish(event)
