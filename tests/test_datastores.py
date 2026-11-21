@@ -27,6 +27,7 @@ from apscheduler import (
     ScheduleAdded,
     ScheduleRemoved,
     ScheduleUpdated,
+    SerializationError,
     Task,
     TaskAdded,
     TaskLookupError,
@@ -303,6 +304,109 @@ async def test_acquire_release_schedules(
     assert received_event.next_fire_time == datetime(2020, 9, 15, tzinfo=UTC)
 
     assert not events
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
+@pytest.mark.parametrize("release_current_first", [False, True])
+@pytest.mark.parametrize("supports_returning", [False, True])
+@pytest.mark.parametrize("stale_first", [False, True])
+async def test_serialization_failure_preserves_reassigned_schedule(
+    datastore: DataStore,
+    time_machine: TimeMachineFixture,
+    release_current_first: bool,
+    supports_returning: bool,
+    stale_first: bool,
+) -> None:
+    if not isinstance(datastore, SQLAlchemyDataStore):
+        pytest.skip("SQLAlchemy serialization cleanup regression")
+    if supports_returning and not datastore._supports_update_returning:
+        pytest.skip("This dialect does not support DELETE RETURNING")
+    datastore._supports_update_returning = supports_returning
+    now = datetime(2020, 9, 14, tzinfo=UTC)
+    time_machine.move_to(now, tick=False)
+    for i, schedule_id in enumerate(("s1", "s2")):
+        trigger = DateTrigger(now + timedelta(seconds=i - 2))
+        next_fire_time = trigger.next()
+        assert next_fire_time is not None
+        schedule = Schedule(
+            id=schedule_id,
+            task_id="task1",
+            job_executor="async",
+            trigger=trigger,
+            next_fire_time=next_fire_time,
+        )
+        await datastore.add_schedule(schedule, ConflictPolicy.exception)
+    acquired = await datastore.acquire_schedules("scheduler1", timedelta(seconds=30), 2)
+    results = [
+        ScheduleResult(
+            schedule_id=s.id,
+            task_id=s.task_id,
+            trigger=s.trigger,
+            last_fire_time=now,
+            next_fire_time=None,
+        )
+        for s in acquired
+    ]
+    assert [r.schedule_id for r in results] == ["s1", "s2"]
+    time_machine.shift(31)
+    reacquired = await datastore.acquire_schedules(
+        "scheduler2", timedelta(seconds=30), 1
+    )
+    assert [s.id for s in reacquired] == ["s1"]
+    if release_current_first:
+        await datastore.release_schedules(
+            "scheduler2",
+            [
+                ScheduleResult(
+                    schedule_id="s1",
+                    task_id="task1",
+                    trigger=reacquired[0].trigger,
+                    last_fire_time=now + timedelta(seconds=31),
+                    next_fire_time=None,
+                )
+            ],
+        )
+    before = (await datastore.get_schedules({"s1"}))[0]
+    original_serializer = datastore.serializer
+    datastore.serializer = Mock(Serializer)
+    datastore.serializer.serialize.side_effect = SerializationError
+    events: list[ScheduleRemoved] = []
+    with datastore._event_broker.subscribe(events.append, {ScheduleRemoved}):
+        try:
+            await datastore.release_schedules(
+                "scheduler1", results if stale_first else list(reversed(results))
+            )
+        finally:
+            datastore.serializer = original_serializer
+        remaining = await datastore.get_schedules()
+        assert [s.id for s in remaining] == ["s1"]
+        after = remaining[0]
+        assert after.acquired_by == before.acquired_by
+        assert after.acquired_until == before.acquired_until
+        assert after.next_fire_time == before.next_fire_time
+        assert after.last_fire_time == before.last_fire_time
+        await anyio.wait_all_tasks_blocked()
+    assert [event.schedule_id for event in events] == ["s2"]
+    assert events[0].finished is True
+
+    if not release_current_first:
+        # The actual owner can still persist its result after the stale failure.
+        current_result = ScheduleResult(
+            schedule_id="s1",
+            task_id="task1",
+            trigger=reacquired[0].trigger,
+            last_fire_time=now + timedelta(seconds=31),
+            next_fire_time=None,
+        )
+        await datastore.release_schedules("scheduler2", [current_result])
+        stored = (await datastore.get_schedules({"s1"}))[0]
+        assert stored.acquired_by is None
+        assert stored.acquired_until is None
+        assert stored.last_fire_time == current_result.last_fire_time
+        assert stored.next_fire_time is None
 
 
 async def test_release_schedule_two_identical_fire_times(datastore: DataStore) -> None:
