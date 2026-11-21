@@ -1,5 +1,14 @@
+from datetime import timezone
+
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import obj_to_ref, ref_to_obj
+
+UTC = timezone.utc
+
+
+def _instant(dateval):
+    # Datetimes sharing a tzinfo compare by wall time, ignoring fold
+    return dateval.astimezone(UTC)
 
 
 class BaseCombiningTrigger(BaseTrigger):
@@ -73,10 +82,12 @@ class AndTrigger(BaseCombiningTrigger):
             ]
             if None in fire_times:
                 return None
-            elif min(fire_times) == max(fire_times):
+
+            latest = max(fire_times, key=_instant)
+            if _instant(min(fire_times, key=_instant)) == _instant(latest):
                 return self._apply_jitter(fire_times[0], self.jitter, now)
             else:
-                now = max(fire_times)
+                now = latest
 
     def __str__(self):
         return "and[{}]".format(", ".join(str(trigger) for trigger in self.triggers))
@@ -106,7 +117,7 @@ class OrTrigger(BaseCombiningTrigger):
         ]
         fire_times = [fire_time for fire_time in fire_times if fire_time is not None]
         if fire_times:
-            return self._apply_jitter(min(fire_times), self.jitter, now)
+            return self._apply_jitter(min(fire_times, key=_instant), self.jitter, now)
         else:
             return None
 

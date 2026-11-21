@@ -584,3 +584,75 @@ def test_invalid_ranges(values, expected):
 def test_from_crontab(expr, expected_repr, timezone):
     trigger = CronTrigger.from_crontab(expr, timezone)
     assert repr(trigger) == expected_repr
+
+
+@pytest.mark.parametrize(
+    "zone, trigger_args, now, expected",
+    [
+        (
+            "Europe/Berlin",
+            {"hour": 0},
+            datetime(2026, 3, 29, 0, 0, 1),
+            "2026-03-30T00:00:00+02:00",
+        ),
+        (
+            "America/New_York",
+            {"hour": 0, "minute": 30},
+            datetime(2026, 3, 8, 0, 30, 1),
+            "2026-03-09T00:30:00-04:00",
+        ),
+        (
+            "Europe/Berlin",
+            {"day": 1},
+            datetime(2026, 3, 20, 12),
+            "2026-04-01T00:00:00+02:00",
+        ),
+        (
+            "Australia/Sydney",
+            {"month": 1, "day": 1},
+            datetime(2026, 8, 15),
+            "2027-01-01T00:00:00+11:00",
+        ),
+    ],
+    ids=["day", "day-minute", "month", "year"],
+)
+def test_increment_across_dst_gap(zone, trigger_args, now, expected):
+    """
+    Incrementing a field across a forward DST shift must not overshoot the target wall time
+    and thus skip it.
+
+    """
+    timezone = ZoneInfo(zone)
+    trigger = CronTrigger(timezone=timezone, **trigger_args)
+    next_fire_time = trigger.get_next_fire_time(None, now.replace(tzinfo=timezone))
+    assert next_fire_time.isoformat() == expected
+
+
+@pytest.mark.parametrize(
+    "zone, trigger_args, now, expected",
+    [
+        (
+            "Europe/Berlin",
+            {"hour": 2, "minute": 30},
+            datetime(2026, 3, 28, 12),
+            "2026-03-29T03:30:00+02:00",
+        ),
+        (
+            "Africa/Cairo",
+            {"hour": 0, "minute": 15},
+            datetime(2023, 4, 27, 12),
+            "2023-04-28T01:15:00+03:00",
+        ),
+    ],
+    ids=["field-set", "field-incremented"],
+)
+def test_wall_time_in_dst_gap(zone, trigger_args, now, expected):
+    """
+    A wall time inside a DST gap fires at the same instant regardless of how the trigger
+    arrived at that day, and is returned as an existing wall time.
+
+    """
+    timezone = ZoneInfo(zone)
+    trigger = CronTrigger(timezone=timezone, **trigger_args)
+    next_fire_time = trigger.get_next_fire_time(None, now.replace(tzinfo=timezone))
+    assert next_fire_time.isoformat() == expected

@@ -100,7 +100,7 @@ class CalendarIntervalTrigger(BaseTrigger):
         self.months = months
         self.weeks = weeks
         self.days = days
-        self.start_date = asdate(start_date) or date.today()
+        self.start_date = asdate(start_date) or datetime.now(self.timezone).date()
         self.end_date = asdate(end_date)
         self.jitter = jitter
         self._time = time(hour, minute, second, tzinfo=self.timezone)
@@ -114,15 +114,25 @@ class CalendarIntervalTrigger(BaseTrigger):
     def get_next_fire_time(
         self, previous_fire_time: datetime | None, now: datetime
     ) -> datetime | None:
+        previous_date: date | None = None
+        if previous_fire_time:
+            previous_fire_time = previous_fire_time.astimezone(self.timezone)
+            previous_date = previous_fire_time.date()
+            if self.jitter and previous_fire_time.time() < self._time.replace(
+                tzinfo=None
+            ):
+                # The jitter carried the previous fire time past midnight
+                previous_date -= timedelta(days=1)
+
         while True:
-            if previous_fire_time:
-                year, month = previous_fire_time.year, previous_fire_time.month
+            if previous_date:
+                year, month = previous_date.year, previous_date.month
                 while True:
                     month += self.months
                     year += self.years + (month - 1) // 12
                     month = (month - 1) % 12 + 1
                     try:
-                        next_date = date(year, month, previous_fire_time.day)
+                        next_date = date(year, month, previous_date.day)
                     except ValueError:
                         pass  # Nonexistent date
                     else:
@@ -141,7 +151,10 @@ class CalendarIntervalTrigger(BaseTrigger):
 
             # Check if the time is off due to normalization and a forward DST shift
             if next_time.timetz() != self._time:
-                previous_fire_time = next_date
+                previous_date = next_date
+            # Without a previous fire time, skip the fire times that are already past
+            elif previous_fire_time is None and next_time.timestamp() < now.timestamp():
+                previous_date = next_date
             else:
                 return self._apply_jitter(next_time, self.jitter, now)
 

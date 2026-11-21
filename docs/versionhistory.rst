@@ -22,6 +22,19 @@ APScheduler, see the :doc:`migration section <migration>`.
   a wall time inside a DST gap that equals the first wall time after it, as with a
   30-minute shift (America/Caracas in 2016, Australia/Lord_Howe)
   (`#1200 <https://github.com/agronholm/apscheduler/issues/1200>`_; PR by @kushaldave002)
+- Fixed ``CronTrigger`` skipping a fire time when moving to the next day, month or year
+  crossed a forward DST shift (for example, a daily job at midnight skipping the day
+  after the shift)
+- Fixed ``CronTrigger`` skipping a day when it arrived at a wall time inside a DST gap
+  by incrementing a field (as with midnight shifts, like in Africa/Cairo), and returning
+  non-existent wall times when a field was set to such a time
+- Fixed ``AndTrigger`` and ``OrTrigger`` comparing fire times by wall time during a
+  repeated DST hour, which could make ``OrTrigger`` skip a fire time and ``AndTrigger``
+  hang or return a time an hour too early
+- Fixed ``CalendarIntervalTrigger`` returning past fire times when no previous fire time
+  was given, using the wrong date when the previous fire time was in a different time
+  zone or had been moved past midnight by jitter, and defaulting ``start_date`` to the
+  current date in the local time zone instead of the trigger's time zone
 - Fixed trigger jitter being applied as wall-clock time instead of elapsed time, which
   could move fire times backwards during a DST fall-back transition (making
   ``CronTrigger`` jobs loop indefinitely) or onto non-existent times during a
