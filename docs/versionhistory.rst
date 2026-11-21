@@ -6,6 +6,10 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Fixed the SQLAlchemy data store deleting a reassigned schedule when a stale
+  scheduler cannot serialize its trigger during release
+  (`#1210 <https://github.com/agronholm/apscheduler/pull/1210>`_; PR by @anishpentyala)
+
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
