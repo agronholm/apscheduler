@@ -77,7 +77,7 @@ class TestAndTrigger:
         "other_trigger, now",
         [
             (
-                CronTrigger(minute="15,50", timezone="Europe/Berlin"),
+                CronTrigger(minute="15,50", timezone=ZoneInfo("Europe/Berlin")),
                 datetime(2026, 10, 25, 2, 45),
             ),
             (
