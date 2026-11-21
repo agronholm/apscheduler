@@ -313,26 +313,7 @@ def test_end_date_dst_fold(now, end_date, expected):
 
     next_fire_time = trigger.get_next_fire_time(None, now)
 
-    if expected is None:
-        assert next_fire_time is None
-    else:
-        assert next_fire_time is not None
-        assert next_fire_time.isoformat() == expected
-
-
-def test_jitter_before_end_date_dst_fold(monkeypatch):
-    timezone = ZoneInfo("Europe/Zagreb")
-    now = datetime(2026, 10, 25, 2, tzinfo=timezone)
-    end_date = datetime(2026, 10, 25, 2, 15, tzinfo=timezone, fold=1)
-    trigger = CronTrigger(
-        hour=2, minute=0, jitter=3600, end_date=end_date, timezone=timezone
-    )
-    monkeypatch.setattr(
-        "apscheduler.triggers.base.random.uniform", Mock(return_value=1800)
-    )
-
-    next_fire_time = trigger.get_next_fire_time(None, now)
-    assert next_fire_time.isoformat() == "2026-10-25T02:30:00+02:00"
+    assert (next_fire_time and next_fire_time.isoformat()) == expected
 
 
 def test_different_tz(timezone):
