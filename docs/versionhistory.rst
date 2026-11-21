@@ -22,6 +22,14 @@ APScheduler, see the :doc:`migration section <migration>`.
   a wall time inside a DST gap that equals the first wall time after it, as with a
   30-minute shift (America/Caracas in 2016, Australia/Lord_Howe)
   (`#1200 <https://github.com/agronholm/apscheduler/issues/1200>`_; PR by @kushaldave002)
+- Fixed trigger jitter being applied as wall-clock time instead of elapsed time, which
+  could move fire times backwards during a DST fall-back transition (making
+  ``CronTrigger`` jobs loop indefinitely) or onto non-existent times during a
+  spring-forward transition
+  (`#1183 <https://github.com/agronholm/apscheduler/issues/1183>`_; PR by @Vmnebula)
+- Fixed ``CronTrigger`` comparing ``end_date`` by wall time during a repeated DST hour,
+  which could return expired fire times, reject eligible ones or unnecessarily cap jitter
+  (`#1207 <https://github.com/agronholm/apscheduler/issues/1207>`_; PR by @Vmnebula)
 - Fixed ``CronTrigger`` skipping a fire time when moving to the next day, month or year
   crossed a forward DST shift (for example, a daily job at midnight skipping the day
   after the shift)
@@ -35,14 +43,6 @@ APScheduler, see the :doc:`migration section <migration>`.
   was given, using the wrong date when the previous fire time was in a different time
   zone or had been moved past midnight by jitter, and defaulting ``start_date`` to the
   current date in the local time zone instead of the trigger's time zone
-- Fixed trigger jitter being applied as wall-clock time instead of elapsed time, which
-  could move fire times backwards during a DST fall-back transition (making
-  ``CronTrigger`` jobs loop indefinitely) or onto non-existent times during a
-  spring-forward transition
-  (`#1183 <https://github.com/agronholm/apscheduler/issues/1183>`_; PR by @Vmnebula)
-- Fixed ``CronTrigger`` comparing ``end_date`` by wall time during a repeated DST hour,
-  which could return expired fire times, reject eligible ones or unnecessarily cap jitter
-  (`#1207 <https://github.com/agronholm/apscheduler/issues/1207>`_; PR by @Vmnebula)
 
 **3.11.3**
 
