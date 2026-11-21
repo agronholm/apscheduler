@@ -428,8 +428,6 @@ class MongoDBDataStore(BaseExternalDataStore):
     async def release_schedules(
         self, scheduler_id: str, results: Sequence[ScheduleResult]
     ) -> None:
-        updated_schedules: list[tuple[str, datetime | None]] = []
-        finished_schedule_ids: list[str] = []
         task_ids = {result.schedule_id: result.task_id for result in results}
 
         # A schedule may have been removed (e.g. from a JobReleased event handler)
@@ -439,54 +437,57 @@ class MongoDBDataStore(BaseExternalDataStore):
         # updated.
         async for attempt in self._retry():
             with attempt:
-                async with (
-                    self._client.start_session() as lookup_session,
-                    self._schedules.find(
-                        {
-                            "_id": {"$in": [result.schedule_id for result in results]},
-                            "acquired_by": scheduler_id,
-                        },
-                        projection=["_id"],
-                        session=lookup_session,
-                    ) as cursor,
-                ):
+                updated_schedules: list[tuple[str, datetime | None]] = []
+                finished_schedule_ids: list[str] = []
+
+                async with self._schedules.find(
+                    {
+                        "_id": {"$in": [result.schedule_id for result in results]},
+                        "acquired_by": scheduler_id,
+                    },
+                    projection=["_id"],
+                ) as cursor:
                     existing_ids = {doc["_id"] async for doc in cursor}
 
-        requests: list[UpdateOne | DeleteOne] = []
-        for result in results:
-            if result.schedule_id not in existing_ids:
-                continue
+                requests: list[UpdateOne | DeleteOne] = []
+                for result in results:
+                    if result.schedule_id not in existing_ids:
+                        continue
 
-            filters = {"_id": result.schedule_id, "acquired_by": scheduler_id}
-            try:
-                serialized_trigger = self.serializer.serialize(result.trigger)
-            except SerializationError:
-                self._logger.exception(
-                    "Error serializing schedule %r – removing from data store",
-                    result.schedule_id,
-                )
-                requests.append(DeleteOne(filters))
-                finished_schedule_ids.append(result.schedule_id)
-                continue
+                    filters = {"_id": result.schedule_id, "acquired_by": scheduler_id}
+                    try:
+                        serialized_trigger = self.serializer.serialize(result.trigger)
+                    except SerializationError:
+                        self._logger.exception(
+                            "Error serializing schedule %r – removing from data store",
+                            result.schedule_id,
+                        )
+                        requests.append(DeleteOne(filters))
+                        finished_schedule_ids.append(result.schedule_id)
+                        continue
 
-            update = {
-                "$unset": {
-                    "acquired_by": True,
-                    "acquired_until": True,
-                    "acquired_until_utcoffset": True,
-                },
-                "$set": {
-                    "trigger": serialized_trigger,
-                    **marshal_timestamp(result.last_fire_time, "last_fire_time"),
-                    **marshal_timestamp(result.next_fire_time, "next_fire_time"),
-                },
-            }
-            requests.append(UpdateOne(filters, update))
-            updated_schedules.append((result.schedule_id, result.next_fire_time))
+                    update = {
+                        "$unset": {
+                            "acquired_by": True,
+                            "acquired_until": True,
+                            "acquired_until_utcoffset": True,
+                        },
+                        "$set": {
+                            "trigger": serialized_trigger,
+                            **marshal_timestamp(
+                                result.last_fire_time, "last_fire_time"
+                            ),
+                            **marshal_timestamp(
+                                result.next_fire_time, "next_fire_time"
+                            ),
+                        },
+                    }
+                    requests.append(UpdateOne(filters, update))
+                    updated_schedules.append(
+                        (result.schedule_id, result.next_fire_time)
+                    )
 
-        if requests:
-            async for attempt in self._retry():
-                with attempt:
+                if requests:
                     async with self._client.start_session() as session:
                         await self._schedules.bulk_write(
                             requests, ordered=False, session=session
