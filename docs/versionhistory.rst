@@ -6,9 +6,6 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
-- Fixed jitter moving fire times backwards during a DST fall-back transition,
-  which could cause ``CronTrigger`` jobs to loop indefinitely
-  (`#1183 <https://github.com/agronholm/apscheduler/issues/1183>`_; PR by @Vmnebula)
 - Fixed ``AsyncIOScheduler`` permanently stopping the processing of jobs if
   ``_process_jobs()`` raised an exception, as the wakeup timer was then never rearmed
   (`#1132 <https://github.com/agronholm/apscheduler/pull/1132>`_; PR by @sundasnoreen-sr)
@@ -25,6 +22,9 @@ APScheduler, see the :doc:`migration section <migration>`.
   a wall time inside a DST gap that equals the first wall time after it, as with a
   30-minute shift (America/Caracas in 2016, Australia/Lord_Howe)
   (`#1200 <https://github.com/agronholm/apscheduler/issues/1200>`_; PR by @kushaldave002)
+- Fixed jitter moving fire times backwards during a DST fall-back transition,
+  which could cause ``CronTrigger`` jobs to loop indefinitely
+  (`#1183 <https://github.com/agronholm/apscheduler/issues/1183>`_; PR by @Vmnebula)
 
 **3.11.3**
 
