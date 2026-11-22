@@ -13,6 +13,14 @@ def test_invalid_expression():
     exc.match("Unrecognized expression '2009-fault' for field 'year'")
 
 
+@pytest.mark.parametrize("expr", ["last", "1st mon"])
+@pytest.mark.parametrize("template", ["!{}", "{}!"], ids=["leading", "trailing"])
+def test_invalid_day_expression(expr, template):
+    expr = template.format(expr)
+    exc = pytest.raises(ValueError, CronTrigger, day=expr)
+    exc.match(f"Unrecognized expression {expr!r} for field 'day'")
+
+
 def test_invalid_step():
     exc = pytest.raises(ValueError, CronTrigger, year="2009/0")
     exc.match("step must be positive, got: 0")
@@ -402,7 +410,7 @@ def test_dst_change(
     datetime comparison which would test for equality in the UTC timezone.
 
     """
-    timezone = ZoneInfo("US/Eastern")
+    timezone = ZoneInfo("America/New_York")
     start_time = start_time.replace(tzinfo=timezone, fold=start_time_fold)
     trigger = CronTrigger(timezone=timezone, start_time=start_time, **trigger_args)
     if serializer:
