@@ -227,7 +227,7 @@ async def asyncpg_store() -> AsyncGenerator[DataStore, None]:
     from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 
     # Workaround for AnyIO 4.0.0rc1 compatibility
-    async def patched_wait_for(fut, timeout):
+    async def patched_wait_for(fut, timeout):  # noqa: ASYNC109
         import asyncio
 
         if timeout is None:

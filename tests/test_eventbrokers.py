@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import sys
 from contextlib import AsyncExitStack
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from logging import Logger
 
 import pytest
@@ -11,11 +10,6 @@ from anyio import CancelScope, create_memory_object_stream, fail_after
 
 from apscheduler import Event, ScheduleAdded
 from apscheduler.abc import EventBroker
-
-if sys.version_info >= (3, 11):
-    from datetime import UTC
-else:
-    UTC = timezone.utc
 
 pytestmark = pytest.mark.anyio
 
@@ -42,6 +36,31 @@ async def test_publish_subscribe(event_broker: EventBroker) -> None:
     assert event1.schedule_id == "schedule1"
     assert event1.task_id == "task1"
     assert event1.next_fire_time == datetime(2021, 9, 11, 12, 31, 56, 254867, UTC)
+
+
+@pytest.mark.parametrize("callback_type", ["function", "callable_object"])
+async def test_subscribe_coroutine_function(
+    event_broker: EventBroker, callback_type: str
+) -> None:
+    send, receive = create_memory_object_stream[Event](1)
+
+    async def callback(event: Event) -> None:
+        await send.send(event)
+
+    class AsyncCallable:
+        async def __call__(self, event: Event) -> None:
+            await send.send(event)
+
+    with send, receive:
+        if callback_type == "callable_object":
+            event_broker.subscribe(AsyncCallable(), is_async=False)
+        else:
+            event_broker.subscribe(callback, is_async=False)
+        event = Event()
+        await event_broker.publish(event)
+
+        with fail_after(10):
+            assert await receive.receive() == event
 
 
 async def test_subscribe_one_shot(event_broker: EventBroker) -> None:

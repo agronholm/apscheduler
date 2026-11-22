@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import date, datetime, timedelta, timezone, tzinfo
+from datetime import UTC, date, datetime, timedelta, tzinfo
 from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -45,7 +45,7 @@ def as_date(value: date | str) -> date:
 def as_timezone(value: tzinfo | str) -> tzinfo:
     if isinstance(value, str):
         return get_localzone() if value == "local" else ZoneInfo(value)
-    elif value is timezone.utc:
+    elif value is UTC:
         return ZoneInfo("UTC")
 
     return value

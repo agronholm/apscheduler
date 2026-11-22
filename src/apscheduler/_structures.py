@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import Any, TypeAlias
 from uuid import UUID, uuid4
@@ -310,7 +310,7 @@ class Job:
     metadata: MetadataType = attrs.field(validator=valid_metadata, factory=dict)
     created_at: datetime = attrs.field(
         converter=as_aware_datetime,
-        factory=partial(datetime.now, timezone.utc),
+        factory=partial(datetime.now, UTC),
         on_setattr=frozen,
     )
     acquired_by: str | None = attrs.field(default=None, repr=False)
@@ -393,7 +393,7 @@ class JobResult:
         exception: BaseException | None = None,
         return_value: Any = None,
     ) -> JobResult:
-        real_finished_at = finished_at or datetime.now(timezone.utc)
+        real_finished_at = finished_at or datetime.now(UTC)
         expires_at = real_finished_at + job.result_expiration_time
         return cls(
             job_id=job.id,

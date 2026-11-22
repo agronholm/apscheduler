@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import partial
 from traceback import format_tb
 from typing import Any, TypeVar
@@ -26,7 +26,7 @@ class Event:
     """
 
     timestamp: datetime = attrs.field(
-        factory=partial(datetime.now, timezone.utc), converter=as_aware_datetime
+        factory=partial(datetime.now, UTC), converter=as_aware_datetime
     )
 
     def marshal(self) -> dict[str, Any]:
