@@ -5,7 +5,13 @@ from enum import Enum
 from typing import Any
 
 import attrs
-from cbor2 import CBOREncoder, CBOREncodeTypeError, dumps, loads
+
+try:
+    from cbor2 import CBOREncoder, CBOREncodeTypeError, dumps, loads
+except ModuleNotFoundError as exc:
+    if exc.name == "cbor2":
+        exc.add_note("Install the cbor extra: pip install 'apscheduler[cbor]'")
+    raise
 
 from .. import DeserializationError, SerializationError
 from .._marshalling import marshal_object, marshal_timezone, unmarshal_object

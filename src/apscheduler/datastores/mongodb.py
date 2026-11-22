@@ -14,7 +14,14 @@ from typing import Any, ClassVar, TypeVar, cast
 from uuid import UUID
 
 import attrs
-import pymongo
+
+try:
+    import pymongo
+except ModuleNotFoundError as exc:
+    if exc.name == "pymongo":
+        exc.add_note("Install the mongodb extra: pip install 'apscheduler[mongodb]'")
+    raise
+
 from attrs.validators import instance_of
 from bson import CodecOptions, UuidRepresentation
 from bson.codec_options import TypeEncoder, TypeRegistry
