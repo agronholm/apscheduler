@@ -14,7 +14,13 @@ from anyio import (
 from anyio.abc import TaskStatus
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from attr.validators import instance_of
-from psycopg import AsyncConnection, InterfaceError
+
+try:
+    from psycopg import AsyncConnection, InterfaceError
+except ModuleNotFoundError as exc:
+    if exc.name == "psycopg":
+        exc.add_note("Install the psycopg extra: pip install 'apscheduler[psycopg]'")
+    raise
 
 from .._events import Event
 from .._exceptions import SerializationError

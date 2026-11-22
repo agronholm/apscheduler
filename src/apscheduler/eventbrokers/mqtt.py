@@ -11,7 +11,14 @@ import attrs
 from anyio import to_thread
 from anyio.from_thread import BlockingPortal
 from attr.validators import in_, instance_of, optional
-from paho.mqtt.client import Client, MQTTMessage
+
+try:
+    from paho.mqtt.client import Client, MQTTMessage
+except ModuleNotFoundError as exc:
+    if exc.name in ("paho", "paho.mqtt"):
+        exc.add_note("Install the mqtt extra: pip install 'apscheduler[mqtt]'")
+    raise
+
 from paho.mqtt.enums import CallbackAPIVersion
 
 from .._events import Event

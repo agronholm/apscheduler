@@ -9,7 +9,14 @@ import attrs
 import tenacity
 from anyio import move_on_after
 from attr.validators import instance_of
-from redis import ConnectionError
+
+try:
+    from redis import ConnectionError
+except ModuleNotFoundError as exc:
+    if exc.name == "redis":
+        exc.add_note("Install the redis extra: pip install 'apscheduler[redis]'")
+    raise
+
 from redis.asyncio import Redis
 from redis.asyncio.client import PubSub
 from redis.asyncio.connection import ConnectionPool

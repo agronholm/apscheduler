@@ -5,7 +5,13 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from logging import Logger
 from typing import TYPE_CHECKING, Any
 
-import asyncpg
+try:
+    import asyncpg
+except ModuleNotFoundError as exc:
+    if exc.name == "asyncpg":
+        exc.add_note("Install the asyncpg extra: pip install 'apscheduler[asyncpg]'")
+    raise
+
 import attrs
 from anyio import (
     EndOfStream,
