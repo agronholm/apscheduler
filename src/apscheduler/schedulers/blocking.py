@@ -27,7 +27,11 @@ class BlockingScheduler(BaseScheduler):
         while self.state != STATE_STOPPED:
             self._event.wait(wait_seconds)
             self._event.clear()
-            wait_seconds = self._process_jobs()
+            try:
+                wait_seconds = self._process_jobs()
+            except Exception:
+                self._logger.exception("Error processing jobs")
+                wait_seconds = self.jobstore_retry_interval
 
     def wakeup(self):
         self._event.set()
