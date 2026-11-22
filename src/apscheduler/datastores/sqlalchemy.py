@@ -14,29 +14,38 @@ import attrs
 import tenacity
 from anyio import CancelScope, to_thread
 from attr.validators import instance_of
-from sqlalchemy import (
-    JSON,
-    BigInteger,
-    Boolean,
-    Column,
-    DateTime,
-    Enum,
-    Integer,
-    Interval,
-    LargeBinary,
-    MetaData,
-    SmallInteger,
-    Table,
-    TypeDecorator,
-    Unicode,
-    Uuid,
-    and_,
-    bindparam,
-    create_engine,
-    false,
-    or_,
-    select,
-)
+
+try:
+    from sqlalchemy import (
+        JSON,
+        BigInteger,
+        Boolean,
+        Column,
+        DateTime,
+        Enum,
+        Integer,
+        Interval,
+        LargeBinary,
+        MetaData,
+        SmallInteger,
+        Table,
+        TypeDecorator,
+        Unicode,
+        Uuid,
+        and_,
+        bindparam,
+        create_engine,
+        false,
+        or_,
+        select,
+    )
+except ModuleNotFoundError as exc:
+    if exc.name == "sqlalchemy":
+        exc.add_note(
+            "Install the sqlalchemy extra: pip install 'apscheduler[sqlalchemy]'"
+        )
+    raise
+
 from sqlalchemy.engine import URL, Dialect, Result
 from sqlalchemy.exc import (
     CompileError,
