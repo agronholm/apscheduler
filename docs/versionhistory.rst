@@ -6,6 +6,8 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Added installation hints to import errors for missing optional dependencies
+  (`#1007 <https://github.com/agronholm/apscheduler/issues/1007>`_; PR by @wozhenbang2004)
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+

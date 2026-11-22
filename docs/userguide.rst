@@ -34,6 +34,10 @@ separated list inside the brackets, like this::
 
     pip install apscheduler[psycopg,sqlalchemy]
 
+If a component's optional dependency is missing, its import traceback includes a note
+showing the extra to install. Import errors for other modules, including a dependency's
+own dependencies, retain their original traceback without this note.
+
 Code examples
 =============
 
