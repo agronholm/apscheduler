@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone, tzinfo
 from typing import NoReturn
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -14,7 +15,49 @@ from apscheduler import (
     JobReleased,
     SerializationError,
 )
+from apscheduler._marshalling import unmarshal_timezone
 from apscheduler.abc import Serializer
+from apscheduler.serializers.cbor import CBORSerializer
+from apscheduler.serializers.json import JSONSerializer
+
+
+@pytest.mark.parametrize(
+    "serializer_class", [JSONSerializer, CBORSerializer], ids=["json", "cbor"]
+)
+@pytest.mark.parametrize(
+    ("tz_value", "expected_name", "expected_offset"),
+    [
+        pytest.param(UTC, "UTC", timedelta(0), id="utc"),
+        pytest.param(
+            timezone(timedelta(hours=2)), "UTC+02:00", timedelta(hours=2), id="fixed+2"
+        ),
+        pytest.param(
+            timezone(timedelta(hours=-5, minutes=-30)),
+            "UTC-05:30",
+            timedelta(hours=-5, minutes=-30),
+            id="fixed-5:30",
+        ),
+    ],
+)
+def test_serialize_builtin_timezone(
+    serializer_class, tz_value: timezone, expected_name: str, expected_offset: timedelta
+) -> None:
+    serializer = serializer_class()
+    name = serializer.deserialize(serializer.serialize(tz_value))
+    assert name == expected_name
+
+    restored = unmarshal_timezone(name)
+    assert isinstance(restored, tzinfo)
+    assert restored.utcoffset(None) == expected_offset
+
+
+@pytest.mark.parametrize(
+    "serializer_class", [JSONSerializer, CBORSerializer], ids=["json", "cbor"]
+)
+def test_serialize_zoneinfo_timezone_unchanged(serializer_class) -> None:
+    serializer = serializer_class()
+    name = serializer.deserialize(serializer.serialize(ZoneInfo("Europe/Berlin")))
+    assert name == "Europe/Berlin"
 
 
 @pytest.mark.parametrize(
