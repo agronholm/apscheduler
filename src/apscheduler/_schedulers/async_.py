@@ -344,6 +344,7 @@ class AsyncScheduler:
         """
         func_ref: str | None = None
         task: Task | None = None
+        func_ref_from_task = False
         if callable(func_or_task_id):
             task_params = get_task_params(func_or_task_id)
             if task_params.id is unset:
@@ -353,6 +354,7 @@ class AsyncScheduler:
                 func = func_or_task_id
         elif isinstance(func_or_task_id, Task):
             func_ref = func_or_task_id.func
+            func_ref_from_task = True
             task_params = TaskParameters(
                 id=func_or_task_id.id,
                 job_executor=func_or_task_id.job_executor,
@@ -426,7 +428,7 @@ class AsyncScheduler:
             modified = True
         else:
             changes: dict[str, Any] = {}
-            if func is not unset and task.func != func_ref:
+            if (func is not unset or func_ref_from_task) and task.func != func_ref:
                 changes["func"] = func_ref
 
             if task_params.job_executor != task.job_executor:
