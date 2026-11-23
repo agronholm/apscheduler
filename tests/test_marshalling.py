@@ -7,7 +7,7 @@ from types import ModuleType
 
 import pytest
 
-from apscheduler import SerializationError
+from apscheduler import DeserializationError, SerializationError
 from apscheduler._marshalling import callable_from_ref, callable_to_ref
 
 
@@ -104,9 +104,26 @@ class TestCallableFromRef:
         assert callable_from_ref("pkg1.pkg2:varname") == pkg2.varname
 
     @pytest.mark.parametrize(
-        "input,error",
-        [(object(), TypeError), ("module", ValueError), ("module:blah", LookupError)],
+        "input,error,cause_type,message",
+        [
+            (object(), TypeError, None, None),
+            ("module", DeserializationError, None, "Invalid reference: module"),
+            (
+                "module:blah",
+                DeserializationError,
+                ImportError,
+                "Error resolving reference 'module:blah': could not import module",
+            ),
+        ],
         ids=["raw object", "module", "module attribute"],
     )
-    def test_lookup_error(self, input, error):
-        pytest.raises(error, callable_from_ref, input)
+    def test_lookup_error(self, input, error, cause_type, message):
+        with pytest.raises(error) as exc_info:
+            callable_from_ref(input)
+
+        if cause_type is None:
+            assert exc_info.value.__cause__ is None
+        else:
+            assert isinstance(exc_info.value.__cause__, cause_type)
+        if message is not None:
+            assert str(exc_info.value) == message

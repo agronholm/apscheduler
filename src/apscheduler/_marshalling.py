@@ -88,13 +88,13 @@ def callable_from_ref(ref: str) -> Callable:
 
     """
     if ":" not in ref:
-        raise ValueError(f"Invalid reference: {ref}")
+        raise DeserializationError(f"Invalid reference: {ref}")
 
     modulename, rest = ref.split(":", 1)
     try:
         obj = __import__(modulename, fromlist=[rest])
     except ImportError as exc:
-        raise LookupError(
+        raise DeserializationError(
             f"Error resolving reference {ref!r}: could not import module"
         ) from exc
 
