@@ -238,6 +238,37 @@ class TestAsyncScheduler:
             assert tasks[0].func == f"{__name__}:dummy_async_job"
             assert tasks[0].job_executor == "async"
 
+    async def test_configure_task_from_task_object_updates_func(self) -> None:
+        # When a Task object is used to update an existing task, the func reference
+        # carried by the object must be applied. The Task branch leaves `func` unset,
+        # so previously a changed reference was silently ignored.
+        old_ref = f"{__name__}:dummy_async_job"
+        new_ref = f"{__name__}:dummy_sync_job"
+        explicit_ref = f"{__name__}:decorated_job"
+
+        async with AsyncScheduler() as scheduler:
+            # Create-path control: a new task built from a Task object keeps its func.
+            await scheduler.configure_task(
+                Task(id="task_update", func=old_ref, job_executor="async")
+            )
+            assert (await scheduler.data_store.get_task("task_update")).func == old_ref
+
+            # Regression: update via a Task object carrying a different func ref.
+            await scheduler.configure_task(
+                Task(id="task_update", func=new_ref, job_executor="async")
+            )
+            assert (await scheduler.data_store.get_task("task_update")).func == new_ref
+
+            # Control: an explicit func= argument still takes precedence over the ref
+            # carried by the Task object.
+            await scheduler.configure_task(
+                Task(id="task_update", func=new_ref, job_executor="async"),
+                func=decorated_job,
+            )
+            assert (
+                await scheduler.data_store.get_task("task_update")
+            ).func == explicit_ref
+
     async def test_configure_task_with_decorator(self) -> None:
         async with AsyncScheduler() as scheduler:
             await scheduler.configure_task("taskfunc", func=decorated_job)
