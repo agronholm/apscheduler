@@ -398,8 +398,10 @@ triggers can::
     from apscheduler.triggers.cron import CronTrigger
 
     trigger = OrTrigger(
-        CronTrigger(day_of_week="mon-fri", hour=10),
-        CronTrigger(day_of_week="sat-sun", hour=11),
+        [
+            CronTrigger(day_of_week="mon-fri", hour=10),
+            CronTrigger(day_of_week="sat-sun", hour=11),
+        ]
     )
 
 On the first run, :class:`~triggers.combining.OrTrigger` generates the next
@@ -416,8 +418,10 @@ Another example would be a case where you want the task to be run every 2 months
     from apscheduler.triggers.cron import CronTrigger
 
     trigger = AndTrigger(
-        CalendarIntervalTrigger(months=2, hour=10),
-        CronTrigger(day_of_week="mon-fri", hour=10),
+        [
+            CalendarIntervalTrigger(months=2, hour=10),
+            CronTrigger(day_of_week="mon-fri", hour=10),
+        ]
     )
 
 On the first run, :class:`~triggers.combining.AndTrigger` generates the next
@@ -426,8 +430,8 @@ run times from both the
 :class:`~triggers.cron.CronTrigger`. If the run times coincide, it will
 return that run time. Otherwise, it will calculate a new run time from the trigger that
 produced the earliest run time. It will keep doing this until a match is found, one of
-the triggers has been exhausted or the maximum number of iterations (1000 by default) is
-reached.
+the triggers has been exhausted or the maximum number of iterations (10,000 by
+default) is reached.
 
 If this trigger is created on 2022-06-07 at 09:00:00, its first run times would be:
 
