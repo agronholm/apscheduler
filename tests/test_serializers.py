@@ -15,6 +15,7 @@ from apscheduler import (
     JobReleased,
     SerializationError,
 )
+from apscheduler._converters import as_timezone
 from apscheduler._marshalling import unmarshal_timezone
 from apscheduler.abc import Serializer
 from apscheduler.serializers.cbor import CBORSerializer
@@ -101,6 +102,29 @@ def test_serialization_error(serializer: Serializer) -> None:
         serializer.serialize(Unserializable())
 
     assert isinstance(exc.value.__cause__, ValueError)
+
+
+@pytest.mark.parametrize(
+    "serializer_class", [JSONSerializer, CBORSerializer], ids=["json", "cbor"]
+)
+@pytest.mark.parametrize(
+    "tz_value",
+    [
+        UTC,
+        timezone(timedelta(hours=2)),
+        timezone(timedelta(hours=-5, minutes=-30)),
+        ZoneInfo("Europe/Berlin"),
+    ],
+    ids=["utc", "fixed+2", "fixed-5:30", "zoneinfo"],
+)
+def test_timezone_roundtrip_through_as_timezone(serializer_class, tz_value) -> None:
+    # Triggers feed the serialized timezone name through as_timezone(); the
+    # marshalled fixed-offset form must survive that step too.
+    serializer = serializer_class()
+    name = serializer.deserialize(serializer.serialize(tz_value))
+
+    restored = as_timezone(name)
+    assert restored.utcoffset(None) == tz_value.utcoffset(None)
 
 
 @pytest.mark.parametrize(

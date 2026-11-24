@@ -8,6 +8,8 @@ from zoneinfo import ZoneInfo
 
 from tzlocal import get_localzone
 
+from ._marshalling import unmarshal_timezone
+
 
 def as_int(value: int | str) -> int:
     if isinstance(value, str):
@@ -44,8 +46,9 @@ def as_date(value: date | str) -> date:
 
 def as_timezone(value: tzinfo | str) -> tzinfo:
     if isinstance(value, str):
-        return get_localzone() if value == "local" else ZoneInfo(value)
-    elif value is UTC:
+        value = get_localzone() if value == "local" else unmarshal_timezone(value)
+
+    if value is UTC:
         return ZoneInfo("UTC")
 
     return value
