@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
-from datetime import tzinfo
+from datetime import UTC, timedelta, timezone, tzinfo
 from functools import partial
 from inspect import isclass, ismethod, ismethoddescriptor
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from ._exceptions import DeserializationError, SerializationError
+
+_FIXED_OFFSET_PATTERN = re.compile(
+    r"UTC(?P<sign>[+-])(?P<hours>\d{2}):(?P<minutes>\d{2})"
+)
 
 
 def marshal_object(obj) -> tuple[str, Any]:
@@ -27,19 +32,47 @@ def unmarshal_object(ref: str, state: Any) -> Any:
     return instance
 
 
+def _marshal_fixed_offset(value: timezone) -> str:
+    """Represent a :class:`datetime.timezone` by its UTC offset."""
+    offset = value.utcoffset(None)
+    if offset == timedelta(0):
+        return "UTC"
+
+    total_minutes = offset // timedelta(minutes=1)
+    if offset != total_minutes * timedelta(minutes=1):
+        raise SerializationError(
+            f"Cannot serialize time zone {value!r}: UTC offset must be a whole number "
+            f"of minutes"
+        )
+
+    sign = "+" if total_minutes > 0 else "-"
+    hours, minutes = divmod(abs(total_minutes), 60)
+    return f"UTC{sign}{hours:02d}:{minutes:02d}"
+
+
 def marshal_timezone(value: tzinfo) -> str:
     if isinstance(value, ZoneInfo):
         return value.key
-    elif hasattr(value, "zone"):  # pytz timezones
+    if hasattr(value, "zone"):  # pytz timezones
         return value.zone
+    if isinstance(value, timezone):
+        return _marshal_fixed_offset(value)
 
     raise SerializationError(
         f"Unserializable time zone: {value!r}\n"
-        f"Only time zones from the zoneinfo or pytz modules can be serialized."
+        f"Only time zones from the zoneinfo or pytz modules, and fixed-offset "
+        f"datetime.timezone instances, can be serialized."
     )
 
 
-def unmarshal_timezone(value: str) -> ZoneInfo:
+def unmarshal_timezone(value: str) -> tzinfo:
+    if value == "UTC":
+        return UTC
+
+    if match := _FIXED_OFFSET_PATTERN.fullmatch(value):
+        offset = timedelta(hours=int(match["hours"]), minutes=int(match["minutes"]))
+        return timezone(-offset if match["sign"] == "-" else offset)
+
     return ZoneInfo(value)
 
 
