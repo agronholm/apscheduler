@@ -6,6 +6,10 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Fixed ``EventBroker.subscribe()`` treating an empty ``event_types`` list as a
+  wildcard subscription, delivering every event instead of none
+  (`#1189 <https://github.com/agronholm/apscheduler/issues/1189>`_; PR by @draarivpatel-ui)
+
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
