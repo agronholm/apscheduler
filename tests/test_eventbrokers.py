@@ -38,6 +38,24 @@ async def test_publish_subscribe(event_broker: EventBroker) -> None:
     assert event1.next_fire_time == datetime(2021, 9, 11, 12, 31, 56, 254867, UTC)
 
 
+async def test_subscribe_empty_event_types(event_broker: EventBroker) -> None:
+    received: list[Event] = []
+    send, receive = create_memory_object_stream[Event](1)
+    with send, receive:
+        event_broker.subscribe(received.append, event_types=[])
+        event_broker.subscribe(send.send_nowait)
+        event = ScheduleAdded(
+            schedule_id="schedule1",
+            task_id="task1",
+            next_fire_time=datetime(2021, 9, 11, 12, 31, 56, 254867, UTC),
+        )
+        await event_broker.publish(event)
+        with fail_after(3):
+            assert await receive.receive() == event
+
+    assert received == []
+
+
 @pytest.mark.parametrize("callback_type", ["function", "callable_object"])
 async def test_subscribe_coroutine_function(
     event_broker: EventBroker, callback_type: str
