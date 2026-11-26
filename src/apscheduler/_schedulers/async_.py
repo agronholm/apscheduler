@@ -1191,9 +1191,7 @@ class AsyncScheduler:
                     job.id,
                     executor,
                 )
-                result = JobResult.from_job(
-                    job, JobOutcome.error, exception=exc
-                )
+                result = JobResult.from_job(job, JobOutcome.error, exception=exc)
                 await self.data_store.release_job(self.identity, job, result)
                 return
 
