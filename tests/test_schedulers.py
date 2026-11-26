@@ -567,6 +567,34 @@ class TestAsyncScheduler:
             with pytest.raises(WouldBlock):
                 scheduler_receive.receive_nowait()
 
+    async def test_unknown_job_executor(self, raw_datastore: DataStore) -> None:
+        """
+        Test that a job whose executor is not configured on the scheduler is released
+        with an error outcome instead of being silently dropped (which would leave it
+        acquired forever and make ``get_job_result()`` hang indefinitely).
+
+        """
+        send, receive = create_memory_object_stream[Event](2)
+        with send, receive:
+            async with AsyncScheduler(data_store=raw_datastore) as scheduler:
+                with scheduler.subscribe(send.send, {JobReleased}):
+                    await scheduler.add_job(
+                        dummy_async_job,
+                        job_executor="nonexistent",
+                        result_expiration_time=10,
+                    )
+                    await scheduler.start_in_background()
+                    with fail_after(3):
+                        event = await receive.receive()
+
+                assert isinstance(event, JobReleased)
+                assert event.outcome is JobOutcome.error
+                assert event.exception_type.endswith("KeyError")
+                assert event.started_at is None
+                result = await scheduler.get_job_result(event.job_id)
+                assert result.outcome is JobOutcome.error
+                assert isinstance(result.exception, KeyError)
+
     @pytest.mark.parametrize(
         "coalesce, expected_jobs, first_fire_time_delta",
         [

@@ -51,6 +51,11 @@ APScheduler, see the :doc:`migration section <migration>`.
   scheduler wake up past a deadline that had already passed and process schedules in a
   tight loop
   (`#1158 <https://github.com/agronholm/apscheduler/pull/1158>`_; PR by @feiiiiii5)
+- Fixed jobs whose executor is not configured on the scheduler being silently dropped
+  without a result, which left them acquired forever, made ``get_job_result()`` hang
+  indefinitely and caused them to be re-acquired (and dropped again) after every lease
+  expiry; such jobs are now released with an ``error`` outcome instead
+  (`#1219 <https://github.com/agronholm/apscheduler/issues/1219>`_)
 
 **4.0.0a6**
 

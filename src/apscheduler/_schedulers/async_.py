@@ -1184,7 +1184,15 @@ class AsyncScheduler:
 
             try:
                 job_executor = self.job_executors[executor]
-            except KeyError:
+            except KeyError as exc:
+                self.logger.error(
+                    "Job %s was discarded because the executor %r is not configured "
+                    "on this scheduler",
+                    job.id,
+                    executor,
+                )
+                result = JobResult.from_job(job, JobOutcome.error, exception=exc)
+                await self.data_store.release_job(self.identity, job, result)
                 return
 
             token = current_job.set(job)
