@@ -57,7 +57,7 @@ from apscheduler import (
     current_job,
     task,
 )
-from apscheduler.abc import DataStore
+from apscheduler.abc import DataStore, Trigger
 from apscheduler.datastores.base import BaseExternalDataStore
 from apscheduler.datastores.memory import MemoryDataStore
 from apscheduler.eventbrokers.local import LocalEventBroker
@@ -735,6 +735,77 @@ class TestAsyncScheduler:
                 assert jobs[0].jitter == timedelta(seconds=jitter)
                 assert jobs[0].scheduled_fire_time == now + timedelta(seconds=jitter)
                 assert jobs[0].original_scheduled_time == now
+
+    async def test_coalesced_jitter_uses_each_gap_cap(
+        self, mocker: MockerFixture, timezone: ZoneInfo, memory_store: DataStore
+    ) -> None:
+        now = datetime.now(timezone)
+        base = now - timedelta(seconds=2000)
+        fire_times = [
+            base,
+            base + timedelta(seconds=10),
+            base + timedelta(seconds=1000),
+        ]
+
+        class IrregularTrigger(Trigger):
+            def __init__(self) -> None:
+                self._fire_times = iter(fire_times)
+
+            def next(self) -> datetime | None:
+                return next(self._fire_times, None)
+
+            def __getstate__(self) -> Any:
+                return fire_times
+
+            def __setstate__(self, state: Any) -> None:
+                self._fire_times = iter(state)
+
+        # Return the upper bound verbatim so each job's jitter reveals the cap the
+        # scheduler chose for it.
+        fake_uniform = mocker.patch("random.uniform")
+        fake_uniform.configure_mock(side_effect=lambda a, b: b)
+
+        send, receive = create_memory_object_stream[Event](32)
+        async with AsyncExitStack() as exit_stack:
+            exit_stack.enter_context(send)
+            exit_stack.enter_context(receive)
+            scheduler = await exit_stack.enter_async_context(
+                AsyncScheduler(data_store=memory_store, role=SchedulerRole.scheduler)
+            )
+            scheduler.subscribe(send.send)
+            await scheduler.add_schedule(
+                dummy_async_job,
+                IrregularTrigger(),
+                id="foo",
+                coalesce=CoalescePolicy.all,
+                max_jitter=100,
+            )
+            await scheduler.start_in_background()
+
+            with fail_after(3):
+                added_jobs = 0
+                while added_jobs < len(fire_times):
+                    event = await receive.receive()
+                    if isinstance(event, JobAdded):
+                        assert event.schedule_id == "foo"
+                        added_jobs += 1
+
+            jobs = await scheduler.get_jobs()
+
+        assert len(jobs) == 3
+        by_fire_time = sorted(jobs, key=lambda job: job.scheduled_fire_time)
+        expected_jitters = [
+            fire_times[1] - fire_times[0] - timedelta(microseconds=1),
+            timedelta(seconds=100),
+            timedelta(seconds=100),
+        ]
+        for index, (job, expected_jitter) in enumerate(
+            zip(by_fire_time, expected_jitters, strict=True)
+        ):
+            assert job.jitter == expected_jitter, (
+                f"job {index}: jitter was {job.jitter}, expected {expected_jitter}"
+            )
+        assert fake_uniform.call_count == 3
 
     async def test_add_job_get_result_success(self, raw_datastore: DataStore) -> None:
         async with AsyncScheduler(data_store=raw_datastore) as scheduler:
