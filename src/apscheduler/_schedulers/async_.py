@@ -995,15 +995,17 @@ class AsyncScheduler:
                                 fire_times[0] = fire_time
 
                         # Add one or more jobs to the job queue
-                        max_jitter = (
-                            schedule.max_jitter.total_seconds()
-                            if schedule.max_jitter
-                            else 0
-                        )
                         for i, fire_time in enumerate(fire_times):
-                            # Calculate a jitter if max_jitter > 0
+                            # Calculate a jitter if max_jitter > 0. Start from the
+                            # configured cap each time so that narrowing the cap for one
+                            # gap cannot reduce the jitter allowed for later jobs.
+                            jitter_cap = (
+                                schedule.max_jitter.total_seconds()
+                                if schedule.max_jitter
+                                else 0
+                            )
                             jitter = _zero_timedelta
-                            if max_jitter:
+                            if jitter_cap:
                                 if i + 1 < len(fire_times):
                                     following_fire_time = fire_times[i + 1]
                                 else:
@@ -1012,9 +1014,9 @@ class AsyncScheduler:
                                 if following_fire_time is not None:
                                     # Jitter must never be so high that it would cause a
                                     # fire time to equal or exceed the next fire time
-                                    max_jitter = min(
+                                    jitter_cap = min(
                                         [
-                                            max_jitter,
+                                            jitter_cap,
                                             (
                                                 following_fire_time
                                                 - fire_time
@@ -1024,7 +1026,7 @@ class AsyncScheduler:
                                     )
 
                                 jitter = timedelta(
-                                    seconds=random.uniform(0, max_jitter)
+                                    seconds=random.uniform(0, jitter_cap)
                                 )
                                 fire_time += jitter
 
