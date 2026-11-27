@@ -9,6 +9,7 @@ from apscheduler.util import (
     astimezone,
     convert_to_datetime,
     datetime_repr,
+    datetime_utc_add,
 )
 
 
@@ -66,7 +67,9 @@ class IntervalTrigger(BaseTrigger):
         else:
             self.timezone = get_localzone()
 
-        start_date = start_date or (datetime.now(self.timezone) + self.interval)
+        start_date = start_date or datetime_utc_add(
+            datetime.now(self.timezone), self.interval
+        )
         self.start_date = convert_to_datetime(start_date, self.timezone, "start_date")
         self.end_date = convert_to_datetime(end_date, self.timezone, "end_date")
 

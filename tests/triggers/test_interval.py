@@ -91,10 +91,24 @@ def test_within(trigger, timezone):
     )
 
 
-def test_no_start_date(timezone):
-    trigger = IntervalTrigger(seconds=2, timezone=timezone)
-    now = datetime.now(timezone)
-    assert (trigger.get_next_fire_time(None, now) - now) <= timedelta(seconds=2)
+@pytest.mark.parametrize(
+    "now, interval",
+    [
+        (datetime(2026, 1, 25, 0, 30, tzinfo=pytz.UTC), timedelta(hours=2)),
+        (datetime(2026, 3, 29, 0, 30, tzinfo=pytz.UTC), timedelta(hours=2)),
+        (datetime(2026, 10, 24, 23, 30, tzinfo=pytz.UTC), timedelta(hours=2)),
+        (datetime(2026, 10, 25, 1, tzinfo=pytz.UTC), timedelta(minutes=15)),
+    ],
+    ids=["ordinary", "spring-forward", "fall-back", "second-fold"],
+)
+def test_no_start_date(timezone, monkeypatch, now, interval):
+    monkeypatch.setattr(
+        "apscheduler.triggers.interval.datetime",
+        Mock(wraps=datetime, now=now.astimezone),
+    )
+    trigger = IntervalTrigger(seconds=interval.total_seconds(), timezone=timezone)
+    next_fire_time = trigger.get_next_fire_time(None, now)
+    assert next_fire_time.astimezone(pytz.UTC) == now + interval
 
 
 def test_different_tz(trigger, timezone):
