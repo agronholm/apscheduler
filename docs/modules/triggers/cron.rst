@@ -69,11 +69,15 @@ have the job executed on either one of these periods, it may execute more often 
 This is not a bug. If you wish to avoid this, either use a timezone that does not observe DST, e.g. UTC, or find out
 about the DST-switch times and avoid using them in your scheduling.
 
-For example, the following schedule may be problematic::
+For example, consider a schedule at 03:30 local time in Europe/Helsinki::
 
-    # In the Europe/Helsinki timezone, this will not execute at all on the last sunday morning of March
-    # Likewise, it will execute twice on the last sunday morning of October
-    sched.add_job(job_function, 'cron', hour=3, minute=30)
+    sched.add_job(job_function, 'cron', hour=3, minute=30, timezone='Europe/Helsinki')
+
+On 29 March 2026, 03:30 does not exist. The trigger's fire time corresponds to 04:30 local time that morning.
+On 25 October 2026, 03:30 occurs twice. The trigger can produce two fire times at 03:30 with different UTC offsets.
+These are trigger fire times, not a guarantee of job execution. If the schedule must use a fixed UTC time, specify
+``timezone='UTC'`` explicitly instead.
+
 
 
 Examples
