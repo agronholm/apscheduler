@@ -899,6 +899,61 @@ async def test_acquire_jobs_deserialization_failure(
     assert await datastore.acquire_jobs("scheduler_id", timedelta(seconds=30), 1) == []
 
 
+async def test_get_schedules_deserialization_failure(datastore: DataStore) -> None:
+    """
+    Test that schedules that fail to deserialize are skipped instead of raising the
+    exception to the caller (and a ScheduleDeserializationFailed event is published).
+
+    """
+    if not isinstance(datastore, BaseExternalDataStore):
+        pytest.skip("Only applicable to external data stores")
+
+    # Add a task and a schedule to the data store
+    task = Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    await datastore.add_task(task)
+    schedule = Schedule(
+        id="schedule1",
+        task_id="task1",
+        trigger=DateTrigger(datetime.now(tz=UTC)),
+        job_executor="async",
+    )
+    await datastore.add_schedule(schedule, ConflictPolicy.exception)
+
+    # Make the serializer fail deserialization
+    assert isinstance(datastore, BaseExternalDataStore)
+    datastore.serializer = Mock(Serializer)
+    datastore.serializer.deserialize.configure_mock(side_effect=DeserializationError)
+
+    # This should not raise, but return no schedules instead
+    assert await datastore.get_schedules() == []
+
+
+async def test_get_jobs_deserialization_failure(datastore: DataStore) -> None:
+    """
+    Test that jobs that fail to deserialize are skipped instead of raising the
+    exception to the caller (and a JobDeserializationFailed event is published).
+
+    """
+    if not isinstance(datastore, BaseExternalDataStore):
+        pytest.skip("Only applicable to external data stores")
+
+    # Add a task and a job to the data store
+    task = Task(id="task1", func="contextlib:asynccontextmanager", job_executor="async")
+    await datastore.add_task(task)
+    job = Job(
+        task_id="task1", executor="async", result_expiration_time=timedelta(seconds=30)
+    )
+    await datastore.add_job(job)
+
+    # Make the serializer fail deserialization
+    assert isinstance(datastore, BaseExternalDataStore)
+    datastore.serializer = Mock(Serializer)
+    datastore.serializer.deserialize.configure_mock(side_effect=DeserializationError)
+
+    # This should not raise, but return no jobs instead
+    assert await datastore.get_jobs() == []
+
+
 async def test_reap_abandoned_jobs(
     datastore: DataStore, local_broker: EventBroker, logger: Logger
 ) -> None:

@@ -464,7 +464,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                         self._convert_incoming_fire_times(row._asdict()),
                     )
                 )
-            except SerializationError as exc:
+            except DeserializationError as exc:
                 await self._event_broker.publish(
                     ScheduleDeserializationFailed(schedule_id=row.id, exception=exc)
                 )
@@ -476,7 +476,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
         for row in result:
             try:
                 jobs.append(Job.unmarshal(self.serializer, row._asdict()))
-            except SerializationError as exc:
+            except DeserializationError as exc:
                 await self._event_broker.publish(
                     JobDeserializationFailed(job_id=row.id, exception=exc)
                 )
