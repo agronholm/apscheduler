@@ -69,7 +69,11 @@ class Scheduler:
         if task_defaults is None:
             task_defaults = TaskDefaults()
 
-        if task_defaults.job_executor is unset:
+        # Keep the blocking wrapper's historical threadpool default, but only
+        # when the caller has not supplied its own executor mapping. With a
+        # custom mapping, an injected "threadpool" would fail validation in
+        # AsyncScheduler; leave the sentinel so it picks the first executor.
+        if task_defaults.job_executor is unset and not job_executors:
             task_defaults.job_executor = "threadpool"
 
         async_scheduler = AsyncScheduler(
