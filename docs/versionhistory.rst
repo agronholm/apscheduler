@@ -6,6 +6,9 @@ APScheduler, see the :doc:`migration section <migration>`.
 
 **UNRELEASED**
 
+- Fixed the synchronous ``Scheduler`` rejecting a custom ``job_executors`` mapping
+  that does not contain a ``threadpool`` entry
+
 - **BREAKING** Switched the MongoDB data store to use the asynchronous API in
   ``pymongo`` and bumped the minimum ``pymongo`` version to v4.13.0
 - Bumped up the CBOR serializer's ``cbor2`` dependency to v6.0+
