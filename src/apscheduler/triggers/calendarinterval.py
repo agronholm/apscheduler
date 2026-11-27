@@ -87,6 +87,9 @@ class CalendarIntervalTrigger(Trigger):
         if self.years == self.months == self.weeks == self.days == 0:
             raise ValueError("interval must be at least 1 day long")
 
+        if self.years < 0 or self.months < 0 or self.weeks < 0 or self.days < 0:
+            raise ValueError("interval must be positive")
+
         if self.start_date and self.end_date and self.start_date > self.end_date:
             raise ValueError("end_date cannot be earlier than start_date")
 

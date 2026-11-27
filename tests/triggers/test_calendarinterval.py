@@ -14,6 +14,25 @@ def test_bad_interval(timezone):
     exc.match("interval must be at least 1 day long")
 
 
+@pytest.mark.parametrize(
+    "field", ["years", "months", "weeks", "days"], ids=lambda field: field
+)
+def test_negative_interval(timezone, field):
+    """
+    Test that negative interval arguments are rejected, since they would make the
+    trigger generate fire times that move backwards through time without end.
+
+    """
+    exc = pytest.raises(
+        ValueError,
+        CalendarIntervalTrigger,
+        timezone=timezone,
+        start_date=date(2026, 3, 31),
+        **{field: -1},
+    )
+    exc.match("interval must be positive")
+
+
 def test_bad_start_end_dates(timezone):
     exc = pytest.raises(
         ValueError,
