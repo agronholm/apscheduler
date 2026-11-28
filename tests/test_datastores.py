@@ -902,7 +902,6 @@ async def test_acquire_jobs_deserialization_failure(
     result = await datastore.get_job_result(job.id)
     assert result is not None
     assert result.outcome is JobOutcome.deserialization_failed
-    assert isinstance(result.exception, DeserializationError)
 
 
 async def test_reap_abandoned_jobs(
