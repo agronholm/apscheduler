@@ -131,6 +131,9 @@ class _JobDiscard:
     scheduled_fire_time: datetime | None
     result_expires_at: datetime
     exception: Exception | None = None
+    # Whether the job had been acquired (and thus counted towards its task's running
+    # job count) by a worker whose lease expired before this worker discarded the job
+    previously_acquired: bool = False
 
 
 @attrs.define(eq=False, repr=False)
@@ -925,6 +928,11 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                                 row.task_id, task_max_running_jobs - task_running_jobs
                             )
 
+                        # If the job had been acquired before (by a worker whose lease
+                        # expired), its task's running job count already includes it, so
+                        # re-acquiring or discarding it must not change the count
+                        previously_acquired = job_dict["acquired_by"] is not None
+
                         # Deserialize the job
                         try:
                             job = Job.unmarshal(self.serializer, job_dict)
@@ -940,6 +948,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                                     scheduled_fire_time=row.scheduled_fire_time,
                                     result_expires_at=now + row.result_expiration_time,
                                     exception=exc,
+                                    previously_acquired=previously_acquired,
                                 )
                             )
                             continue
@@ -954,12 +963,17 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                                     schedule_id=row.schedule_id,
                                     scheduled_fire_time=row.scheduled_fire_time,
                                     result_expires_at=now + row.result_expiration_time,
+                                    previously_acquired=previously_acquired,
                                 )
                             )
                             continue
 
-                        # Skip the job if no more slots are available
-                        if not task_job_slots_left[job.task_id]:
+                        # Skip the job if no more slots are available (a previously
+                        # acquired job already occupies a slot in the running job count)
+                        if (
+                            not previously_acquired
+                            and not task_job_slots_left[job.task_id]
+                        ):
                             self._logger.debug(
                                 "Skipping job %s because task %r has the maximum "
                                 "number of %d jobs already running",
@@ -969,8 +983,10 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             )
                             continue
 
-                        task_job_slots_left[job.task_id] -= 1
-                        running_job_count_increments[job.task_id] += 1
+                        if not previously_acquired:
+                            task_job_slots_left[job.task_id] -= 1
+                            running_job_count_increments[job.task_id] += 1
+
                         job.acquired_by = scheduler_id
                         job.acquired_until = acquired_until
                         acquired_jobs.append(job)
@@ -1004,7 +1020,8 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                             )
                             .where(self._t_tasks.c.id == p_id)
                         )
-                        await self._execute(conn, update, params)
+                        if params:
+                            await self._execute(conn, update, params)
 
                     # Discard the jobs that could not start
                     for discard in discarded_jobs:
@@ -1023,7 +1040,7 @@ class SQLAlchemyDataStore(BaseExternalDataStore):
                                 discard.task_id,
                                 discard.schedule_id,
                                 discard.scheduled_fire_time,
-                                decrement_running_job_count=False,
+                                decrement_running_job_count=discard.previously_acquired,
                             )
                         )
 

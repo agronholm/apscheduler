@@ -899,6 +899,115 @@ async def test_acquire_jobs_deserialization_failure(
     assert await datastore.acquire_jobs("scheduler_id", timedelta(seconds=30), 1) == []
 
 
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
+async def test_acquire_jobs_recover_expired_lease_running_job_count(
+    datastore: DataStore, time_machine: TimeMachineFixture
+) -> None:
+    """
+    Test that the running job counter stays consistent when a worker recovers a job
+    whose previous owner crashed (i.e. its lease expired without the job being
+    released).
+
+    """
+    if not isinstance(datastore, BaseExternalDataStore):
+        pytest.skip("Only applicable to external data stores")
+
+    await datastore.add_task(
+        Task(
+            id="task1",
+            func="contextlib:asynccontextmanager",
+            job_executor="async",
+            max_running_jobs=2,
+        )
+    )
+    time_machine.move_to(datetime.now(UTC), tick=False)
+    job = Job(task_id="task1", executor="async")
+    await datastore.add_job(job)
+
+    # worker1 acquires the job and then crashes without releasing it
+    acquired = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
+    assert [j.id for j in acquired] == [job.id]
+    assert (await datastore.get_task("task1")).running_jobs == 1
+
+    # The lease expires, and worker2 recovers the job
+    time_machine.shift(31)
+    reacquired = await datastore.acquire_jobs("worker2", timedelta(seconds=30), 1)
+    assert [j.id for j in reacquired] == [job.id]
+    assert (await datastore.get_task("task1")).running_jobs == 1
+
+    # worker2 finishes the job, so nothing should be running any more
+    await datastore.release_job(
+        "worker2",
+        reacquired[0],
+        JobResult.from_job(reacquired[0], JobOutcome.success, return_value=None),
+    )
+    assert (await datastore.get_task("task1")).running_jobs == 0
+
+    # The task must still have both of its job slots available
+    for i in range(2):
+        await datastore.add_job(Job(task_id="task1", executor="async"))
+
+    reacquired = await datastore.acquire_jobs("worker2", timedelta(seconds=30), 2)
+    assert len(reacquired) == 2
+    assert (await datastore.get_task("task1")).running_jobs == 2
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
+async def test_acquire_jobs_discarded_after_lease_expiry_running_job_count(
+    datastore: DataStore, time_machine: TimeMachineFixture
+) -> None:
+    """
+    Test that the running job counter is restored when a job whose lease expired while
+    its owner crashed is discarded due to a missed start deadline.
+
+    """
+    if not isinstance(datastore, BaseExternalDataStore):
+        pytest.skip("Only applicable to external data stores")
+
+    await datastore.add_task(
+        Task(
+            id="task1",
+            func="contextlib:asynccontextmanager",
+            job_executor="async",
+            max_running_jobs=1,
+        )
+    )
+    time_machine.move_to(datetime.now(UTC), tick=False)
+    job = Job(
+        task_id="task1",
+        executor="async",
+        start_deadline=datetime.now(UTC) + timedelta(seconds=60),
+        result_expiration_time=timedelta(minutes=5),
+    )
+    await datastore.add_job(job)
+
+    # worker1 acquires the job and then crashes without releasing it
+    acquired = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
+    assert [j.id for j in acquired] == [job.id]
+    assert (await datastore.get_task("task1")).running_jobs == 1
+
+    # The lease and the start deadline both expire while worker1 is gone
+    time_machine.shift(61)
+
+    # worker2 tries to acquire the job, but it is discarded as missed_start_deadline
+    assert not await datastore.acquire_jobs("worker2", timedelta(seconds=30), 1)
+    result = await datastore.get_job_result(job.id)
+    assert result.outcome is JobOutcome.missed_start_deadline
+    assert (await datastore.get_task("task1")).running_jobs == 0
+
+    # The task's only job slot must be available for a new job
+    new_job = Job(task_id="task1", executor="async")
+    await datastore.add_job(new_job)
+    reacquired = await datastore.acquire_jobs("worker2", timedelta(seconds=30), 1)
+    assert [j.id for j in reacquired] == [new_job.id]
+
+
 async def test_reap_abandoned_jobs(
     datastore: DataStore, local_broker: EventBroker, logger: Logger
 ) -> None:
