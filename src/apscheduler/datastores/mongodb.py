@@ -607,7 +607,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                         # result
                         result = JobResult(
                             job_id=doc["id"],
-                            outcome=JobOutcome.missed_start_deadline,
+                            outcome=JobOutcome.deserialization_failed,
                             finished_at=now,
                             expires_at=now
                             + timedelta(seconds=doc["result_expiration_time"]),
