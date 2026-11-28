@@ -561,6 +561,12 @@ class MongoDBDataStore(BaseExternalDataStore):
                 # Mark them as acquired by this scheduler
                 acquired_until = now + lease_duration
                 job_ids = [doc["_id"] for doc in documents]
+                # Jobs whose lease from a previous owner expired are already counted
+                # towards their task's running job count, so re-acquiring or discarding
+                # them must not change the count
+                expired_lease_job_ids = {
+                    doc["_id"] for doc in documents if "acquired_until" in doc
+                }
                 result = await self._jobs.update_many(
                     {
                         "_id": {"$in": job_ids},
@@ -599,6 +605,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                 for doc in documents:
                     # Deserialize the job
                     doc["id"] = doc.pop("_id")
+                    previously_acquired = doc["id"] in expired_lease_job_ids
                     unmarshal_timestamps(doc)
                     try:
                         job = Job.unmarshal(self.serializer, doc)
@@ -621,7 +628,7 @@ class MongoDBDataStore(BaseExternalDataStore):
                                 doc["task_id"],
                                 doc["schedule_id"],
                                 doc["scheduled_fire_time"],
-                                decrement_running_job_count=False,
+                                decrement_running_job_count=previously_acquired,
                             )
                         )
                         continue
@@ -641,39 +648,42 @@ class MongoDBDataStore(BaseExternalDataStore):
                                 job.task_id,
                                 job.schedule_id,
                                 job.scheduled_fire_time,
-                                decrement_running_job_count=False,
+                                decrement_running_job_count=previously_acquired,
                             )
                         )
                         continue
 
-                    # Try to increment the task's running jobs count
-                    update_task_result = await self._tasks.update_one(
-                        {
-                            "_id": job.task_id,
-                            "$or": [
-                                {"max_running_jobs": None},
-                                {
-                                    "$expr": {
-                                        "$gt": [
-                                            "$max_running_jobs",
-                                            "$running_jobs",
-                                        ]
-                                    }
-                                },
-                            ],
-                        },
-                        {"$inc": {"running_jobs": 1}},
-                        session=session,
-                    )
-                    if not update_task_result.matched_count:
-                        self._logger.debug(
-                            "Skipping job %s because task %r has the maximum number of "
-                            "jobs already running",
-                            job.id,
-                            job.task_id,
+                    if not previously_acquired:
+                        # Try to increment the task's running jobs count (a previously
+                        # acquired job is already counted towards the running jobs of
+                        # its task, so re-acquiring it must not increment again)
+                        update_task_result = await self._tasks.update_one(
+                            {
+                                "_id": job.task_id,
+                                "$or": [
+                                    {"max_running_jobs": None},
+                                    {
+                                        "$expr": {
+                                            "$gt": [
+                                                "$max_running_jobs",
+                                                "$running_jobs",
+                                            ]
+                                        }
+                                    },
+                                ],
+                            },
+                            {"$inc": {"running_jobs": 1}},
+                            session=session,
                         )
-                        skipped_job_ids.append(job.id)
-                        continue
+                        if not update_task_result.matched_count:
+                            self._logger.debug(
+                                "Skipping job %s because task %r has the maximum number "
+                                "of jobs already running",
+                                job.id,
+                                job.task_id,
+                            )
+                            skipped_job_ids.append(job.id)
+                            continue
 
                     job.acquired_by = scheduler_id
                     job.acquired_until = now + lease_duration
