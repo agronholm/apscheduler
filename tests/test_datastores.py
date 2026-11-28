@@ -898,6 +898,12 @@ async def test_acquire_jobs_deserialization_failure(
     # This should not yield any jobs
     assert await datastore.acquire_jobs("scheduler_id", timedelta(seconds=30), 1) == []
 
+    # The recorded result should indicate that the deserialization failed
+    result = await datastore.get_job_result(job.id)
+    assert result is not None
+    assert result.outcome is JobOutcome.deserialization_failed
+    assert isinstance(result.exception, DeserializationError)
+
 
 async def test_reap_abandoned_jobs(
     datastore: DataStore, local_broker: EventBroker, logger: Logger
