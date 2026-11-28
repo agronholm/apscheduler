@@ -947,7 +947,7 @@ async def test_acquire_jobs_recover_expired_lease_running_job_count(
     assert (await datastore.get_task("task1")).running_jobs == 0
 
     # The task must still have both of its job slots available
-    for i in range(2):
+    for _ in range(2):
         await datastore.add_job(Job(task_id="task1", executor="async"))
 
     reacquired = await datastore.acquire_jobs("worker2", timedelta(seconds=30), 2)
