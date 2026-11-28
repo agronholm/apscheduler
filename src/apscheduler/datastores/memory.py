@@ -244,11 +244,13 @@ class MemoryDataStore(BaseDataStore):
             task = self._tasks[job.task_id]
 
             # Skip already acquired jobs (unless the acquisition lock has expired)
-            if job.acquired_until is not None:
-                if job.acquired_until >= now:
-                    continue
-                else:
-                    task.running_jobs -= 1
+            if job.acquired_until is not None and job.acquired_until >= now:
+                continue
+
+            # If the job had been acquired before (by a worker whose lease expired),
+            # its task's running job count already includes it, so re-acquiring or
+            # discarding it must not change the count (releasing it decrements it)
+            previously_acquired = job.acquired_by is not None
 
             # Discard the job if its start deadline has passed
             if job.start_deadline and job.start_deadline < now:
@@ -260,9 +262,11 @@ class MemoryDataStore(BaseDataStore):
                 )
                 continue
 
-            # Skip the job if no more slots are available
+            # Skip the job if no more slots are available (a previously acquired job
+            # already occupies a slot in the running job count)
             if (
-                task.max_running_jobs is not None
+                not previously_acquired
+                and task.max_running_jobs is not None
                 and task.running_jobs >= task.max_running_jobs
             ):
                 self._logger.debug(
@@ -280,7 +284,8 @@ class MemoryDataStore(BaseDataStore):
             job.acquired_until = acquired_until
 
             # Increment the number of running jobs for this task
-            task.running_jobs += 1
+            if not previously_acquired:
+                task.running_jobs += 1
 
             # Exit the loop if enough jobs have been acquired
             if len(jobs) == limit:

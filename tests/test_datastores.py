@@ -899,6 +899,62 @@ async def test_acquire_jobs_deserialization_failure(
     assert await datastore.acquire_jobs("scheduler_id", timedelta(seconds=30), 1) == []
 
 
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="time-machine is not available",
+)
+async def test_acquire_jobs_discarded_after_lease_expiry_memory_running_job_count(
+    datastore: DataStore, time_machine: TimeMachineFixture
+) -> None:
+    """
+    Test that the memory data store does not decrement the running job counter twice
+    when a job whose lease expired while its owner crashed is discarded due to a missed
+    start deadline.
+
+    """
+    if not isinstance(datastore, MemoryDataStore):
+        pytest.skip("Only applicable to the memory data store")
+
+    await datastore.add_task(
+        Task(
+            id="task1",
+            func="contextlib:asynccontextmanager",
+            job_executor="async",
+            max_running_jobs=2,
+        )
+    )
+    time_machine.move_to(datetime.now(UTC), tick=False)
+    job = Job(
+        task_id="task1",
+        executor="async",
+        start_deadline=datetime.now(UTC) + timedelta(seconds=60),
+        result_expiration_time=timedelta(minutes=5),
+    )
+    await datastore.add_job(job)
+
+    # worker1 acquires the job and then crashes without releasing it
+    acquired = await datastore.acquire_jobs("worker1", timedelta(seconds=30), 1)
+    assert [j.id for j in acquired] == [job.id]
+    assert (await datastore.get_task("task1")).running_jobs == 1
+
+    # The lease and the start deadline both expire while worker1 is gone
+    time_machine.shift(61)
+
+    # worker2 tries to acquire the job, but it is discarded as missed_start_deadline
+    assert not await datastore.acquire_jobs("worker2", timedelta(seconds=30), 1)
+    result = await datastore.get_job_result(job.id)
+    assert result.outcome is JobOutcome.missed_start_deadline
+    assert (await datastore.get_task("task1")).running_jobs == 0
+
+    # The task must not gain extra capacity from the counter going negative
+    for i in range(3):
+        await datastore.add_job(Job(task_id="task1", executor="async"))
+
+    reacquired = await datastore.acquire_jobs("worker2", timedelta(seconds=30), 3)
+    assert len(reacquired) == 2
+    assert (await datastore.get_task("task1")).running_jobs == 2
+
+
 async def test_reap_abandoned_jobs(
     datastore: DataStore, local_broker: EventBroker, logger: Logger
 ) -> None:
