@@ -947,7 +947,7 @@ async def test_acquire_jobs_discarded_after_lease_expiry_memory_running_job_coun
     assert (await datastore.get_task("task1")).running_jobs == 0
 
     # The task must not gain extra capacity from the counter going negative
-    for i in range(3):
+    for _ in range(3):
         await datastore.add_job(Job(task_id="task1", executor="async"))
 
     reacquired = await datastore.acquire_jobs("worker2", timedelta(seconds=30), 3)
